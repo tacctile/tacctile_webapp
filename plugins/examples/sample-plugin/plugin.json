@@ -1,0 +1,17 @@
+{
+  "name": "sample-plugin",
+  "version": "1.0.0",
+  "description": "Sample plugin demonstrating Ghost Hunter Toolbox plugin API",
+  "main": "index.js",
+  "author": "Ghost Hunter Toolbox Team",
+  "license": "MIT",
+  "dependencies": {},
+  "permissions": [
+    "ui",
+    "evidence"
+  ],
+  "ghostHunter": {
+    "minVersion": "1.0.0",
+    "maxVersion": "2.0.0"
+  }
+}
