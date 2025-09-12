@@ -5,6 +5,8 @@ import { SessionManager } from './SessionManager';
 import { LicenseValidator } from './LicenseValidator';
 import { EncryptionManager } from './EncryptionManager';
 import { AuditLogger } from './AuditLogger';
+import { NetworkSecuritySystem } from '../network-security';
+import { LicenseManagementSystem } from '../license-management';
 import {
   User,
   UserSession,
@@ -24,6 +26,8 @@ export class SecuritySystem extends EventEmitter {
   private licenseValidator: LicenseValidator;
   private encryptionManager: EncryptionManager;
   private auditLogger: AuditLogger;
+  private networkSecurity: NetworkSecuritySystem;
+  private licenseManagement: LicenseManagementSystem;
   private mainWindow: BrowserWindow | null = null;
   private initialized = false;
   private securityMetrics: SecurityMetrics;
@@ -36,6 +40,8 @@ export class SecuritySystem extends EventEmitter {
     this.licenseValidator = new LicenseValidator();
     this.encryptionManager = new EncryptionManager();
     this.auditLogger = new AuditLogger();
+    this.networkSecurity = new NetworkSecuritySystem();
+    this.licenseManagement = new LicenseManagementSystem();
     
     this.initializeSecurityMetrics();
     this.setupEventForwarding();
@@ -58,6 +64,10 @@ export class SecuritySystem extends EventEmitter {
       await this.licenseValidator.initialize();
       await this.sessionManager.initialize();
       await this.authManager.initialize();
+      
+      // Initialize new systems
+      await this.networkSecurity.initialize();
+      await this.licenseManagement.initialize();
 
       this.initialized = true;
       this.setupIpcHandlers();
@@ -402,6 +412,37 @@ export class SecuritySystem extends EventEmitter {
     this.auditLogger.on('security-alert', (log: SecurityAuditLog) => {
       this.emit('security-alert', log);
     });
+
+    // Forward events from NetworkSecuritySystem
+    this.networkSecurity.on('threat-detected', (threat: any) => {
+      this.emit('network-threat-detected', threat);
+      this.auditLogger.log('security_violation', threat.source, 'blocked', {
+        threat_type: threat.type,
+        threat_severity: threat.severity,
+        description: threat.description
+      });
+    });
+
+    this.networkSecurity.on('device-registered', (device: any) => {
+      this.emit('network-device-registered', device);
+    });
+
+    this.networkSecurity.on('security-scan-completed', (result: any) => {
+      this.emit('network-scan-completed', result);
+    });
+
+    // Forward events from LicenseManagementSystem
+    this.licenseManagement.on('scan-completed', (libraries: any[]) => {
+      this.emit('license-scan-completed', libraries);
+    });
+
+    this.licenseManagement.on('report-generated', (report: any) => {
+      this.emit('compliance-report-generated', report);
+    });
+
+    this.licenseManagement.on('audit-completed', (audit: any) => {
+      this.emit('license-audit-completed', audit);
+    });
   }
 
   private setupIpcHandlers(): void {
@@ -542,6 +583,8 @@ export class SecuritySystem extends EventEmitter {
     this.licenseValidator?.destroy();
     this.encryptionManager?.destroy();
     this.auditLogger?.destroy();
+    this.networkSecurity?.destroy();
+    this.licenseManagement?.destroy();
 
     this.removeAllListeners();
     this.initialized = false;
