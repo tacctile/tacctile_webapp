@@ -115,7 +115,7 @@ export class PostTemplateManager {
   public generatePostsForAllPlatforms(
     metadata: InvestigationMetadata,
     evidenceData?: EvidenceData,
-    category: string = 'evidence'
+    category = 'evidence'
   ): GeneratedPost[] {
     const platforms = ['instagram', 'tiktok', 'twitter', 'facebook', 'reddit'];
     const posts: GeneratedPost[] = [];

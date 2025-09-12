@@ -16,7 +16,7 @@ const logger = new Logger('SensitivityController');
 export class SensitivityController extends EventEmitter {
   private settings: SensitivitySettings;
   private presets: Map<string, SensitivityPreset>;
-  private adaptiveMode: boolean = false;
+  private adaptiveMode = false;
   private adaptiveHistory: AdaptiveData[] = [];
   private calibrationData: CalibrationData | null = null;
   private environmentalFactors: EnvironmentalFactors;

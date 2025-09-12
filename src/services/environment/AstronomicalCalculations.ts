@@ -117,7 +117,7 @@ export class AstronomicalCalculations {
       const moonAge = moonIllumination.phase * 29.53059; // synodic month
       
       // Find next new moon and full moon
-      let searchDate = new Date(this.currentTime);
+      const searchDate = new Date(this.currentTime);
       let nextNewMoon: Date;
       let nextFullMoon: Date;
 

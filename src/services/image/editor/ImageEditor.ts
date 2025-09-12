@@ -31,8 +31,8 @@ export class ImageEditor extends EventEmitter {
   private config: EditorConfig;
   private state: EditorState;
   private history: EditOperation[] = [];
-  private historyIndex: number = -1;
-  private maxHistorySize: number = 50;
+  private historyIndex = -1;
+  private maxHistorySize = 50;
   
   private originalImage: ImageData | null = null;
   private currentImage: ImageData | null = null;
@@ -384,7 +384,7 @@ export class ImageEditor extends EventEmitter {
   /**
    * Detect and enhance anomalies
    */
-  async detectAnomalies(sensitivity: number = 0.7): Promise<void> {
+  async detectAnomalies(sensitivity = 0.7): Promise<void> {
     if (!this.currentImage) return;
     
     const anomalies = await this.anomalyDetector.detect(
@@ -421,7 +421,7 @@ export class ImageEditor extends EventEmitter {
   /**
    * Enhance anomalies
    */
-  async enhanceAnomalies(strength: number = 1.0): Promise<void> {
+  async enhanceAnomalies(strength = 1.0): Promise<void> {
     if (!this.currentImage) return;
     
     const enhanced = await this.anomalyDetector.enhance(
@@ -446,7 +446,7 @@ export class ImageEditor extends EventEmitter {
   /**
    * Apply noise reduction
    */
-  async reduceNoise(strength: number = 0.5, preserveDetails: boolean = true): Promise<void> {
+  async reduceNoise(strength = 0.5, preserveDetails = true): Promise<void> {
     if (!this.currentImage) return;
     
     await this.applyFilter('noiseReduction', {
@@ -458,7 +458,7 @@ export class ImageEditor extends EventEmitter {
   /**
    * Apply sharpening
    */
-  async sharpen(amount: number = 1.0, radius: number = 1.0): Promise<void> {
+  async sharpen(amount = 1.0, radius = 1.0): Promise<void> {
     if (!this.currentImage) return;
     
     await this.applyFilter('sharpen', {

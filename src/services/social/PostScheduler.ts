@@ -207,7 +207,7 @@ export class PostScheduler {
 
     for (let i = 0; i < platforms.length; i++) {
       const platform = platforms[i];
-      let postContent = { ...content };
+      const postContent = { ...content };
 
       // Optimize content for each platform
       if (optimizeForEachPlatform && content.mediaPath) {

@@ -80,7 +80,7 @@ export class TemperatureRangeController extends EventEmitter {
   
   private autoRangeTimer: NodeJS.Timeout | null = null;
   private currentProfile: string | null = null;
-  private backgroundTemperature: number = 20; // Room temperature baseline
+  private backgroundTemperature = 20; // Room temperature baseline
 
   constructor() {
     super();

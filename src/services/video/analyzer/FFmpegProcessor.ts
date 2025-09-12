@@ -323,8 +323,8 @@ export class FFmpegProcessor {
     videoPath: string,
     timestamp: number,
     outputPath: string,
-    width: number = 320,
-    height: number = 180
+    width = 320,
+    height = 180
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       const args = [
@@ -427,7 +427,7 @@ export class FFmpegProcessor {
    */
   async detectSceneChanges(
     videoPath: string,
-    threshold: number = 0.4
+    threshold = 0.4
   ): Promise<number[]> {
     return new Promise((resolve, reject) => {
       const args = [

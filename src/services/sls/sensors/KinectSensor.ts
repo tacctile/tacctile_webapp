@@ -26,8 +26,8 @@ import { logger } from '../../../utils/logger';
 export class KinectSensor extends EventEmitter {
   private sensor: DepthSensor;
   private nativeDevice: any; // Native Kinect SDK wrapper
-  private isStreaming: boolean = false;
-  private frameCount: number = 0;
+  private isStreaming = false;
+  private frameCount = 0;
   private trackingConfig: TrackingConfig;
   private skeletons: Map<number, Skeleton> = new Map();
   private calibration: CalibrationData | null = null;

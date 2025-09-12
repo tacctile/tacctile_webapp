@@ -428,7 +428,7 @@ export class DataVisualizationService {
     width: number,
     height: number,
     type: 'emf' | 'temperature',
-    count: number = 100
+    count = 100
   ): DataPoint[] {
     const points: DataPoint[] = [];
     const now = new Date();

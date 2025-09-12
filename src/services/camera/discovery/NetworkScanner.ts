@@ -16,7 +16,7 @@ import {
 import { logger } from '../../../utils/logger';
 
 export class NetworkScanner extends EventEmitter {
-  private scanning: boolean = false;
+  private scanning = false;
   private abortController: AbortController | null = null;
 
   /**
@@ -103,7 +103,7 @@ export class NetworkScanner extends EventEmitter {
   /**
    * Test RTSP connection
    */
-  async testRTSP(rtspUrl: string, timeout: number = 2000): Promise<boolean> {
+  async testRTSP(rtspUrl: string, timeout = 2000): Promise<boolean> {
     return new Promise((resolve) => {
       const urlParts = new URL(rtspUrl);
       const port = parseInt(urlParts.port) || 554;

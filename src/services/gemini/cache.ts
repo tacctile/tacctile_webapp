@@ -14,12 +14,12 @@ interface CacheEntry {
 
 export class ResponseCache {
   private cache: Map<string, CacheEntry>;
-  private maxSize: number = 100;
+  private maxSize = 100;
   private ttl: number; // Time to live in seconds
-  private hits: number = 0;
-  private misses: number = 0;
+  private hits = 0;
+  private misses = 0;
 
-  constructor(ttlSeconds: number = 3600) {
+  constructor(ttlSeconds = 3600) {
     this.cache = new Map();
     this.ttl = ttlSeconds * 1000; // Convert to milliseconds
     

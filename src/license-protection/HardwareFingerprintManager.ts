@@ -56,7 +56,7 @@ export class HardwareFingerprintManager extends EventEmitter {
   /**
    * Generate complete hardware fingerprint
    */
-  public async generateFingerprint(forceRefresh: boolean = false): Promise<HardwareFingerprint> {
+  public async generateFingerprint(forceRefresh = false): Promise<HardwareFingerprint> {
     // Return cached version if still valid
     if (!forceRefresh && this.cached && this.cacheExpiry && new Date() < this.cacheExpiry) {
       this.cached.lastSeen = new Date();

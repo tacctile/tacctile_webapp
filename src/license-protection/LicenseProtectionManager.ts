@@ -750,7 +750,7 @@ export class LicenseProtectionManager extends EventEmitter implements ILicensePr
     return this.currentSubscription;
   }
 
-  public getRecentEvents(count: number = 100): LicenseProtectionEvent[] {
+  public getRecentEvents(count = 100): LicenseProtectionEvent[] {
     return this.events.slice(-count);
   }
 

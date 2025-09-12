@@ -106,7 +106,7 @@ export class LicenseStore {
   /**
    * Retrieve and validate stored license
    */
-  public async getLicenseStatus(forceOnlineValidation: boolean = false): Promise<LicenseStatus> {
+  public async getLicenseStatus(forceOnlineValidation = false): Promise<LicenseStatus> {
     try {
       const storedData = this.store.get('license');
       

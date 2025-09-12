@@ -858,7 +858,7 @@ export class MultiSpectralCameraController extends EventEmitter {
     }
   }
 
-  getRecentFrames(count: number = 10): SpectralFrame[] {
+  getRecentFrames(count = 10): SpectralFrame[] {
     return this.frameBuffer.slice(-count);
   }
 

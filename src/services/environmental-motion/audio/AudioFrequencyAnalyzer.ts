@@ -16,7 +16,7 @@ export class AudioFrequencyAnalyzer extends EventEmitter {
   private frequencyData: Uint8Array | null = null;
   private timeData: Uint8Array | null = null;
   private settings: AudioVisualizationSettings;
-  private isActive: boolean = false;
+  private isActive = false;
   private animationFrame: number | null = null;
   private spectrogramHistory: number[][] = [];
   private audioReadings: AudioReading[] = [];
@@ -750,7 +750,7 @@ export class AudioFrequencyAnalyzer extends EventEmitter {
     return { ...this.settings };
   }
 
-  getRecentReadings(count: number = 50): AudioReading[] {
+  getRecentReadings(count = 50): AudioReading[] {
     return this.audioReadings.slice(-count);
   }
 

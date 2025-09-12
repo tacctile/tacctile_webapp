@@ -103,7 +103,7 @@ export class HardwareCalibrationManager extends EventEmitter {
   private certificatesPath: string;
   private schedulerInterval?: NodeJS.Timeout;
 
-  constructor(configManager: ConfigurationManager, certificatesPath: string = './certificates') {
+  constructor(configManager: ConfigurationManager, certificatesPath = './certificates') {
     super();
     this.configManager = configManager;
     this.certificatesPath = certificatesPath;
@@ -384,7 +384,7 @@ export class HardwareCalibrationManager extends EventEmitter {
     return overdue.sort((a, b) => b.daysOverdue - a.daysOverdue);
   }
 
-  public getUpcomingCalibrations(days: number = 30): Array<{ sensorId: string; schedule: CalibrationSchedule; daysUntilDue: number }> {
+  public getUpcomingCalibrations(days = 30): Array<{ sensorId: string; schedule: CalibrationSchedule; daysUntilDue: number }> {
     const now = new Date();
     const futureDate = new Date(now.getTime() + (days * 24 * 60 * 60 * 1000));
     const upcoming: Array<{ sensorId: string; schedule: CalibrationSchedule; daysUntilDue: number }> = [];

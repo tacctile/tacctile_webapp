@@ -352,7 +352,7 @@ export class OfflineGeocodingService {
     return filteredResults.map(this.rowToLocation);
   }
 
-  public searchLocationsByName(query: string, limit: number = 50): GeocodedLocation[] {
+  public searchLocationsByName(query: string, limit = 50): GeocodedLocation[] {
     const searchQuery = `
       SELECT * FROM locations
       WHERE name LIKE ? OR address LIKE ? OR description LIKE ?
@@ -459,7 +459,7 @@ export class OfflineGeocodingService {
     return result.changes > 0;
   }
 
-  public async onlineGeocode(query: string, useCache: boolean = true): Promise<GeocodedLocation[]> {
+  public async onlineGeocode(query: string, useCache = true): Promise<GeocodedLocation[]> {
     const queryHash = this.hashString(query);
     
     // Check cache first

@@ -44,7 +44,7 @@ export class EnterpriseAccountManager extends EventEmitter implements IEnterpris
   private accounts: Map<string, EnterpriseAccount> = new Map();
   private adminPermissions: Map<string, Map<string, EnterprisePermission[]>> = new Map();
   private seatAllocations: Map<string, Map<string, Seat[]>> = new Map();
-  private initialized: boolean = false;
+  private initialized = false;
 
   constructor() {
     super();

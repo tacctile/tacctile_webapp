@@ -25,8 +25,8 @@ export class AudioEngine extends EventEmitter {
   private config: AudioEngineConfig;
   
   private animationFrame: number | null = null;
-  private startTime: number = 0;
-  private pauseTime: number = 0;
+  private startTime = 0;
+  private pauseTime = 0;
 
   constructor(config?: Partial<AudioEngineConfig>) {
     super();
@@ -395,7 +395,7 @@ export class AudioEngine extends EventEmitter {
   /**
    * Start EVP detection
    */
-  startEVPDetection(sensitivity: number = 0.7): void {
+  startEVPDetection(sensitivity = 0.7): void {
     this.evpDetector.start(sensitivity);
     
     this.evpDetector.on('evpDetected', (data) => {

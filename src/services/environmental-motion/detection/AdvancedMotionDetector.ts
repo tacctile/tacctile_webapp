@@ -21,9 +21,9 @@ export class AdvancedMotionDetector extends EventEmitter {
   private previousFrames: ImageData[] = [];
   private opticalFlowData: MotionVector[][] = [];
   private trackingState: MotionTrackingState;
-  private frameCount: number = 0;
-  private isActive: boolean = false;
-  private processingTime: number = 0;
+  private frameCount = 0;
+  private isActive = false;
+  private processingTime = 0;
 
   constructor(settings: MotionDetectionSettings) {
     super();

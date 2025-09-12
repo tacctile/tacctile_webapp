@@ -9,8 +9,8 @@ import { logger } from '../../../utils/logger';
 export class AnomalyDetector {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
-  private sensitivity: number = 0.7;
-  private minAnomalySize: number = 10;
+  private sensitivity = 0.7;
+  private minAnomalySize = 10;
 
   constructor() {
     this.canvas = document.createElement('canvas');

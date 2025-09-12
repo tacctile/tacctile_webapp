@@ -72,7 +72,7 @@ export class AbuseDetectionManager extends EventEmitter implements IAbuseDetecti
   private analytics: AbuseAnalytics;
   private behaviorBaselines: Map<string, any> = new Map();
   private modelVersions: Map<string, any> = new Map();
-  private initialized: boolean = false;
+  private initialized = false;
 
   constructor() {
     super();

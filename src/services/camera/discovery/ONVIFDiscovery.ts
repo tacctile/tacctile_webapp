@@ -17,13 +17,13 @@ import { logger } from '../../../utils/logger';
 
 export class ONVIFDiscovery extends EventEmitter {
   private socket: dgram.Socket | null = null;
-  private discovering: boolean = false;
+  private discovering = false;
   private discoveryTimeout: NodeJS.Timeout | null = null;
 
   /**
    * Discover ONVIF devices on network
    */
-  async discover(timeout: number = 5000): Promise<ONVIFDevice[]> {
+  async discover(timeout = 5000): Promise<ONVIFDevice[]> {
     if (this.discovering) {
       throw new Error('Discovery already in progress');
     }

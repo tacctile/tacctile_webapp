@@ -38,8 +38,8 @@ export class SLSAnomalyDetector extends EventEmitter {
   private backgroundModel: DepthFrame | null = null;
   private detectionHistory: SLSDetection[] = [];
   private noiseProfile: NoiseProfile | null = null;
-  private historySize: number = 30;
-  private frameCount: number = 0;
+  private historySize = 30;
+  private frameCount = 0;
 
   constructor(thresholds?: Partial<DetectionThresholds>) {
     super();

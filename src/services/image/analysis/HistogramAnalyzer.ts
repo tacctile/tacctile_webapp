@@ -315,8 +315,8 @@ export class HistogramAnalyzer {
    */
   renderHistogram(
     histogram: Histogram,
-    width: number = 256,
-    height: number = 100,
+    width = 256,
+    height = 100,
     channel: 'rgb' | 'red' | 'green' | 'blue' | 'luminance' = 'rgb'
   ): ImageData {
     this.canvas.width = width;

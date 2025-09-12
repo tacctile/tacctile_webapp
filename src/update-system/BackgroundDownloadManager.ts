@@ -576,8 +576,8 @@ export class BackgroundDownloadManager extends EventEmitter {
 
 // Helper classes
 class BandwidthMonitor {
-  private limit: number = 0; // 0 = unlimited
-  private lastEnforcement: number = 0;
+  private limit = 0; // 0 = unlimited
+  private lastEnforcement = 0;
 
   async initialize(): Promise<void> {
     // Initialize bandwidth monitoring
@@ -608,9 +608,9 @@ class BandwidthMonitor {
 }
 
 class NetworkMonitor extends EventEmitter {
-  private online: boolean = true;
-  private wifi: boolean = false;
-  private metered: boolean = false;
+  private online = true;
+  private wifi = false;
+  private metered = false;
 
   async initialize(): Promise<void> {
     // Initialize network monitoring
@@ -647,7 +647,7 @@ class NetworkMonitor extends EventEmitter {
 }
 
 class PowerMonitor extends EventEmitter {
-  private onBattery: boolean = false;
+  private onBattery = false;
 
   initialize(): void {
     if (powerMonitor) {

@@ -19,7 +19,7 @@ export class RollbackManager {
   private rollbackHistory: RollbackInfo[] = [];
   private readonly maxRollbackVersions: number;
 
-  constructor(maxRollbackVersions: number = 5) {
+  constructor(maxRollbackVersions = 5) {
     const userDataPath = app.getPath('userData');
     this.rollbackPath = path.join(userDataPath, 'rollback');
     this.versionsPath = path.join(this.rollbackPath, 'versions');

@@ -55,7 +55,7 @@ export class TwitterService {
         tweetText += ` ${hashtags}`;
       }
 
-      let mediaIds: string[] = [];
+      const mediaIds: string[] = [];
       
       // Upload media if provided
       if (content.mediaUrls && content.mediaUrls.length > 0) {

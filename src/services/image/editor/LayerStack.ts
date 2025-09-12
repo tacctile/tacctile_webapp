@@ -12,7 +12,7 @@ export class LayerStack extends EventEmitter {
   private layers: Map<string, ImageLayer> = new Map();
   private layerOrder: string[] = [];
   private activeLayerId: string | null = null;
-  private maxLayers: number = 32;
+  private maxLayers = 32;
 
   constructor() {
     super();

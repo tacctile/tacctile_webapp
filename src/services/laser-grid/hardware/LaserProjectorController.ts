@@ -29,13 +29,13 @@ export class LaserProjectorController extends EventEmitter {
   private projector: LaserProjector;
   private serialConnection: SerialPort | null = null;
   private networkConnection: net.Socket | null = null;
-  private isConnected: boolean = false;
+  private isConnected = false;
   private currentPattern: GridPattern | null = null;
   private safetyConfig: SafetyConfig;
   private commandQueue: ProjectorCommand[] = [];
-  private processingCommand: boolean = false;
+  private processingCommand = false;
   private temperatureMonitor: NodeJS.Timeout | null = null;
-  private powerOutput: number = 0; // Current power output in mW
+  private powerOutput = 0; // Current power output in mW
 
   constructor(projector: LaserProjector, safetyConfig: SafetyConfig) {
     super();

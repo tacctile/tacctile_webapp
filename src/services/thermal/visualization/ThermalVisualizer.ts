@@ -46,15 +46,15 @@ export class ThermalVisualizer extends EventEmitter {
   private config: VisualizationConfig;
   private renderOptions: RenderOptions;
   private colorLUT: Uint8ClampedArray;
-  private isRendering: boolean = false;
+  private isRendering = false;
   
   private currentFrame: ThermalFrame | null = null;
   private frameHistory: ThermalFrame[] = [];
   private anomalies: TemperatureAnomaly[] = [];
   
-  private animationFrame: number = 0;
-  private lastRenderTime: number = 0;
-  private frameRate: number = 30;
+  private animationFrame = 0;
+  private lastRenderTime = 0;
+  private frameRate = 30;
 
   constructor(canvas: HTMLCanvasElement, config?: Partial<VisualizationConfig>) {
     super();

@@ -88,7 +88,7 @@ export class DeviceManagementManager extends EventEmitter implements IDeviceMana
   private trustScores: Map<string, DeviceTrustScore> = new Map();
   private activeSessions: Map<string, DeviceSession[]> = new Map();
   private complianceCache: Map<string, DeviceCompliance> = new Map();
-  private initialized: boolean = false;
+  private initialized = false;
 
   constructor(accountId: string) {
     super();

@@ -15,7 +15,7 @@ export class SpectralAnalyzer {
   private frequencyData: Float32Array;
   private timeDomainData: Float32Array;
   private spectrogramData: number[][] = [];
-  private spectrogramMaxSize: number = 1000;
+  private spectrogramMaxSize = 1000;
   
   // FFT windows
   private windowFunctions: { [key: string]: Float32Array };
@@ -255,7 +255,7 @@ export class SpectralAnalyzer {
   /**
    * Calculate spectral rolloff
    */
-  private calculateSpectralRolloff(threshold: number = 0.85): number {
+  private calculateSpectralRolloff(threshold = 0.85): number {
     let totalEnergy = 0;
     for (let i = 0; i < this.frequencyData.length; i++) {
       totalEnergy += Math.pow(10, this.frequencyData[i] / 20);
@@ -327,7 +327,7 @@ export class SpectralAnalyzer {
   /**
    * Calculate MFCC (simplified)
    */
-  private calculateMFCC(numCoefficients: number = 13): number[] {
+  private calculateMFCC(numCoefficients = 13): number[] {
     // Simplified MFCC calculation
     // In production, use a proper MFCC library
     
@@ -359,7 +359,7 @@ export class SpectralAnalyzer {
   /**
    * Create mel filter bank
    */
-  private createMelFilterBank(numFilters: number = 26): Float32Array[] {
+  private createMelFilterBank(numFilters = 26): Float32Array[] {
     const filters: Float32Array[] = [];
     const nyquist = this.context.sampleRate / 2;
     const melMax = 2595 * Math.log10(1 + nyquist / 700);
@@ -400,7 +400,7 @@ export class SpectralAnalyzer {
   /**
    * Find peaks in spectrum
    */
-  findPeaks(threshold: number = -30, minDistance: number = 10): Array<{ frequency: number; amplitude: number }> {
+  findPeaks(threshold = -30, minDistance = 10): Array<{ frequency: number; amplitude: number }> {
     const peaks: Array<{ frequency: number; amplitude: number }> = [];
     
     for (let i = minDistance; i < this.frequencyData.length - minDistance; i++) {
@@ -430,7 +430,7 @@ export class SpectralAnalyzer {
   /**
    * Detect harmonics
    */
-  detectHarmonics(fundamental: number, maxHarmonic: number = 10): number[] {
+  detectHarmonics(fundamental: number, maxHarmonic = 10): number[] {
     const harmonics: number[] = [];
     const tolerance = 10; // Hz
     

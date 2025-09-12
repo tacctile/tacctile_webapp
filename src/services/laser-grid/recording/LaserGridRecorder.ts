@@ -45,13 +45,13 @@ export class LaserGridRecorder extends EventEmitter {
   private session: RecordingSession | null = null;
   private frameBuffer: ProcessedFrame[] = [];
   private disturbanceBuffer: DisturbanceEvent[] = [];
-  private isRecording: boolean = false;
+  private isRecording = false;
   private frameWriter: fs.WriteStream | null = null;
   private metadataWriter: fs.WriteStream | null = null;
   private videoRecorder: any | null = null; // Would be MediaRecorder or similar
   
-  private bufferSize: number = 100; // Frames to buffer before writing
-  private frameCounter: number = 0;
+  private bufferSize = 100; // Frames to buffer before writing
+  private frameCounter = 0;
   private recordingTimer: NodeJS.Timeout | null = null;
 
   constructor() {

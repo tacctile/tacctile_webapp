@@ -103,7 +103,7 @@ export class PatternGenerator {
   generateFromTemplate(
     templateName: string,
     bounds: PatternBounds,
-    intensity: number = 1.0,
+    intensity = 1.0,
     color: LaserColor = { r: 255, g: 0, b: 0, wavelength: 650 },
     customParameters?: Partial<PatternParameters>
   ): GridPattern {
@@ -130,7 +130,7 @@ export class PatternGenerator {
   generatePattern(
     type: PatternType,
     bounds: PatternBounds,
-    intensity: number = 1.0,
+    intensity = 1.0,
     color: LaserColor = { r: 255, g: 0, b: 0, wavelength: 650 },
     parameters: PatternParameters = {},
     name?: string

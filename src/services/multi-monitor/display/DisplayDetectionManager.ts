@@ -19,8 +19,8 @@ export class DisplayDetectionManager extends EventEmitter {
   private lastDetection: DisplayDetectionResult | null = null;
   private capabilities: DisplayCapabilities | null = null;
   private logger: any;
-  private isMonitoring: boolean = false;
-  private detectionFrequency: number = 2000; // 2 seconds
+  private isMonitoring = false;
+  private detectionFrequency = 2000; // 2 seconds
 
   constructor() {
     super();
@@ -289,9 +289,9 @@ export class DisplayDetectionManager extends EventEmitter {
     try {
       const displays = Array.from(this.displays.values());
       const resolutions = new Set<string>();
-      let hdrSupport = false;
+      const hdrSupport = false;
       let touchSupport = false;
-      let wideColorGamut = false;
+      const wideColorGamut = false;
       
       // Collect capabilities from all displays
       for (const display of displays) {
@@ -611,7 +611,7 @@ export class DisplayDetectionManager extends EventEmitter {
     );
   }
 
-  public startContinuousMonitoring(frequency: number = 2000): void {
+  public startContinuousMonitoring(frequency = 2000): void {
     if (this.isMonitoring) {
       this.stopContinuousMonitoring();
     }

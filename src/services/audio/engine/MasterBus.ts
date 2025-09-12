@@ -22,8 +22,8 @@ export class MasterBus {
   private leftAnalyser: AnalyserNode;
   private rightAnalyser: AnalyserNode;
   
-  private volume: number = 1.0;
-  private muted: boolean = false;
+  private volume = 1.0;
+  private muted = false;
 
   constructor(context: AudioContext) {
     this.context = context;

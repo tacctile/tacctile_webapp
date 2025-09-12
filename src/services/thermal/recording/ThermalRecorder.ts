@@ -31,9 +31,9 @@ export class ThermalRecorder extends EventEmitter {
   private fileStreams: Map<string, fs.WriteStream> = new Map();
   private videoEncoders: Map<string, any> = new Map(); // Would use FFmpeg or similar
   
-  private bufferSize: number = 30; // Frames to buffer before writing
-  private maxConcurrentRecordings: number = 3;
-  private tempDirectory: string = './temp/thermal';
+  private bufferSize = 30; // Frames to buffer before writing
+  private maxConcurrentRecordings = 3;
+  private tempDirectory = './temp/thermal';
 
   constructor() {
     super();

@@ -32,8 +32,8 @@ export class GridDisturbanceDetector extends EventEmitter {
   private context: DetectionContext;
   private pipeline: ProcessingPipeline;
   private backgroundModel: ImageData | null = null;
-  private frameCount: number = 0;
-  private isCalibrated: boolean = false;
+  private frameCount = 0;
+  private isCalibrated = false;
   private gridAlignment: GridAlignment | null = null;
 
   constructor(settings: DetectionSettings) {

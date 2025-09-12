@@ -338,7 +338,7 @@ export class SocialAnalytics {
     };
   }
 
-  public async getBestHashtags(platform: string, limit: number = 20): Promise<Array<{ hashtag: string; avgEngagement: number; posts: number }>> {
+  public async getBestHashtags(platform: string, limit = 20): Promise<Array<{ hashtag: string; avgEngagement: number; posts: number }>> {
     const stmt = this.db.prepare(`
       SELECT hashtag, avg_engagement, total_posts
       FROM hashtag_performance
@@ -435,7 +435,7 @@ export class SocialAnalytics {
     );
   }
 
-  public async getTrendingHashtags(platform: string, limit: number = 10): Promise<TrendData[]> {
+  public async getTrendingHashtags(platform: string, limit = 10): Promise<TrendData[]> {
     const stmt = this.db.prepare(`
       SELECT * FROM trends 
       WHERE platform = ? AND volume > 0

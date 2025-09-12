@@ -257,7 +257,7 @@ export class GeomagneticActivityEstimator {
     return Math.floor(diff / (1000 * 60 * 60 * 24));
   }
 
-  public generateForecast(hoursAhead: number = 168): GeomagneticForecast { // Default 7 days
+  public generateForecast(hoursAhead = 168): GeomagneticForecast { // Default 7 days
     const forecasts: GeomagneticReading[] = [];
     const now = new Date();
     
@@ -364,7 +364,7 @@ export class GeomagneticActivityEstimator {
     return [...this.readingHistory];
   }
 
-  public simulateRealTimeMonitoring(durationHours: number = 24, intervalMinutes: number = 30): GeomagneticReading[] {
+  public simulateRealTimeMonitoring(durationHours = 24, intervalMinutes = 30): GeomagneticReading[] {
     const readings: GeomagneticReading[] = [];
     const startTime = new Date();
     const totalIntervals = (durationHours * 60) / intervalMinutes;

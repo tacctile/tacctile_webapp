@@ -15,8 +15,8 @@ import { logger } from '../../../utils/logger';
 export class AnomalyDetector {
   private metadata: VideoMetadata | null = null;
   private frameHistory: VideoFrame[] = [];
-  private maxHistory: number = 30;
-  private anomalyThreshold: number = 0.6;
+  private maxHistory = 30;
+  private anomalyThreshold = 0.6;
   private temporalBuffer: Map<string, FrameAnomaly[]> = new Map();
 
   /**

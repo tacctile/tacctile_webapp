@@ -79,7 +79,7 @@ export function generateMaterial3Theme(): Material3Theme {
 }
 
 // Apply theme to CSS custom properties
-export function applyMaterial3Theme(isDark: boolean = true) {
+export function applyMaterial3Theme(isDark = true) {
   const theme = generateMaterial3Theme();
   const scheme = isDark ? theme.schemes.dark : theme.schemes.light;
   

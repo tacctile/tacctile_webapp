@@ -21,7 +21,7 @@ import {
 
 export class LicenseManagementSystem extends EventEmitter {
   private licenseManager: LicenseManager;
-  private initialized: boolean = false;
+  private initialized = false;
 
   constructor() {
     super();

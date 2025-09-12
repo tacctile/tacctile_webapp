@@ -28,7 +28,7 @@ interface TrackedSkeleton {
 export class SkeletalTracker extends EventEmitter {
   private config: TrackingConfig;
   private trackedSkeletons: Map<number, TrackedSkeleton> = new Map();
-  private frameCount: number = 0;
+  private frameCount = 0;
   private gestureDetectors: Map<string, GestureDetector> = new Map();
 
   constructor(config?: Partial<TrackingConfig>) {

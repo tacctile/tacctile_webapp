@@ -52,7 +52,7 @@ interface CorrelationResult {
 export class MultiSourceCorrelationAnalyzer extends EventEmitter {
   private config: CorrelationConfig;
   private dataBuffer: DataBuffer;
-  private isAnalyzing: boolean = false;
+  private isAnalyzing = false;
   private analysisTimer?: NodeJS.Timeout;
   private correlationHistory: CorrelationResult[] = [];
   private baselineCorrelations: Map<string, number> = new Map();
@@ -477,7 +477,7 @@ export class MultiSourceCorrelationAnalyzer extends EventEmitter {
     };
   }
 
-  private calculatePearsonCorrelation(series1: number[], series2: number[], lag: number = 0): number {
+  private calculatePearsonCorrelation(series1: number[], series2: number[], lag = 0): number {
     if (series1.length === 0 || series2.length === 0) return 0;
     
     const adjustedSeries1 = lag >= 0 ? series1.slice(lag) : series1.slice(0, series1.length + lag);

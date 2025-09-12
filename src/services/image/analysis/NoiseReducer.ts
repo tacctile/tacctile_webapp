@@ -19,8 +19,8 @@ export class NoiseReducer {
    */
   reduceNoise(
     imageData: ImageData,
-    strength: number = 0.5,
-    preserveDetails: boolean = true
+    strength = 0.5,
+    preserveDetails = true
   ): ImageData {
     const output = new ImageData(
       new Uint8ClampedArray(imageData.data),
@@ -96,8 +96,8 @@ export class NoiseReducer {
    */
   bilateralFilter(
     imageData: ImageData,
-    spatialSigma: number = 2,
-    preserveEdges: boolean = true
+    spatialSigma = 2,
+    preserveEdges = true
   ): ImageData {
     const { data, width, height } = imageData;
     const output = new ImageData(width, height);
@@ -156,8 +156,8 @@ export class NoiseReducer {
    */
   nonLocalMeans(
     imageData: ImageData,
-    h: number = 10,
-    preserveDetails: boolean = true
+    h = 10,
+    preserveDetails = true
   ): ImageData {
     const { data, width, height } = imageData;
     const output = new ImageData(width, height);
@@ -237,7 +237,7 @@ export class NoiseReducer {
   /**
    * Median filter for impulse noise
    */
-  medianFilter(imageData: ImageData, radius: number = 1): ImageData {
+  medianFilter(imageData: ImageData, radius = 1): ImageData {
     const { data, width, height } = imageData;
     const output = new ImageData(width, height);
 
@@ -279,7 +279,7 @@ export class NoiseReducer {
   /**
    * Adaptive Wiener filter
    */
-  adaptiveWiener(imageData: ImageData, noiseVariance: number = 0.01): ImageData {
+  adaptiveWiener(imageData: ImageData, noiseVariance = 0.01): ImageData {
     const { data, width, height } = imageData;
     const output = new ImageData(width, height);
     const windowSize = 5;
@@ -335,7 +335,7 @@ export class NoiseReducer {
   /**
    * Wavelet denoising
    */
-  waveletDenoise(imageData: ImageData, threshold: number = 10): ImageData {
+  waveletDenoise(imageData: ImageData, threshold = 10): ImageData {
     const { width, height } = imageData;
     const output = new ImageData(
       new Uint8ClampedArray(imageData.data),
@@ -495,9 +495,9 @@ export class NoiseReducer {
    */
   anisotropicDiffusion(
     imageData: ImageData,
-    iterations: number = 10,
-    lambda: number = 0.25,
-    kappa: number = 10
+    iterations = 10,
+    lambda = 0.25,
+    kappa = 10
   ): ImageData {
     const { width, height } = imageData;
     let current = new Float32Array(width * height * 3);

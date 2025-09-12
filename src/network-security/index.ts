@@ -23,7 +23,7 @@ import {
 export class NetworkSecuritySystem extends EventEmitter {
   private securityManager: NetworkSecurityManager;
   private communicationManager: SecureCommunicationManager;
-  private initialized: boolean = false;
+  private initialized = false;
 
   constructor() {
     super();

@@ -66,7 +66,7 @@ export class GhostHunterColors {
   }
   
   // Get contrast color for text on background
-  static getOnColor(backgroundColor: string, preferLight: boolean = false): string {
+  static getOnColor(backgroundColor: string, preferLight = false): string {
     const bgPalette = this.generatePalette(backgroundColor);
     const bgTone = Hct.fromInt(argbFromHex(backgroundColor)).tone;
     

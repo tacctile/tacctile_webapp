@@ -17,7 +17,7 @@ export class CrashReporter extends EventEmitter implements ErrorReporter {
   private maxUserActions = 50;
   private crashCounter = 0;
 
-  constructor(crashReportsPath: string = './crash-reports') {
+  constructor(crashReportsPath = './crash-reports') {
     super();
     this.crashReportsPath = crashReportsPath;
     this.isElectronMain = this.detectElectronMain();

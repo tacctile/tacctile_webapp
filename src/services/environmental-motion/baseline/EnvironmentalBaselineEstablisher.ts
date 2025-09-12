@@ -16,7 +16,7 @@ const logger = new Logger('EnvironmentalBaselineEstablisher');
 export class EnvironmentalBaselineEstablisher extends EventEmitter {
   private activeBaselines: Map<string, EnvironmentalBaseline> = new Map();
   private currentBaseline: EnvironmentalBaseline | null = null;
-  private isEstablishing: boolean = false;
+  private isEstablishing = false;
   private dataBuffer: BaselineDataBuffer;
   private statisticsCalculator: StatisticsCalculator;
   private qualityAnalyzer: BaselineQualityAnalyzer;
@@ -28,7 +28,7 @@ export class EnvironmentalBaselineEstablisher extends EventEmitter {
     this.qualityAnalyzer = new BaselineQualityAnalyzer();
   }
 
-  async establishBaseline(location: string, duration: number = 300): Promise<EnvironmentalBaseline> {
+  async establishBaseline(location: string, duration = 300): Promise<EnvironmentalBaseline> {
     if (this.isEstablishing) {
       throw new Error('Baseline establishment already in progress');
     }
@@ -634,7 +634,7 @@ export class EnvironmentalBaselineEstablisher extends EventEmitter {
 
 class BaselineDataBuffer {
   private snapshots: EnvironmentalSnapshot[] = [];
-  private maxSize: number = 10000; // Maximum snapshots to keep
+  private maxSize = 10000; // Maximum snapshots to keep
 
   addSnapshot(snapshot: EnvironmentalSnapshot): void {
     this.snapshots.push(snapshot);

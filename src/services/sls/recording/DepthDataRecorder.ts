@@ -34,7 +34,7 @@ export class DepthDataRecorder extends EventEmitter {
   private sessions: Map<string, RecordingSession> = new Map();
   private writers: Map<string, fs.WriteStream> = new Map();
   private frameBuffers: Map<string, SLSFrame[]> = new Map();
-  private bufferSize: number = 30; // Buffer frames before writing
+  private bufferSize = 30; // Buffer frames before writing
 
   constructor() {
     super();

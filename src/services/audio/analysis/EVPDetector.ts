@@ -25,10 +25,10 @@ export class EVPDetector extends EventEmitter {
   private analyserNode: AnalyserNode;
   
   // Detection state
-  private isDetecting: boolean = false;
+  private isDetecting = false;
   private detectionBuffer: Float32Array[] = [];
   private voiceActivityHistory: boolean[] = [];
-  private detectionThreshold: number = 0.7;
+  private detectionThreshold = 0.7;
   
   // Voice characteristics
   private readonly VOICE_FREQ_MIN = 85; // Hz

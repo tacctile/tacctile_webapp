@@ -13,7 +13,7 @@ export class DatabaseManager extends EventEmitter {
   private healthCheckInterval?: NodeJS.Timeout;
   private logger: any;
 
-  constructor(dbPath: string = './data/tacctile.db') {
+  constructor(dbPath = './data/tacctile.db') {
     super();
     this.logger = console; // Replace with actual logger
     this.connectionInfo = {
@@ -25,7 +25,7 @@ export class DatabaseManager extends EventEmitter {
     };
   }
 
-  public async initialize(readonly: boolean = false): Promise<void> {
+  public async initialize(readonly = false): Promise<void> {
     try {
       this.logger.info(`Initializing database: ${this.connectionInfo.path}`);
       

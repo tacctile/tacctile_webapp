@@ -258,7 +258,7 @@ export class LicenseValidator extends EventEmitter {
     }
   }
 
-  public async incrementUsage(userId: string, limitationType: string, amount: number = 1): Promise<boolean> {
+  public async incrementUsage(userId: string, limitationType: string, amount = 1): Promise<boolean> {
     try {
       const license = this.licenses.get(userId);
       if (!license) {
@@ -334,7 +334,7 @@ export class LicenseValidator extends EventEmitter {
     };
   }
 
-  public async generateTrialLicense(userId: string, durationDays: number = 30): Promise<License | null> {
+  public async generateTrialLicense(userId: string, durationDays = 30): Promise<License | null> {
     try {
       const trialId = crypto.randomUUID();
       const now = new Date();

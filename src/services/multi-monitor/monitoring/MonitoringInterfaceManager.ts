@@ -24,7 +24,7 @@ export class MonitoringInterfaceManager extends EventEmitter {
   private dataStreams: Map<string, DataStreamHandler> = new Map();
   private activeConnections: Map<string, WebSocket | any> = new Map();
   private logger: any;
-  private isRunning: boolean = false;
+  private isRunning = false;
   private updateInterval?: NodeJS.Timeout;
   private performanceMetrics: Map<string, InterfaceMetrics> = new Map();
 
@@ -619,7 +619,7 @@ export class MonitoringInterfaceManager extends EventEmitter {
 class DataStreamHandler extends EventEmitter {
   private config: DataStreamConfig;
   private connection: any;
-  private isConnected: boolean = false;
+  private isConnected = false;
   private reconnectTimer?: NodeJS.Timeout;
   private buffer: any[] = [];
   private logger: any;

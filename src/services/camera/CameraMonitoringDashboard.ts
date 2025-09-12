@@ -30,7 +30,7 @@ export class CameraMonitoringDashboard extends EventEmitter {
   private grid: CameraGrid;
   private alerts: CameraAlert[] = [];
   private eventHistory: CameraEvent[] = [];
-  private maxEventHistory: number = 1000;
+  private maxEventHistory = 1000;
 
   constructor(storageConfig: StorageConfig) {
     super();

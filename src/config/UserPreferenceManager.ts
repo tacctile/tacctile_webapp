@@ -165,7 +165,7 @@ export class UserPreferenceManager extends EventEmitter {
     await this.setNotificationSettings({ types: currentTypes });
   }
 
-  public async setQuietHours(start: string, end: string, enabled: boolean = true): Promise<void> {
+  public async setQuietHours(start: string, end: string, enabled = true): Promise<void> {
     const quietHours = { enabled, start, end };
     const validationResult = this.validateQuietHours(quietHours);
     if (!validationResult.valid) {
@@ -375,7 +375,7 @@ export class UserPreferenceManager extends EventEmitter {
   }
 
   // Preference Import/Export
-  public exportPreferences(includeProfiles: boolean = true): any {
+  public exportPreferences(includeProfiles = true): any {
     const exportData: any = {
       preferences: this.currentPreferences,
       metadata: {
@@ -392,7 +392,7 @@ export class UserPreferenceManager extends EventEmitter {
     return exportData;
   }
 
-  public async importPreferences(data: any, merge: boolean = false): Promise<void> {
+  public async importPreferences(data: any, merge = false): Promise<void> {
     if (!data.preferences) {
       throw new Error('Invalid preference data');
     }
@@ -442,7 +442,7 @@ export class UserPreferenceManager extends EventEmitter {
   }
 
   // Change History
-  public getChangeHistory(limit: number = 50): PreferenceChangeEvent[] {
+  public getChangeHistory(limit = 50): PreferenceChangeEvent[] {
     return this.changeHistory
       .slice(-limit)
       .sort((a, b) => b.timestamp - a.timestamp);

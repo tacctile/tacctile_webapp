@@ -297,7 +297,7 @@ export class MagneticAnomalyService {
   public calculateLocalMagneticField(
     latitude: number,
     longitude: number,
-    altitude: number = 0,
+    altitude = 0,
     date: Date = new Date()
   ): MagneticAnomalyData {
     // Simplified IGRF (International Geomagnetic Reference Field) calculation
@@ -422,7 +422,7 @@ export class MagneticAnomalyService {
   public getLocalMagneticEnvironment(
     centerLatitude: number,
     centerLongitude: number,
-    radius: number = 25 // km
+    radius = 25 // km
   ): LocalMagneticEnvironment {
     const anomalies = this.searchNearbyAnomalies(centerLatitude, centerLongitude, {
       maxDistance: radius,
@@ -634,7 +634,7 @@ export class MagneticAnomalyService {
     tileY: number,
     dataType: 'declination' | 'inclination' | 'intensity' | 'anomaly',
     tileData: Buffer,
-    expirationDays: number = 30
+    expirationDays = 30
   ): string {
     const tileId = `${dataType}_${zoom}_${tileX}_${tileY}`;
     const fileName = `${tileId}.png`;

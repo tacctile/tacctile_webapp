@@ -14,12 +14,12 @@ export class MobileConnector extends EventEmitter {
   private httpServer: http.Server | null = null;
   private connections: Map<string, MobileConnection> = new Map();
   private discoveryInterval: NodeJS.Timeout | null = null;
-  private port: number = 8765;
+  private port = 8765;
 
   /**
    * Start listening for mobile connections
    */
-  async startListening(port: number = 8765): Promise<void> {
+  async startListening(port = 8765): Promise<void> {
     this.port = port;
 
     try {
@@ -398,7 +398,7 @@ class MobileConnection {
   address: string;
   deviceId: string | null = null;
   deviceInfo: MobileAppConnection | null = null;
-  streaming: boolean = false;
+  streaming = false;
   streamConfig: any = null;
 
   constructor(ws: WebSocket, address: string) {

@@ -28,17 +28,17 @@ export interface CameraCommand {
 export class ThermalCameraController extends EventEmitter {
   private camera: ThermalCamera;
   private settings: CameraSettings;
-  private isConnected: boolean = false;
-  private isStreaming: boolean = false;
+  private isConnected = false;
+  private isStreaming = false;
   
   private serialConnection: SerialPort | null = null;
   private networkConnection: net.Socket | null = null;
   private usbDevice: usb.Device | null = null;
   
   private frameBuffer: Buffer[] = [];
-  private frameCounter: number = 0;
-  private lastShutterTime: number = 0;
-  private calibrationInProgress: boolean = false;
+  private frameCounter = 0;
+  private lastShutterTime = 0;
+  private calibrationInProgress = false;
   
   private streamInterval: NodeJS.Timeout | null = null;
   private temperatureCalibration: ThermalCalibration | null = null;

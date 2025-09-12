@@ -15,7 +15,7 @@ export class GeminiClient {
   private config: GeminiConfig;
   private rateLimiter: RateLimiter;
   private cache: ResponseCache;
-  private initialized: boolean = false;
+  private initialized = false;
 
   constructor(config?: Partial<GeminiConfig>) {
     this.config = this.loadConfig(config);

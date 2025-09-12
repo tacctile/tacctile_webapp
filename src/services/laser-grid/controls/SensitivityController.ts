@@ -58,7 +58,7 @@ export class SensitivityController extends EventEmitter {
   private frameHistory: ProcessedFrame[] = [];
   
   private adaptationTimer: NodeJS.Timeout | null = null;
-  private isCalibrating: boolean = false;
+  private isCalibrating = false;
   private currentProfile: string | null = null;
 
   constructor(initialSettings?: Partial<DetectionSettings>) {

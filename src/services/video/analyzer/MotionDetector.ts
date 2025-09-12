@@ -7,8 +7,8 @@ import { MotionRegion, MotionDetectionConfig } from '../types';
 import { logger } from '../../../utils/logger';
 
 export class MotionDetector {
-  private width: number = 0;
-  private height: number = 0;
+  private width = 0;
+  private height = 0;
   private previousFrame: Uint8ClampedArray | null = null;
   private backgroundModel: Float32Array | null = null;
   private motionHistory: Float32Array | null = null;

@@ -161,7 +161,7 @@ export class WeatherEstimationService {
   }
 
   // Generate sample pressure history for testing
-  generateSampleHistory(days: number = 7): void {
+  generateSampleHistory(days = 7): void {
     this.pressureHistory = [];
     const now = new Date();
     
@@ -255,7 +255,7 @@ export class WeatherEstimationService {
 
     // Calculate duration of current trend
     let duration = 0;
-    let currentDirection = tendency;
+    const currentDirection = tendency;
     for (let i = readings.length - 1; i > 0; i--) {
       const hourlyRate = (readings[i].pressure - readings[i-1].pressure);
       const hourlyTendency = Math.abs(hourlyRate) > 0.1 ? (hourlyRate > 0 ? 'rising' : 'falling') : 'steady';
@@ -345,7 +345,7 @@ export class WeatherEstimationService {
     for (let hours = 1; hours <= 24; hours += 3) {
       let condition = current.type;
       let pressure = current.pressure;
-      let confidence = Math.max(0.1, current.confidence - hours * 0.03);
+      const confidence = Math.max(0.1, current.confidence - hours * 0.03);
       
       // Apply trend to forecast
       pressure += current.trend.rate * hours;
@@ -528,7 +528,7 @@ export class WeatherEstimationService {
   }
 
   // Utility methods
-  getRecentReadings(hours: number = 24): PressureReading[] {
+  getRecentReadings(hours = 24): PressureReading[] {
     const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000);
     return this.pressureHistory.filter(r => r.timestamp >= cutoff);
   }

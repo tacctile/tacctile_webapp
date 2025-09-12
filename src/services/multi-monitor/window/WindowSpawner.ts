@@ -21,7 +21,7 @@ export class WindowSpawner extends EventEmitter {
   private windowConfigs: Map<string, WindowConfiguration> = new Map();
   private parentChildRelations: Map<string, string[]> = new Map(); // parent -> children
   private childParentRelations: Map<string, string> = new Map(); // child -> parent
-  private windowIdCounter: number = 1;
+  private windowIdCounter = 1;
   private logger: any;
 
   constructor(displayManager: DisplayDetectionManager) {

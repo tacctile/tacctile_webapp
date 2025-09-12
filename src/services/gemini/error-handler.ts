@@ -45,7 +45,7 @@ export class GeminiError extends Error {
     code: ErrorCode,
     message: string,
     details?: any,
-    recoverable: boolean = false
+    recoverable = false
   ) {
     super(message);
     this.name = 'GeminiError';
@@ -193,7 +193,7 @@ export class ErrorHandler {
    */
   async retryWithBackoff<T>(
     operation: () => Promise<T>,
-    retryCount: number = 0
+    retryCount = 0
   ): Promise<T> {
     try {
       return await operation();

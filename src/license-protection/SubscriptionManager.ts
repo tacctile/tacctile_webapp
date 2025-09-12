@@ -468,7 +468,7 @@ export class SubscriptionManager extends EventEmitter implements ISubscriptionMa
   /**
    * Track feature usage
    */
-  public async trackFeatureUsage(subscriptionId: string, featureName: string, amount: number = 1): Promise<void> {
+  public async trackFeatureUsage(subscriptionId: string, featureName: string, amount = 1): Promise<void> {
     if (!this.config.usageTrackingEnabled) {
       return;
     }

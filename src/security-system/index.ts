@@ -279,12 +279,12 @@ export class SecuritySystem extends EventEmitter {
     await this.auditLogger.log(action as any, userId, result, details, userId);
   }
 
-  public async getUserAuditLogs(userId: string, limit: number = 100): Promise<SecurityAuditLog[]> {
+  public async getUserAuditLogs(userId: string, limit = 100): Promise<SecurityAuditLog[]> {
     this.ensureInitialized();
     return await this.auditLogger.getUserAuditLogs(userId, limit);
   }
 
-  public async getSecurityEvents(hours: number = 24): Promise<SecurityAuditLog[]> {
+  public async getSecurityEvents(hours = 24): Promise<SecurityAuditLog[]> {
     this.ensureInitialized();
     return await this.auditLogger.getSecurityEvents(undefined, hours);
   }

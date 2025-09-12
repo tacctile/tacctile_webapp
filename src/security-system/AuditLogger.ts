@@ -93,7 +93,7 @@ export class AuditLogger extends EventEmitter {
     }
   }
 
-  public async getUserAuditLogs(userId: string, limit: number = 100): Promise<SecurityAuditLog[]> {
+  public async getUserAuditLogs(userId: string, limit = 100): Promise<SecurityAuditLog[]> {
     try {
       const logs: SecurityAuditLog[] = [];
       const logFiles = await this.getLogFiles();
@@ -126,7 +126,7 @@ export class AuditLogger extends EventEmitter {
     action: AuditAction, 
     startDate?: Date, 
     endDate?: Date,
-    limit: number = 1000
+    limit = 1000
   ): Promise<SecurityAuditLog[]> {
     try {
       const logs: SecurityAuditLog[] = [];
@@ -160,7 +160,7 @@ export class AuditLogger extends EventEmitter {
 
   public async getSecurityEvents(
     riskLevel?: RiskLevel,
-    hours: number = 24
+    hours = 24
   ): Promise<SecurityAuditLog[]> {
     try {
       const startTime = new Date(Date.now() - (hours * 60 * 60 * 1000));

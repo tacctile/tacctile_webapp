@@ -400,7 +400,7 @@ export class EncryptedLicenseManager extends EventEmitter {
    */
   public async createOfflineLicense(
     license: LicenseInfo,
-    validityDays: number = 7
+    validityDays = 7
   ): Promise<EncryptedOfflineLicense> {
     this.ensureInitialized();
 

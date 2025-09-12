@@ -25,7 +25,7 @@ export class CameraDiscovery extends EventEmitter {
   private usbDetector: USBDetector;
   private mobileConnector: MobileConnector;
   private discoveryInterval: NodeJS.Timeout | null = null;
-  private isScanning: boolean = false;
+  private isScanning = false;
 
   constructor() {
     super();

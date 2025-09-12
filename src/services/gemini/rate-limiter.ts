@@ -25,7 +25,7 @@ export class RateLimiter {
   private lastMinuteReset: Date;
   private lastDayReset: Date;
   private queue: Array<() => void> = [];
-  private processing: boolean = false;
+  private processing = false;
 
   constructor(config: RateLimiterConfig) {
     this.config = config;

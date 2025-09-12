@@ -71,7 +71,7 @@ export class AudioTrack {
   /**
    * Load audio buffer
    */
-  async loadBuffer(buffer: AudioBuffer, startTime: number = 0): Promise<void> {
+  async loadBuffer(buffer: AudioBuffer, startTime = 0): Promise<void> {
     const region: AudioRegion = {
       id: uuidv4(),
       trackId: this.config.id,
@@ -96,7 +96,7 @@ export class AudioTrack {
   /**
    * Play track
    */
-  play(when: number = 0): void {
+  play(when = 0): void {
     if (this.state.muted) return;
     
     // Stop any existing playback

@@ -150,7 +150,7 @@ export class FrameExtractor {
   async extractFrameAt(
     videoPath: string,
     timestamp: number,
-    quality: number = 1
+    quality = 1
   ): Promise<VideoFrame> {
     const framePath = path.join(this.tempDir, `frame_${Date.now()}.png`);
     
@@ -188,7 +188,7 @@ export class FrameExtractor {
     videoPath: string,
     startFrame: number,
     endFrame: number,
-    quality: number = 1
+    quality = 1
   ): Promise<VideoFrame[]> {
     const metadata = await this.ffmpeg.getMetadata(videoPath);
     const startTime = startFrame / metadata.frameRate;
@@ -206,7 +206,7 @@ export class FrameExtractor {
    */
   private async loadFrameImage(
     framePath: string,
-    quality: number = 1
+    quality = 1
   ): Promise<ImageData> {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -262,9 +262,9 @@ export class FrameExtractor {
    */
   async extractThumbnails(
     videoPath: string,
-    count: number = 10,
-    width: number = 160,
-    height: number = 90
+    count = 10,
+    width = 160,
+    height = 90
   ): Promise<ImageData[]> {
     const metadata = await this.ffmpeg.getMetadata(videoPath);
     const interval = metadata.duration / count;

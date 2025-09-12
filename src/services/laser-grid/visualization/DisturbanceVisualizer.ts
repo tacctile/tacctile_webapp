@@ -46,16 +46,16 @@ export class DisturbanceVisualizer extends EventEmitter {
   private config: VisualizationConfig;
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
-  private animationFrame: number = 0;
-  private isAnimating: boolean = false;
+  private animationFrame = 0;
+  private isAnimating = false;
   
   private elements: Map<string, VisualizationElement> = new Map();
   private trails: Map<string, DisturbanceTrail> = new Map();
   private ghostEffects: Map<string, VisualizationElement> = new Map();
   
   private frameHistory: ProcessedFrame[] = [];
-  private lastRenderTime: number = 0;
-  private frameRate: number = 30;
+  private lastRenderTime = 0;
+  private frameRate = 30;
 
   constructor(canvas: HTMLCanvasElement, config?: Partial<VisualizationConfig>) {
     super();

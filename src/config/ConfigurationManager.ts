@@ -325,7 +325,7 @@ export class ConfigurationManager extends EventEmitter {
     }
   }
 
-  public async cleanupBackups(retentionDays: number = 30): Promise<number> {
+  public async cleanupBackups(retentionDays = 30): Promise<number> {
     const backups = await this.listBackups();
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - retentionDays);

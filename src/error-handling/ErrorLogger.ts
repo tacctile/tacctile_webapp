@@ -38,7 +38,7 @@ export class ErrorLogger extends EventEmitter implements IErrorLogger {
   private isInitialized = false;
   private logCounter = 0;
 
-  constructor(logDir: string = './logs', config?: Partial<ErrorConfiguration['logging']>) {
+  constructor(logDir = './logs', config?: Partial<ErrorConfiguration['logging']>) {
     super();
     this.logDir = logDir;
     this.config = {

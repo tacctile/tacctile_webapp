@@ -14,14 +14,14 @@ const logger = new Logger('Camera360Recorder');
 export class Camera360Recorder extends EventEmitter {
   private config: Camera360Config;
   private recordingConfig: RecordingConfiguration | null = null;
-  private isRecording: boolean = false;
+  private isRecording = false;
   private mediaRecorder: MediaRecorder | null = null;
   private recordedChunks: Blob[] = [];
   private cameras: CameraStream[] = [];
   private stitchingWorker: Worker | null = null;
   private currentFrame: HTMLCanvasElement | null = null;
-  private frameCount: number = 0;
-  private recordingStartTime: number = 0;
+  private frameCount = 0;
+  private recordingStartTime = 0;
   private outputStream: MediaStream | null = null;
 
   constructor(config: Camera360Config) {

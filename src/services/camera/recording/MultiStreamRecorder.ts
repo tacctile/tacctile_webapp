@@ -23,7 +23,7 @@ export class MultiStreamRecorder extends EventEmitter {
   private streamManager: StreamManager;
   private storageConfig: StorageConfig;
   private recordingDir: string;
-  private maxConcurrentRecordings: number = 10;
+  private maxConcurrentRecordings = 10;
 
   constructor(storageConfig: StorageConfig) {
     super();

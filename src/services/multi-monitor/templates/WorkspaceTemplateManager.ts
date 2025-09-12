@@ -27,7 +27,7 @@ export class WorkspaceTemplateManager extends EventEmitter {
   private displayManager: DisplayDetectionManager;
   private logger: any;
 
-  constructor(displayManager: DisplayDetectionManager, baseDirectory: string = './data') {
+  constructor(displayManager: DisplayDetectionManager, baseDirectory = './data') {
     super();
     this.displayManager = displayManager;
     this.templatesDirectory = path.join(baseDirectory, 'templates');

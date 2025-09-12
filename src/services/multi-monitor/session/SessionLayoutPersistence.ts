@@ -26,7 +26,7 @@ export class SessionLayoutPersistence extends EventEmitter {
   private autoSaveTimer?: NodeJS.Timeout;
   private performanceCollector?: NodeJS.Timeout;
 
-  constructor(baseDirectory: string = './data') {
+  constructor(baseDirectory = './data') {
     super();
     this.sessionsDirectory = path.join(baseDirectory, 'sessions');
     this.layoutsDirectory = path.join(baseDirectory, 'layouts');

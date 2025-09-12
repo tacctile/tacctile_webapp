@@ -222,7 +222,7 @@ export class SessionManager extends EventEmitter {
     return ipSessions;
   }
 
-  public async extendSession(sessionId: string, extensionMinutes: number = 60): Promise<boolean> {
+  public async extendSession(sessionId: string, extensionMinutes = 60): Promise<boolean> {
     const session = this.sessions.get(sessionId);
     
     if (!session || !session.isActive || this.isSessionExpired(session)) {

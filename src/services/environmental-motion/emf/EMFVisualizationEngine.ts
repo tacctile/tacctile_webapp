@@ -17,9 +17,9 @@ export class EMFVisualizationEngine extends EventEmitter {
   private readingHistory: EMFReading[] = [];
   private activeCanvas: HTMLCanvasElement | null = null;
   private animationFrame: number | null = null;
-  private lastUpdateTime: number = 0;
+  private lastUpdateTime = 0;
   private fieldSources: EMFSource[] = [];
-  private isRecording: boolean = false;
+  private isRecording = false;
 
   constructor(settings: EMFVisualizationSettings) {
     super();
@@ -38,7 +38,7 @@ export class EMFVisualizationEngine extends EventEmitter {
     this.setupUpdateTimer();
   }
 
-  private createEmptyFieldGrid(width: number = 100, height: number = 100): number[][] {
+  private createEmptyFieldGrid(width = 100, height = 100): number[][] {
     const grid: number[][] = [];
     for (let y = 0; y < height; y++) {
       grid[y] = new Array(width).fill(0);
@@ -133,7 +133,7 @@ export class EMFVisualizationEngine extends EventEmitter {
     }
 
     // Find if this reading is near an existing source
-    let nearbySource = this.fieldSources.find(source => {
+    const nearbySource = this.fieldSources.find(source => {
       if (source.frequencyBand === reading.frequencyBand) {
         const distance = this.calculateDistance3D(source.position, reading.coordinates!);
         return distance < 2.0; // 2 meters
@@ -733,7 +733,7 @@ export class EMFVisualizationEngine extends EventEmitter {
     return [...this.fieldSources];
   }
 
-  getRecentReadings(count: number = 50): EMFReading[] {
+  getRecentReadings(count = 50): EMFReading[] {
     return this.readingHistory.slice(-count);
   }
 

@@ -90,7 +90,7 @@ export class WorkspaceLayoutManager extends EventEmitter {
 
   constructor(
     configManager: ConfigurationManager,
-    layoutsPath: string = './workspace-layouts'
+    layoutsPath = './workspace-layouts'
   ) {
     super();
     this.configManager = configManager;
@@ -425,7 +425,7 @@ export class WorkspaceLayoutManager extends EventEmitter {
   // Snapshot Management
   public async createSnapshot(
     layoutId?: string,
-    reason: string = 'manual'
+    reason = 'manual'
   ): Promise<string> {
     const targetLayoutId = layoutId || this.layouts.current;
     const layout = this.layouts.layouts[targetLayoutId];

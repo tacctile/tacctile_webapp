@@ -25,7 +25,7 @@ interface ActiveStream {
 
 export class StreamManager extends EventEmitter {
   private streams: Map<string, ActiveStream> = new Map();
-  private ffmpegPath: string = 'ffmpeg';
+  private ffmpegPath = 'ffmpeg';
   private maxBufferSize: number = 10 * 1024 * 1024; // 10MB
 
   /**

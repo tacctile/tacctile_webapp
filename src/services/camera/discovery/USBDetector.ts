@@ -13,7 +13,7 @@ import {
 import { logger } from '../../../utils/logger';
 
 export class USBDetector extends EventEmitter {
-  private monitoring: boolean = false;
+  private monitoring = false;
   private monitorInterval: NodeJS.Timeout | null = null;
   private knownDevices: Set<string> = new Set();
 

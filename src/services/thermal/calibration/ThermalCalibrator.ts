@@ -470,7 +470,7 @@ export class ThermalCalibrator extends EventEmitter {
     ];
 
     // Create temperature correction function
-    const temperatureCorrection = (rawTemp: number, emissivity: number = 0.95, distance: number = 1.0): number => {
+    const temperatureCorrection = (rawTemp: number, emissivity = 0.95, distance = 1.0): number => {
       let correctedTemp = rawTemp * calibrationMatrix[0] + calibrationMatrix[1];
       
       // Apply emissivity correction
@@ -725,7 +725,7 @@ export class ThermalCalibrator extends EventEmitter {
   /**
    * Add measurement from external source
    */
-  addMeasurement(frame: ThermalFrame, targetTemp: number, emissivity: number = 0.95): void {
+  addMeasurement(frame: ThermalFrame, targetTemp: number, emissivity = 0.95): void {
     // Extract temperature from specific region of frame
     const regionTemp = this.extractRegionTemperature(frame);
     

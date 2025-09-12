@@ -17,7 +17,7 @@ export class MigrationManager extends EventEmitter {
   private currentState: MigrationState;
   private logger: any;
 
-  constructor(dbPath: string, migrationsDir: string = './src/database/migrations') {
+  constructor(dbPath: string, migrationsDir = './src/database/migrations') {
     super();
     this.db = new Database(dbPath, { verbose: null });
     this.migrationsDirectory = migrationsDir;

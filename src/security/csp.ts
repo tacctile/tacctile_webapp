@@ -101,14 +101,14 @@ export function buildCSPHeader(config: CSPConfig): string {
 /**
  * Get CSP configuration based on environment
  */
-export function getCSPConfig(isDevelopment: boolean = false): CSPConfig {
+export function getCSPConfig(isDevelopment = false): CSPConfig {
   return isDevelopment ? DEVELOPMENT_CSP : PRODUCTION_CSP;
 }
 
 /**
  * Get CSP header string for current environment
  */
-export function getCSPHeader(isDevelopment: boolean = false): string {
+export function getCSPHeader(isDevelopment = false): string {
   const config = getCSPConfig(isDevelopment);
   return buildCSPHeader(config);
 }

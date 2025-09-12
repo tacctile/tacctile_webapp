@@ -16,7 +16,7 @@ export class WebGLRenderer {
   
   private vertexBuffer: WebGLBuffer;
   private textureCoordBuffer: WebGLBuffer;
-  private isWebGL2: boolean = false;
+  private isWebGL2 = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -557,7 +557,7 @@ export class WebGLRenderer {
   /**
    * Apply convolution kernel
    */
-  applyKernel(imageData: ImageData, kernel: Float32Array, divisor: number = 1): ImageData {
+  applyKernel(imageData: ImageData, kernel: Float32Array, divisor = 1): ImageData {
     const program = this.programs.get('default')!;
     // Implementation for kernel convolution
     // This would be expanded with proper kernel shader
