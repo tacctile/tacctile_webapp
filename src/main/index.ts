@@ -7,6 +7,7 @@ import { app, BrowserWindow, Menu, Tray, nativeImage, protocol, shell, dialog } 
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { Platform, Paths, Features, WindowState, Shortcuts } from '../utils/platform';
+import { setupSocialHandlers } from './ipc/social-handlers';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling
 if (require('electron-squirrel-startup')) {
@@ -417,6 +418,9 @@ function createMenu() {
 app.whenReady().then(() => {
   // Ensure directories exist
   ensureDirectories();
+  
+  // Setup IPC handlers
+  setupSocialHandlers();
   
   // Create window and UI elements
   createWindow();
