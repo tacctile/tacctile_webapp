@@ -1,8 +1,22 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, session } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import installExtension, { REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS } from 'electron-devtools-installer';
 import * as Sentry from '@sentry/electron';
+import unhandled from 'electron-unhandled';
+import { autoBackup } from './utils/autoBackup';
+import { windowManager } from './utils/windowManager';
+import { DEFAULT_CSP } from './security/csp';
+import { licenseManager } from './licensing/licenseManager';
+
+// Initialize error handling and crash recovery
+unhandled({
+  logger: (error) => {
+    console.error('Unhandled error:', error);
+    Sentry.captureException(error);
+  },
+  showDialog: !app.isPackaged, // Show error dialogs in development only
+});
 
 // Initialize Sentry for error tracking
 Sentry.init({
@@ -18,16 +32,62 @@ if (started) {
 }
 
 const createWindow = () => {
-  // Create the browser window.
+  // Create the browser window with secure configuration.
   const mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 1200,
+    height: 800,
+    minWidth: 800,
+    minHeight: 600,
     webPreferences: {
+      // Security: Disable Node integration in renderer
+      nodeIntegration: false,
+      // Security: Enable context isolation
+      contextIsolation: true,
+      // Security: Disable web security in development only
+      webSecurity: app.isPackaged,
+      // Security: Disable remote module
+      enableRemoteModule: false,
+      // Security: Use preload script for secure IPC
       preload: path.join(__dirname, 'preload.js'),
+      // Security: Disable experimental features
+      experimentalFeatures: false,
+      // Security: Allow running insecure content in dev only
+      allowRunningInsecureContent: !app.isPackaged,
     },
+    // Security: Don't show until ready to prevent flickering
+    show: false,
   });
 
-  // and load the index.html of the app.
+  // Security: Set up Content Security Policy
+  mainWindow.webContents.on('did-finish-load', () => {
+    // Inject CSP meta tag
+    mainWindow.webContents.executeJavaScript(`
+      const meta = document.createElement('meta');
+      meta.httpEquiv = 'Content-Security-Policy';
+      meta.content = '${DEFAULT_CSP}';
+      document.head.appendChild(meta);
+    `);
+  });
+
+  // Security: Prevent new window creation
+  mainWindow.webContents.setWindowOpenHandler(() => {
+    return { action: 'deny' };
+  });
+
+  // Security: Prevent navigation to external URLs
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const allowedOrigins = [
+      MAIN_WINDOW_VITE_DEV_SERVER_URL,
+      'file://',
+    ];
+    
+    if (!allowedOrigins.some(origin => url.startsWith(origin))) {
+      event.preventDefault();
+      console.warn('Blocked navigation to:', url);
+    }
+  });
+
+  // Load the app
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
@@ -36,14 +96,47 @@ const createWindow = () => {
     );
   }
 
-  // Open the DevTools.
-  mainWindow.webContents.openDevTools();
+  // Show window when ready
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    
+    // Focus window
+    if (!app.isPackaged) {
+      mainWindow.webContents.openDevTools();
+    }
+  });
+
+  return mainWindow;
 };
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.on('ready', async () => {
+  // Security: Set up session security
+  const ses = session.defaultSession;
+  
+  // Security: Set secure headers
+  ses.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [DEFAULT_CSP],
+        'X-Frame-Options': ['DENY'],
+        'X-Content-Type-Options': ['nosniff'],
+        'X-XSS-Protection': ['1; mode=block'],
+        'Referrer-Policy': ['strict-origin-when-cross-origin'],
+      },
+    });
+  });
+  
+  // Security: Remove unsafe headers
+  ses.webRequest.onBeforeSendHeaders((details, callback) => {
+    delete details.requestHeaders['Origin'];
+    delete details.requestHeaders['Referer'];
+    callback({ requestHeaders: details.requestHeaders });
+  });
+  
   // Install React Developer Tools and Redux DevTools in development
   if (!app.isPackaged) {
     try {
@@ -54,6 +147,27 @@ app.on('ready', async () => {
     }
   }
   
+  // Perform license check before creating window
+  const licenseCheck = await licenseManager.performStartupCheck();
+  
+  if (!licenseCheck.canProceed) {
+    console.log('❌ License check failed:', licenseCheck.message);
+    
+    // Show license dialog and wait for user action
+    const licenseActivated = await licenseManager.showLicenseDialog();
+    
+    if (!licenseActivated) {
+      console.log('🚪 User chose to quit - exiting application');
+      app.quit();
+      return;
+    }
+  }
+  
+  console.log('✅ License validated - proceeding with application startup');
+  
+  // Initialize auto-backup
+  autoBackup.start();
+  
   createWindow();
 });
 
@@ -61,6 +175,11 @@ app.on('ready', async () => {
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
+  // Clean up auto-backup and window states
+  autoBackup.stop();
+  windowManager.cleanup();
+  licenseManager.cleanup();
+  
   if (process.platform !== 'darwin') {
     app.quit();
   }
