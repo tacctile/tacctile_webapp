@@ -6,11 +6,17 @@
 /* Import Manrope font faces */
 @import './assets/fonts/manrope.css';
 
+/* Import Design Tokens - MUST BE FIRST */
+@import './styles/design-tokens.css';
+
 /* Import Typography System */
 @import './styles/typography.css';
 
 /* Import Icon System */
 @import './styles/icons.css';
+
+/* Import Utility Classes */
+@import './styles/utilities.css';
 
 /* =================================================================
    RESET & BASE

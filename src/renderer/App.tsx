@@ -1,8 +1,8 @@
 import React from 'react';
-import IconsDemo from '../components/IconsDemo';
+import DesignTokensDemo from '../components/DesignTokensDemo';
 
 const App: React.FC = () => {
-  return <IconsDemo />;
+  return <DesignTokensDemo />;
 };
 
 export default App;

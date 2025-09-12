@@ -1,25 +1,105 @@
 {
-  "name": "tacctile_desktop",
-  "productName": "tacctile_desktop",
+  "name": "ghost-hunter-toolbox",
+  "productName": "Ghost Hunter Toolbox",
   "version": "1.0.0",
-  "description": "My Electron application description",
+  "description": "Professional ghost hunting evidence analysis and investigation management desktop application",
   "main": ".vite/build/main.js",
   "scripts": {
     "start": "electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make",
+    "make:win": "electron-forge make --platform win32",
+    "make:mac": "electron-forge make --platform darwin",
+    "make:linux": "electron-forge make --platform linux",
+    "make:all": "npm run make:win && npm run make:mac && npm run make:linux",
     "publish": "electron-forge publish",
-    "lint": "eslint --ext .ts,.tsx ."
+    "lint": "eslint --ext .ts,.tsx .",
+    "type-check": "tsc --noEmit",
+    "test": "npm run lint && npm run type-check",
+    "clean": "rimraf out .vite",
+    "rebuild": "npm run clean && npm run make"
   },
-  "keywords": [],
+  "keywords": [
+    "ghost",
+    "hunting",
+    "paranormal",
+    "investigation",
+    "evidence",
+    "analysis",
+    "electron",
+    "desktop"
+  ],
   "author": {
-    "name": "tacctile",
-    "email": "tacctile@users.noreply.github.com"
+    "name": "Tacctile",
+    "email": "tacctile@users.noreply.github.com",
+    "url": "https://github.com/tacctile"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tacctile/tacctile_desktop.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tacctile/tacctile_desktop/issues"
+  },
+  "homepage": "https://github.com/tacctile/tacctile_desktop#readme",
   "license": "MIT",
+  "build": {
+    "appId": "com.tacctile.ghosthunter",
+    "productName": "Ghost Hunter Toolbox",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      ".vite/**/*",
+      "node_modules/**/*",
+      "assets/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "icon": "assets/icon.icns",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "assets/entitlements.mac.plist",
+      "entitlementsInherit": "assets/entitlements.mac.plist"
+    },
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        },
+        {
+          "target": "portable"
+        }
+      ]
+    },
+    "linux": {
+      "icon": "assets/icon.png",
+      "category": "Utility",
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ]
+    },
+    "protocols": [
+      {
+        "name": "Ghost Hunter Protocol",
+        "schemes": [
+          "ghost-hunter"
+        ]
+      }
+    ]
+  },
   "devDependencies": {
     "@electron-forge/cli": "^7.9.0",
     "@electron-forge/maker-deb": "^7.9.0",
+    "@electron-forge/maker-dmg": "^7.9.0",
     "@electron-forge/maker-rpm": "^7.9.0",
     "@electron-forge/maker-squirrel": "^7.9.0",
     "@electron-forge/maker-zip": "^7.9.0",
@@ -28,21 +108,33 @@
     "@electron-forge/plugin-vite": "^7.9.0",
     "@electron/fuses": "^1.8.0",
     "@types/electron-squirrel-startup": "^1.0.2",
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
     "@typescript-eslint/eslint-plugin": "^5.62.0",
     "@typescript-eslint/parser": "^5.62.0",
     "electron": "38.1.0",
     "eslint": "^8.57.1",
     "eslint-plugin-import": "^2.32.0",
     "google-fonts-helper": "^3.7.3",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "rimraf": "^5.0.10",
     "typescript": "~4.5.4",
     "vite": "^5.4.20"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@google/generative-ai": "^0.24.1",
     "@material/material-color-utilities": "^0.3.0",
     "@mui/icons-material": "^7.3.2",
+    "dotenv": "^17.2.2",
     "electron-squirrel-startup": "^1.0.1",
-    "react-material-web-components": "^0.3.2"
+    "multer": "^2.0.2",
+    "react-material-web-components": "^0.3.2",
+    "sharp": "^0.34.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
