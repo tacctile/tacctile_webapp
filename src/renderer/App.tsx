@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import DesignTokensDemo from '../components/DesignTokensDemo';
 import { SocialHub } from '../components/social-hub';
+import { EnhancedSocialHub } from '../components/social-hub/EnhancedSocialHub';
 import '../components/social-hub/SocialHub.css';
 
-type TabId = 'home' | 'social' | 'design';
+type TabId = 'home' | 'social' | 'enhanced-social' | 'design';
 
 interface Tab {
   id: TabId;
@@ -16,7 +17,8 @@ const App: React.FC = () => {
 
   const tabs: Tab[] = [
     { id: 'home', label: 'Home', component: () => <div className="tab-content"><h1>Ghost Hunter Toolbox</h1><p>Professional paranormal evidence analysis software</p></div> },
-    { id: 'social', label: 'Social Hub', component: SocialHub },
+    { id: 'social', label: 'Basic Social', component: SocialHub },
+    { id: 'enhanced-social', label: 'Enhanced Social Hub', component: EnhancedSocialHub },
     { id: 'design', label: 'Design System', component: DesignTokensDemo },
   ];
 
