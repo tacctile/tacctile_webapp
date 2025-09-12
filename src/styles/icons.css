@@ -1,0 +1,358 @@
+/* =================================================================
+   MATERIAL ICONS SYSTEM
+   Material 3 Design System Integration
+   ================================================================= */
+
+/* Icon Size Variables - Material 3 Standard */
+:root {
+  /* Standard Material Icon Sizes */
+  --icon-size-xs: 16px;
+  --icon-size-sm: 20px;
+  --icon-size-md: 24px;  /* Default */
+  --icon-size-lg: 32px;
+  --icon-size-xl: 40px;
+  --icon-size-2xl: 48px;
+  --icon-size-3xl: 64px;
+  
+  /* Optical Sizes for Variable Fonts */
+  --icon-optical-size-sm: 20;
+  --icon-optical-size-md: 24;
+  --icon-optical-size-lg: 48;
+  
+  /* Icon Weights (for variable fonts) */
+  --icon-weight-thin: 100;
+  --icon-weight-light: 300;
+  --icon-weight-regular: 400;
+  --icon-weight-medium: 500;
+  --icon-weight-bold: 700;
+  
+  /* Icon Fill Grades */
+  --icon-fill-0: 0;
+  --icon-fill-1: 1;
+  
+  /* Icon Colors - Semantic */
+  --icon-color-default: currentColor;
+  --icon-color-primary: var(--md-sys-color-primary, #8b5cf6);
+  --icon-color-secondary: var(--md-sys-color-secondary, #22d3ee);
+  --icon-color-tertiary: var(--md-sys-color-tertiary, #f97316);
+  --icon-color-error: var(--md-sys-color-error, #ef4444);
+  --icon-color-warning: var(--md-sys-color-tertiary, #f97316);
+  --icon-color-success: #10b981;
+  --icon-color-info: var(--md-sys-color-secondary, #22d3ee);
+  --icon-color-on-surface: var(--md-sys-color-on-surface, #e5e5e5);
+  --icon-color-on-surface-variant: var(--md-sys-color-on-surface-variant, #a3a3a3);
+  
+  /* Ghost Hunting Specific Icon Colors */
+  --icon-color-emf: #10b981;
+  --icon-color-temperature: #3b82f6;
+  --icon-color-audio: #ec4899;
+  --icon-color-visual: #8b5cf6;
+  --icon-color-motion: #f59e0b;
+  --icon-color-anomaly: #ef4444;
+}
+
+/* =================================================================
+   ICON BASE STYLES
+   ================================================================= */
+
+/* Base Icon Class */
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
+  color: var(--icon-color-default);
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Size Variants */
+.icon-xs { 
+  width: var(--icon-size-xs); 
+  height: var(--icon-size-xs);
+  font-size: var(--icon-size-xs);
+}
+
+.icon-sm { 
+  width: var(--icon-size-sm); 
+  height: var(--icon-size-sm);
+  font-size: var(--icon-size-sm);
+}
+
+.icon-md { 
+  width: var(--icon-size-md); 
+  height: var(--icon-size-md);
+  font-size: var(--icon-size-md);
+}
+
+.icon-lg { 
+  width: var(--icon-size-lg); 
+  height: var(--icon-size-lg);
+  font-size: var(--icon-size-lg);
+}
+
+.icon-xl { 
+  width: var(--icon-size-xl); 
+  height: var(--icon-size-xl);
+  font-size: var(--icon-size-xl);
+}
+
+.icon-2xl { 
+  width: var(--icon-size-2xl); 
+  height: var(--icon-size-2xl);
+  font-size: var(--icon-size-2xl);
+}
+
+.icon-3xl { 
+  width: var(--icon-size-3xl); 
+  height: var(--icon-size-3xl);
+  font-size: var(--icon-size-3xl);
+}
+
+/* Color Variants */
+.icon-primary { color: var(--icon-color-primary); }
+.icon-secondary { color: var(--icon-color-secondary); }
+.icon-tertiary { color: var(--icon-color-tertiary); }
+.icon-error { color: var(--icon-color-error); }
+.icon-warning { color: var(--icon-color-warning); }
+.icon-success { color: var(--icon-color-success); }
+.icon-info { color: var(--icon-color-info); }
+.icon-muted { color: var(--icon-color-on-surface-variant); }
+
+/* Ghost Hunting Icon Colors */
+.icon-emf { color: var(--icon-color-emf); }
+.icon-temperature { color: var(--icon-color-temperature); }
+.icon-audio { color: var(--icon-color-audio); }
+.icon-visual { color: var(--icon-color-visual); }
+.icon-motion { color: var(--icon-color-motion); }
+.icon-anomaly { color: var(--icon-color-anomaly); }
+
+/* =================================================================
+   ICON BUTTON STYLES
+   ================================================================= */
+
+.icon-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 12px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  color: var(--icon-color-on-surface);
+}
+
+.icon-button:hover {
+  background-color: rgba(var(--icon-color-on-surface), 0.08);
+}
+
+.icon-button:focus-visible {
+  outline: 2px solid var(--icon-color-primary);
+  outline-offset: 2px;
+}
+
+.icon-button:active {
+  background-color: rgba(var(--icon-color-on-surface), 0.12);
+}
+
+.icon-button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+/* Icon Button Variants */
+.icon-button-filled {
+  background-color: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+}
+
+.icon-button-filled:hover {
+  background-color: var(--md-sys-color-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px 1px rgba(0, 0, 0, 0.15);
+}
+
+.icon-button-tonal {
+  background-color: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
+
+.icon-button-outlined {
+  border: 1px solid var(--md-sys-color-outline);
+}
+
+/* Icon Button Sizes */
+.icon-button-sm {
+  width: 32px;
+  height: 32px;
+  padding: 6px;
+}
+
+.icon-button-lg {
+  width: 56px;
+  height: 56px;
+  padding: 16px;
+}
+
+/* =================================================================
+   ICON WITH TEXT
+   ================================================================= */
+
+.icon-with-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-with-text-vertical {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+/* =================================================================
+   ICON BADGES
+   ================================================================= */
+
+.icon-badge {
+  position: relative;
+  display: inline-flex;
+}
+
+.icon-badge::after {
+  content: attr(data-badge);
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background-color: var(--icon-color-error);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+  border-radius: 8px;
+}
+
+.icon-badge.badge-dot::after {
+  content: '';
+  min-width: 8px;
+  height: 8px;
+  padding: 0;
+}
+
+/* =================================================================
+   ANIMATED ICONS
+   ================================================================= */
+
+.icon-spin {
+  animation: icon-spin 2s linear infinite;
+}
+
+.icon-pulse {
+  animation: icon-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.icon-bounce {
+  animation: icon-bounce 1s infinite;
+}
+
+.icon-ping {
+  position: relative;
+}
+
+.icon-ping::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background-color: currentColor;
+  animation: icon-ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes icon-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes icon-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes icon-bounce {
+  0%, 100% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+  }
+  50% {
+    transform: translateY(-25%);
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+
+@keyframes icon-ping {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+/* =================================================================
+   ICON GROUPS
+   ================================================================= */
+
+.icon-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.icon-stack {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-stack > * {
+  position: absolute;
+}
+
+.icon-stack > :nth-child(2) {
+  font-size: 0.75em;
+  bottom: -4px;
+  right: -4px;
+}
+
+/* =================================================================
+   RESPONSIVE ICONS
+   ================================================================= */
+
+@media (max-width: 640px) {
+  .icon-responsive {
+    width: var(--icon-size-sm);
+    height: var(--icon-size-sm);
+    font-size: var(--icon-size-sm);
+  }
+}
+
+@media (min-width: 1024px) {
+  .icon-responsive {
+    width: var(--icon-size-lg);
+    height: var(--icon-size-lg);
+    font-size: var(--icon-size-lg);
+  }
+}

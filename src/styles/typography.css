@@ -1,0 +1,256 @@
+/* =================================================================
+   MANROPE TYPOGRAPHY SYSTEM
+   Primary and only font for Ghost Hunter Toolbox
+   ================================================================= */
+
+/* Font Family Definition */
+:root {
+  --font-family-base: 'Manrope', system-ui, -apple-system, sans-serif;
+  --font-family-mono: 'Courier New', monospace; /* Fallback for code */
+}
+
+/* =================================================================
+   FONT WEIGHTS
+   ================================================================= */
+:root {
+  --font-weight-extralight: 200;
+  --font-weight-light: 300;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+}
+
+/* =================================================================
+   FONT SIZES - RESPONSIVE SCALE
+   ================================================================= */
+:root {
+  /* Base sizing */
+  --font-size-base: 16px;
+  --line-height-base: 1.5;
+  
+  /* Scale factors */
+  --scale-ratio: 1.25; /* Major third scale */
+  
+  /* Font sizes - Mobile first */
+  --font-size-xs: 0.75rem;    /* 12px */
+  --font-size-sm: 0.875rem;   /* 14px */
+  --font-size-md: 1rem;       /* 16px */
+  --font-size-lg: 1.125rem;   /* 18px */
+  --font-size-xl: 1.25rem;    /* 20px */
+  --font-size-2xl: 1.5rem;    /* 24px */
+  --font-size-3xl: 1.875rem;  /* 30px */
+  --font-size-4xl: 2.25rem;   /* 36px */
+  --font-size-5xl: 3rem;      /* 48px */
+  --font-size-6xl: 3.75rem;   /* 60px */
+  --font-size-7xl: 4.5rem;    /* 72px */
+  --font-size-8xl: 6rem;      /* 96px */
+  --font-size-9xl: 8rem;      /* 128px */
+}
+
+/* Desktop sizes */
+@media (min-width: 1024px) {
+  :root {
+    --font-size-base: 18px;
+    
+    --font-size-xs: 0.833rem;   /* 15px */
+    --font-size-sm: 0.889rem;   /* 16px */
+    --font-size-md: 1rem;       /* 18px */
+    --font-size-lg: 1.222rem;   /* 22px */
+    --font-size-xl: 1.444rem;   /* 26px */
+    --font-size-2xl: 1.778rem;  /* 32px */
+    --font-size-3xl: 2.222rem;  /* 40px */
+    --font-size-4xl: 2.667rem;  /* 48px */
+    --font-size-5xl: 3.556rem;  /* 64px */
+    --font-size-6xl: 4.444rem;  /* 80px */
+    --font-size-7xl: 5.333rem;  /* 96px */
+    --font-size-8xl: 7.111rem;  /* 128px */
+    --font-size-9xl: 9.444rem;  /* 170px */
+  }
+}
+
+/* =================================================================
+   LINE HEIGHTS
+   ================================================================= */
+:root {
+  --line-height-none: 1;
+  --line-height-tight: 1.25;
+  --line-height-snug: 1.375;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.625;
+  --line-height-loose: 2;
+}
+
+/* =================================================================
+   LETTER SPACING
+   ================================================================= */
+:root {
+  --letter-spacing-tighter: -0.05em;
+  --letter-spacing-tight: -0.025em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide: 0.025em;
+  --letter-spacing-wider: 0.05em;
+  --letter-spacing-widest: 0.1em;
+}
+
+/* =================================================================
+   TEXT HIERARCHY PRESETS
+   ================================================================= */
+:root {
+  /* Display - Largest text, marketing/hero */
+  --text-display-1: var(--font-weight-extrabold) var(--font-size-9xl)/var(--line-height-none) var(--font-family-base);
+  --text-display-2: var(--font-weight-bold) var(--font-size-8xl)/var(--line-height-none) var(--font-family-base);
+  --text-display-3: var(--font-weight-bold) var(--font-size-7xl)/var(--line-height-tight) var(--font-family-base);
+  
+  /* Headings - Section headers */
+  --text-heading-1: var(--font-weight-bold) var(--font-size-6xl)/var(--line-height-tight) var(--font-family-base);
+  --text-heading-2: var(--font-weight-semibold) var(--font-size-5xl)/var(--line-height-tight) var(--font-family-base);
+  --text-heading-3: var(--font-weight-semibold) var(--font-size-4xl)/var(--line-height-snug) var(--font-family-base);
+  --text-heading-4: var(--font-weight-semibold) var(--font-size-3xl)/var(--line-height-snug) var(--font-family-base);
+  --text-heading-5: var(--font-weight-medium) var(--font-size-2xl)/var(--line-height-normal) var(--font-family-base);
+  --text-heading-6: var(--font-weight-medium) var(--font-size-xl)/var(--line-height-normal) var(--font-family-base);
+  
+  /* Body - Content text */
+  --text-body-xl: var(--font-weight-regular) var(--font-size-xl)/var(--line-height-relaxed) var(--font-family-base);
+  --text-body-lg: var(--font-weight-regular) var(--font-size-lg)/var(--line-height-relaxed) var(--font-family-base);
+  --text-body-md: var(--font-weight-regular) var(--font-size-md)/var(--line-height-normal) var(--font-family-base);
+  --text-body-sm: var(--font-weight-regular) var(--font-size-sm)/var(--line-height-normal) var(--font-family-base);
+  --text-body-xs: var(--font-weight-regular) var(--font-size-xs)/var(--line-height-normal) var(--font-family-base);
+  
+  /* Label - UI elements */
+  --text-label-xl: var(--font-weight-medium) var(--font-size-lg)/var(--line-height-tight) var(--font-family-base);
+  --text-label-lg: var(--font-weight-medium) var(--font-size-md)/var(--line-height-tight) var(--font-family-base);
+  --text-label-md: var(--font-weight-medium) var(--font-size-sm)/var(--line-height-tight) var(--font-family-base);
+  --text-label-sm: var(--font-weight-medium) var(--font-size-xs)/var(--line-height-tight) var(--font-family-base);
+  
+  /* Caption - Supporting text */
+  --text-caption-lg: var(--font-weight-regular) var(--font-size-sm)/var(--line-height-snug) var(--font-family-base);
+  --text-caption-md: var(--font-weight-regular) var(--font-size-xs)/var(--line-height-snug) var(--font-family-base);
+  
+  /* Button text */
+  --text-button-lg: var(--font-weight-semibold) var(--font-size-lg)/var(--line-height-tight) var(--font-family-base);
+  --text-button-md: var(--font-weight-semibold) var(--font-size-md)/var(--line-height-tight) var(--font-family-base);
+  --text-button-sm: var(--font-weight-semibold) var(--font-size-sm)/var(--line-height-tight) var(--font-family-base);
+  
+  /* Code/Mono */
+  --text-code-lg: var(--font-weight-regular) var(--font-size-md)/var(--line-height-normal) var(--font-family-mono);
+  --text-code-md: var(--font-weight-regular) var(--font-size-sm)/var(--line-height-normal) var(--font-family-mono);
+  --text-code-sm: var(--font-weight-regular) var(--font-size-xs)/var(--line-height-normal) var(--font-family-mono);
+}
+
+/* =================================================================
+   UTILITY CLASSES
+   ================================================================= */
+
+/* Font Weight Classes */
+.font-extralight { font-weight: var(--font-weight-extralight) !important; }
+.font-light { font-weight: var(--font-weight-light) !important; }
+.font-regular { font-weight: var(--font-weight-regular) !important; }
+.font-medium { font-weight: var(--font-weight-medium) !important; }
+.font-semibold { font-weight: var(--font-weight-semibold) !important; }
+.font-bold { font-weight: var(--font-weight-bold) !important; }
+.font-extrabold { font-weight: var(--font-weight-extrabold) !important; }
+
+/* Font Size Classes */
+.text-xs { font-size: var(--font-size-xs) !important; }
+.text-sm { font-size: var(--font-size-sm) !important; }
+.text-md { font-size: var(--font-size-md) !important; }
+.text-lg { font-size: var(--font-size-lg) !important; }
+.text-xl { font-size: var(--font-size-xl) !important; }
+.text-2xl { font-size: var(--font-size-2xl) !important; }
+.text-3xl { font-size: var(--font-size-3xl) !important; }
+.text-4xl { font-size: var(--font-size-4xl) !important; }
+.text-5xl { font-size: var(--font-size-5xl) !important; }
+.text-6xl { font-size: var(--font-size-6xl) !important; }
+.text-7xl { font-size: var(--font-size-7xl) !important; }
+.text-8xl { font-size: var(--font-size-8xl) !important; }
+.text-9xl { font-size: var(--font-size-9xl) !important; }
+
+/* Line Height Classes */
+.leading-none { line-height: var(--line-height-none) !important; }
+.leading-tight { line-height: var(--line-height-tight) !important; }
+.leading-snug { line-height: var(--line-height-snug) !important; }
+.leading-normal { line-height: var(--line-height-normal) !important; }
+.leading-relaxed { line-height: var(--line-height-relaxed) !important; }
+.leading-loose { line-height: var(--line-height-loose) !important; }
+
+/* Letter Spacing Classes */
+.tracking-tighter { letter-spacing: var(--letter-spacing-tighter) !important; }
+.tracking-tight { letter-spacing: var(--letter-spacing-tight) !important; }
+.tracking-normal { letter-spacing: var(--letter-spacing-normal) !important; }
+.tracking-wide { letter-spacing: var(--letter-spacing-wide) !important; }
+.tracking-wider { letter-spacing: var(--letter-spacing-wider) !important; }
+.tracking-widest { letter-spacing: var(--letter-spacing-widest) !important; }
+
+/* Text Hierarchy Classes */
+.display-1 { font: var(--text-display-1); letter-spacing: var(--letter-spacing-tight); }
+.display-2 { font: var(--text-display-2); letter-spacing: var(--letter-spacing-tight); }
+.display-3 { font: var(--text-display-3); letter-spacing: var(--letter-spacing-tight); }
+
+.heading-1 { font: var(--text-heading-1); }
+.heading-2 { font: var(--text-heading-2); }
+.heading-3 { font: var(--text-heading-3); }
+.heading-4 { font: var(--text-heading-4); }
+.heading-5 { font: var(--text-heading-5); }
+.heading-6 { font: var(--text-heading-6); }
+
+.body-xl { font: var(--text-body-xl); }
+.body-lg { font: var(--text-body-lg); }
+.body-md { font: var(--text-body-md); }
+.body-sm { font: var(--text-body-sm); }
+.body-xs { font: var(--text-body-xs); }
+
+.label-xl { font: var(--text-label-xl); letter-spacing: var(--letter-spacing-wide); }
+.label-lg { font: var(--text-label-lg); letter-spacing: var(--letter-spacing-wide); }
+.label-md { font: var(--text-label-md); letter-spacing: var(--letter-spacing-wide); }
+.label-sm { font: var(--text-label-sm); letter-spacing: var(--letter-spacing-wider); }
+
+.caption-lg { font: var(--text-caption-lg); }
+.caption-md { font: var(--text-caption-md); }
+
+.button-lg { font: var(--text-button-lg); letter-spacing: var(--letter-spacing-wide); }
+.button-md { font: var(--text-button-md); letter-spacing: var(--letter-spacing-wide); }
+.button-sm { font: var(--text-button-sm); letter-spacing: var(--letter-spacing-wide); }
+
+.code-lg { font: var(--text-code-lg); }
+.code-md { font: var(--text-code-md); }
+.code-sm { font: var(--text-code-sm); }
+
+/* Text Transform */
+.uppercase { text-transform: uppercase !important; }
+.lowercase { text-transform: lowercase !important; }
+.capitalize { text-transform: capitalize !important; }
+.normal-case { text-transform: none !important; }
+
+/* Text Alignment */
+.text-left { text-align: left !important; }
+.text-center { text-align: center !important; }
+.text-right { text-align: right !important; }
+.text-justify { text-align: justify !important; }
+
+/* Text Decoration */
+.underline { text-decoration: underline !important; }
+.line-through { text-decoration: line-through !important; }
+.no-underline { text-decoration: none !important; }
+
+/* Text Overflow */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-wrap { white-space: normal !important; }
+.text-nowrap { white-space: nowrap !important; }
+
+/* Font Smoothing */
+.antialiased {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.subpixel-antialiased {
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
+}
