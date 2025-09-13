@@ -1,7 +1,6 @@
 import { app } from 'electron';
 import { EventEmitter } from 'events';
 import * as bcrypt from 'bcryptjs';
-import * as argon2 from 'argon2';
 import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -13,13 +12,9 @@ import {
   AuthenticationCredentials,
   AuthenticationResult,
   AuthenticationError,
-  AuthErrorCode,
   DeviceInfo,
   SecurityPolicy,
-  SecurityAuditLog,
-  SecurityEvent,
   OfflineAuthData,
-  SecurityManagerEvents
 } from './types';
 import { SessionManager } from './SessionManager';
 import { LicenseValidator } from './LicenseValidator';
@@ -462,8 +457,8 @@ export class AuthenticationManager extends EventEmitter {
 
       const user: User = {
         id: userId,
-        username: userData.username!,
-        email: userData.email!,
+        username: userData.username || '',
+        email: userData.email || '',
         role: userData.role || 'viewer',
         permissions: userData.permissions || this.getDefaultPermissions(userData.role || 'viewer'),
         profile: userData.profile || {
@@ -724,7 +719,7 @@ export class AuthenticationManager extends EventEmitter {
     return user.securitySettings.mfaEnabled;
   }
 
-  private async createMFAChallenge(user: User): Promise<any> {
+  private async createMFAChallenge(user: User): Promise<Record<string, unknown>> {
     // MFA challenge implementation would go here
     // For now, return a mock challenge
     return {
@@ -824,7 +819,7 @@ export class AuthenticationManager extends EventEmitter {
     })).toString('base64');
   }
 
-  private verifyAccessToken(token: string): any {
+  private verifyAccessToken(token: string): Record<string, unknown> | null {
     try {
       const decoded = JSON.parse(Buffer.from(token, 'base64').toString());
       
@@ -838,7 +833,7 @@ export class AuthenticationManager extends EventEmitter {
     }
   }
 
-  private getDefaultPermissions(role: string): any[] {
+  private getDefaultPermissions(role: string): string[] {
     // Return default permissions based on role
     return [];
   }

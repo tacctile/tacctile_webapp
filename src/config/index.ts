@@ -19,7 +19,6 @@ import { HardwareCalibrationManager } from './HardwareCalibrationManager';
 import { WorkspaceLayoutManager } from './WorkspaceLayoutManager';
 import {
   ConfigurationSchema,
-  ConfigurationMetadata,
   ValidationResult,
   PlatformCapabilities
 } from './types';
@@ -199,7 +198,7 @@ export class ConfigurationSystem {
     return this.validator.validateConfiguration(config);
   }
 
-  public async validatePath(path: string, value: any): Promise<ValidationResult[]> {
+  public async validatePath(path: string, value: unknown): Promise<ValidationResult[]> {
     const config = await this.getConfiguration();
     return this.validator.validatePath(config, path, value);
   }
@@ -208,7 +207,7 @@ export class ConfigurationSystem {
   public async createBackup(name?: string): Promise<string> {
     const config = await this.getConfiguration();
     const metadata = this.configManager.getConnectionInfo ? 
-      this.configManager.getConnectionInfo() as any : 
+      this.configManager.getConnectionInfo() as Record<string, unknown> : 
       { version: '1.0.0', modified: new Date().toISOString() };
     
     const backup = await this.backupManager.createBackup(config, metadata, {
@@ -248,7 +247,7 @@ export class ConfigurationSystem {
     return this.preferenceManager;
   }
 
-  public async setUserPreference(path: string, value: any): Promise<void> {
+  public async setUserPreference(path: string, value: unknown): Promise<void> {
     const parts = path.split('.');
     const section = parts[0] as keyof ConfigurationSchema['userPreferences'];
     
@@ -272,7 +271,7 @@ export class ConfigurationSystem {
     return this.hardwareManager;
   }
 
-  public async addSensorCalibration(sensorId: string, calibrationData: any): Promise<void> {
+  public async addSensorCalibration(sensorId: string, calibrationData: Record<string, unknown>): Promise<void> {
     await this.hardwareManager.addSensorCalibration(sensorId, calibrationData);
   }
 
@@ -357,7 +356,7 @@ export class ConfigurationSystem {
     format?: 'json' | 'yaml';
   } = {}): Promise<string> {
     const config = await this.getConfiguration();
-    const exportData: any = {
+    const exportData: Record<string, unknown> = {
       metadata: {
         exportedAt: new Date().toISOString(),
         exportedBy: 'ConfigurationSystem',
@@ -503,7 +502,7 @@ export class ConfigurationSystem {
   // Private Methods
   private setupIntegrations(): void {
     // Set up cross-component communication
-    this.configManager.on('config:changed', (path: string, oldValue: any, newValue: any) => {
+    this.configManager.on('config:changed', (path: string, _oldValue: unknown, _newValue: unknown) => {
       console.log(`Configuration changed: ${path}`);
       
       // Trigger relevant manager updates
@@ -519,11 +518,11 @@ export class ConfigurationSystem {
 
   private setupEventHandlers(): void {
     // Configuration events
-    this.configManager.on('config:loaded', (config) => {
+    this.configManager.on('config:loaded', (_config) => {
       console.log('Configuration loaded');
     });
 
-    this.configManager.on('config:saved', (config) => {
+    this.configManager.on('config:saved', (_config) => {
       console.log('Configuration saved');
     });
 
@@ -536,7 +535,7 @@ export class ConfigurationSystem {
       console.log(`Configuration backup created: ${backup.name}`);
     });
 
-    this.backupManager.on('backup-restored', (info) => {
+    this.backupManager.on('backup-restored', (_info) => {
       console.log(`Configuration restored from backup`);
     });
 
@@ -601,7 +600,7 @@ export class ConfigurationSystem {
     };
   }
 
-  private countNestedProperties(obj: any): number {
+  private countNestedProperties(obj: Record<string, unknown>): number {
     let count = 0;
     for (const key in obj) {
       if (Object.prototype.hasOwnProperty.call(obj, key)) {

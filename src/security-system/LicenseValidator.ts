@@ -4,7 +4,6 @@ import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
-import * as jwt from 'jsonwebtoken';
 import { NodeRSA } from 'node-rsa';
 import {
   License,
@@ -12,7 +11,6 @@ import {
   LicenseTier,
   LicenseStatus,
   LicenseLimitation,
-  User
 } from './types';
 
 export interface LicenseValidationResult {
@@ -536,7 +534,7 @@ export class LicenseValidator extends EventEmitter {
     await this.makeHttpRequest('POST', deactivateUrl.toString(), requestData);
   }
 
-  private async makeHttpRequest(method: string, url: string, data?: any): Promise<any> {
+  private async makeHttpRequest(method: string, url: string, data?: Record<string, unknown>): Promise<Record<string, unknown>> {
     return new Promise((resolve, reject) => {
       const request = net.request({
         method,
@@ -589,7 +587,7 @@ export class LicenseValidator extends EventEmitter {
     });
   }
 
-  private parseLicenseResponse(licenseData: any): License {
+  private parseLicenseResponse(licenseData: Record<string, unknown>): License {
     return {
       id: licenseData.id,
       userId: licenseData.userId,
@@ -692,7 +690,7 @@ export class LicenseValidator extends EventEmitter {
     return crypto.createHash('sha256').update(machineInfo).digest('hex');
   }
 
-  private async getDeviceInfo(): Promise<any> {
+  private async getDeviceInfo(): Promise<Record<string, unknown>> {
     return {
       hostname: os.hostname(),
       platform: os.platform(),

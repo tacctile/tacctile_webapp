@@ -14,13 +14,8 @@ import {
   CommunicationChannel,
   ChannelType,
   ChannelStatus,
-  ChannelSecurity,
   ChannelConfiguration,
   ChannelPriority,
-  NetworkDevice,
-  ConnectionSecurity,
-  NetworkEvent,
-  NetworkEventType
 } from './types';
 
 export interface SecureCommunicationConfig {
@@ -42,7 +37,7 @@ export interface DeviceMessage {
   receiverId?: string; // for direct messages
   type: MessageType;
   priority: ChannelPriority;
-  payload: any;
+  payload: Record<string, unknown>;
   signature?: string;
   encrypted: boolean;
 }
@@ -289,7 +284,7 @@ export class SecureCommunicationManager extends EventEmitter {
   }
 
   // Device Connection Management
-  public async authenticateDevice(deviceId: string, credentials: any): Promise<boolean> {
+  public async authenticateDevice(deviceId: string, credentials: Record<string, unknown>): Promise<boolean> {
     const connection = this.connections.get(deviceId);
     if (!connection) return false;
 
@@ -375,7 +370,7 @@ export class SecureCommunicationManager extends EventEmitter {
     return decrypted;
   }
 
-  private async validateDeviceCredentials(deviceId: string, credentials: any): Promise<boolean> {
+  private async validateDeviceCredentials(deviceId: string, credentials: Record<string, unknown>): Promise<boolean> {
     // Integration point with authentication system
     // For now, basic validation
     return credentials && credentials.deviceId === deviceId && credentials.token;
@@ -391,7 +386,7 @@ export class SecureCommunicationManager extends EventEmitter {
       .digest();
     
     // This would be stored securely and distributed to channel participants
-    (channel as any)._encryptionKey = encryptedKey;
+    (channel as Record<string, unknown>)._encryptionKey = encryptedKey;
   }
 
   // Server Management
@@ -434,16 +429,16 @@ export class SecureCommunicationManager extends EventEmitter {
     }
   }
 
-  private verifyClient(info: any): boolean {
+  private verifyClient(info: Record<string, unknown>): boolean {
     // Implement client verification logic
-    const origin = info.origin;
-    const ip = info.req.connection.remoteAddress;
+    const _origin = info.origin;
+    const _ip = info.req.connection.remoteAddress;
     
     // Basic verification - can be enhanced with IP whitelisting, certificate validation, etc.
     return this.connections.size < this.configuration.maxConnections;
   }
 
-  private handleConnection(websocket: WebSocket, request: any): void {
+  private handleConnection(websocket: WebSocket, _request: Record<string, unknown>): void {
     const deviceId = crypto.randomUUID(); // Temporary ID until authentication
     
     const connection: ConnectionInfo = {
@@ -627,7 +622,8 @@ export class SecureCommunicationManager extends EventEmitter {
       this.messageQueue.set(deviceId, []);
     }
     
-    const queue = this.messageQueue.get(deviceId)!;
+    const queue = this.messageQueue.get(deviceId);
+    if (!queue) return;
     queue.push(message);
     
     // Limit queue size
@@ -724,8 +720,8 @@ export class SecureCommunicationManager extends EventEmitter {
 
   private async generateSelfSignedCertificate(): Promise<https.ServerOptions> {
     // Generate self-signed certificate for development/testing
-    const keyPath = path.join(this.certificatesPath, 'private-key.pem');
-    const certPath = path.join(this.certificatesPath, 'certificate.pem');
+    const _keyPath = path.join(this.certificatesPath, 'private-key.pem');
+    const _certPath = path.join(this.certificatesPath, 'certificate.pem');
 
     // In production, use proper certificate generation
     // For now, return empty options (will use HTTP instead of HTTPS)

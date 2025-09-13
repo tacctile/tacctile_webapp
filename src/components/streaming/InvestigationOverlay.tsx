@@ -95,7 +95,7 @@ interface InvestigationOverlayProps {
 
 export const InvestigationOverlay: React.FC<InvestigationOverlayProps> = ({
   data,
-  onDataUpdate,
+  onDataUpdate: _onDataUpdate,
   canvasWidth,
   canvasHeight
 }) => {

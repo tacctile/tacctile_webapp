@@ -10,7 +10,6 @@ import { EventEmitter } from 'events';
 import {
   IAbuseDetectionManager,
   AbuseDetectionSystem,
-  AbuseDetectionConfiguration,
   AbuseDetectionRule,
   AbuseAlert,
   AbuseAnalytics,
@@ -34,35 +33,19 @@ import {
   RecommendedAction,
   AbuseEvidence,
   SessionData,
-  UsageMetrics,
-  DeviceMetrics,
   NetworkMetrics,
   AbuseResponseActions,
   ImmediateResponseAction,
-  EscalatedResponseAction,
-  AutomatedResponseAction,
-  ManualResponseAction,
   LicenseProtectionEvent,
   ProtectionEventType,
   EventSeverity,
-  UsagePatternType,
-  IndicatorType,
   AnomalyAlgorithm,
-  PaymentRiskType,
-  AccountAbuseType,
-  DeviceFraudIndicatorType,
-  RuleOperator,
   ActionPriority,
   ImmediateActionType,
-  EscalatedActionType,
-  AutomatedActionType,
-  ManualActionType,
   ResponseTrigger,
   AbuseTypeStats,
   AbuseTrendData,
-  RiskDistribution,
-  AbuseRuleCondition,
-  AbuseRuleAction
+  RiskDistribution
 } from './types';
 
 export class AbuseDetectionManager extends EventEmitter implements IAbuseDetectionManager {
@@ -70,8 +53,8 @@ export class AbuseDetectionManager extends EventEmitter implements IAbuseDetecti
   private rules: Map<string, AbuseDetectionRule> = new Map();
   private alerts: Map<string, AbuseAlert> = new Map();
   private analytics: AbuseAnalytics;
-  private behaviorBaselines: Map<string, any> = new Map();
-  private modelVersions: Map<string, any> = new Map();
+  private behaviorBaselines: Map<string, Record<string, unknown>> = new Map();
+  private modelVersions: Map<string, Record<string, unknown>> = new Map();
   private initialized = false;
 
   constructor() {
@@ -394,7 +377,7 @@ export class AbuseDetectionManager extends EventEmitter implements IAbuseDetecti
     if (data.usageMetrics.concurrentSessions > config.maxSimultaneousUsers) {
       riskScore += 30;
       evidence.push({
-        type: 'usage_data' as any,
+        type: 'usage_data' as const,
         data: { concurrentSessions: data.usageMetrics.concurrentSessions, limit: config.maxSimultaneousUsers },
         timestamp: data.timestamp,
         source: 'usage_monitor',
@@ -407,7 +390,7 @@ export class AbuseDetectionManager extends EventEmitter implements IAbuseDetecti
     if (locationVariance > config.locationVarianceThreshold) {
       riskScore += 25;
       evidence.push({
-        type: 'location_data' as any,
+        type: 'location_data' as const,
         data: { variance: locationVariance, threshold: config.locationVarianceThreshold },
         timestamp: data.timestamp,
         source: 'location_tracker',
@@ -420,7 +403,7 @@ export class AbuseDetectionManager extends EventEmitter implements IAbuseDetecti
     if (deviceCount > config.maxDevicesPerLicense) {
       riskScore += 20;
       evidence.push({
-        type: 'device_data' as any,
+        type: 'device_data' as const,
         data: { deviceCount, limit: config.maxDevicesPerLicense },
         timestamp: data.timestamp,
         source: 'device_tracker',
@@ -463,7 +446,7 @@ export class AbuseDetectionManager extends EventEmitter implements IAbuseDetecti
       if (loginAnomalyScore > config.thresholds.dailyLogins) {
         riskScore += loginAnomalyScore * 0.3;
         evidence.push({
-          type: 'usage_data' as any,
+          type: 'usage_data' as const,
           data: { loginFrequency: data.usageMetrics.loginFrequency, baseline: baseline.loginFrequency },
           timestamp: data.timestamp,
           source: 'usage_analyzer',
@@ -478,7 +461,7 @@ export class AbuseDetectionManager extends EventEmitter implements IAbuseDetecti
       if (sessionDuration > baseline.averageSessionDuration * 3) {
         riskScore += 15;
         evidence.push({
-          type: 'usage_data' as any,
+          type: 'usage_data' as const,
           data: { sessionDuration, averageBaseline: baseline.averageSessionDuration },
           timestamp: data.timestamp,
           source: 'session_analyzer',
@@ -491,7 +474,7 @@ export class AbuseDetectionManager extends EventEmitter implements IAbuseDetecti
       if (apiCallRate > config.thresholds.apiCallsPerMinute) {
         riskScore += 20;
         evidence.push({
-          type: 'usage_data' as any,
+          type: 'usage_data' as const,
           data: { apiCallRate, threshold: config.thresholds.apiCallsPerMinute },
           timestamp: data.timestamp,
           source: 'api_monitor',
@@ -531,7 +514,7 @@ export class AbuseDetectionManager extends EventEmitter implements IAbuseDetecti
       flag.type === 'vm' || flag.type === 'emulator' && flag.detected)) {
       riskScore += 40;
       evidence.push({
-        type: 'device_data' as any,
+        type: 'device_data' as const,
         data: { securityFlags: data.deviceMetrics.securityFlags.filter(f => f.detected) },
         timestamp: data.timestamp,
         source: 'device_scanner',
@@ -543,7 +526,7 @@ export class AbuseDetectionManager extends EventEmitter implements IAbuseDetecti
     if (data.deviceMetrics.trustScore < config.deviceTrustScore.minTrustScore) {
       riskScore += 25;
       evidence.push({
-        type: 'device_data' as any,
+        type: 'device_data' as const,
         data: { trustScore: data.deviceMetrics.trustScore, minRequired: config.deviceTrustScore.minTrustScore },
         timestamp: data.timestamp,
         source: 'trust_calculator',
@@ -556,7 +539,7 @@ export class AbuseDetectionManager extends EventEmitter implements IAbuseDetecti
     if (recentActivations > config.activationRateLimit.maxPerHour) {
       riskScore += 35;
       evidence.push({
-        type: 'device_data' as any,
+        type: 'device_data' as const,
         data: { recentActivations, limit: config.activationRateLimit.maxPerHour },
         timestamp: data.timestamp,
         source: 'activation_tracker',
@@ -593,7 +576,7 @@ export class AbuseDetectionManager extends EventEmitter implements IAbuseDetecti
     if (config.paymentFraud.enabled && data.networkMetrics.reputation.riskLevel === 'critical') {
       riskScore += 30;
       evidence.push({
-        type: 'payment_data' as any,
+        type: 'payment_data' as const,
         data: { networkReputation: data.networkMetrics.reputation },
         timestamp: data.timestamp,
         source: 'payment_analyzer',
@@ -605,7 +588,7 @@ export class AbuseDetectionManager extends EventEmitter implements IAbuseDetecti
     if (data.networkMetrics.vpnDetected && data.networkMetrics.proxyDetected) {
       riskScore += 20;
       evidence.push({
-        type: 'network_data' as any,
+        type: 'network_data' as const,
         data: { vpn: data.networkMetrics.vpnDetected, proxy: data.networkMetrics.proxyDetected },
         timestamp: data.timestamp,
         source: 'network_analyzer',
@@ -634,12 +617,12 @@ export class AbuseDetectionManager extends EventEmitter implements IAbuseDetecti
     let riskScore = 0;
 
     // Check for bulk operations
-    const bulkOperations = data.usageMetrics.apiCalls.filter(call => call.callCount > 100);
+    const bulkOperations = data.usageMetrics.apiCalls.filter(call => (call.callCount as number) > 100);
     if (bulkOperations.length > 0) {
       riskScore += 15;
       evidence.push({
-        type: 'usage_data' as any,
-        data: { bulkOperations: bulkOperations.map(op => ({ endpoint: op.endpoint, count: op.callCount })) },
+        type: 'usage_data' as const,
+        data: { bulkOperations: bulkOperations.map(op => ({ endpoint: op.endpoint, count: op.callCount as number })) },
         timestamp: data.timestamp,
         source: 'api_monitor',
         confidence: 0.7
@@ -651,7 +634,7 @@ export class AbuseDetectionManager extends EventEmitter implements IAbuseDetecti
     if (activityScore > 70) {
       riskScore += activityScore * 0.2;
       evidence.push({
-        type: 'behavior_data' as any,
+        type: 'behavior_data' as const,
         data: { activityScore, activities: data.sessionData.activities.length },
         timestamp: data.timestamp,
         source: 'behavior_analyzer',
@@ -684,7 +667,7 @@ export class AbuseDetectionManager extends EventEmitter implements IAbuseDetecti
     if (sessionPatternScore > 60) {
       riskScore += sessionPatternScore * 0.25;
       evidence.push({
-        type: 'behavior_data' as any,
+        type: 'behavior_data' as const,
         data: { sessionPatternScore },
         timestamp: data.timestamp,
         source: 'pattern_analyzer',
@@ -697,7 +680,7 @@ export class AbuseDetectionManager extends EventEmitter implements IAbuseDetecti
     if (networkBehaviorScore > 50) {
       riskScore += networkBehaviorScore * 0.3;
       evidence.push({
-        type: 'network_data' as any,
+        type: 'network_data' as const,
         data: { networkBehaviorScore },
         timestamp: data.timestamp,
         source: 'network_behavior_analyzer',
@@ -722,7 +705,7 @@ export class AbuseDetectionManager extends EventEmitter implements IAbuseDetecti
   }
 
   // Helper methods
-  private aggregateDetectionResults(results: Partial<AbuseDetectionResult>[], data: AbuseDetectionData): AbuseDetectionResult {
+  private aggregateDetectionResults(results: Partial<AbuseDetectionResult>[], _data: AbuseDetectionData): AbuseDetectionResult {
     const detected = results.some(r => r.detected);
     const maxRiskScore = Math.max(...results.map(r => r.riskScore || 0));
     const highestSeverity = this.getHighestSeverity(results.map(r => r.severity || AbuseSeverity.LOW));
@@ -1101,32 +1084,34 @@ export class AbuseDetectionManager extends EventEmitter implements IAbuseDetecti
   }
 
   // Placeholder implementations for complex calculations
-  private async calculateLocationVariance(data: AbuseDetectionData): Promise<number> {
+  private async calculateLocationVariance(_data: AbuseDetectionData): Promise<number> {
     // In production, would calculate geographic variance between sessions
     return Math.random() * 200; // km
   }
 
-  private async getDeviceCountForUser(userId?: string): Promise<number> {
+  private async getDeviceCountForUser(_userId?: string): Promise<number> {
     // In production, would query device registry
     return Math.floor(Math.random() * 10) + 1;
   }
 
-  private async getRecentActivationsForDevice(deviceId?: string): Promise<number> {
+  private async getRecentActivationsForDevice(_deviceId?: string): Promise<number> {
     // In production, would query activation logs
     return Math.floor(Math.random() * 5);
   }
 
-  private detectLoginAnomalies(current: any, baseline: any): number {
+  private detectLoginAnomalies(current: Record<string, unknown>, baseline: Record<string, unknown>): number {
     // Simplified anomaly detection
-    const dailyDiff = Math.abs(current.daily - baseline.daily);
-    return Math.min(dailyDiff / baseline.daily * 100, 100);
+    const currentDaily = Number(current.daily) || 0;
+    const baselineDaily = Number(baseline.daily) || 1;
+    const dailyDiff = Math.abs(currentDaily - baselineDaily);
+    return Math.min(dailyDiff / baselineDaily * 100, 100);
   }
 
-  private calculateAPICallRate(apiCalls: any[]): number {
-    return apiCalls.reduce((sum, call) => sum + call.callCount, 0) / Math.max(apiCalls.length, 1);
+  private calculateAPICallRate(apiCalls: Record<string, unknown>[]): number {
+    return apiCalls.reduce((sum, call) => sum + (Number(call.callCount) || 0), 0) / Math.max(apiCalls.length, 1);
   }
 
-  private calculateActivityAnomalyScore(activities: any[]): number {
+  private calculateActivityAnomalyScore(activities: Record<string, unknown>[]): number {
     // Simplified activity scoring
     return Math.min(activities.length * 2, 100);
   }
@@ -1267,7 +1252,7 @@ export class AbuseDetectionManager extends EventEmitter implements IAbuseDetecti
     return { features, labels, weights };
   }
 
-  private async performModelTraining(features: number[][], labels: number[], weights: number[]): Promise<any> {
+  private async performModelTraining(_features: number[][], _labels: number[], _weights: number[]): Promise<Record<string, unknown>> {
     // Simplified model training simulation
     const accuracy = 0.85 + Math.random() * 0.1;
     const precision = 0.8 + Math.random() * 0.15;
@@ -1283,11 +1268,11 @@ export class AbuseDetectionManager extends EventEmitter implements IAbuseDetecti
     };
   }
 
-  private async blockRequest(data: AbuseDetectionData, parameters: any): Promise<void> {
+  private async blockRequest(data: AbuseDetectionData, parameters: Record<string, unknown>): Promise<void> {
     console.log(`Blocking request from ${data.sessionData.ipAddress}`, parameters);
   }
 
-  private async applyRateLimit(data: AbuseDetectionData, parameters: any): Promise<void> {
+  private async applyRateLimit(data: AbuseDetectionData, parameters: Record<string, unknown>): Promise<void> {
     console.log(`Applying rate limit to user ${data.userId}`, parameters);
   }
 
@@ -1317,7 +1302,7 @@ export class AbuseDetectionManager extends EventEmitter implements IAbuseDetecti
     this.emit('alert-created', { alert });
   }
 
-  private async temporarySuspension(data: AbuseDetectionData, parameters: any): Promise<void> {
+  private async temporarySuspension(data: AbuseDetectionData, parameters: Record<string, unknown>): Promise<void> {
     console.log(`Temporary suspension for user ${data.userId}`, parameters);
   }
 

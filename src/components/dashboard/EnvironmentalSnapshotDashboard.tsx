@@ -340,7 +340,7 @@ export const EnvironmentalSnapshotDashboard: React.FC<EnvironmentalSnapshotProps
                   {getInvestigationIcon(snapshot.investigationLevel)}
                   <Chip
                     label={`${snapshot.investigationScore}/100 - ${snapshot.investigationLevel.toUpperCase()}`}
-                    color={getInvestigationColor(snapshot.investigationLevel) as any}
+                    color={getInvestigationColor(snapshot.investigationLevel) as 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'}
                     size="large"
                     sx={{ fontSize: '1rem', padding: '8px 16px' }}
                   />

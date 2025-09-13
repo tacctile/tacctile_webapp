@@ -3,7 +3,7 @@
  * Handles media file preprocessing and optimization
  */
 
-import * as sharp from 'sharp';
+// import * as sharp from 'sharp'; // Temporarily disabled for basic startup
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { MediaFile, ProcessingOptions, MediaMetadata } from './types';

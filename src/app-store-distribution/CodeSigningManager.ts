@@ -426,7 +426,7 @@ export class CodeSigningManager extends EventEmitter {
   private async codesignApp(
     appPath: string,
     credentials: MacAppStoreCredentials,
-    _certificate?: CertificateInfo
+    ___certificate?: CertificateInfo
   ): Promise<ValidationResult> {
     return new Promise((resolve) => {
       const args = [

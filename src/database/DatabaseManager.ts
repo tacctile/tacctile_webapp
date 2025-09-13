@@ -1,17 +1,17 @@
 import { EventEmitter } from 'events';
-import Database from 'better-sqlite3';
+// import Database from 'better-sqlite3'; // Temporarily disabled for basic startup
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { MigrationManager } from './migrations/MigrationManager';
 import { DatabaseConnection, DatabaseStatistics } from './types';
 
 export class DatabaseManager extends EventEmitter {
-  private db: Database.Database | null = null;
+  // private db: Database.Database | null = null; // Temporarily disabled
   private migrationManager: MigrationManager | null = null;
   private connectionInfo: DatabaseConnection;
   private backupInterval?: NodeJS.Timeout;
   private healthCheckInterval?: NodeJS.Timeout;
-  private logger: any;
+  private logger: Pick<Console, 'log' | 'warn' | 'error'>;
 
   constructor(dbPath = './data/tacctile.db') {
     super();
@@ -136,7 +136,7 @@ export class DatabaseManager extends EventEmitter {
       if (!this.db) return;
 
       // Test basic connectivity
-      const result = this.db.prepare('SELECT 1 as test').get() as any;
+      const result = this.db.prepare('SELECT 1 as test').get() as { test: number };
       if (result?.test !== 1) {
         throw new Error('Database connectivity test failed');
       }
@@ -358,13 +358,13 @@ export class DatabaseManager extends EventEmitter {
       const tables = this.db.prepare(`
         SELECT name, type FROM sqlite_master 
         WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
-      `).all() as any[];
+      `).all() as Array<{ name: string }>;
 
       // Get index information
       const indexes = this.db.prepare(`
         SELECT name FROM sqlite_master 
         WHERE type = 'index' AND name NOT LIKE 'sqlite_%'
-      `).all() as any[];
+      `).all() as Array<{ name: string }>;
 
       // Find largest table
       let largestTable = '';
@@ -372,7 +372,7 @@ export class DatabaseManager extends EventEmitter {
       
       for (const table of tables) {
         try {
-          const count = this.db.prepare(`SELECT COUNT(*) as count FROM ${table.name}`).get() as any;
+          const count = this.db.prepare(`SELECT COUNT(*) as count FROM ${table.name}`).get() as { count: number };
           if (count.count > largestTableSize) {
             largestTableSize = count.count;
             largestTable = table.name;

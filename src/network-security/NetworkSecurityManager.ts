@@ -31,8 +31,6 @@ import {
   NetworkEvent,
   NetworkEventType,
   MitigationAction,
-  SecurityRule,
-  SecurityRuleType
 } from './types';
 
 export class NetworkSecurityManager extends EventEmitter {
@@ -91,7 +89,7 @@ export class NetworkSecurityManager extends EventEmitter {
       id: device.id || crypto.randomUUID(),
       name: device.name || `Unknown Device (${device.ipAddress})`,
       type: device.type || DeviceType.UNKNOWN,
-      ipAddress: device.ipAddress!,
+      ipAddress: device.ipAddress || 'unknown',
       macAddress: device.macAddress || '',
       port: device.port,
       status: DeviceStatus.CONNECTING,
@@ -604,7 +602,7 @@ export class NetworkSecurityManager extends EventEmitter {
     this.rateLimiters.set(`throttle_${ipAddress}`, limiter);
   }
 
-  private async discoverNetworkDevices(networkRange?: string): Promise<NetworkDevice[]> {
+  private async discoverNetworkDevices(_networkRange?: string): Promise<NetworkDevice[]> {
     // Integration with existing NetworkScanner
     return Array.from(this.devices.values());
   }
@@ -690,7 +688,7 @@ export class NetworkSecurityManager extends EventEmitter {
 
   private getUptime(): number {
     // Return uptime in milliseconds
-    return Date.now() - (global as any).startTime || 0;
+    return Date.now() - (global as Record<string, unknown>).startTime || 0;
   }
 
   private async initializeDefaultFirewallRules(): Promise<void> {

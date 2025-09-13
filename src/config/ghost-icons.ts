@@ -331,7 +331,7 @@ export const GhostIcons = {
 export function getGhostIcon(category: keyof typeof GhostIcons, name: string) {
   const categoryIcons = GhostIcons[category];
   if (categoryIcons && name in categoryIcons) {
-    return (categoryIcons as any)[name];
+    return (categoryIcons as Record<string, string>)[name];
   }
   return null;
 }

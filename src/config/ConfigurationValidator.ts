@@ -782,7 +782,7 @@ export class ConfigurationValidator {
     return results;
   }
 
-  private windowsOverlap(window1: any, window2: any): boolean {
+  private windowsOverlap(window1: { bounds: { x: number; y: number; width: number; height: number } }, window2: { bounds: { x: number; y: number; width: number; height: number } }): boolean {
     const w1 = window1.bounds;
     const w2 = window2.bounds;
     

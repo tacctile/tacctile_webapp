@@ -28,8 +28,6 @@ import {
   NotificationSettings,
   EnterpriseResource,
   EnterpriseAction,
-  PermissionCondition,
-  PermissionScope,
   SSOConfiguration,
   DirectoryIntegration,
   UserProvisioningSettings,
@@ -517,14 +515,14 @@ export class EnterpriseAccountManager extends EventEmitter implements IEnterpris
       userManagement: {
         singleSignOn: {
           enabled: false,
-          provider: 'saml' as any,
+          provider: 'saml' as const,
           configuration: {},
           domainRestriction: [],
           enforceSSO: false
         } as SSOConfiguration,
         directoryIntegration: {
           enabled: false,
-          provider: 'ldap' as any,
+          provider: 'ldap' as const,
           syncInterval: 3600000,
           syncAttributes: [],
           configuration: {}
@@ -560,7 +558,7 @@ export class EnterpriseAccountManager extends EventEmitter implements IEnterpris
       integrations: {
         siem: {
           enabled: false,
-          provider: 'splunk' as any,
+          provider: 'splunk' as const,
           configuration: {},
           eventTypes: [],
           batchSize: 100,
@@ -568,15 +566,15 @@ export class EnterpriseAccountManager extends EventEmitter implements IEnterpris
         },
         ticketing: {
           enabled: false,
-          provider: 'jira' as any,
+          provider: 'jira' as const,
           configuration: {},
           autoCreateTickets: false,
-          severityMapping: {} as any,
+          severityMapping: {} as Record<string, unknown>,
           assignmentRules: []
         },
         mdm: {
           enabled: false,
-          provider: 'intune' as any,
+          provider: 'intune' as const,
           configuration: {},
           syncDevices: false,
           enforcePolicies: false,
@@ -584,7 +582,7 @@ export class EnterpriseAccountManager extends EventEmitter implements IEnterpris
         },
         identity: {
           enabled: false,
-          provider: 'azure_ad' as any,
+          provider: 'azure_ad' as const,
           configuration: {},
           syncUsers: false,
           syncGroups: false,
@@ -592,7 +590,7 @@ export class EnterpriseAccountManager extends EventEmitter implements IEnterpris
         },
         analytics: {
           enabled: false,
-          provider: 'google_analytics' as any,
+          provider: 'google_analytics' as const,
           configuration: {},
           trackEvents: [],
           customDimensions: {}
@@ -639,28 +637,28 @@ export class EnterpriseAccountManager extends EventEmitter implements IEnterpris
         purchaseOrderRequired: false
       },
       paymentMethod: {
-        type: 'invoice' as any,
+        type: 'invoice' as const,
         details: {},
         isDefault: true,
         isActive: true
       },
       invoicing: {
-        frequency: 'monthly' as any,
-        terms: 'net_30' as any,
-        format: 'pdf' as any,
+        frequency: 'monthly' as const,
+        terms: 'net_30' as const,
+        format: 'pdf' as const,
         delivery: {
-          method: 'email' as any,
+          method: 'email' as const,
           recipients: []
         },
         customFields: []
       },
       usage: {
         enabled: true,
-        granularity: 'daily' as any,
+        granularity: 'daily' as const,
         metrics: [],
         reporting: {
           enabled: true,
-          frequency: 'monthly' as any,
+          frequency: 'monthly' as const,
           recipients: [],
           includeCosts: true,
           includeForecasts: false,
@@ -711,7 +709,7 @@ export class EnterpriseAccountManager extends EventEmitter implements IEnterpris
         },
         riskBasedAccess: {
           enabled: true,
-          riskThreshold: 'medium' as any,
+          riskThreshold: 'medium' as const,
           requireMFAOnHighRisk: true,
           blockOnCriticalRisk: true,
           adaptiveAuthEnabled: true,
@@ -720,7 +718,7 @@ export class EnterpriseAccountManager extends EventEmitter implements IEnterpris
       },
       auditLogging: {
         enabled: true,
-        level: 'standard' as any,
+        level: 'standard' as const,
         retentionDays: 365,
         externalLogging: false,
         realTimeAlerts: true,
@@ -728,7 +726,7 @@ export class EnterpriseAccountManager extends EventEmitter implements IEnterpris
       },
       threatDetection: {
         enabled: true,
-        sensitivity: 'medium' as any,
+        sensitivity: 'medium' as const,
         realTimeMonitoring: true,
         automaticResponse: true,
         mlBasedDetection: false,
@@ -743,7 +741,7 @@ export class EnterpriseAccountManager extends EventEmitter implements IEnterpris
       framework: [],
       reporting: {
         enabled: false,
-        frequency: 'quarterly' as any,
+        frequency: 'quarterly' as const,
         recipients: [],
         includeDetails: true,
         automaticGeneration: false,
@@ -792,7 +790,7 @@ export class EnterpriseAccountManager extends EventEmitter implements IEnterpris
         legalHolds: [],
         archiving: {
           enabled: false,
-          provider: 'local_storage' as any,
+          provider: 'local_storage' as const,
           configuration: {},
           compression: false,
           encryption: false,
@@ -825,27 +823,27 @@ export class EnterpriseAccountManager extends EventEmitter implements IEnterpris
       retention: 365,
       events: [],
       storage: {
-        location: 'local' as any,
+        location: 'local' as const,
         encryption: true,
         compression: true,
         integrity: {
           enabled: true,
-          algorithm: 'sha256' as any,
+          algorithm: 'sha256' as const,
           verification: {
-            frequency: 'daily' as any,
+            frequency: 'daily' as const,
             alertOnFailure: true,
             automaticRepair: false
           }
         },
         backup: {
           enabled: true,
-          frequency: 'daily' as any,
+          frequency: 'daily' as const,
           retention: 30,
           offsite: false,
           encryption: true,
           testing: {
             enabled: false,
-            frequency: 'monthly' as any,
+            frequency: 'monthly' as const,
             automated: false,
             reportResults: false
           }
@@ -853,7 +851,7 @@ export class EnterpriseAccountManager extends EventEmitter implements IEnterpris
       },
       reporting: {
         enabled: false,
-        frequency: 'monthly' as any,
+        frequency: 'monthly' as const,
         recipients: [],
         includeRawLogs: false,
         customQueries: []
@@ -863,7 +861,7 @@ export class EnterpriseAccountManager extends EventEmitter implements IEnterpris
         mapping: [],
         attestation: {
           enabled: false,
-          frequency: 'quarterly' as any,
+          frequency: 'quarterly' as const,
           attestors: [],
           requirements: []
         },
@@ -874,7 +872,7 @@ export class EnterpriseAccountManager extends EventEmitter implements IEnterpris
           evidence: {
             autoCollection: false,
             repository: {
-              type: 'local' as any,
+              type: 'local' as const,
               configuration: {},
               encryption: false,
               accessControls: []
@@ -1059,7 +1057,7 @@ export class EnterpriseAccountManager extends EventEmitter implements IEnterpris
     console.log(`Suspending all sessions for account: ${accountId}`);
   }
 
-  private async notifyAdmins(accountId: string, notification: any): Promise<void> {
+  private async notifyAdmins(accountId: string, notification: Record<string, unknown>): Promise<void> {
     const account = this.accounts.get(accountId);
     if (!account) return;
 
@@ -1084,7 +1082,7 @@ export class EnterpriseAccountManager extends EventEmitter implements IEnterpris
     console.log(`[${fullEvent.severity.toUpperCase()}] ${fullEvent.message}`, fullEvent.details);
   }
 
-  private async checkSeatTransferEligibility(accountId: string, fromUserId: string, toUserId: string): Promise<void> {
+  private async checkSeatTransferEligibility(accountId: string, _fromUserId: string, _toUserId: string): Promise<void> {
     const account = this.accounts.get(accountId);
     if (!account) {
       throw new Error(`Account not found: ${accountId}`);

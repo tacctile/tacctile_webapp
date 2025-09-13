@@ -72,7 +72,10 @@ export class SessionManager extends EventEmitter {
       if (!this.userSessions.has(user.id)) {
         this.userSessions.set(user.id, new Set());
       }
-      this.userSessions.get(user.id)!.add(sessionId);
+      const userSessions = this.userSessions.get(user.id);
+      if (userSessions) {
+        userSessions.add(sessionId);
+      }
 
       await this.saveSessions();
 
@@ -429,7 +432,10 @@ export class SessionManager extends EventEmitter {
           if (!this.userSessions.has(session.userId)) {
             this.userSessions.set(session.userId, new Set());
           }
-          this.userSessions.get(session.userId)!.add(session.id);
+          const userSessions = this.userSessions.get(session.userId);
+          if (userSessions) {
+            userSessions.add(session.id);
+          }
         }
       }
 

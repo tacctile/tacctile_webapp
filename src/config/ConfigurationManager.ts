@@ -981,11 +981,11 @@ export class ConfigurationManager extends EventEmitter {
     }
   }
 
-  private getNestedValue(obj: any, path: string): any {
+  private getNestedValue(obj: Record<string, unknown>, path: string): unknown {
     return path.split('.').reduce((current, key) => current?.[key], obj);
   }
 
-  private setNestedValue(obj: any, path: string, value: any): void {
+  private setNestedValue(obj: Record<string, unknown>, path: string, value: unknown): void {
     const keys = path.split('.');
     const lastKey = keys.pop();
     if (!lastKey) return;
@@ -998,7 +998,7 @@ export class ConfigurationManager extends EventEmitter {
     target[lastKey] = value;
   }
 
-  private mergeConfiguration(target: any, source: any): any {
+  private mergeConfiguration(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
     const result = JSON.parse(JSON.stringify(target));
     
     for (const key in source) {
@@ -1012,7 +1012,7 @@ export class ConfigurationManager extends EventEmitter {
     return result;
   }
 
-  private calculateDiff(oldConfig: any, newConfig: any, basePath = ''): ConfigurationDiff {
+  private calculateDiff(oldConfig: Record<string, unknown>, newConfig: Record<string, unknown>, basePath = ''): ConfigurationDiff {
     const diff: ConfigurationDiff = {
       added: [],
       modified: [],

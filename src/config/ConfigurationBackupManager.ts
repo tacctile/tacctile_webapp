@@ -315,22 +315,22 @@ export class ConfigurationBackupManager extends EventEmitter {
         if (filters.dateRange) {
           filteredBackups = filteredBackups.filter(b => {
             const date = new Date(b.created);
-            return date >= filters.dateRange!.start && date <= filters.dateRange!.end;
+            return filters.dateRange && date >= filters.dateRange.start && date <= filters.dateRange.end;
           });
         }
         
         if (filters.tags && filters.tags.length > 0) {
           filteredBackups = filteredBackups.filter(b =>
-            filters.tags!.some(tag => b.metadata.tags.includes(tag))
+            filters.tags?.some(tag => b.metadata.tags.includes(tag)) ?? false
           );
         }
         
         if (filters.minSize !== undefined) {
-          filteredBackups = filteredBackups.filter(b => b.size >= filters.minSize!);
+          filteredBackups = filteredBackups.filter(b => b.size >= (filters.minSize ?? 0));
         }
         
         if (filters.maxSize !== undefined) {
-          filteredBackups = filteredBackups.filter(b => b.size <= filters.maxSize!);
+          filteredBackups = filteredBackups.filter(b => b.size <= (filters.maxSize ?? Number.MAX_SAFE_INTEGER));
         }
       }
       
@@ -611,7 +611,7 @@ export class ConfigurationBackupManager extends EventEmitter {
     return filePath;
   }
 
-  private async saveBackupToCloud(backup: ConfigurationBackup, _data: string): Promise<void> {
+  private async saveBackupToCloud(backup: ConfigurationBackup): Promise<void> {
     // Cloud backup implementation would go here
     // This is a placeholder for cloud storage integration
     console.log(`Cloud backup would be saved: ${backup.id}`);
@@ -663,7 +663,7 @@ export class ConfigurationBackupManager extends EventEmitter {
     return [];
   }
 
-  private async loadCloudBackup(backupId: string): Promise<{ backup: ConfigurationBackup; data: string }> {
+  private async loadCloudBackup(): Promise<{ backup: ConfigurationBackup; data: string }> {
     // Cloud backup loading implementation would go here
     throw new Error('Cloud backup not implemented');
   }
@@ -676,7 +676,7 @@ export class ConfigurationBackupManager extends EventEmitter {
   private encryptData(data: string): string {
     if (!this.encryptionKey) throw new Error('Encryption key not set');
     
-    const iv = crypto.randomBytes(16);
+    crypto.randomBytes(16);
     const cipher = crypto.createCipher('aes-256-gcm', this.encryptionKey);
     
     let encrypted = cipher.update(data, 'utf8', 'hex');
@@ -702,9 +702,10 @@ export class ConfigurationBackupManager extends EventEmitter {
     return crypto.createHash('sha256').update(data, 'utf8').digest('hex');
   }
 
-  private deleteNestedPath(obj: any, path: string): void {
+  private deleteNestedPath(obj: Record<string, unknown>, path: string): void {
     const keys = path.split('.');
-    const lastKey = keys.pop()!;
+    const lastKey = keys.pop();
+    if (!lastKey) return;
     const target = keys.reduce((current, key) => current?.[key], obj);
     if (target && lastKey in target) {
       delete target[lastKey];
@@ -728,7 +729,7 @@ export class ConfigurationBackupManager extends EventEmitter {
 
   private setupScheduledBackups(): void {
     // Clear existing scheduled jobs
-    for (const [id, timeout] of this.scheduledJobs) {
+    for (const [, timeout] of this.scheduledJobs) {
       clearTimeout(timeout);
     }
     this.scheduledJobs.clear();
@@ -753,7 +754,7 @@ export class ConfigurationBackupManager extends EventEmitter {
     }
     
     // Clear scheduled jobs
-    for (const [id, timeout] of this.scheduledJobs) {
+    for (const [, timeout] of this.scheduledJobs) {
       clearTimeout(timeout);
     }
     this.scheduledJobs.clear();

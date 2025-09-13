@@ -33,7 +33,7 @@ export const Material3Provider: React.FC<Material3ProviderProps> = ({
     setTheme(newTheme);
     
     // Apply additional custom properties
-    const root = document.documentElement;
+    // const root = document.documentElement;
     
     // Add color tokens
     const colorTokens = generateColorTokens();

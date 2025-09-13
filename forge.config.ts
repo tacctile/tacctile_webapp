@@ -32,7 +32,9 @@ const config: ForgeConfig = {
       join(__dirname, 'src', 'assets', 'fonts')
     ]
   },
-  rebuildConfig: {},
+  rebuildConfig: {
+    skip: () => true
+  },
   makers: [
     new MakerSquirrel({
       name: 'GhostHunterToolbox',

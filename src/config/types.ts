@@ -310,7 +310,7 @@ export interface AnalysisToolDefaults {
   algorithms: {
     [algorithmName: string]: {
       enabled: boolean;
-      parameters: Record<string, any>;
+      parameters: Record<string, unknown>;
       priority: number;
       timeout: number;
       memoryLimit: number;
@@ -325,7 +325,7 @@ export interface AnalysisToolDefaults {
       enabled: boolean;
       threshold: number;
       sensitivity: number;
-      parameters: Record<string, any>;
+      parameters: Record<string, unknown>;
     };
   };
   processing: {
@@ -426,7 +426,7 @@ export interface ExportToolDefaults {
       enabled: boolean;
       compression: number;
       quality: number;
-      parameters: Record<string, any>;
+      parameters: Record<string, unknown>;
     };
   };
   naming: {
@@ -527,8 +527,8 @@ export interface WindowLayout {
   children: string[];
   zIndex: number;
   opacity: number;
-  content: Record<string, any>;
-  settings: Record<string, any>;
+  content: Record<string, unknown>;
+  settings: Record<string, unknown>;
 }
 
 export interface PanelLayout {
@@ -552,8 +552,8 @@ export interface PanelLayout {
     position: number;
     panels: string[];
   };
-  content: Record<string, any>;
-  settings: Record<string, any>;
+  content: Record<string, unknown>;
+  settings: Record<string, unknown>;
 }
 
 export interface TabLayout {
@@ -563,8 +563,8 @@ export interface TabLayout {
   closable: boolean;
   active: boolean;
   pinned: boolean;
-  content: Record<string, any>;
-  settings: Record<string, any>;
+  content: Record<string, unknown>;
+  settings: Record<string, unknown>;
 }
 
 export interface ToolbarLayout {
@@ -598,14 +598,14 @@ export interface ToolbarItemLayout {
   order: number;
   group?: string;
   shortcut?: string;
-  style?: Record<string, any>;
+  style?: Record<string, unknown>;
 }
 
 export interface MenuLayout {
   id: string;
   type: 'main' | 'context' | 'popup';
   items: MenuItemLayout[];
-  style: Record<string, any>;
+  style: Record<string, unknown>;
 }
 
 export interface MenuItemLayout {
@@ -909,8 +909,8 @@ export interface ValidationRule {
   type: 'required' | 'type' | 'range' | 'enum' | 'regex' | 'custom';
   message: string;
   severity: 'error' | 'warning' | 'info';
-  validator?: (value: any, config: any) => boolean;
-  parameters?: Record<string, any>;
+  validator?: (value: unknown, config: Record<string, unknown>) => boolean;
+  parameters?: Record<string, unknown>;
 }
 
 export interface ConfigurationBackup {
@@ -933,9 +933,9 @@ export interface ConfigurationMigration {
   toVersion: string;
   description: string;
   reversible: boolean;
-  migrate: (config: any) => any;
-  rollback?: (config: any) => any;
-  validate?: (config: any) => ValidationResult[];
+  migrate: (config: Record<string, unknown>) => Record<string, unknown>;
+  rollback?: (config: Record<string, unknown>) => Record<string, unknown>;
+  validate?: (config: Record<string, unknown>) => ValidationResult[];
 }
 
 export interface ValidationResult {
@@ -943,14 +943,14 @@ export interface ValidationResult {
   message: string;
   severity: 'error' | 'warning' | 'info';
   code: string;
-  value?: any;
+  value?: unknown;
   suggestion?: string;
 }
 
 export interface ConfigurationDiff {
-  added: Array<{ path: string; value: any }>;
-  modified: Array<{ path: string; oldValue: any; newValue: any }>;
-  removed: Array<{ path: string; value: any }>;
+  added: Array<{ path: string; value: unknown }>;
+  modified: Array<{ path: string; oldValue: unknown; newValue: unknown }>;
+  removed: Array<{ path: string; value: unknown }>;
 }
 
 export interface PlatformCapabilities {
@@ -977,7 +977,7 @@ export interface PlatformCapabilities {
 export interface ConfigurationEvents {
   'config:loaded': (config: ConfigurationSchema) => void;
   'config:saved': (config: ConfigurationSchema) => void;
-  'config:changed': (path: string, oldValue: any, newValue: any) => void;
+  'config:changed': (path: string, oldValue: unknown, newValue: unknown) => void;
   'config:validated': (results: ValidationResult[]) => void;
   'config:backup-created': (backup: ConfigurationBackup) => void;
   'config:backup-restored': (backup: ConfigurationBackup) => void;

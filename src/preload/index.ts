@@ -18,8 +18,8 @@ interface GhostHunterAPI {
   // File operations
   file: {
     selectDirectory: (title?: string) => Promise<string | null>;
-    selectFile: (options?: any) => Promise<string[] | null>;
-    saveFile: (options?: any) => Promise<string | null>;
+    selectFile: (options?: Record<string, unknown>) => Promise<string[] | null>;
+    saveFile: (options?: Record<string, unknown>) => Promise<string | null>;
     readFile: (path: string) => Promise<string>;
     writeFile: (path: string, content: string) => Promise<void>;
     exists: (path: string) => Promise<boolean>;
@@ -38,17 +38,17 @@ interface GhostHunterAPI {
   hardware: {
     getSerialPorts: () => Promise<string[]>;
     checkBluetoothStatus: () => Promise<boolean>;
-    getBluetoothDevices: () => Promise<any[]>;
+    getBluetoothDevices: () => Promise<Record<string, unknown>[]>;
   };
   
   // System
   system: {
-    getInfo: () => Promise<any>;
-    getNetworkInterfaces: () => Promise<any>;
-    getDisplays: () => Promise<any>;
-    showNotification: (options: any) => Promise<void>;
+    getInfo: () => Promise<Record<string, unknown>>;
+    getNetworkInterfaces: () => Promise<Record<string, unknown>>;
+    getDisplays: () => Promise<Record<string, unknown>>;
+    showNotification: (options: Record<string, unknown>) => Promise<void>;
     showErrorDialog: (title: string, content: string) => Promise<void>;
-    showMessageDialog: (options: any) => Promise<any>;
+    showMessageDialog: (options: Record<string, unknown>) => Promise<Record<string, unknown>>;
   };
   
   // Investigation
@@ -72,15 +72,15 @@ interface GhostHunterAPI {
   
   // Settings
   settings: {
-    get: (key: string) => Promise<any>;
-    set: (key: string, value: any) => Promise<void>;
-    getAll: () => Promise<any>;
+    get: (key: string) => Promise<unknown>;
+    set: (key: string, value: unknown) => Promise<void>;
+    getAll: () => Promise<Record<string, unknown>>;
   };
   
   // Events
-  on: (channel: string, callback: (...args: any[]) => void) => void;
-  off: (channel: string, callback: (...args: any[]) => void) => void;
-  once: (channel: string, callback: (...args: any[]) => void) => void;
+  on: (channel: string, callback: (...args: unknown[]) => void) => void;
+  off: (channel: string, callback: (...args: unknown[]) => void) => void;
+  once: (channel: string, callback: (...args: unknown[]) => void) => void;
 }
 
 // Platform API
@@ -95,9 +95,9 @@ const platformAPI = {
 const fileAPI = {
   selectDirectory: (title?: string) => 
     ipcRenderer.invoke('file:selectDirectory', title),
-  selectFile: (options?: any) => 
+  selectFile: (options?: Record<string, unknown>) => 
     ipcRenderer.invoke('file:selectFile', options),
-  saveFile: (options?: any) => 
+  saveFile: (options?: Record<string, unknown>) => 
     ipcRenderer.invoke('file:saveFile', options),
   readFile: (path: string) => 
     ipcRenderer.invoke('file:read', path),
@@ -139,11 +139,11 @@ const systemAPI = {
     ipcRenderer.invoke('system:getNetworkInterfaces'),
   getDisplays: () => 
     ipcRenderer.invoke('system:getDisplays'),
-  showNotification: (options: any) => 
+  showNotification: (options: Record<string, unknown>) => 
     ipcRenderer.invoke('system:showNotification', options),
   showErrorDialog: (title: string, content: string) => 
     ipcRenderer.invoke('system:showErrorDialog', title, content),
-  showMessageDialog: (options: any) => 
+  showMessageDialog: (options: Record<string, unknown>) => 
     ipcRenderer.invoke('system:showMessageDialog', options)
 };
 
@@ -170,7 +170,7 @@ const recordingAPI = {
 // Settings API
 const settingsAPI = {
   get: (key: string) => ipcRenderer.invoke('settings:get', key),
-  set: (key: string, value: any) => ipcRenderer.invoke('settings:set', key, value),
+  set: (key: string, value: unknown) => ipcRenderer.invoke('settings:set', key, value),
   getAll: () => ipcRenderer.invoke('settings:getAll')
 };
 
@@ -196,20 +196,20 @@ const validChannels = [
 ];
 
 const eventAPI = {
-  on: (channel: string, callback: (...args: any[]) => void) => {
+  on: (channel: string, callback: (...args: unknown[]) => void) => {
     if (validChannels.includes(channel)) {
-      const subscription = (_event: any, ...args: any[]) => callback(...args);
+      const subscription = (_event: unknown, ...args: unknown[]) => callback(...args);
       ipcRenderer.on(channel, subscription);
     }
   },
   
-  off: (channel: string, callback: (...args: any[]) => void) => {
+  off: (channel: string, callback: (...args: unknown[]) => void) => {
     if (validChannels.includes(channel)) {
-      ipcRenderer.removeListener(channel, callback as any);
+      ipcRenderer.removeListener(channel, callback as (...args: unknown[]) => void);
     }
   },
   
-  once: (channel: string, callback: (...args: any[]) => void) => {
+  once: (channel: string, callback: (...args: unknown[]) => void) => {
     if (validChannels.includes(channel)) {
       ipcRenderer.once(channel, (_event, ...args) => callback(...args));
     }

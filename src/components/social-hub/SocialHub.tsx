@@ -62,7 +62,7 @@ export const SocialHub: React.FC<SocialHubProps> = ({ className }) => {
   };
   
   // Demo function to get credentials - in real app this would be a proper form/OAuth flow
-  const getCredentialsForPlatform = async (platform: string): Promise<any> => {
+  const getCredentialsForPlatform = async (platform: string): Promise<Record<string, unknown>> => {
     // This is a placeholder - in a real app you'd open a proper credential input form
     return new Promise((resolve) => {
       const mock = true; // Set to false to actually prompt for credentials

@@ -16,7 +16,6 @@ import {
   StorageInfo,
   DisplayInfo,
   BIOSInfo,
-  CPUCache,
   NetworkInterface,
   DriveInfo,
   Display
@@ -434,7 +433,7 @@ export class HardwareFingerprintManager extends EventEmitter {
     }
   }
 
-  private createFingerprintData(components: any): string {
+  private createFingerprintData(components: Record<string, unknown>): string {
     // Create a deterministic fingerprint from hardware components
     const criticalData = [
       components.machineIdValue,
@@ -470,7 +469,7 @@ export class HardwareFingerprintManager extends EventEmitter {
     return crypto.createHash('md5').update(data, 'utf8').digest('hex');
   }
 
-  private calculateConfidence(fingerprintData: any): number {
+  private calculateConfidence(fingerprintData: Record<string, unknown>): number {
     let confidence = 0;
     const maxConfidence = 100;
 

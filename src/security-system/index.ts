@@ -12,9 +12,7 @@ import {
   UserSession,
   AuthenticationCredentials,
   AuthenticationResult,
-  SecurityPolicy,
   SecurityMetrics,
-  SecurityEvent,
   License,
   EncryptedData,
   SecurityAuditLog
@@ -193,7 +191,7 @@ export class SecuritySystem extends EventEmitter {
     return result.valid;
   }
 
-  public async getLicenseInfo(userId: string): Promise<any> {
+  public async getLicenseInfo(userId: string): Promise<Record<string, unknown>> {
     this.ensureInitialized();
     return this.licenseValidator.getLicenseInfo(userId);
   }
@@ -273,10 +271,10 @@ export class SecuritySystem extends EventEmitter {
     userId: string,
     action: string,
     result: 'success' | 'failure' | 'blocked' | 'warning',
-    details: Record<string, any> = {}
+    details: Record<string, unknown> = {}
   ): Promise<void> {
     this.ensureInitialized();
-    await this.auditLogger.log(action as any, userId, result, details, userId);
+    await this.auditLogger.log(action as string, userId, result, details, userId);
   }
 
   public async getUserAuditLogs(userId: string, limit = 100): Promise<SecurityAuditLog[]> {
@@ -289,7 +287,7 @@ export class SecuritySystem extends EventEmitter {
     return await this.auditLogger.getSecurityEvents(undefined, hours);
   }
 
-  public async generateComplianceReport(startDate: Date, endDate: Date): Promise<any> {
+  public async generateComplianceReport(startDate: Date, endDate: Date): Promise<Record<string, unknown>> {
     this.ensureInitialized();
     return await this.auditLogger.generateComplianceReport(startDate, endDate);
   }
@@ -367,7 +365,7 @@ export class SecuritySystem extends EventEmitter {
       this.updateSecurityMetrics();
     });
 
-    this.authManager.on('authentication-failed', (username: string, error: any) => {
+    this.authManager.on('authentication-failed', (username: string, error: Record<string, unknown>) => {
       this.emit('authentication-failed', username, error);
       this.updateSecurityMetrics();
     });
@@ -414,7 +412,7 @@ export class SecuritySystem extends EventEmitter {
     });
 
     // Forward events from NetworkSecuritySystem
-    this.networkSecurity.on('threat-detected', (threat: any) => {
+    this.networkSecurity.on('threat-detected', (threat: Record<string, unknown>) => {
       this.emit('network-threat-detected', threat);
       this.auditLogger.log('security_violation', threat.source, 'blocked', {
         threat_type: threat.type,
@@ -423,24 +421,24 @@ export class SecuritySystem extends EventEmitter {
       });
     });
 
-    this.networkSecurity.on('device-registered', (device: any) => {
+    this.networkSecurity.on('device-registered', (device: Record<string, unknown>) => {
       this.emit('network-device-registered', device);
     });
 
-    this.networkSecurity.on('security-scan-completed', (result: any) => {
+    this.networkSecurity.on('security-scan-completed', (result: Record<string, unknown>) => {
       this.emit('network-scan-completed', result);
     });
 
     // Forward events from LicenseManagementSystem
-    this.licenseManagement.on('scan-completed', (libraries: any[]) => {
+    this.licenseManagement.on('scan-completed', (libraries: Record<string, unknown>[]) => {
       this.emit('license-scan-completed', libraries);
     });
 
-    this.licenseManagement.on('report-generated', (report: any) => {
+    this.licenseManagement.on('report-generated', (report: Record<string, unknown>) => {
       this.emit('compliance-report-generated', report);
     });
 
-    this.licenseManagement.on('audit-completed', (audit: any) => {
+    this.licenseManagement.on('audit-completed', (audit: Record<string, unknown>) => {
       this.emit('license-audit-completed', audit);
     });
   }

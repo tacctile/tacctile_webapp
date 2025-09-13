@@ -11,6 +11,13 @@ import {
 } from './types';
 import { ConfigurationManager } from './ConfigurationManager';
 
+export interface LayoutExport {
+  layout: WorkspaceLayout;
+  exportedAt: string;
+  version: string;
+  snapshots?: unknown[];
+}
+
 export interface LayoutTemplate {
   id: string;
   name: string;
@@ -495,13 +502,13 @@ export class WorkspaceLayoutManager extends EventEmitter {
   }
 
   // Import/Export
-  public exportLayout(layoutId: string, includeSnapshots = false): any {
+  public exportLayout(layoutId: string, includeSnapshots = false): LayoutExport {
     const layout = this.layouts.layouts[layoutId];
     if (!layout) {
       throw new Error(`Layout not found: ${layoutId}`);
     }
 
-    const exportData: any = {
+    const exportData: LayoutExport = {
       layout,
       exportedAt: new Date().toISOString(),
       version: '1.0.0'
@@ -514,7 +521,7 @@ export class WorkspaceLayoutManager extends EventEmitter {
     return exportData;
   }
 
-  public async importLayout(data: any): Promise<string> {
+  public async importLayout(data: LayoutExport): Promise<string> {
     if (!data.layout) {
       throw new Error('Invalid layout data');
     }

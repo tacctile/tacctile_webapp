@@ -18,7 +18,11 @@
       "Bash(npm search:*)",
       "Bash(npx eslint:*)",
       "Bash(grep:*)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Bash(npx electron-forge start:*)",
+      "Bash(npm remove:*)",
+      "Bash(set ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES=true)",
+      "Bash(py --version)"
     ],
     "deny": [],
     "ask": []

@@ -4,7 +4,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { app, ipcMain } from 'electron';
+import { ipcMain } from 'electron';
 import crypto from 'crypto';
 import { NetworkSecurityManager } from './NetworkSecurityManager';
 import { SecureCommunicationManager } from './SecureCommunicationManager';
@@ -64,7 +64,7 @@ export class NetworkSecuritySystem extends EventEmitter {
     return await this.securityManager.registerDevice(device);
   }
 
-  public async updateDeviceStatus(deviceId: string, status: any): Promise<boolean> {
+  public async updateDeviceStatus(deviceId: string, status: Record<string, unknown>): Promise<boolean> {
     return await this.securityManager.updateDeviceStatus(deviceId, status);
   }
 
@@ -90,15 +90,15 @@ export class NetworkSecuritySystem extends EventEmitter {
   }
 
   // Threat Detection API
-  public async detectThreat(type: any, source: string, target: string, description: string): Promise<NetworkThreat> {
+  public async detectThreat(type: string, source: string, target: string, description: string): Promise<NetworkThreat> {
     return await this.securityManager.detectThreat(type, source, target, description);
   }
 
-  public async mitigateThreat(threatId: string, action: any): Promise<boolean> {
+  public async mitigateThreat(threatId: string, action: Record<string, unknown>): Promise<boolean> {
     return await this.securityManager.mitigateThreat(threatId, action);
   }
 
-  public getThreats(status?: any): NetworkThreat[] {
+  public getThreats(status?: string): NetworkThreat[] {
     return this.securityManager.getThreats(status);
   }
 
@@ -108,7 +108,7 @@ export class NetworkSecuritySystem extends EventEmitter {
   }
 
   // Communication Management API
-  public async createChannel(name: string, type: any, participants: string[]): Promise<CommunicationChannel> {
+  public async createChannel(name: string, type: string, participants: string[]): Promise<CommunicationChannel> {
     return await this.communicationManager.createChannel(name, type, participants);
   }
 
@@ -124,7 +124,7 @@ export class NetworkSecuritySystem extends EventEmitter {
     return await this.communicationManager.sendMessage(deviceId, message);
   }
 
-  public async broadcastToChannel(channelId: string, message: any): Promise<number> {
+  public async broadcastToChannel(channelId: string, message: Record<string, unknown>): Promise<number> {
     return await this.communicationManager.broadcastToChannel(channelId, message);
   }
 
@@ -197,7 +197,7 @@ export class NetworkSecuritySystem extends EventEmitter {
       return this.registerDevice(device);
     });
 
-    ipcMain.handle('network-security:update-device-status', (_, deviceId: string, status: any) => {
+    ipcMain.handle('network-security:update-device-status', (_, deviceId: string, status: Record<string, unknown>) => {
       return this.updateDeviceStatus(deviceId, status);
     });
 
@@ -215,11 +215,11 @@ export class NetworkSecuritySystem extends EventEmitter {
     });
 
     // Threat Management
-    ipcMain.handle('network-security:get-threats', (_, status?: any) => {
+    ipcMain.handle('network-security:get-threats', (_, status?: string) => {
       return this.getThreats(status);
     });
 
-    ipcMain.handle('network-security:mitigate-threat', (_, threatId: string, action: any) => {
+    ipcMain.handle('network-security:mitigate-threat', (_, threatId: string, action: Record<string, unknown>) => {
       return this.mitigateThreat(threatId, action);
     });
 
@@ -233,7 +233,7 @@ export class NetworkSecuritySystem extends EventEmitter {
       return this.getChannels();
     });
 
-    ipcMain.handle('network-security:create-channel', (_, name: string, type: any, participants: string[]) => {
+    ipcMain.handle('network-security:create-channel', (_, name: string, type: string, participants: string[]) => {
       return this.createChannel(name, type, participants);
     });
 
@@ -283,7 +283,7 @@ export class NetworkSecuritySystem extends EventEmitter {
       // Create investigation-specific communication channel
       const investigationChannel = await this.createChannel(
         'Investigation Command',
-        'investigation_sync' as any,
+        'investigation_sync' as MessageType,
         []
       );
 
@@ -315,12 +315,12 @@ export class NetworkSecuritySystem extends EventEmitter {
   }
 
   // Evidence Transfer Security
-  public async secureEvidenceTransfer(sourceDeviceId: string, targetDeviceId: string, evidenceData: any): Promise<boolean> {
+  public async secureEvidenceTransfer(sourceDeviceId: string, targetDeviceId: string, evidenceData: Record<string, unknown>): Promise<boolean> {
     try {
       // Create secure channel for evidence transfer
       const transferChannel = await this.createChannel(
         `Evidence Transfer: ${sourceDeviceId} -> ${targetDeviceId}`,
-        'evidence_transfer' as any,
+        'evidence_transfer' as MessageType,
         [sourceDeviceId, targetDeviceId]
       );
 
@@ -332,7 +332,7 @@ export class NetworkSecuritySystem extends EventEmitter {
         senderId: sourceDeviceId,
         receiverId: targetDeviceId,
         type: MessageType.DATA_TRANSFER,
-        priority: 'evidence' as any,
+        priority: 'evidence' as string,
         payload: {
           type: 'evidence',
           data: evidenceData,
@@ -356,12 +356,12 @@ export class NetworkSecuritySystem extends EventEmitter {
     }
   }
 
-  private calculateChecksum(data: any): string {
+  private calculateChecksum(data: Record<string, unknown>): string {
     return crypto.createHash('sha256').update(JSON.stringify(data)).digest('hex');
   }
 
   // System Health and Monitoring
-  public getSystemHealth(): any {
+  public getSystemHealth(): Record<string, unknown> {
     const securityMetrics = this.getNetworkMetrics();
     const connectedDevices = this.getConnectedDevices();
     const activeChannels = this.getChannels().filter(c => c.status === 'active').length;

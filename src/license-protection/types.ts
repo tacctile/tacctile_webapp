@@ -73,7 +73,7 @@ export interface LicenseMetadata {
   paymentMethod?: string;
   invoiceId?: string;
   notes?: string;
-  customFields: Record<string, any>;
+  customFields: Record<string, unknown>;
 }
 
 // Hardware Fingerprinting
@@ -313,7 +313,7 @@ export interface SubscriptionMetadata {
   promoCode?: string;
   salesRep?: string;
   notes?: string;
-  customFields: Record<string, any>;
+  customFields: Record<string, unknown>;
 }
 
 // Anti-Tampering & Code Protection
@@ -377,7 +377,7 @@ export interface TamperDetails {
   memoryAddresses?: string[];
   stackTrace?: string[];
   environment?: Record<string, string>;
-  additionalInfo?: Record<string, any>;
+  additionalInfo?: Record<string, unknown>;
 }
 
 // Validation & Authentication
@@ -423,14 +423,14 @@ export enum GracePeriodReason {
 export interface ValidationError {
   code: string;
   message: string;
-  details?: any;
+  details?: Record<string, unknown>;
   recoverable: boolean;
 }
 
 export interface ValidationWarning {
   code: string;
   message: string;
-  details?: any;
+  details?: Record<string, unknown>;
 }
 
 // Offline Management
@@ -464,7 +464,7 @@ export interface LicenseProtectionEvent {
   userId?: string;
   licenseId?: string;
   hardwareId?: string;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   handled: boolean;
 }
 
@@ -505,7 +505,7 @@ export interface LicenseServerConfig {
   clientKey?: string;
 }
 
-export interface APIResponse<T = any> {
+export interface APIResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: APIError;
@@ -516,7 +516,7 @@ export interface APIResponse<T = any> {
 export interface APIError {
   code: string;
   message: string;
-  details?: any;
+  details?: Record<string, unknown>;
   timestamp: Date;
 }
 
@@ -748,7 +748,7 @@ export enum EnterpriseAction {
 export interface PermissionCondition {
   field: string;
   operator: 'equals' | 'not_equals' | 'in' | 'not_in' | 'contains';
-  value: any;
+  value: unknown;
 }
 
 export interface PermissionScope {
@@ -788,7 +788,7 @@ export interface UserManagementSettings {
 export interface SSOConfiguration {
   enabled: boolean;
   provider: SSOProvider;
-  configuration: Record<string, any>;
+  configuration: Record<string, unknown>;
   domainRestriction: string[];
   enforceSSO: boolean;
 }
@@ -806,7 +806,7 @@ export interface DirectoryIntegration {
   provider: DirectoryProvider;
   syncInterval: number;
   syncAttributes: string[];
-  configuration: Record<string, any>;
+  configuration: Record<string, unknown>;
 }
 
 export enum DirectoryProvider {
@@ -1168,7 +1168,7 @@ export enum PaymentRiskType {
 export interface ExternalRiskProvider {
   name: string;
   provider: RiskProviderType;
-  configuration: Record<string, any>;
+  configuration: Record<string, unknown>;
   weight: number;
   enabled: boolean;
 }
@@ -1347,7 +1347,7 @@ export interface ChargebackPreventionSettings {
 export interface ChargebackPreventiveAction {
   triggerScore: number;
   action: PreventiveActionType;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   enabled: boolean;
 }
 
@@ -1388,7 +1388,7 @@ export enum AbuseRuleType {
 export interface AbuseRuleCondition {
   field: string;
   operator: RuleOperator;
-  value: any;
+  value: unknown;
   weight: number;
 }
 
@@ -1408,7 +1408,7 @@ export enum RuleOperator {
 
 export interface AbuseRuleAction {
   type: AbuseActionType;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   delaySeconds?: number;
   condition?: string; // JavaScript condition
 }
@@ -1444,7 +1444,7 @@ export interface AbuseAlert {
   createdAt: Date;
   resolvedAt?: Date;
   resolution?: AlertResolution;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export enum AlertStatus {
@@ -1457,7 +1457,7 @@ export enum AlertStatus {
 
 export interface AbuseEvidence {
   type: EvidenceType;
-  data: any;
+  data: unknown;
   timestamp: Date;
   source: string;
   confidence: number;
@@ -1698,7 +1698,7 @@ export interface SessionActivity {
   timestamp: Date;
   type: ActivityType;
   feature?: string;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
 }
 
 export enum ActivityType {
@@ -1760,7 +1760,7 @@ export interface ComplianceCheck {
   description: string;
   type: ComplianceCheckType;
   status: ComplianceCheckStatus;
-  result: any;
+  result: unknown;
   lastChecked: Date;
   nextCheck: Date;
   mandatory: boolean;
@@ -1845,7 +1845,7 @@ export interface SecurityThreat {
   resolvedAt?: Date;
   status: ThreatStatus;
   source: string;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
 }
 
 export enum ThreatType {
@@ -1928,13 +1928,13 @@ export interface PolicyRule {
 export interface PolicyCondition {
   field: string;
   operator: RuleOperator;
-  value: any;
+  value: unknown;
   logicalOperator?: 'AND' | 'OR';
 }
 
 export interface PolicyAction {
   type: PolicyActionType;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   notification?: NotificationSettings;
 }
 
@@ -2000,7 +2000,7 @@ export interface TrustScoreFactor {
   score: number;
   weight: number;
   lastUpdated: Date;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
 }
 
 export interface TrustScoreHistory {
@@ -2022,7 +2022,7 @@ export interface NotificationSettings {
 
 export interface NotificationChannel {
   type: NotificationChannelType;
-  configuration: Record<string, any>;
+  configuration: Record<string, unknown>;
   enabled: boolean;
   priority: number;
 }
@@ -2057,7 +2057,7 @@ export enum RecipientType {
 export interface NotificationCondition {
   field: string;
   operator: RuleOperator;
-  value: any;
+  value: unknown;
 }
 
 export interface NotificationRateLimit {
@@ -2079,7 +2079,7 @@ export interface IntegrationSettings {
 export interface SIEMIntegration {
   enabled: boolean;
   provider: SIEMProvider;
-  configuration: Record<string, any>;
+  configuration: Record<string, unknown>;
   eventTypes: ProtectionEventType[];
   batchSize: number;
   flushInterval: number; // seconds
@@ -2097,7 +2097,7 @@ export enum SIEMProvider {
 export interface TicketingIntegration {
   enabled: boolean;
   provider: TicketingProvider;
-  configuration: Record<string, any>;
+  configuration: Record<string, unknown>;
   autoCreateTickets: boolean;
   severityMapping: Record<AbuseSeverity, string>;
   assignmentRules: TicketAssignmentRule[];
@@ -2121,7 +2121,7 @@ export interface TicketAssignmentRule {
 export interface MDMIntegration {
   enabled: boolean;
   provider: MDMProvider;
-  configuration: Record<string, any>;
+  configuration: Record<string, unknown>;
   syncDevices: boolean;
   enforcePolicies: boolean;
   complianceReporting: boolean;
@@ -2138,7 +2138,7 @@ export enum MDMProvider {
 export interface IdentityIntegration {
   enabled: boolean;
   provider: IdentityProvider;
-  configuration: Record<string, any>;
+  configuration: Record<string, unknown>;
   syncUsers: boolean;
   syncGroups: boolean;
   attributeMapping: Record<string, string>;
@@ -2155,7 +2155,7 @@ export enum IdentityProvider {
 export interface AnalyticsIntegration {
   enabled: boolean;
   provider: AnalyticsProvider;
-  configuration: Record<string, any>;
+  configuration: Record<string, unknown>;
   trackEvents: ProtectionEventType[];
   customDimensions: Record<string, string>;
 }
@@ -2352,7 +2352,7 @@ export enum RetentionAction {
 export interface RetentionCondition {
   field: string;
   operator: RuleOperator;
-  value: any;
+  value: unknown;
 }
 
 export interface LegalHold {
@@ -2376,7 +2376,7 @@ export enum LegalHoldStatus {
 export interface ArchivingSettings {
   enabled: boolean;
   provider: ArchivingProvider;
-  configuration: Record<string, any>;
+  configuration: Record<string, unknown>;
   compression: boolean;
   encryption: boolean;
   indexing: boolean;
@@ -2466,7 +2466,7 @@ export interface BillingAddress {
 
 export interface EnterprisePaymentMethod {
   type: EnterprisePaymentType;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   isDefault: boolean;
   isActive: boolean;
 }
@@ -2572,7 +2572,7 @@ export enum AggregationType {
 export interface MetricFilter {
   field: string;
   operator: RuleOperator;
-  value: any;
+  value: unknown;
 }
 
 export interface UsageReporting {
@@ -2787,7 +2787,7 @@ export interface AuditQuery {
 export interface QueryParameter {
   name: string;
   type: ParameterType;
-  defaultValue?: any;
+  defaultValue?: unknown;
   required: boolean;
 }
 
@@ -2943,7 +2943,7 @@ export interface CertificationEvidence {
 
 export interface EvidenceRepository {
   type: RepositoryType;
-  configuration: Record<string, any>;
+  configuration: Record<string, unknown>;
   encryption: boolean;
   accessControls: RepositoryAccessControl[];
 }
@@ -2979,7 +2979,7 @@ export interface EvidenceCategory {
   name: string;
   description: string;
   parent?: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface EvidenceTagging {
@@ -3023,7 +3023,7 @@ export interface AbuseResponseActions {
 export interface ImmediateResponseAction {
   type: ImmediateActionType;
   trigger: ResponseTrigger;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   enabled: boolean;
 }
 
@@ -3045,7 +3045,7 @@ export interface ResponseTrigger {
 export interface TriggerCondition {
   field: string;
   operator: RuleOperator;
-  value: any;
+  value: unknown;
   weight: number;
 }
 
@@ -3068,7 +3068,7 @@ export enum EscalatedActionType {
 export interface EscalationCondition {
   field: string;
   operator: RuleOperator;
-  value: any;
+  value: unknown;
   timeWindow: number; // minutes
 }
 
@@ -3313,7 +3313,7 @@ export interface AbuseDetectionResult {
   riskScore: number;
   recommendedActions: RecommendedAction[];
   evidence: AbuseEvidence[];
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface RuleMatch {
@@ -3328,15 +3328,15 @@ export interface RuleMatch {
 export interface MatchedCondition {
   field: string;
   operator: RuleOperator;
-  expectedValue: any;
-  actualValue: any;
+  expectedValue: unknown;
+  actualValue: unknown;
   weight: number;
 }
 
 export interface RecommendedAction {
   type: AbuseActionType;
   priority: ActionPriority;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   reason: string;
   confidence: number;
 }
@@ -3359,7 +3359,7 @@ export interface TrainingData {
   features: Record<string, number>;
   label: boolean; // true for abuse, false for legitimate
   weight?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ModelTrainingResult {

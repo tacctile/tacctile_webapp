@@ -11,7 +11,7 @@ import * as crypto from 'crypto';
 import * as licenseChecker from 'license-checker';
 import * as spdxLicenseList from 'spdx-license-list';
 import * as spdxCorrect from 'spdx-correct';
-import * as semver from 'semver';
+// import * as semver from 'semver';
 import {
   ThirdPartyLibrary,
   LicenseInfo,
@@ -33,7 +33,7 @@ import {
   ReportScope,
   ViolationType,
   ViolationStatus,
-  ApprovalStatus,
+  // ApprovalStatus,
   ObligationStatus,
   ObligationStatusType,
   RiskFactor,
@@ -151,7 +151,7 @@ export class LicenseManager extends EventEmitter {
         excludePrivatePackages: true
       };
 
-      licenseChecker.init(options, (error: any, packages: any) => {
+      licenseChecker.init(options, (error: unknown, packages: Record<string, unknown>) => {
         if (error) {
           reject(error);
           return;
@@ -159,7 +159,7 @@ export class LicenseManager extends EventEmitter {
 
         const libraries: ThirdPartyLibrary[] = [];
         
-        for (const [packageKey, packageInfo] of Object.entries(packages as Record<string, any>)) {
+        for (const [packageKey, packageInfo] of Object.entries(packages)) {
           const [name, version] = packageKey.split('@').slice(-2);
           
           const library: ThirdPartyLibrary = {
@@ -188,7 +188,7 @@ export class LicenseManager extends EventEmitter {
     });
   }
 
-  private parseLicenseInfo(packageInfo: any): LicenseInfo {
+  private parseLicenseInfo(packageInfo: Record<string, unknown>): LicenseInfo {
     let licenseType = packageInfo.licenses || packageInfo.license || 'Unknown';
     
     // Handle array of licenses
@@ -220,7 +220,7 @@ export class LicenseManager extends EventEmitter {
   }
 
   private getLicenseName(spdxId: string): string {
-    const license = (spdxLicenseList as any)[spdxId];
+    const license = (spdxLicenseList as Record<string, unknown>)[spdxId];
     return license?.name || spdxId;
   }
 
@@ -240,9 +240,9 @@ export class LicenseManager extends EventEmitter {
     return LicenseCompatibility.UNKNOWN;
   }
 
-  private getLicenseRestrictions(licenseType: string): any[] {
+  private getLicenseRestrictions(licenseType: string): Array<Record<string, unknown>> {
     // Simplified restriction mapping
-    const restrictions: Record<string, any[]> = {
+    const restrictions: Record<string, Array<Record<string, unknown>>> = {
       'GPL-2.0': [
         { type: 'copyleft', description: 'Must distribute source code', severity: 'high' },
         { type: 'share_alike', description: 'Derivative works must use same license', severity: 'high' }
@@ -264,8 +264,8 @@ export class LicenseManager extends EventEmitter {
     return restrictions[licenseType] || [];
   }
 
-  private getLicenseObligations(licenseType: string): any[] {
-    const obligations: Record<string, any[]> = {
+  private getLicenseObligations(licenseType: string): Array<Record<string, unknown>> {
+    const obligations: Record<string, Array<Record<string, unknown>>> = {
       'MIT': [
         { type: 'include_copyright', description: 'Include copyright notice', required: true },
         { type: 'include_license', description: 'Include license text', required: true }
@@ -293,7 +293,7 @@ export class LicenseManager extends EventEmitter {
     return !nonCommercialLicenses.some(license => licenseType.includes(license));
   }
 
-  private getCopyleftType(licenseType: string): any {
+  private getCopyleftType(licenseType: string): string {
     const copyleftMap: Record<string, string> = {
       'GPL-2.0': 'strong',
       'GPL-3.0': 'strong',
@@ -307,7 +307,7 @@ export class LicenseManager extends EventEmitter {
     return copyleftMap[licenseType] || 'none';
   }
 
-  private categorizeLibrary(name: string, packageInfo: any): LibraryCategory {
+  private categorizeLibrary(name: string, packageInfo: Record<string, unknown>): LibraryCategory {
     const devKeywords = ['test', 'jest', 'mocha', 'chai', 'eslint', 'webpack', 'babel'];
     const securityKeywords = ['crypto', 'security', 'auth', 'bcrypt', 'jwt'];
     const uiKeywords = ['react', 'vue', 'angular', 'ui', 'component'];
@@ -326,7 +326,7 @@ export class LicenseManager extends EventEmitter {
     return LibraryCategory.UTILITY;
   }
 
-  private determineLibraryUsage(packageKey: string, packageInfo: any): LibraryUsage {
+  private determineLibraryUsage(_packageKey: string, _packageInfo: Record<string, unknown>): LibraryUsage {
     // This would need integration with dependency tree analysis
     return LibraryUsage.DIRECT;
   }
@@ -559,7 +559,7 @@ export class LicenseManager extends EventEmitter {
     });
   }
 
-  private async generateLibraryComplianceInfo(library: ThirdPartyLibrary): Promise<any> {
+  private async generateLibraryComplianceInfo(library: ThirdPartyLibrary): Promise<Record<string, unknown>> {
     const violations = Array.from(this.violations.values())
       .filter(v => v.library === library.name && v.version === library.version);
 
@@ -595,7 +595,7 @@ export class LicenseManager extends EventEmitter {
     return ComplianceStatus.COMPLIANT;
   }
 
-  private calculateComplianceSummary(libraryComplianceInfo: any[]): any {
+  private calculateComplianceSummary(libraryComplianceInfo: Array<Record<string, unknown>>): Record<string, unknown> {
     const totalLibraries = libraryComplianceInfo.length;
     const uniqueLicenses = new Set(libraryComplianceInfo.map(info => info.library.license.type)).size;
     const compliantLibraries = libraryComplianceInfo.filter(info => 
@@ -620,7 +620,7 @@ export class LicenseManager extends EventEmitter {
     };
   }
 
-  private calculateRiskDistribution(libraryComplianceInfo: any[]): Record<RiskLevel, number> {
+  private calculateRiskDistribution(libraryComplianceInfo: Array<Record<string, unknown>>): Record<RiskLevel, number> {
     const distribution: Record<RiskLevel, number> = {
       [RiskLevel.LOW]: 0,
       [RiskLevel.MEDIUM]: 0,
@@ -635,7 +635,7 @@ export class LicenseManager extends EventEmitter {
     return distribution;
   }
 
-  private calculateLicenseDistribution(libraryComplianceInfo: any[]): Record<string, number> {
+  private calculateLicenseDistribution(libraryComplianceInfo: Array<Record<string, unknown>>): Record<string, number> {
     const distribution: Record<string, number> = {};
 
     for (const info of libraryComplianceInfo) {
@@ -647,7 +647,7 @@ export class LicenseManager extends EventEmitter {
   }
 
   private generateComplianceRecommendations(
-    libraryComplianceInfo: any[], 
+    libraryComplianceInfo: Array<Record<string, unknown>>, 
     violations: ComplianceViolation[]
   ): ComplianceRecommendation[] {
     const recommendations: ComplianceRecommendation[] = [];
@@ -737,7 +737,7 @@ export class LicenseManager extends EventEmitter {
     }
   }
 
-  private compareWithPreviousState(currentLibraries: ThirdPartyLibrary[]): any[] {
+  private compareWithPreviousState(currentLibraries: ThirdPartyLibrary[]): Array<Record<string, unknown>> {
     // Simplified comparison logic
     return currentLibraries.map(library => ({
       library,
@@ -746,7 +746,7 @@ export class LicenseManager extends EventEmitter {
     }));
   }
 
-  private calculateAuditSummary(results: any[]): any {
+  private calculateAuditSummary(results: Array<Record<string, unknown>>): Record<string, unknown> {
     return {
       totalLibraries: results.length,
       newLibraries: 0,
@@ -876,7 +876,7 @@ export class LicenseManager extends EventEmitter {
       const data = await fs.readFile(librariesPath, 'utf8');
       const librariesData = JSON.parse(data);
       
-      this.libraries = new Map(librariesData.map((item: any) => [
+      this.libraries = new Map(librariesData.map((item: [string, unknown]) => [
         item[0], 
         { ...item[1], installedAt: new Date(item[1].installedAt) }
       ]));

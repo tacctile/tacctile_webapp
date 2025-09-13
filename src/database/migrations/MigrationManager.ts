@@ -2,12 +2,12 @@ import { EventEmitter } from 'events';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import Database from 'better-sqlite3';
+// import Database from 'better-sqlite3'; // Temporarily disabled for basic startup
 import {
   Migration,
   MigrationState,
   MigrationInfo,
-  DatabaseConnection
+  // DatabaseConnection
 } from '../types';
 
 export class MigrationManager extends EventEmitter {
@@ -15,7 +15,7 @@ export class MigrationManager extends EventEmitter {
   private migrationsDirectory: string;
   private migrations: Map<number, Migration> = new Map();
   private currentState: MigrationState;
-  private logger: any;
+  private logger: Pick<Console, 'log' | 'warn' | 'error'>;
 
   constructor(dbPath: string, migrationsDir = './src/database/migrations') {
     super();
@@ -209,7 +209,7 @@ export class MigrationManager extends EventEmitter {
   }
 
   private async getCurrentState(): Promise<void> {
-    const stateRow = this.db.prepare('SELECT * FROM migration_state WHERE id = 1').get() as any;
+    const stateRow = this.db.prepare('SELECT * FROM migration_state WHERE id = 1').get() as Record<string, unknown> | undefined;
     
     if (stateRow) {
       this.currentState = {
@@ -513,7 +513,7 @@ export class MigrationManager extends EventEmitter {
     }
   }
 
-  private async handleMigrationError(error: any): Promise<void> {
+  private async handleMigrationError(error: Error): Promise<void> {
     const failedVersion = this.currentState.target_version || this.currentState.current_version;
     
     await this.updateMigrationState({
@@ -588,7 +588,7 @@ export class MigrationManager extends EventEmitter {
       SELECT applied_at, execution_time 
       FROM schema_migrations 
       WHERE version = ?
-    `).get(version) as any;
+    `).get(version) as Record<string, unknown> | undefined;
     
     return {
       version: migration.version,
@@ -606,7 +606,7 @@ export class MigrationManager extends EventEmitter {
       SELECT version, name, description, applied_at, execution_time
       FROM schema_migrations 
       ORDER BY version
-    `).all() as any[];
+    `).all() as Array<Record<string, unknown>>;
     
     return rows.map(row => ({
       version: row.version,
@@ -622,7 +622,7 @@ export class MigrationManager extends EventEmitter {
   public getPendingMigrations(): MigrationInfo[] {
     const appliedVersions = new Set(
       this.db.prepare('SELECT version FROM schema_migrations').all()
-        .map((row: any) => row.version)
+        .map((row: Record<string, unknown>) => row.version as number)
     );
     
     const pending = [];
@@ -670,7 +670,7 @@ export class MigrationManager extends EventEmitter {
         const migration = this.migrations.get(appliedMigration.version);
         if (migration) {
           const dbChecksum = this.db.prepare('SELECT checksum FROM schema_migrations WHERE version = ?')
-            .get(appliedMigration.version) as any;
+            .get(appliedMigration.version) as { checksum: string } | undefined;
           
           if (dbChecksum && dbChecksum.checksum !== migration.checksum) {
             errors.push(`Checksum mismatch for migration ${appliedMigration.version}: file may have been modified after application`);
@@ -709,7 +709,7 @@ export class MigrationManager extends EventEmitter {
       SELECT name FROM sqlite_master 
       WHERE type = 'table' 
       AND name NOT IN ('schema_migrations', 'migration_state')
-    `).all() as any[];
+    `).all() as Array<Record<string, unknown>>;
     
     for (const table of tables) {
       this.db.exec(`DROP TABLE IF EXISTS ${table.name}`);

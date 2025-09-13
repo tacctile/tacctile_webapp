@@ -8,7 +8,7 @@ import { app } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import sharp from 'sharp';
+// import sharp from 'sharp'; // Temporarily disabled for basic startup
 import {
   AppStoreMetadata,
   AppStoreAssets,

@@ -166,7 +166,7 @@ export interface ConditionalLicense {
 
 export interface LicenseCondition {
   type: 'usage' | 'category' | 'commercial' | 'distribution' | 'modification';
-  value: any;
+  value: unknown;
   operator: 'equals' | 'not_equals' | 'contains' | 'excludes';
 }
 
@@ -437,8 +437,8 @@ export interface AuditResult {
 export interface LibraryChange {
   type: ChangeType;
   field: string;
-  oldValue: any;
-  newValue: any;
+  oldValue: unknown;
+  newValue: unknown;
   impact: 'low' | 'medium' | 'high';
 }
 
@@ -537,7 +537,7 @@ export interface NotificationThreshold {
 export interface IntegrationConfig {
   type: IntegrationType;
   enabled: boolean;
-  settings: Record<string, any>;
+  settings: Record<string, unknown>;
 }
 
 export enum IntegrationType {
@@ -589,7 +589,7 @@ export interface TemplateVariable {
   type: 'string' | 'date' | 'boolean' | 'number';
   description: string;
   required: boolean;
-  defaultValue?: any;
+  defaultValue?: unknown;
 }
 
 export interface LicenseMetrics {
@@ -621,7 +621,7 @@ export interface LicenseEvent {
   licenseType?: string;
   userId?: string;
   description: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export enum LicenseEventType {

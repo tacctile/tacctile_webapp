@@ -8,7 +8,6 @@ import {
   AuditAction,
   AuditResult,
   RiskLevel,
-  User
 } from './types';
 import { EncryptionManager } from './EncryptionManager';
 
@@ -53,7 +52,7 @@ export class AuditLogger extends EventEmitter {
     action: AuditAction,
     resourceOrUserId: string,
     result: AuditResult,
-    details: Record<string, any> = {},
+    details: Record<string, unknown> = {},
     userId?: string,
     sessionId?: string
   ): Promise<void> {
@@ -203,7 +202,7 @@ export class AuditLogger extends EventEmitter {
     try {
       const logs = await this.getLogsInDateRange(startDate, endDate);
       
-      const actionsSummary: Record<AuditAction, number> = {} as any;
+      const actionsSummary: Record<AuditAction, number> = {} as Record<AuditAction, number>;
       const riskSummary: Record<RiskLevel, number> = { low: 0, medium: 0, high: 0, critical: 0 };
       const userActivity: Record<string, number> = {};
       let failedLogins = 0;
@@ -331,7 +330,7 @@ export class AuditLogger extends EventEmitter {
           try {
             const decryptedData = await this.encryptionManager.decrypt(encryptedLog);
             const logs = JSON.parse(decryptedData.toString());
-            decryptedLogs.push(...logs.map((log: any) => ({
+            decryptedLogs.push(...logs.map((log: Record<string, unknown>) => ({
               ...log,
               timestamp: new Date(log.timestamp)
             })));
@@ -344,7 +343,7 @@ export class AuditLogger extends EventEmitter {
       }
       
       // Legacy unencrypted logs
-      return logFile.logs?.map((log: any) => ({
+      return logFile.logs?.map((log: Record<string, unknown>) => ({
         ...log,
         timestamp: new Date(log.timestamp)
       })) || [];
@@ -385,7 +384,7 @@ export class AuditLogger extends EventEmitter {
     }
   }
 
-  private calculateRiskLevel(action: AuditAction, result: AuditResult, details: any): RiskLevel {
+  private calculateRiskLevel(action: AuditAction, result: AuditResult, _details: Record<string, unknown>): RiskLevel {
     // Critical risk actions
     const criticalActions: AuditAction[] = [
       'security_violation',
@@ -438,7 +437,7 @@ export class AuditLogger extends EventEmitter {
     return resourceMap[action] || 'unknown';
   }
 
-  private sanitizeDetails(details: Record<string, any>): Record<string, any> {
+  private sanitizeDetails(details: Record<string, unknown>): Record<string, unknown> {
     const sanitized = { ...details };
     
     // Remove sensitive information
@@ -497,7 +496,7 @@ export class AuditLogger extends EventEmitter {
     }
   }
 
-  private async readExistingLogData(filePath: string): Promise<{ version: string; encrypted: boolean; logs: any[] }> {
+  private async readExistingLogData(filePath: string): Promise<{ version: string; encrypted: boolean; logs: Record<string, unknown>[] }> {
     try {
       const data = await fs.readFile(filePath, 'utf8');
       return JSON.parse(data);

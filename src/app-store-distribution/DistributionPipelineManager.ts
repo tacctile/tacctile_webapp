@@ -211,7 +211,7 @@ export class DistributionPipelineManager extends EventEmitter {
 
   private createPipelineStages(
     configuration: AppStoreConfiguration,
-    _releaseConfig?: ReleaseConfiguration
+    ___releaseConfig?: ReleaseConfiguration
   ): PipelineStage[] {
     const stages: PipelineStage[] = [
       {
@@ -382,7 +382,7 @@ export class DistributionPipelineManager extends EventEmitter {
     });
   }
 
-  private getBuildCommand(platform: Platform, _configuration?: AppStoreConfiguration): { command: string; args: string[] } {
+  private getBuildCommand(platform: Platform, ___configuration?: AppStoreConfiguration): { command: string; args: string[] } {
     switch (platform) {
       case Platform.MAC_APP_STORE:
         return {

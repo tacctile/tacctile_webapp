@@ -14,7 +14,6 @@ import {
   TamperType,
   TamperSeverity,
   TamperResponseAction,
-  TamperDetails,
   ProtectionLevel
 } from './types';
 
@@ -235,7 +234,7 @@ export class AntiTamperingManager extends EventEmitter {
   private async detectDebuggingTools(): Promise<void> {
     try {
       // Check for common debugging tools in process list (Windows/Linux)
-      const suspiciousProcesses = [
+      const _suspiciousProcesses = [
         'ollydbg',
         'x64dbg',
         'windbg',
@@ -257,9 +256,9 @@ export class AntiTamperingManager extends EventEmitter {
           severity: TamperSeverity.HIGH,
           description: 'Developer tools may be open',
           details: {
-            outerHeight: (window as any).outerHeight,
-            innerHeight: (window as any).innerHeight,
-            heightDiff: (window as any).outerHeight - (window as any).innerHeight
+            outerHeight: (window as unknown as Window).outerHeight,
+            innerHeight: (window as unknown as Window).innerHeight,
+            heightDiff: (window as unknown as Window).outerHeight - (window as unknown as Window).innerHeight
           }
         });
       }

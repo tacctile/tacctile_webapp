@@ -63,7 +63,7 @@ function isValidChannel(channel: string): boolean {
 /**
  * Safe IPC invoke wrapper with validation
  */
-async function safeInvoke(channel: string, ...args: any[]): Promise<any> {
+async function safeInvoke(channel: string, ...args: unknown[]): Promise<unknown> {
   if (!isValidChannel(channel)) {
     throw new Error(`Invalid IPC channel: ${channel}`);
   }
@@ -73,7 +73,7 @@ async function safeInvoke(channel: string, ...args: any[]): Promise<any> {
 /**
  * Safe IPC send wrapper with validation
  */
-function safeSend(channel: string, ...args: any[]): void {
+function safeSend(channel: string, ...args: unknown[]): void {
   if (!isValidChannel(channel)) {
     throw new Error(`Invalid IPC channel: ${channel}`);
   }
@@ -83,7 +83,7 @@ function safeSend(channel: string, ...args: any[]): void {
 /**
  * Safe event listener wrapper
  */
-function safeOn(channel: string, listener: (...args: any[]) => void): void {
+function safeOn(channel: string, listener: (...args: unknown[]) => void): void {
   if (!isValidChannel(channel)) {
     throw new Error(`Invalid IPC channel: ${channel}`);
   }
@@ -93,7 +93,7 @@ function safeOn(channel: string, listener: (...args: any[]) => void): void {
 /**
  * Remove event listener safely
  */
-function safeOff(channel: string, listener: (...args: any[]) => void): void {
+function safeOff(channel: string, listener: (...args: unknown[]) => void): void {
   if (!isValidChannel(channel)) {
     return;
   }
@@ -113,47 +113,47 @@ contextBridge.exposeInMainWorld('ghostHunterAPI', {
     minimize: () => safeSend('window:minimize'),
     maximize: () => safeSend('window:maximize'),
     close: () => safeSend('window:close'),
-    create: (config: any) => safeInvoke('window:create', config),
+    create: (config: Record<string, unknown>) => safeInvoke('window:create', config),
     focus: (windowName: string) => safeSend('window:focus', windowName),
   },
   
   // File Operations
   file: {
-    open: (filters?: any) => safeInvoke('file:open', filters),
-    save: (data: any, path?: string) => safeInvoke('file:save', data, path),
-    export: (data: any, format: string) => safeInvoke('file:export', data, format),
+    open: (filters?: Record<string, unknown>) => safeInvoke('file:open', filters),
+    save: (data: unknown, path?: string) => safeInvoke('file:save', data, path),
+    export: (data: unknown, format: string) => safeInvoke('file:export', data, format),
   },
   
   // Investigation Management
   investigation: {
-    create: (data: any) => safeInvoke('investigation:create', data),
+    create: (data: Record<string, unknown>) => safeInvoke('investigation:create', data),
     load: (id: string) => safeInvoke('investigation:load', id),
-    save: (data: any) => safeInvoke('investigation:save', data),
+    save: (data: Record<string, unknown>) => safeInvoke('investigation:save', data),
     delete: (id: string) => safeInvoke('investigation:delete', id),
   },
   
   // Evidence Management
   evidence: {
-    add: (data: any) => safeInvoke('evidence:add', data),
-    update: (id: string, data: any) => safeInvoke('evidence:update', id, data),
+    add: (data: Record<string, unknown>) => safeInvoke('evidence:add', data),
+    update: (id: string, data: Record<string, unknown>) => safeInvoke('evidence:update', id, data),
     delete: (id: string) => safeInvoke('evidence:delete', id),
-    analyze: (id: string, options?: any) => safeInvoke('evidence:analyze', id, options),
+    analyze: (id: string, options?: Record<string, unknown>) => safeInvoke('evidence:analyze', id, options),
   },
   
   // Settings
   settings: {
     get: (key?: string) => safeInvoke('settings:get', key),
-    set: (key: string, value: any) => safeInvoke('settings:set', key, value),
+    set: (key: string, value: unknown) => safeInvoke('settings:set', key, value),
     reset: () => safeInvoke('settings:reset'),
   },
   
   // Auto-save functionality (direct access for performance)
   autoSave: {
-    save: (key: string, data: any) => autoSave.save(key as any, data),
-    saveNow: (key: string, data: any) => autoSave.saveNow(key as any, data),
-    load: (key: string) => autoSave.load(key as any),
+    save: (key: string, data: unknown) => autoSave.save(key as string, data),
+    saveNow: (key: string, data: unknown) => autoSave.saveNow(key as string, data),
+    load: (key: string) => autoSave.load(key as string),
     loadAll: () => autoSave.loadAll(),
-    clear: (key: string) => autoSave.clear(key as any),
+    clear: (key: string) => autoSave.clear(key as string),
     clearAll: () => autoSave.clearAll(),
     isHealthy: () => autoSave.isHealthy(),
     getStorePath: () => autoSave.getStorePath(),
@@ -166,13 +166,13 @@ contextBridge.exposeInMainWorld('ghostHunterAPI', {
     performBackup: () => autoBackup.performBackup(),
     restoreFromBackup: (path: string) => autoBackup.restoreFromBackup(path),
     listBackups: () => autoBackup.listBackups(),
-    updateConfig: (config: any) => autoBackup.updateConfig(config),
+    updateConfig: (config: Record<string, unknown>) => autoBackup.updateConfig(config),
     getConfig: () => autoBackup.getConfig(),
   },
   
   // Window state management
   windowManager: {
-    createWindow: (config: any) => windowManager.createWindow(config),
+    createWindow: (config: Record<string, unknown>) => windowManager.createWindow(config),
     getWindow: (name: string) => windowManager.getWindow(name),
     closeWindow: (name: string) => windowManager.closeWindow(name),
     showWindow: (name: string) => windowManager.showWindow(name),
@@ -184,11 +184,11 @@ contextBridge.exposeInMainWorld('ghostHunterAPI', {
   // Hardware Access
   hardware: {
     camera: {
-      start: (options?: any) => safeInvoke('hardware:camera:start', options),
+      start: (options?: Record<string, unknown>) => safeInvoke('hardware:camera:start', options),
       stop: () => safeInvoke('hardware:camera:stop'),
     },
     microphone: {
-      start: (options?: any) => safeInvoke('hardware:microphone:start', options),
+      start: (options?: Record<string, unknown>) => safeInvoke('hardware:microphone:start', options),
       stop: () => safeInvoke('hardware:microphone:stop'),
     },
   },
@@ -203,7 +203,7 @@ contextBridge.exposeInMainWorld('ghostHunterAPI', {
   
   // Notifications
   notifications: {
-    show: (options: any) => safeSend('notification:show', options),
+    show: (options: Record<string, unknown>) => safeSend('notification:show', options),
   },
   
   // Plugin API

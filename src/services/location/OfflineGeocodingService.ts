@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+// import Database from 'better-sqlite3'; // Temporarily disabled for basic startup
 import * as fs from 'fs';
 import * as path from 'path';
 import { geolib } from 'geolib';

@@ -4,7 +4,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { app, ipcMain } from 'electron';
+import { ipcMain } from 'electron';
 import { LicenseManager } from './LicenseManager';
 import {
   ThirdPartyLibrary,
@@ -16,7 +16,7 @@ import {
   LegalComplianceConfig,
   ReportType,
   ReportScope,
-  LicenseApproval
+  // LicenseApproval
 } from './types';
 
 export class LicenseManagementSystem extends EventEmitter {
@@ -181,8 +181,8 @@ export class LicenseManagementSystem extends EventEmitter {
   // Advanced Compliance Features
   public async performComplianceCheck(libraryName: string, version: string): Promise<{
     compliant: boolean;
-    issues: any[];
-    recommendations: any[];
+    issues: Array<Record<string, unknown>>;
+    recommendations: Array<Record<string, unknown>>;
   }> {
     try {
       const libraries = this.getLibraries();
@@ -349,7 +349,7 @@ export class LicenseManagementSystem extends EventEmitter {
     }
   }
 
-  private convertToCSV(data: any): string {
+  private convertToCSV(data: Record<string, unknown>): string {
     const lines: string[] = [];
     
     // Library data
@@ -361,7 +361,7 @@ export class LicenseManagementSystem extends EventEmitter {
     return lines.join('\n');
   }
 
-  private convertToXML(data: any): string {
+  private convertToXML(data: Record<string, unknown>): string {
     let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
     xml += '<compliance-report>\n';
     xml += `  <export-date>${data.exportDate}</export-date>\n`;
@@ -403,7 +403,11 @@ export class LicenseManagementSystem extends EventEmitter {
     rejected: string[];
     requiresReview: string[];
   }> {
-    const result = { approved: [], rejected: [], requiresReview: [] } as any;
+    const result = { approved: [], rejected: [], requiresReview: [] } as {
+      approved: string[];
+      rejected: string[];
+      requiresReview: string[];
+    };
     const libraries = this.getLibraries();
 
     for (const libraryName of securityLibraries) {

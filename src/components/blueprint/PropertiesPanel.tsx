@@ -3,7 +3,7 @@ import { DrawingElement } from '../../services/blueprint/DrawingEngine';
 
 interface PropertiesPanelProps {
   selectedElements: DrawingElement[];
-  onElementUpdate: (elementId: string, properties: Record<string, any>) => void;
+  onElementUpdate: (elementId: string, properties: Record<string, unknown>) => void;
 }
 
 export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
@@ -22,7 +22,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
     setExpandedSections(newExpanded);
   };
 
-  const handlePropertyChange = (elementId: string, key: string, value: any) => {
+  const handlePropertyChange = (elementId: string, key: string, value: unknown) => {
     const element = selectedElements.find(el => el.id === elementId);
     if (element) {
       const updatedProperties = { ...element.properties, [key]: value };

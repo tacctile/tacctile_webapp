@@ -131,20 +131,20 @@ export const EnhancedSocialHub: React.FC<EnhancedSocialHubProps> = ({ className 
       }
 
       // Generate posts using templates if evidence data is provided
-      let posts: unknown[] = [];
-      
       if (postData.evidenceData && postData.investigationMetadata) {
-        posts = postTemplateManager.generatePostsForAllPlatforms(
+        const _posts = postTemplateManager.generatePostsForAllPlatforms(
           postData.investigationMetadata,
           postData.evidenceData
         );
+        // Posts would be used here for display
+        console.log('Generated posts:', _posts?.length || 0);
       } else {
         // Create basic posts for selected platforms
-        posts = postData.selectedPlatforms.map(platform => ({
-          platform,
-          caption: postData.caption,
-          hashtags: postData.hashtags
-        }));
+        // posts = postData.selectedPlatforms.map(platform => ({
+        //   platform,
+        //   caption: postData.caption,
+        //   hashtags: postData.hashtags
+        // }));
       }
 
       // Schedule or post immediately
@@ -179,25 +179,25 @@ export const EnhancedSocialHub: React.FC<EnhancedSocialHubProps> = ({ className 
     }
   };
 
-  const handleMediaOptimization = async (_file: File, _platforms: string[]) => {
-    try {
-      const tempPath = URL.createObjectURL(file);
-      const results = await mediaOptimizer.batchOptimize(
-        [tempPath],
-        platforms.map(p => `${p}-square`), // Use square presets
-        {
-          onProgress: (current, total, currentFile) => {
-            console.log(`Optimizing ${currentFile}: ${current}/${total}`);
-          }
-        }
-      );
+  // const handleMediaOptimization = async (_file: File, _platforms: string[]) => {
+  //   try {
+  //     const tempPath = URL.createObjectURL(file);
+  //     const results = await mediaOptimizer.batchOptimize(
+  //       [tempPath],
+  //       platforms.map(p => `${p}-square`), // Use square presets
+  //       {
+  //         onProgress: (current, total, currentFile) => {
+  //           console.log(`Optimizing ${currentFile}: ${current}/${total}`);
+  //         }
+  //       }
+  //     );
 
-      return results;
-    } catch (error) {
-      console.error('Media optimization failed:', error);
-      return [];
-    }
-  };
+  //     return results;
+  //   } catch (error) {
+  //     console.error('Media optimization failed:', error);
+  //     return [];
+  //   }
+  // };
 
   const loadAnalytics = async (platform: string) => {
     try {

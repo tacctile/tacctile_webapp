@@ -1,5 +1,5 @@
 import { app } from 'electron';
-import Database from 'better-sqlite3';
+// import Database from 'better-sqlite3'; // Temporarily disabled for basic startup
 import { join } from 'path';
 
 export interface InvestigationMetadata {

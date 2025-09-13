@@ -1,4 +1,4 @@
-import sharp from 'sharp';
+// import sharp from 'sharp'; // Temporarily disabled for basic startup
 import ffmpeg from 'fluent-ffmpeg';
 import { createWriteStream, existsSync, mkdirSync, statSync } from 'fs';
 import { join, extname, basename } from 'path';

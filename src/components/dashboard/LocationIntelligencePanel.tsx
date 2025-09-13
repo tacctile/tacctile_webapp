@@ -36,7 +36,7 @@ import {
   Explore as CompassIcon,
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
-  Map as MapIcon,
+  // Map as MapIcon,
   Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { OfflineGeocodingService, GeocodedLocation, LocationSearchOptions } from '../../services/location/OfflineGeocodingService';
@@ -115,7 +115,7 @@ export const LocationIntelligencePanel: React.FC<LocationIntelligencePanelProps>
 
     try {
       const searchOptions: LocationSearchOptions = {
-        types: selectedTypes as any[],
+        types: selectedTypes as string[],
         radius: searchRadius,
         limit: 50,
         includeParanormalRating: true,
@@ -355,7 +355,7 @@ export const LocationIntelligencePanel: React.FC<LocationIntelligencePanelProps>
                               icon={<StarIcon />}
                               label={location.paranormalRating.toFixed(1)}
                               size="small"
-                              color={getParanormalRatingColor(location.paranormalRating) as any}
+                              color={getParanormalRatingColor(location.paranormalRating) as 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'}
                             />
                           )}
                         </Box>

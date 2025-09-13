@@ -58,7 +58,7 @@ interface EnvironmentalSummary {
 
 export const EnvironmentalConditionsPanel: React.FC<EnvironmentalConditionsPanelProps> = ({
   location,
-  onLocationChange: _onLocationChange,
+  onLocationChange: __onLocationChange,
   autoRefresh = true,
   refreshInterval = 15
 }) => {
@@ -159,9 +159,9 @@ export const EnvironmentalConditionsPanel: React.FC<EnvironmentalConditionsPanel
   }, [updateConditions, autoRefresh, refreshInterval]);
 
   const calculateInvestigationScore = (
-    astroInfluences: any,
-    weatherInfluences: any,
-    geoInfluences: any,
+    astroInfluences: Record<string, unknown>,
+    weatherInfluences: Record<string, unknown>,
+    geoInfluences: Record<string, unknown>,
     moonPhase: MoonPhaseData,
     weatherPattern: WeatherPattern,
     geoReading: GeomagneticReading
@@ -321,7 +321,7 @@ export const EnvironmentalConditionsPanel: React.FC<EnvironmentalConditionsPanel
                     <Chip
                       icon={getReadinessIcon(conditions.overall.readiness)}
                       label={`${conditions.overall.investigationScore}/100 - ${conditions.overall.readiness.toUpperCase()}`}
-                      color={getReadinessColor(conditions.overall.readiness) as any}
+                      color={getReadinessColor(conditions.overall.readiness) as 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'}
                       variant="outlined"
                     />
                   </Box>

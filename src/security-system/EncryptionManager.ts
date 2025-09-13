@@ -4,7 +4,6 @@ import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as zlib from 'zlib';
-import * as aesjs from 'aes-js';
 import * as keytar from 'keytar';
 import {
   EncryptionKey,
@@ -81,7 +80,7 @@ export class EncryptionManager extends EventEmitter {
       }
 
       // Generate or get key
-      const keyId = await this.getOrCreateKey('user-data', opts.algorithm!);
+      const keyId = await this.getOrCreateKey('user-data', opts.algorithm || 'AES-256-GCM');
       const key = await this.getKeyData(keyId);
       
       if (!key) {
@@ -112,7 +111,7 @@ export class EncryptionManager extends EventEmitter {
         .digest('hex');
 
       const encrypted: EncryptedData = {
-        algorithm: opts.algorithm!,
+        algorithm: opts.algorithm || 'AES-256-GCM',
         data: encryptedResult.data.toString('base64'),
         iv: encryptedResult.iv.toString('base64'),
         salt: crypto.randomBytes(16).toString('base64'),
@@ -128,7 +127,9 @@ export class EncryptionManager extends EventEmitter {
 
       // Add authentication tag if available (GCM mode)
       if (encryptedResult.tag) {
-        encrypted.metadata!.authTag = encryptedResult.tag.toString('base64');
+        if (encrypted.metadata) {
+          encrypted.metadata.authTag = encryptedResult.tag.toString('base64');
+        }
       }
 
       return encrypted;
@@ -268,9 +269,9 @@ export class EncryptionManager extends EventEmitter {
       const derivedKey = crypto.pbkdf2Sync(
         password,
         salt,
-        opts.iterations!,
-        opts.keyLength!,
-        opts.digest!
+        opts.iterations || this.keyDerivationDefaults.iterations,
+        opts.keyLength || this.keyDerivationDefaults.keyLength,
+        opts.digest || this.keyDerivationDefaults.digest
       );
 
       const keyId = crypto.randomUUID();
@@ -336,7 +337,7 @@ export class EncryptionManager extends EventEmitter {
     createdAt: Date;
     expiresAt: Date | null;
     isExpired: boolean;
-    metadata: Record<string, any>;
+    metadata: Record<string, unknown>;
   } | null> {
     const key = this.keys.get(keyId);
     if (!key) {
@@ -444,7 +445,7 @@ export class EncryptionManager extends EventEmitter {
     return { data: encrypted, iv };
   }
 
-  private decryptAESCBC(data: Buffer, key: Buffer, iv: Buffer): Buffer {
+  private decryptAESCBC(data: Buffer, key: Buffer, _iv: Buffer): Buffer {
     const decipher = crypto.createDecipher('aes-256-cbc', key);
     
     let decrypted = decipher.update(data);
@@ -464,7 +465,7 @@ export class EncryptionManager extends EventEmitter {
     return { data: encrypted, iv };
   }
 
-  private decryptChaCha20(data: Buffer, key: Buffer, iv: Buffer): Buffer {
+  private decryptChaCha20(data: Buffer, key: Buffer, _iv: Buffer): Buffer {
     const decipher = crypto.createDecipher('chacha20-poly1305', key);
     
     let decrypted = decipher.update(data);
@@ -524,7 +525,11 @@ export class EncryptionManager extends EventEmitter {
   private async getKeyData(keyId: string): Promise<Buffer | null> {
     // Check cache first
     if (this.keyCache.has(keyId)) {
-      return this.keyCache.get(keyId)!;
+      const cachedKey = this.keyCache.get(keyId);
+      if (!cachedKey) {
+        throw new Error(`Key not found in cache: ${keyId}`);
+      }
+      return cachedKey;
     }
 
     try {

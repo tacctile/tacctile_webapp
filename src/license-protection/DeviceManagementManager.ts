@@ -18,21 +18,12 @@ import {
   ComplianceReport,
   DeviceInfo,
   DeviceType,
-  OperatingSystemInfo,
   Platform,
-  HardwareInfo,
-  DeviceNetworkInfo,
   ConnectionType,
-  DeviceLocation,
-  DeviceRegistrationInfo,
   RegistrationMethod,
   DeviceUsage,
   DeviceSession,
-  SessionActivity,
-  ActivityType,
   SessionEndReason,
-  DeviceFeatureUsage,
-  DeviceUsagePattern,
   DeviceCompliance,
   ComplianceStatus,
   ComplianceCheck,
@@ -41,24 +32,15 @@ import {
   ComplianceViolation,
   ViolationSeverity,
   DeviceSecurityInfo,
-  SecuritySoftware,
   SecuritySoftwareType,
-  SecurityThreat,
   ThreatType,
   ThreatSeverity,
   ThreatStatus,
-  DeviceRegistrySettings,
   DevicePolicy,
-  DevicePolicyType,
   PolicyScope,
-  PolicyRule,
   PolicyCondition,
   PolicyAction,
   PolicyActionType,
-  PolicyEnforcement,
-  EnforcementMode,
-  EscalationSettings,
-  PolicyException,
   TrustScoreFactor,
   TrustScoreHistory,
   TrustFactorType,
@@ -67,7 +49,6 @@ import {
   PolicyViolation,
   ComplianceSummary,
   DeviceComplianceReport,
-  ComplianceCheckResult,
   ComplianceTrend,
   ComplianceRecommendation,
   ActionPriority,
@@ -77,7 +58,6 @@ import {
   LicenseProtectionEvent,
   ProtectionEventType,
   EventSeverity,
-  NotificationSettings,
   RuleOperator
 } from './types';
 
@@ -700,7 +680,7 @@ export class DeviceManagementManager extends EventEmitter implements IDeviceMana
     };
   }
 
-  private async generateHardwareFingerprint(device: Partial<RegisteredDevice>): Promise<HardwareFingerprint> {
+  private async generateHardwareFingerprint(_device: Partial<RegisteredDevice>): Promise<HardwareFingerprint> {
     // In production, would generate actual hardware fingerprint
     const fingerprintId = this.generateFingerprintId();
     
@@ -770,7 +750,7 @@ export class DeviceManagementManager extends EventEmitter implements IDeviceMana
     }
   }
 
-  private async performInitialComplianceCheck(deviceId: string): Promise<DeviceCompliance> {
+  private async performInitialComplianceCheck(_deviceId: string): Promise<DeviceCompliance> {
     const checks: ComplianceCheck[] = [
       {
         id: 'os_version',
@@ -827,7 +807,7 @@ export class DeviceManagementManager extends EventEmitter implements IDeviceMana
     };
   }
 
-  private async applyDevicePolicies(deviceId: string): Promise<void> {
+  private async applyDevicePolicies(_deviceId: string): Promise<void> {
     const device = this.devices.get(deviceId);
     if (!device) return;
 
@@ -909,7 +889,7 @@ export class DeviceManagementManager extends EventEmitter implements IDeviceMana
     return EventSeverity.INFO;
   }
 
-  private async checkTransferRestrictions(deviceId: string, fromUserId: string, toUserId: string): Promise<TransferRestriction[]> {
+  private async checkTransferRestrictions(deviceId: string, _fromUserId: string, _toUserId: string): Promise<TransferRestriction[]> {
     const restrictions: TransferRestriction[] = [];
 
     // Check transfer cooldown
@@ -970,7 +950,7 @@ export class DeviceManagementManager extends EventEmitter implements IDeviceMana
     return (passedChecks / compliance.checks.length) * 100;
   }
 
-  private async calculateLocationConsistencyScore(deviceId: string): Promise<number> {
+  private async calculateLocationConsistencyScore(_deviceId: string): Promise<number> {
     // In production, would analyze location history for consistency
     return Math.random() * 100; // Simplified
   }
@@ -1014,7 +994,7 @@ export class DeviceManagementManager extends EventEmitter implements IDeviceMana
     }
   }
 
-  private evaluateComparison(actual: any, operator: RuleOperator, expected: any): boolean {
+  private evaluateComparison(actual: unknown, operator: RuleOperator, expected: unknown): boolean {
     switch (operator) {
       case RuleOperator.EQUALS:
         return actual === expected;
@@ -1082,7 +1062,7 @@ export class DeviceManagementManager extends EventEmitter implements IDeviceMana
     return null;
   }
 
-  private async notifySecurityTeam(deviceId: string, message: string): Promise<void> {
+  private async notifySecurityTeam(_deviceId: string, message: string): Promise<void> {
     console.log(`Security notification for device ${deviceId}: ${message}`);
   }
 
