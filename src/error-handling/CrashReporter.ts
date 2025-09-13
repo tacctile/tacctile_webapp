@@ -21,13 +21,13 @@ export class CrashReporter extends EventEmitter implements ErrorReporter {
     super();
     this.crashReportsPath = crashReportsPath;
     this.isElectronMain = this.detectElectronMain();
-    this.setupCrashHandlers();
     this.setupUserActionTracking();
   }
 
   public async initialize(): Promise<void> {
     try {
       await fs.mkdir(this.crashReportsPath, { recursive: true });
+      await this.setupCrashHandlers();
       await this.cleanupOldReports();
       this.emit('initialized');
     } catch (error) {
@@ -322,14 +322,14 @@ export class CrashReporter extends EventEmitter implements ErrorReporter {
   private detectElectronMain(): boolean {
     try {
       return process.type === 'browser' || 
-             process.versions.hasOwnProperty('electron') &&
+             Object.prototype.hasOwnProperty.call(process.versions, 'electron') &&
              process.type !== 'renderer';
     } catch {
       return false;
     }
   }
 
-  private setupCrashHandlers(): void {
+  private async setupCrashHandlers(): Promise<void> {
     // Handle uncaught exceptions
     process.on('uncaughtException', async (error: Error, origin: string) => {
       console.error('Uncaught Exception:', error, 'Origin:', origin);
@@ -375,7 +375,7 @@ export class CrashReporter extends EventEmitter implements ErrorReporter {
     // Handle Electron main process crashes
     if (this.isElectronMain) {
       try {
-        const { app } = require('electron');
+        const { app } = await import('electron');
         
         app.on('child-process-gone', (event, details) => {
           console.error('Child process gone:', details);

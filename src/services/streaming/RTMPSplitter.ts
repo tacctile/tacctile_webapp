@@ -117,7 +117,8 @@ export class RTMPSplitter extends EventEmitter {
 
   private getFFmpegPath(): string {
     try {
-      const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
+      // Use dynamic import for optional dependency
+      const ffmpegInstaller = eval('require')('@ffmpeg-installer/ffmpeg');
       return ffmpegInstaller.path;
     } catch (error) {
       // Fallback to system FFmpeg

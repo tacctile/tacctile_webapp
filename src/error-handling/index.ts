@@ -1,7 +1,21 @@
 // Global Error Management System for Professional Investigation Software
 // Complete integration and initialization
 
-export * from './types';
+export {
+  ApplicationError,
+  ErrorCode,
+  ErrorSeverity,
+  ErrorCategory,
+  ErrorConfiguration,
+  ErrorFactory,
+  ErrorTransformer,
+  ErrorFilter,
+  ErrorContext,
+  ErrorMetadata,
+  ErrorDialogRenderer as ErrorDialogRendererInterface,
+  ErrorLogger as ErrorLoggerInterface,
+  ErrorAnalytics as ErrorAnalyticsInterface
+} from './types';
 export { ErrorManager } from './ErrorManager';
 export { CrashReporter } from './CrashReporter';
 export { ErrorDialogManager, type ErrorDialogRenderer } from './ErrorDialogManager';

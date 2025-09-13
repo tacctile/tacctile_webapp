@@ -4,6 +4,7 @@
  */
 
 import { EventEmitter } from 'events';
+import fs from 'fs';
 import {
   ThermalCalibration,
   ThermalFrame,
@@ -813,7 +814,6 @@ export class ThermalCalibrator extends EventEmitter {
    * Save calibration data
    */
   async saveCalibration(calibrationData: ThermalCalibration, filePath: string): Promise<void> {
-    const fs = require('fs');
     
     const saveData = {
       calibration: calibrationData,
@@ -831,7 +831,6 @@ export class ThermalCalibrator extends EventEmitter {
    * Load calibration data
    */
   async loadCalibration(filePath: string): Promise<ThermalCalibration> {
-    const fs = require('fs');
     
     const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     

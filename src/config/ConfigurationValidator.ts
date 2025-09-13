@@ -572,7 +572,7 @@ export class ConfigurationValidator {
         }
         break;
 
-      case 'type':
+      case 'type': {
         const expectedType = rule.parameters?.type;
         if (expectedType && typeof value !== expectedType) {
           return {
@@ -584,8 +584,9 @@ export class ConfigurationValidator {
           };
         }
         break;
+      }
 
-      case 'range':
+      case 'range': {
         const min = rule.parameters?.min;
         const max = rule.parameters?.max;
         if ((min !== undefined && value < min) || (max !== undefined && value > max)) {
@@ -598,8 +599,9 @@ export class ConfigurationValidator {
           };
         }
         break;
+      }
 
-      case 'enum':
+      case 'enum': {
         const values = rule.parameters?.values || [];
         if (!values.includes(value)) {
           return {
@@ -612,8 +614,9 @@ export class ConfigurationValidator {
           };
         }
         break;
+      }
 
-      case 'regex':
+      case 'regex': {
         const pattern = rule.parameters?.pattern;
         if (pattern && !new RegExp(pattern).test(value)) {
           return {
@@ -625,6 +628,7 @@ export class ConfigurationValidator {
           };
         }
         break;
+      }
 
       case 'custom':
         if (rule.validator && !rule.validator(value, config)) {

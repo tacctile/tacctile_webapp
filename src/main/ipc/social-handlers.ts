@@ -57,18 +57,22 @@ export function setupSocialHandlers(): void {
   // Token revocation
   ipcMain.handle('revoke-tokens', async (event, platform: string, credentials) => {
     switch (platform) {
-      case 'twitter':
+      case 'twitter': {
         const twitterService = new TwitterService();
         return await twitterService.revokeTokens(credentials);
-      case 'reddit':
+      }
+      case 'reddit': {
         const redditService = new RedditService();
         return await redditService.revokeTokens(credentials);
-      case 'youtube':
+      }
+      case 'youtube': {
         const youtubeService = new YouTubeService();
         return await youtubeService.revokeTokens(credentials);
-      case 'facebook':
+      }
+      case 'facebook': {
         const facebookService = new FacebookService();
         return await facebookService.revokeTokens(credentials);
+      }
       default:
         throw new Error(`Unsupported platform: ${platform}`);
     }

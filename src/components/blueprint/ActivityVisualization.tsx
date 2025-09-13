@@ -125,25 +125,28 @@ export const ActivityVisualization: React.FC<ActivityVisualizationProps> = ({
         if (intensity < 0.8) return `rgba(245, 158, 11, ${intensity + 0.1})`;
         return `rgba(239, 68, 68, ${intensity + 0.1})`;
 
-      case 'heatLevel':
+      case 'heatLevel': {
         // Heat map style coloring
         const heatValue = Math.min(1, intensity * 1.5);
         const r = Math.floor(255 * heatValue);
         const g = Math.floor(255 * (1 - heatValue) * 0.5);
         const b = Math.floor(255 * (1 - heatValue));
         return `rgba(${r}, ${g}, ${b}, ${heatValue * 0.4 + 0.1})`;
+      }
 
-      case 'eventCount':
+      case 'eventCount': {
         // Color based on event count
         const eventIntensity = Math.min(1, activity.eventCount / 50);
         return `rgba(168, 85, 247, ${eventIntensity * 0.5 + 0.1})`;
+      }
 
-      case 'combined':
+      case 'combined': {
         // Combined visualization using multiple factors
         const avgIntensity = (intensity + Math.min(1, activity.eventCount / 20)) / 2;
         if (avgIntensity < 0.3) return `rgba(59, 130, 246, ${avgIntensity + 0.1})`;
         if (avgIntensity < 0.7) return `rgba(245, 158, 11, ${avgIntensity + 0.1})`;
         return `rgba(239, 68, 68, ${avgIntensity + 0.1})`;
+      }
 
       default:
         return `rgba(187, 134, 252, ${intensity * 0.4 + 0.1})`;

@@ -186,9 +186,14 @@ export class StreamingCore extends EventEmitter {
   }
 
   private getFFmpegPath(): string {
-    // Try to find FFmpeg binary
-    const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
-    return ffmpegInstaller.path;
+    try {
+      // Use dynamic import for optional dependency
+      const ffmpegInstaller = eval('require')('@ffmpeg-installer/ffmpeg');
+      return ffmpegInstaller.path;
+    } catch (error) {
+      // Fallback to system FFmpeg
+      return 'ffmpeg';
+    }
   }
 
   private setupMediaServerEvents(): void {

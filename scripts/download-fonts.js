@@ -1,6 +1,10 @@
-const https = require('https');
-const fs = require('fs');
-const path = require('path');
+import https from 'https';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const FONTS_DIR = path.join(__dirname, '..', 'src', 'assets', 'fonts', 'manrope');
 
@@ -30,7 +34,9 @@ function downloadFile(url, dest) {
         resolve();
       });
     }).on('error', (err) => {
-      fs.unlink(dest, () => {}); // Delete the file on error
+      fs.unlink(dest, (unlinkErr) => {
+        if (unlinkErr) console.warn(`Failed to delete file: ${unlinkErr.message}`);
+      }); // Delete the file on error
       reject(err);
     });
   });

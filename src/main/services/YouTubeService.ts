@@ -1,6 +1,7 @@
 import { google, youtube_v3 } from 'googleapis';
 import { SocialAccount } from '../../services/social/AccountManager';
 import { OAuth2Client } from 'google-auth-library';
+import fs from 'fs';
 
 interface YouTubeCredentials {
   clientId: string;
@@ -73,7 +74,6 @@ export class YouTubeService {
     }
 
     try {
-      const fs = require('fs');
       
       const response = await this.youtube.videos.insert({
         part: ['snippet', 'status'],

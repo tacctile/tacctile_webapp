@@ -3,7 +3,7 @@
  * Cross-platform hardware and system access
  */
 
-import { app, dialog, systemPreferences, powerMonitor, screen } from 'electron';
+import { app, dialog, systemPreferences, powerMonitor, screen, Notification } from 'electron';
 import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import { networkInterfaces, cpus, totalmem, freemem, uptime, hostname } from 'os';
@@ -326,7 +326,6 @@ export const NotificationAPI = {
     icon?: string;
     sound?: boolean;
   }): Promise<void> {
-    const { Notification } = require('electron');
     
     const notification = new Notification({
       title: options.title,

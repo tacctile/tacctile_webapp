@@ -604,7 +604,7 @@ export class ConfigurationSystem {
   private countNestedProperties(obj: any): number {
     let count = 0;
     for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
         count++;
         if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
           count += this.countNestedProperties(obj[key]);

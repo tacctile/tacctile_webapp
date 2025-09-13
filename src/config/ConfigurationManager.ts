@@ -459,9 +459,13 @@ export class ConfigurationManager extends EventEmitter {
       // Test write permissions
       const testPath = path.join(this.platformCapabilities?.paths?.config || os.tmpdir(), 'test');
       fs.writeFile(testPath, 'test', 'utf8').then(() => {
-        fs.unlink(testPath).catch(() => {});
+        fs.unlink(testPath).catch((err) => {
+          console.debug('Failed to cleanup test file:', err.message);
+        });
         permissions.push('filesystem');
-      }).catch(() => {});
+      }).catch((err) => {
+        console.debug('Filesystem test failed:', err.message);
+      });
     } catch (error) {
       // No filesystem access
     }

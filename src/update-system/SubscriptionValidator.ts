@@ -3,6 +3,7 @@ import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as os from 'os';
 import {
   SubscriptionInfo,
   SubscriptionTier,
@@ -430,7 +431,6 @@ export class SubscriptionValidator {
   private async getMachineId(): Promise<string> {
     try {
       // Create a machine ID based on system characteristics
-      const os = require('os');
       const machineInfo = [
         os.platform(),
         os.arch(),

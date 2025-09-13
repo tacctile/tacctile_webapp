@@ -5,10 +5,10 @@
  * including enterprise accounts, abuse detection, and device management.
  */
 
-const { 
+import { 
   createEnterpriseLicenseProtectionSystem,
   LicenseProtectionUtils
-} = require('./src/license-protection/index.ts');
+} from './src/license-protection/index.ts';
 
 async function testEnterpriseSystem() {
   console.log('🚀 Testing Enterprise License Protection System');
@@ -180,8 +180,8 @@ async function testEnterpriseSystem() {
 }
 
 // Run tests if called directly
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   testEnterpriseSystem().catch(console.error);
 }
 
-module.exports = { testEnterpriseSystem };
+export { testEnterpriseSystem };

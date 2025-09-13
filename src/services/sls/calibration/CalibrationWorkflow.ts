@@ -4,6 +4,7 @@
  */
 
 import { EventEmitter } from 'events';
+import fs from 'fs';
 import {
   CalibrationSession,
   CalibrationStep,
@@ -627,7 +628,6 @@ export class CalibrationWorkflow extends EventEmitter {
    * Load calibration from file
    */
   async loadCalibration(filePath: string): Promise<CalibrationData> {
-    const fs = require('fs');
     const data = fs.readFileSync(filePath, 'utf-8');
     return JSON.parse(data);
   }
@@ -636,7 +636,6 @@ export class CalibrationWorkflow extends EventEmitter {
    * Save calibration to file
    */
   async saveCalibration(calibration: CalibrationData, filePath: string): Promise<void> {
-    const fs = require('fs');
     fs.writeFileSync(filePath, JSON.stringify(calibration, null, 2));
     logger.info(`Calibration saved to ${filePath}`);
   }

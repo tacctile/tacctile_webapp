@@ -3,8 +3,12 @@
  * Creates platform-specific icons from a base SVG
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Create a simple ghost icon SVG
 const svgIcon = `<?xml version="1.0" encoding="UTF-8"?>

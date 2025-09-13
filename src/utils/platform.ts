@@ -3,9 +3,9 @@
  * Provides OS detection and platform-specific helpers
  */
 
-import { platform, release, arch, homedir, tmpdir } from 'os';
+import { release, arch, homedir, tmpdir } from 'os';
 import { join, normalize, resolve, sep } from 'path';
-import { app } from 'electron';
+import { app, shell, clipboard } from 'electron';
 
 // Platform detection
 export const Platform = {
@@ -382,48 +382,40 @@ export const FileSystem = {
 export const System = {
   // Open external links
   async openExternal(url: string): Promise<void> {
-    const { shell } = require('electron');
     await shell.openExternal(url);
   },
   
   // Open file/folder in system file manager
   showItemInFolder(path: string): void {
-    const { shell } = require('electron');
     shell.showItemInFolder(path);
   },
   
   // Open file with default application
   async openPath(path: string): Promise<string> {
-    const { shell } = require('electron');
     return await shell.openPath(path);
   },
   
   // Move to trash
   async moveToTrash(path: string): Promise<void> {
-    const { shell } = require('electron');
     await shell.trashItem(path);
   },
   
   // System sounds
   beep(): void {
-    const { shell } = require('electron');
     shell.beep();
   },
   
   // Clipboard operations
   clipboard: {
     writeText(text: string): void {
-      const { clipboard } = require('electron');
       clipboard.writeText(text);
     },
     
     readText(): string {
-      const { clipboard } = require('electron');
       return clipboard.readText();
     },
     
     clear(): void {
-      const { clipboard } = require('electron');
       clipboard.clear();
     }
   }

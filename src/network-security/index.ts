@@ -5,6 +5,7 @@
 
 import { EventEmitter } from 'events';
 import { app, ipcMain } from 'electron';
+import crypto from 'crypto';
 import { NetworkSecurityManager } from './NetworkSecurityManager';
 import { SecureCommunicationManager } from './SecureCommunicationManager';
 import {
@@ -356,7 +357,6 @@ export class NetworkSecuritySystem extends EventEmitter {
   }
 
   private calculateChecksum(data: any): string {
-    const crypto = require('crypto');
     return crypto.createHash('sha256').update(JSON.stringify(data)).digest('hex');
   }
 

@@ -3,9 +3,9 @@
  * Compiles sensitive JavaScript files to bytecode for basic obfuscation
  */
 
-const bytenode = require('bytenode');
-const fs = require('fs');
-const path = require('path');
+import bytenode from 'bytenode';
+import fs from 'fs';
+import path from 'path';
 
 // Files to protect (typically licensing and payment logic)
 const PROTECTED_FILES = [
@@ -89,7 +89,7 @@ function showUsage() {
 }
 
 // Main execution
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   const args = process.argv.slice(2);
   
   if (args.includes('--help') || args.includes('-h')) {

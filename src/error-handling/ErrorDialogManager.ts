@@ -340,7 +340,10 @@ export class ErrorDialogManager extends EventEmitter {
         {
           id: 'close',
           label: 'Close',
-          action: () => {},
+          action: () => {
+            // Close action - handled by dialog system
+            console.debug('Warning dialog closed');
+          },
           style: 'secondary'
         }
       ],
@@ -376,7 +379,10 @@ export class ErrorDialogManager extends EventEmitter {
         {
           id: 'cancel',
           label: 'Cancel',
-          action: () => {},
+          action: () => {
+            // Cancel action - handled by dialog system
+            console.debug('Error dialog canceled');
+          },
           style: 'secondary'
         }
       ],
@@ -403,7 +409,10 @@ export class ErrorDialogManager extends EventEmitter {
           {
             id: 'ok',
             label: 'OK',
-            action: () => {},
+            action: () => {
+              // OK action - close confirmation
+              console.debug('Report confirmation acknowledged');
+            },
             style: 'primary'
           }
         ],
@@ -429,7 +438,10 @@ export class ErrorDialogManager extends EventEmitter {
           {
             id: 'ok',
             label: 'OK',
-            action: () => {},
+            action: () => {
+              // OK action - close error dialog
+              console.debug('Report error acknowledged');
+            },
             style: 'primary'
           }
         ],

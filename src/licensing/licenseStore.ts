@@ -324,7 +324,7 @@ export class LicenseStore {
   private async isOnline(): Promise<boolean> {
     try {
       // Simple connectivity check
-      const dns = require('dns');
+      const dns = await import('dns');
       return new Promise((resolve) => {
         dns.lookup('google.com', (err) => {
           resolve(!err);

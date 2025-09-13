@@ -513,11 +513,12 @@ export class ErrorLogger extends EventEmitter implements IErrorLogger {
             aValue = a.timestamp;
             bValue = b.timestamp;
             break;
-          case 'severity':
+          case 'severity': {
             const severityOrder = { critical: 5, high: 4, medium: 3, low: 2, info: 1 };
             aValue = severityOrder[a.severity as keyof typeof severityOrder];
             bValue = severityOrder[b.severity as keyof typeof severityOrder];
             break;
+          }
           case 'code':
             aValue = a.code;
             bValue = b.code;

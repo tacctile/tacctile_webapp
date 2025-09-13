@@ -429,8 +429,12 @@ export class PlatformAdapter extends EventEmitter {
       const testDir = path.join(this.setupBasePaths().temp, 'tacctile-test');
       fs.mkdir(testDir, { recursive: true }).then(() => {
         permissions.push('filesystem');
-        fs.rmdir(testDir).catch(() => {});
-      }).catch(() => {});
+        fs.rmdir(testDir).catch((err) => {
+          console.debug('Failed to cleanup test directory:', err.message);
+        });
+      }).catch((err) => {
+        console.debug('Filesystem test failed:', err.message);
+      });
     } catch (error) {
       console.warn('Could not test filesystem permissions:', error);
     }

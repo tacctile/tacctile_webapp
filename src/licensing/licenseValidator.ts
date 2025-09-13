@@ -193,7 +193,7 @@ export class LicenseValidator {
   /**
    * Get device-specific identifier
    */
-  public getDeviceId(): string {
+  public async getDeviceId(): Promise<string> {
     try {
       return machineIdSync();
     } catch (error) {
@@ -201,7 +201,7 @@ export class LicenseValidator {
       const fallbackData = [
         process.platform,
         process.arch,
-        require('os').hostname(),
+        (await import('os')).hostname(),
       ].join('-');
       
       return crypto.createHash('sha256').update(fallbackData).digest('hex').substring(0, 32);

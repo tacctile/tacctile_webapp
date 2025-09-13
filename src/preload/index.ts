@@ -78,9 +78,9 @@ interface GhostHunterAPI {
   };
   
   // Events
-  on: (channel: string, callback: Function) => void;
-  off: (channel: string, callback: Function) => void;
-  once: (channel: string, callback: Function) => void;
+  on: (channel: string, callback: (...args: any[]) => void) => void;
+  off: (channel: string, callback: (...args: any[]) => void) => void;
+  once: (channel: string, callback: (...args: any[]) => void) => void;
 }
 
 // Platform API
@@ -196,20 +196,20 @@ const validChannels = [
 ];
 
 const eventAPI = {
-  on: (channel: string, callback: Function) => {
+  on: (channel: string, callback: (...args: any[]) => void) => {
     if (validChannels.includes(channel)) {
       const subscription = (_event: any, ...args: any[]) => callback(...args);
       ipcRenderer.on(channel, subscription);
     }
   },
   
-  off: (channel: string, callback: Function) => {
+  off: (channel: string, callback: (...args: any[]) => void) => {
     if (validChannels.includes(channel)) {
       ipcRenderer.removeListener(channel, callback as any);
     }
   },
   
-  once: (channel: string, callback: Function) => {
+  once: (channel: string, callback: (...args: any[]) => void) => {
     if (validChannels.includes(channel)) {
       ipcRenderer.once(channel, (_event, ...args) => callback(...args));
     }
