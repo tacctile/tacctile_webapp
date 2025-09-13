@@ -1,4 +1,8 @@
 import React, { useState, useCallback, useRef } from 'react';
+import '@fontsource/manrope/400.css';
+import '@fontsource/manrope/500.css';
+import '@fontsource/manrope/600.css';
+import '@fontsource/manrope/700.css';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
@@ -9,7 +13,7 @@ import BottomPanel from './components/Layout/BottomPanel';
 import StatusBar from './components/Layout/StatusBar';
 import { LayoutProvider } from './contexts/LayoutContext';
 
-// Material 3 Dark Theme
+// Material 3 Dark Theme with Tacctile Brand Colors
 const darkTheme = createTheme({
   palette: {
     mode: 'dark',
@@ -18,10 +22,15 @@ const darkTheme = createTheme({
       paper: '#1e1e1e',
     },
     primary: {
-      main: '#bb86fc',
+      main: '#19abb5',     // Primary brand color
+      light: '#36d1da',    // Lighter variant
+      dark: '#1992a1',     // Darker variant for hover
+      contrastText: '#ffffff',
     },
     secondary: {
-      main: '#03dac6',
+      main: '#75e7eb',     // Bright accent
+      light: '#aef2f3',    // Secondary highlight
+      dark: '#36d1da',     // Alternate primary
     },
     error: {
       main: '#cf6679',
@@ -30,10 +39,34 @@ const darkTheme = createTheme({
       primary: '#e1e1e1',
       secondary: '#aaaaaa',
     },
+    action: {
+      active: '#19abb5',
+      hover: 'rgba(25, 171, 181, 0.08)',
+      selected: 'rgba(25, 171, 181, 0.16)',
+      disabled: 'rgba(255, 255, 255, 0.3)',
+      disabledBackground: 'rgba(255, 255, 255, 0.12)',
+    },
   },
   typography: {
-    fontFamily: '"Segoe UI", "Roboto", "Helvetica", "Arial", sans-serif',
+    fontFamily: '"Manrope", sans-serif',
     fontSize: 13,
+    fontWeightRegular: 400,
+    fontWeightMedium: 500,
+    fontWeightSemiBold: 600,
+    fontWeightBold: 700,
+    h1: { fontFamily: '"Manrope", sans-serif', fontWeight: 700 },
+    h2: { fontFamily: '"Manrope", sans-serif', fontWeight: 700 },
+    h3: { fontFamily: '"Manrope", sans-serif', fontWeight: 600 },
+    h4: { fontFamily: '"Manrope", sans-serif', fontWeight: 600 },
+    h5: { fontFamily: '"Manrope", sans-serif', fontWeight: 500 },
+    h6: { fontFamily: '"Manrope", sans-serif', fontWeight: 500 },
+    subtitle1: { fontFamily: '"Manrope", sans-serif', fontWeight: 500 },
+    subtitle2: { fontFamily: '"Manrope", sans-serif', fontWeight: 500 },
+    body1: { fontFamily: '"Manrope", sans-serif', fontWeight: 400 },
+    body2: { fontFamily: '"Manrope", sans-serif', fontWeight: 400 },
+    button: { fontFamily: '"Manrope", sans-serif', fontWeight: 500 },
+    caption: { fontFamily: '"Manrope", sans-serif', fontWeight: 400 },
+    overline: { fontFamily: '"Manrope", sans-serif', fontWeight: 400 },
   },
   shape: {
     borderRadius: 4,

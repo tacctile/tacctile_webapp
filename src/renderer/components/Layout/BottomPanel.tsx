@@ -41,7 +41,7 @@ const ContentArea = styled(Box)(({ theme }) => ({
   flex: 1,
   overflow: 'auto',
   padding: 8,
-  fontFamily: '"Consolas", "Courier New", monospace',
+  fontFamily: '"Manrope", sans-serif',
   fontSize: 13,
 }));
 
@@ -53,19 +53,20 @@ const ResizeHandle = styled(Box)(({ theme }) => ({
   height: 4,
   cursor: 'row-resize',
   '&:hover': {
-    backgroundColor: 'rgba(187, 134, 252, 0.3)',
+    backgroundColor: 'rgba(25, 171, 181, 0.3)',
   },
 }));
 
 const LogEntry = styled(Box)<{ level: 'info' | 'warning' | 'error' | 'success' }>(({ level }) => ({
   padding: '2px 0',
-  fontFamily: '"Consolas", "Courier New", monospace',
+  fontFamily: '"Manrope", sans-serif',
   fontSize: 12,
-  color: level === 'error' ? '#cf6679' : level === 'warning' ? '#ffb74d' : level === 'success' ? '#03dac6' : '#aaaaaa',
+  fontWeight: 400,
+  color: level === 'error' ? '#cf6679' : level === 'warning' ? '#ffb74d' : level === 'success' ? '#36d1da' : '#aaaaaa',
   display: 'flex',
   alignItems: 'flex-start',
   '&:hover': {
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    backgroundColor: 'rgba(25, 171, 181, 0.02)',
   },
 }));
 
@@ -134,7 +135,7 @@ const BottomPanel: React.FC<BottomPanelProps> = ({ height, onResize, onClose }) 
       case 'warning':
         return <FiberManualRecordIcon sx={{ ...iconStyle, color: '#ffb74d' }} />;
       case 'success':
-        return <FiberManualRecordIcon sx={{ ...iconStyle, color: '#03dac6' }} />;
+        return <FiberManualRecordIcon sx={{ ...iconStyle, color: '#36d1da' }} />;
       default:
         return <FiberManualRecordIcon sx={{ ...iconStyle, color: '#aaaaaa' }} />;
     }
@@ -181,7 +182,7 @@ const BottomPanel: React.FC<BottomPanelProps> = ({ height, onResize, onClose }) 
           />
         )}
       </Box>
-      <Typography sx={{ color: '#03dac6', fontSize: 12, fontFamily: 'monospace' }}>
+      <Typography sx={{ color: '#19abb5', fontSize: 12, fontFamily: '"Manrope", sans-serif', fontWeight: 500 }}>
         [EMF] Continuous monitoring active{'\n'}
         [THERMAL] IR camera connected - 30 FPS{'\n'}
         [AUDIO] Recording at 48kHz 24-bit{'\n'}
@@ -193,8 +194,8 @@ const BottomPanel: React.FC<BottomPanelProps> = ({ height, onResize, onClose }) 
     // Alerts tab
     <ContentArea key="alerts">
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <Box sx={{ p: 1, backgroundColor: 'rgba(187, 134, 252, 0.1)', borderRadius: 1 }}>
-          <Typography sx={{ fontSize: 12, color: '#bb86fc' }}>
+        <Box sx={{ p: 1, backgroundColor: 'rgba(25, 171, 181, 0.1)', borderRadius: 1 }}>
+          <Typography sx={{ fontSize: 12, color: '#19abb5' }}>
             ⚠ Anomaly detected at 22:16:02 - Multiple sensors triggered
           </Typography>
         </Box>
@@ -238,7 +239,7 @@ const BottomPanel: React.FC<BottomPanelProps> = ({ height, onResize, onClose }) 
             <IconButton
               size="small"
               onClick={() => setIsRecording(!isRecording)}
-              sx={{ color: isRecording ? '#cf6679' : '#03dac6' }}
+              sx={{ color: isRecording ? '#cf6679' : '#19abb5' }}
             >
               {isRecording ? <StopIcon fontSize="small" /> : <FiberManualRecordIcon fontSize="small" />}
             </IconButton>

@@ -3,7 +3,6 @@ import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import { styled } from '@mui/material/styles';
-import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 
 // Icons
 import CloseIcon from '@mui/icons-material/Close';
@@ -37,16 +36,17 @@ const Tab = styled(Box)<{ active?: boolean; isDragging?: boolean }>(({ active, i
   maxWidth: 200,
   backgroundColor: active ? '#1e1e1e' : '#2d2d2d',
   borderRight: '1px solid #2b2b2b',
-  borderTop: active ? '1px solid #bb86fc' : '1px solid transparent',
+  borderTop: active ? '2px solid #19abb5' : '1px solid transparent',
   display: 'flex',
   alignItems: 'center',
   padding: '0 8px',
   cursor: 'pointer',
   position: 'relative',
   opacity: isDragging ? 0.5 : 1,
-  transition: 'background-color 0.2s',
+  transition: 'all 0.2s',
   '&:hover': {
     backgroundColor: active ? '#1e1e1e' : '#353535',
+    borderTop: active ? '2px solid #36d1da' : '1px solid #1f5f6b',
     '& .tab-close': {
       opacity: 1,
     },
@@ -104,15 +104,40 @@ const EditorArea: React.FC<EditorAreaProps> = ({
   onTabReorder,
 }) => {
   const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [draggedTab, setDraggedTab] = useState<string | null>(null);
+  const [dragOverTab, setDragOverTab] = useState<string | null>(null);
 
-  const handleDragEnd = (result: DropResult) => {
-    if (!result.destination) return;
+  const handleTabDragStart = (e: React.DragEvent, tabId: string) => {
+    setDraggedTab(tabId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
 
-    const items = Array.from(tabs);
-    const [reorderedItem] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reorderedItem);
+  const handleTabDragOver = (e: React.DragEvent, tabId: string) => {
+    e.preventDefault();
+    if (draggedTab && draggedTab !== tabId) {
+      setDragOverTab(tabId);
+    }
+  };
 
-    onTabReorder(items);
+  const handleTabDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (draggedTab && draggedTab !== targetId) {
+      const draggedIndex = tabs.findIndex(t => t.id === draggedTab);
+      const targetIndex = tabs.findIndex(t => t.id === targetId);
+
+      const newTabs = [...tabs];
+      const [removed] = newTabs.splice(draggedIndex, 1);
+      newTabs.splice(targetIndex, 0, removed);
+
+      onTabReorder(newTabs);
+    }
+    setDraggedTab(null);
+    setDragOverTab(null);
+  };
+
+  const handleTabDragEnd = () => {
+    setDraggedTab(null);
+    setDragOverTab(null);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -148,89 +173,75 @@ const EditorArea: React.FC<EditorAreaProps> = ({
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
       {/* Tab bar */}
-      <DragDropContext onDragEnd={handleDragEnd}>
-        <Droppable droppableId="tabs" direction="horizontal">
-          {(provided) => (
-            <TabBar
-              ref={provided.innerRef}
-              {...provided.droppableProps}
+      <TabBar>
+        {tabs.map((tab) => (
+          <Tab
+            key={tab.id}
+            active={activeTab === tab.id}
+            isDragging={draggedTab === tab.id}
+            draggable={!tab.pinned}
+            onDragStart={(e) => handleTabDragStart(e, tab.id)}
+            onDragOver={(e) => handleTabDragOver(e, tab.id)}
+            onDrop={(e) => handleTabDrop(e, tab.id)}
+            onDragEnd={handleTabDragEnd}
+            onClick={() => onTabSelect(tab.id)}
+            sx={{
+              borderLeft: dragOverTab === tab.id ? '2px solid #19abb5' : undefined,
+            }}
+          >
+            {getFileIcon(tab.title)}
+            <TabLabel>{tab.title}</TabLabel>
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                onTabPin(tab.id);
+              }}
+              sx={{
+                p: 0.25,
+                mr: 0.5,
+                color: '#858585',
+                '&:hover': { color: '#e1e1e1' },
+              }}
             >
-              {tabs.map((tab, index) => (
-                <Draggable
-                  key={tab.id}
-                  draggableId={tab.id}
-                  index={index}
-                  isDragDisabled={tab.pinned}
-                >
-                  {(provided, snapshot) => (
-                    <Tab
-                      ref={provided.innerRef}
-                      {...provided.draggableProps}
-                      {...provided.dragHandleProps}
-                      active={activeTab === tab.id}
-                      isDragging={snapshot.isDragging}
-                      onClick={() => onTabSelect(tab.id)}
-                      style={provided.draggableProps.style}
-                    >
-                      {getFileIcon(tab.title)}
-                      <TabLabel>{tab.title}</TabLabel>
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onTabPin(tab.id);
-                        }}
-                        sx={{
-                          p: 0.25,
-                          mr: 0.5,
-                          color: '#858585',
-                          '&:hover': { color: '#e1e1e1' },
-                        }}
-                      >
-                        {tab.pinned ? (
-                          <PushPinIcon sx={{ fontSize: 14 }} />
-                        ) : (
-                          <PushPinOutlinedIcon sx={{ fontSize: 14 }} />
-                        )}
-                      </IconButton>
-                      {!tab.pinned && (
-                        <IconButton
-                          className="tab-close"
-                          size="small"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onTabClose(tab.id);
-                          }}
-                          sx={{
-                            p: 0.25,
-                            color: '#858585',
-                            opacity: 0,
-                            transition: 'opacity 0.2s',
-                            '&:hover': { color: '#e1e1e1' },
-                          }}
-                        >
-                          <CloseIcon sx={{ fontSize: 16 }} />
-                        </IconButton>
-                      )}
-                    </Tab>
-                  )}
-                </Draggable>
-              ))}
-              {provided.placeholder}
+              {tab.pinned ? (
+                <PushPinIcon sx={{ fontSize: 14 }} />
+              ) : (
+                <PushPinOutlinedIcon sx={{ fontSize: 14 }} />
+              )}
+            </IconButton>
+            {!tab.pinned && (
               <IconButton
+                className="tab-close"
                 size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTabClose(tab.id);
+                }}
                 sx={{
-                  ml: 0.5,
+                  p: 0.25,
                   color: '#858585',
+                  opacity: 0,
+                  transition: 'opacity 0.2s',
                   '&:hover': { color: '#e1e1e1' },
                 }}
               >
-                <AddIcon />
+                <CloseIcon sx={{ fontSize: 16 }} />
               </IconButton>
-            </TabBar>
-          )}
-        </Droppable>
-      </DragDropContext>
+            )}
+          </Tab>
+        ))}
+        <IconButton
+          size="small"
+          sx={{
+            ml: 0.5,
+            color: '#858585',
+            '&:hover': { color: '#e1e1e1' },
+          }}
+        >
+          <AddIcon />
+        </IconButton>
+      </TabBar>
 
       {/* Content area */}
       <ContentArea
@@ -238,8 +249,8 @@ const EditorArea: React.FC<EditorAreaProps> = ({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         sx={{
-          border: isDraggingOver ? '2px dashed #bb86fc' : 'none',
-          backgroundColor: isDraggingOver ? 'rgba(187, 134, 252, 0.05)' : '#1e1e1e',
+          border: isDraggingOver ? '2px dashed #19abb5' : 'none',
+          backgroundColor: isDraggingOver ? 'rgba(25, 171, 181, 0.05)' : '#1e1e1e',
         }}
       >
         {tabs.length === 0 || !activeTab ? (

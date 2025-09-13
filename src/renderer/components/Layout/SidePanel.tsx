@@ -49,7 +49,7 @@ const ResizeHandle = styled(Box)(({ theme }) => ({
   width: 4,
   cursor: 'col-resize',
   '&:hover': {
-    backgroundColor: 'rgba(187, 134, 252, 0.3)',
+    backgroundColor: 'rgba(25, 171, 181, 0.3)',
   },
 }));
 
