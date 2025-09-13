@@ -58,9 +58,9 @@ export class RadioScannerCore extends EventEmitter {
   
   private scanSettings: ScanSettings;
   private radioConfig: RadioConfig;
-  private isScanning: boolean = false;
-  private isPaused: boolean = false;
-  private currentFrequency: number = 88.1;
+  private isScanning = false;
+  private isPaused = false;
+  private currentFrequency = 88.1;
   
   private frequencies: Map<number, RadioFrequency> = new Map();
   private scanInterval: NodeJS.Timeout | null = null;
@@ -69,7 +69,7 @@ export class RadioScannerCore extends EventEmitter {
   private frequencyData: Float32Array = new Float32Array();
   private timeData: Float32Array = new Float32Array();
   private spectrumHistory: AudioSpectrum[][] = [];
-  private maxHistoryLength: number = 100;
+  private maxHistoryLength = 100;
 
   constructor(
     scanSettings: Partial<ScanSettings> = {},

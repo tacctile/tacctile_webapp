@@ -93,7 +93,7 @@ export class AudioProcessor extends EventEmitter {
   // Processing data
   private config: AudioProcessingConfig;
   private noiseProfile: NoiseProfile | null = null;
-  private isLearningNoise: boolean = false;
+  private isLearningNoise = false;
   private noiseReductionSettings: NoiseReductionSettings;
   private equalizerBands: EqualizerBand[];
   
@@ -102,14 +102,14 @@ export class AudioProcessor extends EventEmitter {
   private timeData: Float32Array = new Float32Array();
   private processedBuffer: Float32Array = new Float32Array();
   private noiseBuffer: Float32Array[] = [];
-  private maxNoiseBuffers: number = 10;
+  private maxNoiseBuffers = 10;
   
   // Features and segments
   private audioSegments: AudioSegment[] = [];
   private currentSegment: AudioSegment | null = null;
-  private segmentStartTime: number = 0;
-  private minSegmentDuration: number = 100; // ms
-  private maxSegmentDuration: number = 5000; // ms
+  private segmentStartTime = 0;
+  private minSegmentDuration = 100; // ms
+  private maxSegmentDuration = 5000; // ms
 
   constructor(config: Partial<AudioProcessingConfig> = {}) {
     super();
@@ -694,9 +694,9 @@ export class AudioProcessor extends EventEmitter {
 
     const avgSpectrum = new Float32Array(this.frequencyData.length);
     let totalEnergy = 0;
-    let totalSpectralCentroid = 0;
-    let totalSpectralRolloff = 0;
-    let totalSpectralFlatness = 0;
+    const totalSpectralCentroid = 0;
+    const totalSpectralRolloff = 0;
+    const totalSpectralFlatness = 0;
 
     // Average all noise samples
     this.noiseBuffer.forEach(spectrum => {
