@@ -38,7 +38,7 @@ export class CrashReporter extends EventEmitter implements ErrorReporter {
 
   public async report(error: ApplicationError): Promise<string> {
     const crashReport = await this.createCrashReport(error);
-    const reportPath = await this.saveCrashReport(crashReport);
+    await this.saveCrashReport(crashReport);
     
     this.emit('crash:detected', crashReport);
     
@@ -96,7 +96,6 @@ export class CrashReporter extends EventEmitter implements ErrorReporter {
     const crashId = `crash_${timestamp}_${++this.crashCounter}`;
 
     const systemMetrics = await this.collectSystemMetrics();
-    const processInfo = this.getProcessInfo();
 
     const crashReport: CrashReport = {
       id: crashId,
@@ -181,8 +180,6 @@ export class CrashReporter extends EventEmitter implements ErrorReporter {
   }
 
   private async collectSystemMetrics(): Promise<CrashReport['systemMetrics']> {
-    const totalMemory = os.totalmem();
-    const freeMemory = os.freemem();
     const memoryUsage = process.memoryUsage();
 
     return {
@@ -233,7 +230,7 @@ export class CrashReporter extends EventEmitter implements ErrorReporter {
     }
   }
 
-  private getProcessInfo(): any {
+  private getProcessInfo(): Record<string, unknown> {
     return {
       pid: process.pid,
       ppid: process.ppid,
@@ -346,7 +343,7 @@ export class CrashReporter extends EventEmitter implements ErrorReporter {
     });
 
     // Handle unhandled promise rejections
-    process.on('unhandledRejection', async (reason: any, promise: Promise<any>) => {
+    process.on('unhandledRejection', async (reason: unknown, promise: Promise<unknown>) => {
       console.error('Unhandled Rejection at:', promise, 'reason:', reason);
       
       try {
@@ -440,7 +437,7 @@ export class CrashReporter extends EventEmitter implements ErrorReporter {
     }
   }
 
-  private async handleProcessCrash(error: Error, details: any): Promise<void> {
+  private async handleProcessCrash(error: Error, details: Record<string, unknown>): Promise<void> {
     try {
       // Create a basic ApplicationError from native Error
       const appError: Partial<ApplicationError> = {
@@ -472,7 +469,7 @@ export class CrashReporter extends EventEmitter implements ErrorReporter {
     }
   }
 
-  private handleElectronProcessCrash(type: string, details: any): void {
+  private handleElectronProcessCrash(type: string, details: Record<string, unknown>): void {
     this.trackUserAction('electron-process-crash', 'electron', { type, details });
   }
 

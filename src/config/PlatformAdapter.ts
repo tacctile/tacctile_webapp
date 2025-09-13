@@ -4,8 +4,7 @@ import * as fs from 'fs/promises';
 import { EventEmitter } from 'events';
 import {
   ConfigurationSchema,
-  PlatformCapabilities,
-  ConfigurationMetadata
+  PlatformCapabilities
 } from './types';
 
 export interface PlatformPaths {
@@ -281,8 +280,8 @@ export class PlatformAdapter extends EventEmitter {
   }
 
   private detectCapabilities(): PlatformCapabilities {
-    const homedir = os.homedir();
-    const tmpdir = os.tmpdir();
+    // const homedir = os.homedir();
+    // const tmpdir = os.tmpdir();
     
     return {
       os: this.platform,
@@ -480,7 +479,7 @@ export class PlatformAdapter extends EventEmitter {
     return envVars;
   }
 
-  private normalizeStoragePaths(storage: any): any {
+  private normalizeStoragePaths(storage: Record<string, unknown>): Record<string, unknown> {
     const normalized = { ...storage };
     
     // Convert paths to platform-specific format
@@ -495,7 +494,7 @@ export class PlatformAdapter extends EventEmitter {
     return normalized;
   }
 
-  private adjustPerformanceSettings(performance: any): any {
+  private adjustPerformanceSettings(performance: Record<string, unknown>): Record<string, unknown> {
     const adjusted = { ...performance };
     
     // Adjust based on platform limitations
@@ -524,7 +523,7 @@ export class PlatformAdapter extends EventEmitter {
     return adjusted;
   }
 
-  private adjustUserPreferences(preferences: any): any {
+  private adjustUserPreferences(preferences: Record<string, unknown>): Record<string, unknown> {
     const adjusted = JSON.parse(JSON.stringify(preferences));
     
     // Adjust theme based on platform capabilities
@@ -546,7 +545,7 @@ export class PlatformAdapter extends EventEmitter {
     return adjusted;
   }
 
-  private adjustHardwareCalibrations(calibrations: any): any {
+  private adjustHardwareCalibrations(calibrations: Record<string, unknown>): Record<string, unknown> {
     const adjusted = JSON.parse(JSON.stringify(calibrations));
     
     // Remove unsupported hardware categories
@@ -561,7 +560,7 @@ export class PlatformAdapter extends EventEmitter {
     return adjusted;
   }
 
-  private adjustSecuritySettings(security: any): any {
+  private adjustSecuritySettings(security: Record<string, unknown>): Record<string, unknown> {
     const adjusted = JSON.parse(JSON.stringify(security));
     
     // Adjust encryption based on platform capabilities
@@ -584,7 +583,7 @@ export class PlatformAdapter extends EventEmitter {
     return adjusted;
   }
 
-  private adjustShortcutsForMac(shortcuts: any): void {
+  private adjustShortcutsForMac(shortcuts: Record<string, unknown>): void {
     // Convert Ctrl+X shortcuts to Cmd+X on macOS
     for (const shortcut in shortcuts) {
       const keys = shortcuts[shortcut].keys;
@@ -641,7 +640,7 @@ export class PlatformAdapter extends EventEmitter {
     // Linux migrations would be added similarly
   }
 
-  private convertPathsInConfig(config: any, fromPlatform: string, toPlatform: string): void {
+  private convertPathsInConfig(config: Record<string, unknown>, fromPlatform: string, toPlatform: string): void {
     // This is a simplified path conversion
     // Real implementation would be more sophisticated
     const pathFields = [
@@ -671,7 +670,7 @@ export class PlatformAdapter extends EventEmitter {
     return originalPath;
   }
 
-  private adjustShortcutsForWindows(shortcuts: any): void {
+  private adjustShortcutsForWindows(shortcuts: Record<string, unknown>): void {
     for (const shortcut in shortcuts) {
       const keys = shortcuts[shortcut].keys;
       if (Array.isArray(keys)) {
@@ -682,18 +681,24 @@ export class PlatformAdapter extends EventEmitter {
     }
   }
 
-  private getNestedValue(obj: any, path: string): any {
-    return path.split('.').reduce((current, key) => current?.[key], obj);
+  private getNestedValue(obj: Record<string, unknown>, path: string): unknown {
+    return path.split('.').reduce((current: unknown, key) => {
+      if (current && typeof current === 'object' && key in current) {
+        return (current as Record<string, unknown>)[key];
+      }
+      return undefined;
+    }, obj);
   }
 
-  private setNestedValue(obj: any, path: string, value: any): void {
+  private setNestedValue(obj: Record<string, unknown>, path: string, value: unknown): void {
     const keys = path.split('.');
-    const lastKey = keys.pop()!;
-    const target = keys.reduce((current, key) => {
+    const lastKey = keys.pop();
+    if (!lastKey) return;
+    const target = keys.reduce((current: Record<string, unknown>, key) => {
       if (!current[key] || typeof current[key] !== 'object') {
         current[key] = {};
       }
-      return current[key];
+      return current[key] as Record<string, unknown>;
     }, obj);
     target[lastKey] = value;
   }

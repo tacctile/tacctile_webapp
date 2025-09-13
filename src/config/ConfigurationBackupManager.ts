@@ -172,7 +172,7 @@ export class ConfigurationBackupManager extends EventEmitter {
       backup.checksum = this.calculateChecksum(backupData);
 
       // Save to local storage
-      const localPath = await this.saveBackupLocally(backup, backupData);
+      await this.saveBackupLocally(backup, backupData);
       job.progress = 85;
       this.emit('backup-job-progress', job);
 
@@ -548,7 +548,7 @@ export class ConfigurationBackupManager extends EventEmitter {
   private async prepareBackup(
     config: ConfigurationSchema,
     metadata: ConfigurationMetadata,
-    options: any
+    options: { name?: string; description?: string }
   ): Promise<ConfigurationBackup> {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupName = options.name || `auto-backup-${timestamp}`;
@@ -592,7 +592,7 @@ export class ConfigurationBackupManager extends EventEmitter {
     
     for (const section of sections) {
       if (section in config) {
-        (result as any)[section] = (config as any)[section];
+        (result as Record<string, unknown>)[section] = (config as Record<string, unknown>)[section];
       }
     }
     
@@ -611,7 +611,7 @@ export class ConfigurationBackupManager extends EventEmitter {
     return filePath;
   }
 
-  private async saveBackupToCloud(backup: ConfigurationBackup, data: string): Promise<void> {
+  private async saveBackupToCloud(backup: ConfigurationBackup, _data: string): Promise<void> {
     // Cloud backup implementation would go here
     // This is a placeholder for cloud storage integration
     console.log(`Cloud backup would be saved: ${backup.id}`);

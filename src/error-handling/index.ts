@@ -133,7 +133,7 @@ export class GlobalErrorSystem {
 
   private setupErrorHandling(): void {
     // Connect error manager to dialog manager
-    this.errorManager.on('error:dialog:shown', (error, dialog) => {
+    this.errorManager.on('error:dialog:shown', (error) => {
       if (this.config.enableDialogs !== false) {
         this.dialogManager.showErrorDialog(error);
       }
@@ -201,28 +201,28 @@ export class GlobalErrorSystem {
 
   private setupEventHandlers(): void {
     // Recovery manager events
-    this.recoveryManager.on('recovery:successful', (error, context) => {
+    this.recoveryManager.on('recovery:successful', (error) => {
       console.log(`Successfully recovered from error: ${error.code}`);
     });
 
-    this.recoveryManager.on('recovery:failed', (error, context) => {
-      console.log(`Failed to recover from error: ${error.code}, attempts: ${context.attemptNumber}`);
+    this.recoveryManager.on('recovery:failed', (error) => {
+      console.log(`Failed to recover from error: ${error.code}`);
     });
 
-    this.recoveryManager.on('restart:database-requested', (error) => {
+    this.recoveryManager.on('restart:database-requested', () => {
       console.log('Database restart requested - implement restart logic');
     });
 
-    this.recoveryManager.on('restart:network-requested', (error) => {
+    this.recoveryManager.on('restart:network-requested', () => {
       console.log('Network restart requested - implement reconnection logic');
     });
 
-    this.recoveryManager.on('restart:application-requested', (error, type) => {
+    this.recoveryManager.on('restart:application-requested', (_, type) => {
       console.log(`Application restart requested (${type}) - implement restart logic`);
     });
 
     // Analytics events
-    this.analytics.on('alert-triggered', (rule, metrics) => {
+    this.analytics.on('alert-triggered', (rule) => {
       console.log(`Analytics alert triggered: ${rule.name}`);
     });
 
@@ -231,7 +231,7 @@ export class GlobalErrorSystem {
     });
 
     // Dialog manager events
-    this.dialogManager.on('dialog:shown', (error, dialog) => {
+    this.dialogManager.on('dialog:shown', (error) => {
       console.log(`Error dialog shown for: ${error.code}`);
     });
 
@@ -379,7 +379,7 @@ class DefaultErrorFactory implements ErrorFactory {
         stackTrace: cause?.stack || new Error().stack || 'No stack trace available'
       },
       recoverable: this.isRecoverable(code),
-      userMessage: this.getUserMessage(code, message),
+      userMessage: this.getUserMessage(code),
       technicalDetails: message,
       suggestions: this.getSuggestions(code)
     };
@@ -435,7 +435,7 @@ class DefaultErrorFactory implements ErrorFactory {
     return !unrecoverableCodes.includes(code);
   }
 
-  private getUserMessage(code: ErrorCode, technicalMessage: string): string {
+  private getUserMessage(code: ErrorCode): string {
     const messageMap: Record<string, string> = {
       [ErrorCode.DATABASE_CONNECTION_FAILED]: 'Unable to connect to the database. Please check your connection.',
       [ErrorCode.NETWORK_CONNECTION_LOST]: 'Network connection lost. Please check your internet connection.',

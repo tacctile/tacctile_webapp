@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DataPoint, HeatMapOptions, TimeRange, getDataVisualizationService } from '../../services/visualization/DataVisualizationService';
+import { HeatMapOptions, TimeRange, getDataVisualizationService } from '../../services/visualization/DataVisualizationService';
 import { HEAT_MAP_PRESETS } from './HeatMapOverlay';
 
 interface DataVisualizationPanelProps {

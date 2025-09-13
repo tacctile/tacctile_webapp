@@ -12,7 +12,7 @@ import {
 
 export class ConfigurationValidator {
   private rules: Map<string, ValidationRule[]> = new Map();
-  private customValidators: Map<string, (value: any, config: any, path: string) => ValidationResult[]> = new Map();
+  private customValidators: Map<string, (value: unknown, config: unknown, path: string) => ValidationResult[]> = new Map();
 
   constructor() {
     this.initializeBuiltInRules();
@@ -49,7 +49,7 @@ export class ConfigurationValidator {
     return results;
   }
 
-  public validatePath(config: ConfigurationSchema, path: string, value: any): ValidationResult[] {
+  public validatePath(config: ConfigurationSchema, path: string, value: unknown): ValidationResult[] {
     const results: ValidationResult[] = [];
     const pathRules = this.rules.get(path) || [];
 
@@ -91,7 +91,7 @@ export class ConfigurationValidator {
     if (!this.rules.has(path)) {
       this.rules.set(path, []);
     }
-    this.rules.get(path)!.push(rule);
+    this.rules.get(path)?.push(rule);
   }
 
   public removeRule(path: string, ruleType: string): void {
@@ -106,7 +106,7 @@ export class ConfigurationValidator {
 
   public addCustomValidator(
     path: string,
-    validator: (value: any, config: any, path: string) => ValidationResult[]
+    validator: (value: unknown, config: unknown, path: string) => ValidationResult[]
   ): void {
     this.customValidators.set(path, validator);
   }
@@ -559,7 +559,7 @@ export class ConfigurationValidator {
     });
   }
 
-  private validateRule(rule: ValidationRule, value: any, config: any, path: string): ValidationResult | null {
+  private validateRule(rule: ValidationRule, value: unknown, config: unknown, path: string): ValidationResult | null {
     switch (rule.type) {
       case 'required':
         if (value === null || value === undefined || value === '') {
@@ -650,16 +650,16 @@ export class ConfigurationValidator {
     const results: ValidationResult[] = [];
     
     // Validate appearance settings
-    results.push(...this.validatePath({} as any, 'userPreferences.appearance.fontSize', preferences.appearance.fontSize));
-    results.push(...this.validatePath({} as any, 'userPreferences.appearance.uiScale', preferences.appearance.uiScale));
-    results.push(...this.validatePath({} as any, 'userPreferences.appearance.theme', preferences.appearance.theme));
+    results.push(...this.validatePath({} as ConfigurationSchema, 'userPreferences.appearance.fontSize', preferences.appearance.fontSize));
+    results.push(...this.validatePath({} as ConfigurationSchema, 'userPreferences.appearance.uiScale', preferences.appearance.uiScale));
+    results.push(...this.validatePath({} as ConfigurationSchema, 'userPreferences.appearance.theme', preferences.appearance.theme));
     
     // Validate behavior settings
-    results.push(...this.validatePath({} as any, 'userPreferences.behavior.autoSaveInterval', preferences.behavior.autoSaveInterval));
-    results.push(...this.validatePath({} as any, 'userPreferences.behavior.maxRecentFiles', preferences.behavior.maxRecentFiles));
+    results.push(...this.validatePath({} as ConfigurationSchema, 'userPreferences.behavior.autoSaveInterval', preferences.behavior.autoSaveInterval));
+    results.push(...this.validatePath({} as ConfigurationSchema, 'userPreferences.behavior.maxRecentFiles', preferences.behavior.maxRecentFiles));
     
     // Validate accessibility settings
-    results.push(...this.validatePath({} as any, 'userPreferences.accessibility.speechRate', preferences.accessibility.speechRate));
+    results.push(...this.validatePath({} as ConfigurationSchema, 'userPreferences.accessibility.speechRate', preferences.accessibility.speechRate));
     
     return results;
   }
@@ -670,9 +670,9 @@ export class ConfigurationValidator {
     // Validate display calibrations
     for (const displayId in calibrations.displays) {
       const display = calibrations.displays[displayId];
-      results.push(...this.validatePath({} as any, 'hardwareCalibrations.displays.brightness', display.brightness));
-      results.push(...this.validatePath({} as any, 'hardwareCalibrations.displays.contrast', display.contrast));
-      results.push(...this.validatePath({} as any, 'hardwareCalibrations.displays.gamma', display.gamma));
+      results.push(...this.validatePath({} as ConfigurationSchema, 'hardwareCalibrations.displays.brightness', display.brightness));
+      results.push(...this.validatePath({} as ConfigurationSchema, 'hardwareCalibrations.displays.contrast', display.contrast));
+      results.push(...this.validatePath({} as ConfigurationSchema, 'hardwareCalibrations.displays.gamma', display.gamma));
     }
     
     return results;
@@ -682,8 +682,8 @@ export class ConfigurationValidator {
     const results: ValidationResult[] = [];
     
     // Validate analysis defaults
-    results.push(...this.validatePath({} as any, 'toolDefaults.analysis.processing.batchSize', defaults.analysis.processing.batchSize));
-    results.push(...this.validatePath({} as any, 'toolDefaults.analysis.processing.maxConcurrent', defaults.analysis.processing.maxConcurrent));
+    results.push(...this.validatePath({} as ConfigurationSchema, 'toolDefaults.analysis.processing.batchSize', defaults.analysis.processing.batchSize));
+    results.push(...this.validatePath({} as ConfigurationSchema, 'toolDefaults.analysis.processing.maxConcurrent', defaults.analysis.processing.maxConcurrent));
     
     return results;
   }
@@ -708,8 +708,8 @@ export class ConfigurationValidator {
     const results: ValidationResult[] = [];
     
     // Validate performance settings
-    results.push(...this.validatePath({} as any, 'systemSettings.performance.maxMemoryUsage', settings.performance.maxMemoryUsage));
-    results.push(...this.validatePath({} as any, 'systemSettings.performance.maxCpuUsage', settings.performance.maxCpuUsage));
+    results.push(...this.validatePath({} as ConfigurationSchema, 'systemSettings.performance.maxMemoryUsage', settings.performance.maxMemoryUsage));
+    results.push(...this.validatePath({} as ConfigurationSchema, 'systemSettings.performance.maxCpuUsage', settings.performance.maxCpuUsage));
     
     return results;
   }
@@ -718,8 +718,8 @@ export class ConfigurationValidator {
     const results: ValidationResult[] = [];
     
     // Validate authentication settings
-    results.push(...this.validatePath({} as any, 'securitySettings.authentication.passwordPolicy.minLength', settings.authentication.passwordPolicy.minLength));
-    results.push(...this.validatePath({} as any, 'securitySettings.authentication.sessionTimeout', settings.authentication.sessionTimeout));
+    results.push(...this.validatePath({} as ConfigurationSchema, 'securitySettings.authentication.passwordPolicy.minLength', settings.authentication.passwordPolicy.minLength));
+    results.push(...this.validatePath({} as ConfigurationSchema, 'securitySettings.authentication.sessionTimeout', settings.authentication.sessionTimeout));
     
     return results;
   }

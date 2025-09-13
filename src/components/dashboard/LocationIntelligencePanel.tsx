@@ -36,7 +36,6 @@ import {
   Explore as CompassIcon,
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
-  MyLocation as MyLocationIcon,
   Map as MapIcon,
   Refresh as RefreshIcon
 } from '@mui/icons-material';

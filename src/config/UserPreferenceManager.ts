@@ -36,8 +36,8 @@ export interface PreferenceTemplate {
 
 export interface PreferenceChangeEvent {
   path: string;
-  oldValue: any;
-  newValue: any;
+  oldValue: unknown;
+  newValue: unknown;
   timestamp: number;
   source: 'user' | 'system' | 'migration' | 'template';
 }
@@ -51,7 +51,7 @@ export class UserPreferenceManager extends EventEmitter {
   private changeHistory: PreferenceChangeEvent[] = [];
   private maxHistorySize = 1000;
   private debounceTimers: Map<string, NodeJS.Timeout> = new Map();
-  private watchers: Map<string, Array<(value: any) => void>> = new Map();
+  private watchers: Map<string, Array<(value: unknown) => void>> = new Map();
 
   constructor(configManager: ConfigurationManager) {
     super();
@@ -360,7 +360,7 @@ export class UserPreferenceManager extends EventEmitter {
       this.watchers.set(path, []);
     }
     
-    this.watchers.get(path)!.push(callback);
+    this.watchers.get(path)?.push(callback);
     
     // Return unwatch function
     return () => {
@@ -375,8 +375,8 @@ export class UserPreferenceManager extends EventEmitter {
   }
 
   // Preference Import/Export
-  public exportPreferences(includeProfiles = true): any {
-    const exportData: any = {
+  public exportPreferences(includeProfiles = true): Record<string, unknown> {
+    const exportData: Record<string, unknown> = {
       preferences: this.currentPreferences,
       metadata: {
         exportedAt: new Date().toISOString(),
@@ -392,7 +392,7 @@ export class UserPreferenceManager extends EventEmitter {
     return exportData;
   }
 
-  public async importPreferences(data: any, merge = false): Promise<void> {
+  public async importPreferences(data: Record<string, unknown>, merge = false): Promise<void> {
     if (!data.preferences) {
       throw new Error('Invalid preference data');
     }
@@ -456,7 +456,7 @@ export class UserPreferenceManager extends EventEmitter {
   // Private Methods
   private async updatePreferences(
     section: keyof UserPreferences,
-    updates: any,
+    updates: Record<string, unknown>,
     source: PreferenceChangeEvent['source']
   ): Promise<void> {
     const oldValue = { ...this.currentPreferences[section] };
@@ -504,8 +504,8 @@ export class UserPreferenceManager extends EventEmitter {
 
   private recordChange(
     path: string,
-    oldValue: any,
-    newValue: any,
+    oldValue: unknown,
+    newValue: unknown,
     source: PreferenceChangeEvent['source']
   ): void {
     const change: PreferenceChangeEvent = {
@@ -524,7 +524,7 @@ export class UserPreferenceManager extends EventEmitter {
     }
   }
 
-  private notifyWatchers(path: string, value: any): void {
+  private notifyWatchers(path: string, value: unknown): void {
     const watchers = this.watchers.get(path);
     if (watchers) {
       for (const callback of watchers) {
@@ -537,7 +537,7 @@ export class UserPreferenceManager extends EventEmitter {
     }
   }
 
-  private applyPreferenceChange(section: keyof UserPreferences, value: any): void {
+  private applyPreferenceChange(section: keyof UserPreferences, value: unknown): void {
     // Apply changes that need immediate effect
     switch (section) {
       case 'appearance':
@@ -586,7 +586,7 @@ export class UserPreferenceManager extends EventEmitter {
 
   private async validatePreferences(preferences: UserPreferences): Promise<ValidationResult[]> {
     return this.validator.validatePath(
-      { userPreferences: preferences } as any,
+      { userPreferences: preferences } as Parameters<typeof this.validator.validatePath>[0],
       'userPreferences',
       preferences
     );
@@ -605,9 +605,9 @@ export class UserPreferenceManager extends EventEmitter {
   }
 
   private setupEventListeners(): void {
-    this.configManager.on('config:changed', (path: string, oldValue: any, newValue: any) => {
+    this.configManager.on('config:changed', (path: string, oldValue: unknown, newValue: unknown) => {
       if (path.startsWith('userPreferences.')) {
-        const section = path.replace('userPreferences.', '').split('.')[0];
+        // const section = path.replace('userPreferences.', '').split('.')[0];
         this.recordChange(path, oldValue, newValue, 'system');
       }
     });
@@ -779,7 +779,7 @@ export class UserPreferenceManager extends EventEmitter {
     return { valid: true };
   }
 
-  private validateQuietHours(quietHours: any): { valid: boolean; message?: string } {
+  private validateQuietHours(quietHours: { start: string; end: string }): { valid: boolean; message?: string } {
     const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
     if (!timeRegex.test(quietHours.start) || !timeRegex.test(quietHours.end)) {
       return { valid: false, message: 'Time must be in HH:MM format' };

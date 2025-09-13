@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { TimeRange } from '../../services/visualization/DataVisualizationService';
-import { TrailPoint, getWebSocketService } from '../../services/realtime/WebSocketService';
+import { getWebSocketService } from '../../services/realtime/WebSocketService';
 
 interface TimeScrubberProps {
   timeRange: TimeRange;
@@ -370,7 +370,7 @@ export const TimeScrubber: React.FC<TimeScrubberProps> = ({
 
           {/* Timeline markers */}
           {markers.map((marker, index) => {
-            const position = getPositionFromTime(marker.time, 400);
+            // const markerPosition = getPositionFromTime(marker.time, 400);
             return (
               <div
                 key={index}

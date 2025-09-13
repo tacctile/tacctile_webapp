@@ -79,7 +79,7 @@ export const TeamPanel: React.FC<TeamPanelProps> = ({
       setConnectionStatus('disconnected');
     };
 
-    const handleWebSocketError = (error: any) => {
+    const handleWebSocketError = (error: Error) => {
       console.error('WebSocket error:', error);
       setConnectionStatus('disconnected');
     };
@@ -128,7 +128,9 @@ export const TeamPanel: React.FC<TeamPanelProps> = ({
     try {
       setConnectionStatus('connecting');
       const positionTracker = getPositionTracker();
-      await positionTracker.startTracking(currentInvestigator!, trackingSettings);
+      if (currentInvestigator) {
+        await positionTracker.startTracking(currentInvestigator, trackingSettings);
+      }
       onTrackingToggle(true);
     } catch (error) {
       console.error('Failed to start tracking:', error);
@@ -161,7 +163,7 @@ export const TeamPanel: React.FC<TeamPanelProps> = ({
     setShowAddInvestigator(false);
   };
 
-  const handleSettingsChange = (setting: keyof TrackingSettings, value: any) => {
+  const handleSettingsChange = (setting: keyof TrackingSettings, value: boolean | number | string) => {
     const newSettings = { ...trackingSettings, [setting]: value };
     setTrackingSettings(newSettings);
     onTrackingOptionsChange(newSettings);

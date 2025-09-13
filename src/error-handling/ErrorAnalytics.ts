@@ -6,8 +6,7 @@ import {
   ErrorSeverity,
   ErrorCode,
   ErrorAggregator,
-  ErrorLogger,
-  ErrorLogQuery
+  ErrorLogger
 } from './types';
 
 export interface AnalyticsMetrics {
@@ -279,7 +278,8 @@ export class ErrorAnalytics extends EventEmitter implements ErrorAggregator {
         });
       }
       
-      const entry = codeMap.get(error.code)!;
+      const entry = codeMap.get(error.code);
+      if (!entry) continue;
       entry.count++;
       entry.errors.push(error);
       
@@ -404,7 +404,7 @@ export class ErrorAnalytics extends EventEmitter implements ErrorAggregator {
     
     const componentErrors = this.groupBy(errors, 'context');
     
-    for (const [contextKey, contextErrors] of Object.entries(componentErrors)) {
+    for (const [, contextErrors] of Object.entries(componentErrors)) {
       const component = contextErrors[0]?.context?.component;
       if (!component) continue;
 

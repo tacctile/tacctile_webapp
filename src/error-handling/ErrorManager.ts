@@ -4,12 +4,10 @@ import {
   ErrorCode,
   ErrorSeverity,
   ErrorCategory,
-  ErrorContext,
   ErrorHandler,
   ErrorHandlerResult,
   ErrorHandlerAction,
   ErrorRecoveryStrategy,
-  RecoveryType,
   ErrorConfiguration,
   ErrorThreshold,
   ThresholdAction,
@@ -21,9 +19,7 @@ import {
   ErrorFactory,
   ErrorDialog,
   ErrorDialogType,
-  ErrorAnalytics,
-  CrashReport,
-  ErrorEvents
+  ErrorAnalytics
 } from './types';
 
 export class ErrorManager extends EventEmitter {
@@ -178,7 +174,17 @@ export class ErrorManager extends EventEmitter {
     }
 
     this.isProcessing = true;
-    const error = this.processingQueue.shift()!;
+    const error = this.processingQueue.shift();
+    if (!error) {
+      this.isProcessing = false;
+      return {
+        handled: false,
+        recovered: false,
+        userNotified: false,
+        logged: false,
+        reported: false
+      };
+    }
     let result: ErrorHandlerResult;
 
     try {
@@ -343,9 +349,11 @@ export class ErrorManager extends EventEmitter {
     const now = Date.now();
     
     if (this.errorCounts.has(key)) {
-      const count = this.errorCounts.get(key)!;
-      count.count++;
-      count.lastOccurrence = now;
+      const count = this.errorCounts.get(key);
+      if (count) {
+        count.count++;
+        count.lastOccurrence = now;
+      }
     } else {
       this.errorCounts.set(key, {
         count: 1,
@@ -494,7 +502,12 @@ export class ErrorManager extends EventEmitter {
     }
   }
 
-  private getDialogActions(error: ApplicationError): any[] {
+  private getDialogActions(error: ApplicationError): Array<{
+    id: string;
+    label: string;
+    action: () => void;
+    style: string;
+  }> {
     const actions = [];
 
     if (error.recoverable) {
@@ -544,7 +557,7 @@ export class ErrorManager extends EventEmitter {
       });
     });
 
-    process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+    process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
       const error = reason instanceof Error ? reason : new Error(String(reason));
       console.error('Unhandled Rejection at:', promise, 'reason:', error);
       this.handleError(error);
@@ -564,7 +577,7 @@ export class ErrorManager extends EventEmitter {
     }
   }
 
-  private isApplicationError(error: any): error is ApplicationError {
+  private isApplicationError(error: unknown): error is ApplicationError {
     return error && typeof error === 'object' && 
            'id' in error && 'code' in error && 'severity' in error && 'category' in error;
   }

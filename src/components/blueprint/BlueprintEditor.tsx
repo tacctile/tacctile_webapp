@@ -12,7 +12,7 @@ import { getPositionTracker, PositionOptions } from '../../services/realtime/Pos
 
 interface BlueprintEditorProps {
   className?: string;
-  onSave?: (blueprint: any) => void;
+  onSave?: (blueprint: unknown) => void;
 }
 
 export const BlueprintEditor: React.FC<BlueprintEditorProps> = ({
@@ -23,7 +23,7 @@ export const BlueprintEditor: React.FC<BlueprintEditorProps> = ({
   const drawingEngineRef = useRef<DrawingEngine | null>(null);
   
   const [currentTool, setCurrentTool] = useState<DrawingTool>('select');
-  const [selectedElements, setSelectedElements] = useState<DrawingElement[]>([]);
+  const [selectedElements] = useState<DrawingElement[]>([]);
   const [showPropertiesPanel, setShowPropertiesPanel] = useState(true);
   const [showLayersPanel, setShowLayersPanel] = useState(true);
   const [gridSettings, setGridSettings] = useState<GridSettings>({
@@ -43,7 +43,7 @@ export const BlueprintEditor: React.FC<BlueprintEditorProps> = ({
   const [showTeamPanel, setShowTeamPanel] = useState(false);
   const [currentInvestigator, setCurrentInvestigator] = useState<InvestigatorProfile | null>(null);
   const [isTrackingEnabled, setIsTrackingEnabled] = useState(false);
-  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [panOffset] = useState({ x: 0, y: 0 });
   const [trackingOptions, setTrackingOptions] = useState({
     showTrails: true,
     showNames: true,
@@ -72,12 +72,12 @@ export const BlueprintEditor: React.FC<BlueprintEditorProps> = ({
     if (!canvas || !drawingEngineRef.current) return;
 
     // Handle selection changes
-    const handleSelectionChange = () => {
-      if (drawingEngineRef.current) {
-        const selected = drawingEngineRef.current.getSelectedElements();
-        setSelectedElements(selected);
-      }
-    };
+    // const handleSelectionChange = () => {
+    //   if (drawingEngineRef.current) {
+    //     const selected = drawingEngineRef.current.getSelectedElements();
+    //     setSelectedElements(selected);
+    //   }
+    // };
 
     // Handle evidence pin clicks
     const handleEvidenceClick = (event: MouseEvent) => {
@@ -138,11 +138,11 @@ export const BlueprintEditor: React.FC<BlueprintEditorProps> = ({
     }
   };
 
-  const handlePan = (dx: number, dy: number) => {
-    if (drawingEngineRef.current) {
-      drawingEngineRef.current.pan(dx, dy);
-    }
-  };
+  // const handlePan = (_dx: number, _dy: number) => {
+  //   if (drawingEngineRef.current) {
+  //     drawingEngineRef.current.pan(_dx, _dy);
+  //   }
+  // };
 
   const handleResetView = () => {
     if (drawingEngineRef.current) {

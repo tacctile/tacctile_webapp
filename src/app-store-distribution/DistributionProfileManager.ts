@@ -11,7 +11,6 @@ import * as crypto from 'crypto';
 import {
   DistributionProfile,
   Platform,
-  AppStoreConfiguration,
   ReleaseConfiguration,
   ReleaseType,
   ValidationResult,

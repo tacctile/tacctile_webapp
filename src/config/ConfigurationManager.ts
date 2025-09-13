@@ -6,13 +6,11 @@ import * as os from 'os';
 import {
   ConfigurationSchema,
   ConfigurationMetadata,
-  ConfigurationValidation,
   ConfigurationBackup,
   ConfigurationMigration,
   ValidationResult,
   ConfigurationDiff,
-  PlatformCapabilities,
-  ConfigurationEvents
+  PlatformCapabilities
 } from './types';
 
 export class ConfigurationManager extends EventEmitter {
@@ -24,10 +22,10 @@ export class ConfigurationManager extends EventEmitter {
   private backupPath: string;
   private isLoaded = false;
   private isWatching = false;
-  private watchHandle?: any;
+  private watchHandle?: unknown;
   private saveQueue: Promise<void> = Promise.resolve();
   private migrations: Map<string, ConfigurationMigration> = new Map();
-  private validators: Map<string, (value: any, config: any) => boolean> = new Map();
+  private validators: Map<string, (value: unknown, config: unknown) => boolean> = new Map();
 
   private constructor() {
     super();
@@ -168,11 +166,11 @@ export class ConfigurationManager extends EventEmitter {
     }
   }
 
-  public get<T = any>(path: string, defaultValue?: T): T {
+  public get<T = unknown>(path: string, defaultValue?: T): T {
     return this.getNestedValue(this.config, path) ?? defaultValue;
   }
 
-  public async set(path: string, value: any): Promise<void> {
+  public async set(path: string, value: unknown): Promise<void> {
     const oldValue = this.get(path);
     this.setNestedValue(this.config, path, value);
     
@@ -366,7 +364,7 @@ export class ConfigurationManager extends EventEmitter {
   }
 
   public async importConfiguration(data: string, format: 'json' | 'yaml' | 'toml' = 'json'): Promise<void> {
-    let parsed: any;
+    let parsed: unknown;
     
     switch (format) {
       case 'json':
@@ -382,8 +380,8 @@ export class ConfigurationManager extends EventEmitter {
         throw new Error(`Unsupported import format: ${format}`);
     }
     
-    if (parsed.config) {
-      await this.setConfiguration(parsed.config);
+    if (parsed && typeof parsed === 'object' && 'config' in parsed) {
+      await this.setConfiguration((parsed as { config: Partial<ConfigurationSchema> }).config);
     } else {
       throw new Error('Invalid configuration format');
     }
@@ -954,8 +952,8 @@ export class ConfigurationManager extends EventEmitter {
     return '2.0.0'; // Current schema version
   }
 
-  private calculateChecksum(data: any): string {
-    const json = JSON.stringify(data, Object.keys(data).sort());
+  private calculateChecksum(data: unknown): string {
+    const json = JSON.stringify(data, data && typeof data === 'object' ? Object.keys(data).sort() : undefined);
     return crypto.createHash('sha256').update(json).digest('hex');
   }
 
@@ -989,7 +987,8 @@ export class ConfigurationManager extends EventEmitter {
 
   private setNestedValue(obj: any, path: string, value: any): void {
     const keys = path.split('.');
-    const lastKey = keys.pop()!;
+    const lastKey = keys.pop();
+    if (!lastKey) return;
     const target = keys.reduce((current, key) => {
       if (!current[key] || typeof current[key] !== 'object') {
         current[key] = {};
@@ -1049,7 +1048,8 @@ export class ConfigurationManager extends EventEmitter {
     return diff;
   }
 
-  private validateSchema(config: any): ValidationResult[] {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private validateSchema(_config: unknown): ValidationResult[] {
     const results: ValidationResult[] = [];
     
     // Basic type checking would go here
@@ -1058,7 +1058,8 @@ export class ConfigurationManager extends EventEmitter {
     return results;
   }
 
-  private validateCustomRules(config: any): ValidationResult[] {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private validateCustomRules(_config: unknown): ValidationResult[] {
     const results: ValidationResult[] = [];
     
     // Custom validation logic would go here
@@ -1066,7 +1067,8 @@ export class ConfigurationManager extends EventEmitter {
     return results;
   }
 
-  private validateCrossReferences(config: any): ValidationResult[] {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private validateCrossReferences(_config: unknown): ValidationResult[] {
     const results: ValidationResult[] = [];
     
     // Cross-reference validation would go here
@@ -1074,7 +1076,8 @@ export class ConfigurationManager extends EventEmitter {
     return results;
   }
 
-  private validatePlatformCompatibility(config: any): ValidationResult[] {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private validatePlatformCompatibility(_config: unknown): ValidationResult[] {
     const results: ValidationResult[] = [];
     
     // Platform compatibility checks would go here
@@ -1101,11 +1104,12 @@ export class ConfigurationManager extends EventEmitter {
     // Custom validator setup would go here
   }
 
-  private async migrateConfiguration(data: any, fromVersion: string): Promise<{ config: ConfigurationSchema; metadata: ConfigurationMetadata }> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private async migrateConfiguration(data: Record<string, unknown>, _fromVersion: string): Promise<{ config: ConfigurationSchema; metadata: ConfigurationMetadata }> {
     // Migration logic would go here
     return {
-      config: data.config || this.getDefaultConfiguration(),
-      metadata: data.metadata || this.createMetadata()
+      config: (data.config as ConfigurationSchema) || this.getDefaultConfiguration(),
+      metadata: (data.metadata as ConfigurationMetadata) || this.createMetadata()
     };
   }
 

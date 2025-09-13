@@ -5,9 +5,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
   ErrorRecoveryStrategy,
-  RecoveryType,
-  ErrorHandlerResult,
-  ErrorHandlerAction
+  RecoveryType
 } from './types';
 
 export interface RecoveryAction {
@@ -59,8 +57,11 @@ export class RecoveryManager extends EventEmitter {
       this.recoveryActions.set(type, []);
     }
     
-    this.recoveryActions.get(type)!.push(action);
-    this.recoveryActions.get(type)!.sort((a, b) => b.priority - a.priority);
+    const actions = this.recoveryActions.get(type);
+    if (actions) {
+      actions.push(action);
+      actions.sort((a, b) => b.priority - a.priority);
+    }
     this.emit('action:registered', type, action);
   }
 
@@ -198,7 +199,7 @@ export class RecoveryManager extends EventEmitter {
       id: 'simple-retry',
       name: 'Simple Retry',
       description: 'Retry the failed operation',
-      execute: async (error: ApplicationError) => {
+      execute: async () => {
         // This would need to be implemented based on the specific error context
         // For now, return false to indicate retry should be handled by the original caller
         return false;
@@ -373,7 +374,8 @@ export class RecoveryManager extends EventEmitter {
       this.recoveryHistory.set(errorKey, []);
     }
 
-    const history = this.recoveryHistory.get(errorKey)!;
+    const history = this.recoveryHistory.get(errorKey);
+    if (!history) return;
     history.push({ ...context });
 
     // Keep only last 10 recovery attempts per error type
@@ -463,7 +465,8 @@ export class RecoveryManager extends EventEmitter {
 
   public cancelRecovery(recoveryId: string): boolean {
     if (this.activeRecoveries.has(recoveryId)) {
-      const context = this.activeRecoveries.get(recoveryId)!;
+      const context = this.activeRecoveries.get(recoveryId);
+      if (!context) return false;
       this.activeRecoveries.delete(recoveryId);
       this.emit('recovery:cancelled', context.error, context);
       return true;

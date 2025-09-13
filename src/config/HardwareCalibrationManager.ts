@@ -4,11 +4,6 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import {
   HardwareCalibrations,
-  SensorCalibrations,
-  DisplayCalibrations,
-  InputCalibrations,
-  AudioCalibrations,
-  NetworkCalibrations,
   ValidationResult
 } from './types';
 import { ConfigurationManager } from './ConfigurationManager';
@@ -21,7 +16,7 @@ export interface CalibrationCertificate {
   expiresAt: string;
   standard: string; // ISO, NIST, etc.
   accreditation: string;
-  calibrationData: any;
+  calibrationData: Record<string, unknown>;
   digitalSignature: string;
   attachments: string[]; // File paths to certificate documents
 }
@@ -79,7 +74,7 @@ export interface HardwareProfile {
   firmware: string;
   driver: string;
   capabilities: string[];
-  specifications: Record<string, any>;
+  specifications: Record<string, unknown>;
   calibrationRequirements: {
     frequency: string;
     method: string;
@@ -263,7 +258,7 @@ export class HardwareCalibrationManager extends EventEmitter {
   public async addAudioCalibration(
     deviceId: string,
     type: 'input' | 'output',
-    calibrationData: any
+    calibrationData: Record<string, unknown>
   ): Promise<void> {
     if (type === 'input') {
       this.calibrations.audio.input[deviceId] = calibrationData;
@@ -424,7 +419,7 @@ export class HardwareCalibrationManager extends EventEmitter {
     if (!this.validations.has(sensorId)) {
       this.validations.set(sensorId, []);
     }
-    this.validations.get(sensorId)!.push(validation);
+    this.validations.get(sensorId)?.push(validation);
     await this.saveValidations();
 
     // Update sensor verification status
@@ -457,7 +452,7 @@ export class HardwareCalibrationManager extends EventEmitter {
   }
 
   // Import/Export
-  public exportCalibrations(): any {
+  public exportCalibrations(): Record<string, unknown> {
     return {
       calibrations: this.calibrations,
       certificates: Array.from(this.certificates.values()),
@@ -469,10 +464,10 @@ export class HardwareCalibrationManager extends EventEmitter {
     };
   }
 
-  public async importCalibrations(data: any): Promise<void> {
+  public async importCalibrations(data: Record<string, unknown>): Promise<void> {
     try {
       if (data.calibrations) {
-        this.calibrations = data.calibrations;
+        this.calibrations = data.calibrations as HardwareCalibrations;
         await this.saveCalibrations();
       }
 
@@ -745,10 +740,10 @@ export class HardwareCalibrationManager extends EventEmitter {
     return nextCalibration.toISOString();
   }
 
-  private extractParameterValues(parameters: any): Record<string, number> {
+  private extractParameterValues(parameters: Record<string, unknown>): Record<string, number> {
     const values: Record<string, number> = {};
     for (const [name, param] of Object.entries(parameters || {})) {
-      values[name] = (param as any).value;
+      values[name] = (param as { value: number }).value;
     }
     return values;
   }
@@ -756,13 +751,14 @@ export class HardwareCalibrationManager extends EventEmitter {
   private async recordCalibrationHistory(
     sensorId: string,
     type: 'initial' | 'periodic' | 'verification' | 'adjustment',
-    calibrationData: any
+    calibrationData: Record<string, unknown>
   ): Promise<void> {
     if (!this.history.has(sensorId)) {
       this.history.set(sensorId, { sensorId, calibrations: [] });
     }
 
-    const history = this.history.get(sensorId)!;
+    const history = this.history.get(sensorId);
+    if (!history) return;
     history.calibrations.push({
       date: new Date().toISOString(),
       type,
@@ -797,7 +793,8 @@ export class HardwareCalibrationManager extends EventEmitter {
       adjustment[param] = afterValue - beforeValue;
     }
 
-    const history = this.history.get(sensorId)!;
+    const history = this.history.get(sensorId);
+    if (!history) return;
     history.calibrations.push({
       date: new Date().toISOString(),
       type: 'adjustment',
@@ -812,7 +809,8 @@ export class HardwareCalibrationManager extends EventEmitter {
     await this.saveValidations();
   }
 
-  private async performCalibrationTest(sensor: HardwareCalibrations['sensors'][string]): Promise<CalibrationValidation['results']> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private async performCalibrationTest(_sensor: HardwareCalibrations['sensors'][string]): Promise<CalibrationValidation['results']> {
     // Simulate calibration test
     // Real implementation would interface with actual hardware
     
@@ -826,7 +824,8 @@ export class HardwareCalibrationManager extends EventEmitter {
     };
   }
 
-  private generateValidationCertificate(sensorId: string): string {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private generateValidationCertificate(_sensorId: string): string {
     const certificateId = `cert_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     return certificateId;
   }

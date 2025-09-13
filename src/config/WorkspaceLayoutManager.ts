@@ -1,16 +1,12 @@
 import { EventEmitter } from 'events';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import * as crypto from 'crypto';
+// import * as crypto from 'crypto';
 import {
   WorkspaceLayouts,
   WorkspaceLayout,
   WindowLayout,
   PanelLayout,
-  TabLayout,
-  ToolbarLayout,
-  MenuLayout,
-  KeyboardShortcuts,
   ValidationResult
 } from './types';
 import { ConfigurationManager } from './ConfigurationManager';

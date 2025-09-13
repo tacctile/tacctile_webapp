@@ -8,14 +8,7 @@ import {
   Chip, 
   LinearProgress,
   Alert,
-  IconButton,
-  Tooltip,
-  Switch,
-  FormControlLabel,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel
+  IconButton
 } from '@mui/material';
 import { 
   Refresh as RefreshIcon,
@@ -65,7 +58,7 @@ interface EnvironmentalSummary {
 
 export const EnvironmentalConditionsPanel: React.FC<EnvironmentalConditionsPanelProps> = ({
   location,
-  onLocationChange,
+  onLocationChange: _onLocationChange,
   autoRefresh = true,
   refreshInterval = 15
 }) => {
@@ -74,7 +67,7 @@ export const EnvironmentalConditionsPanel: React.FC<EnvironmentalConditionsPanel
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
-  const [selectedTimeRange, setSelectedTimeRange] = useState<'1h' | '6h' | '24h' | '7d'>('24h');
+  // const [selectedTimeRange, setSelectedTimeRange] = useState<'1h' | '6h' | '24h' | '7d'>('24h');
 
   // Service instances
   const [astronomicalCalc] = useState(() => new AstronomicalCalculations(location));

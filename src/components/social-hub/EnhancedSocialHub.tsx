@@ -39,10 +39,10 @@ export const EnhancedSocialHub: React.FC<EnhancedSocialHubProps> = ({ className 
     selectedPlatforms: []
   });
 
-  const [scheduledPosts, setScheduledPosts] = useState<any[]>([]);
-  const [analyticsData, setAnalyticsData] = useState<any>(null);
-  const [templates, setTemplates] = useState<any[]>([]);
-  const [presets, setPresets] = useState<Record<string, any>>({});
+  const [scheduledPosts, setScheduledPosts] = useState<unknown[]>([]);
+  const [analyticsData, setAnalyticsData] = useState<unknown>(null);
+  const [templates, setTemplates] = useState<unknown[]>([]);
+  // const [presets, setPresets] = useState<Record<string, unknown>>({});
 
   useEffect(() => {
     initializeSocialHub();
@@ -103,7 +103,7 @@ export const EnhancedSocialHub: React.FC<EnhancedSocialHubProps> = ({ className 
     }
   };
 
-  const getCredentialsForPlatform = async (platform: string): Promise<any> => {
+  const getCredentialsForPlatform = async (platform: string): Promise<{ platform: string; clientId: string; clientSecret: string; accessToken: string }> => {
     return new Promise((resolve) => {
       const mock = true;
       
@@ -131,7 +131,7 @@ export const EnhancedSocialHub: React.FC<EnhancedSocialHubProps> = ({ className 
       }
 
       // Generate posts using templates if evidence data is provided
-      let posts: any[] = [];
+      let posts: unknown[] = [];
       
       if (postData.evidenceData && postData.investigationMetadata) {
         posts = postTemplateManager.generatePostsForAllPlatforms(
@@ -179,7 +179,7 @@ export const EnhancedSocialHub: React.FC<EnhancedSocialHubProps> = ({ className 
     }
   };
 
-  const handleMediaOptimization = async (file: File, platforms: string[]) => {
+  const handleMediaOptimization = async (_file: File, _platforms: string[]) => {
     try {
       const tempPath = URL.createObjectURL(file);
       const results = await mediaOptimizer.batchOptimize(

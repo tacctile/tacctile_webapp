@@ -7,8 +7,6 @@ import {
   ErrorLogger as IErrorLogger,
   ErrorLogQuery,
   ErrorSeverity,
-  ErrorCategory,
-  ErrorCode,
   ErrorConfiguration
 } from './types';
 
@@ -318,12 +316,14 @@ export class ErrorLogger extends EventEmitter implements IErrorLogger {
     }
 
     // Force flush to disk
-    await new Promise<void>((resolve, reject) => {
-      this.writeStream!.flush((error) => {
-        if (error) reject(error);
-        else resolve();
+    if (this.writeStream) {
+      await new Promise<void>((resolve, reject) => {
+        this.writeStream?.flush((error) => {
+          if (error) reject(error);
+          else resolve();
+        });
       });
-    });
+    }
   }
 
   private async checkForRotation(): Promise<void> {
@@ -371,7 +371,7 @@ export class ErrorLogger extends EventEmitter implements IErrorLogger {
     try {
       const logFiles = await this.getLogFiles();
       const sortedFiles = logFiles
-        .map(file => ({ file, stats: null as any }))
+        .map(file => ({ file }))
         .sort((a, b) => b.file.localeCompare(a.file)); // Sort by filename (which includes timestamp)
 
       // Keep only the configured number of files
@@ -428,7 +428,7 @@ export class ErrorLogger extends EventEmitter implements IErrorLogger {
     }
   }
 
-  private reconstructErrorFromLog(logData: any): ApplicationError | null {
+  private reconstructErrorFromLog(logData: Record<string, unknown>): ApplicationError | null {
     try {
       return {
         id: logData.id,
@@ -462,26 +462,26 @@ export class ErrorLogger extends EventEmitter implements IErrorLogger {
 
     if (filters.severity && filters.severity.length > 0) {
       filteredErrors = filteredErrors.filter(error => 
-        filters.severity!.includes(error.severity)
+        filters.severity?.includes(error.severity) ?? false
       );
     }
 
     if (filters.category && filters.category.length > 0) {
       filteredErrors = filteredErrors.filter(error => 
-        filters.category!.includes(error.category)
+        filters.category?.includes(error.category) ?? false
       );
     }
 
     if (filters.code && filters.code.length > 0) {
       filteredErrors = filteredErrors.filter(error => 
-        filters.code!.includes(error.code)
+        filters.code?.includes(error.code) ?? false
       );
     }
 
     if (filters.timeRange) {
       filteredErrors = filteredErrors.filter(error => {
         const timestamp = new Date(error.timestamp);
-        return timestamp >= filters.timeRange!.start && timestamp <= filters.timeRange!.end;
+        return filters.timeRange && timestamp >= filters.timeRange.start && timestamp <= filters.timeRange.end;
       });
     }
 
@@ -506,7 +506,8 @@ export class ErrorLogger extends EventEmitter implements IErrorLogger {
     // Apply sorting
     if (filters.sortBy) {
       filteredErrors.sort((a, b) => {
-        let aValue: any, bValue: any;
+        let aValue: string | number;
+        let bValue: string | number;
         
         switch (filters.sortBy) {
           case 'timestamp':

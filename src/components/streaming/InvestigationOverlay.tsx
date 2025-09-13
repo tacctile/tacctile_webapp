@@ -18,14 +18,8 @@ import {
   Switch,
   FormControlLabel,
   Slider,
-  ColorPicker,
   Tabs,
-  Tab,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  Divider
+  Tab
 } from '@mui/material';
 import {
   LocationOn as LocationIcon,
@@ -35,13 +29,9 @@ import {
   People as TeamIcon,
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
-  DragIndicator as DragIcon,
-  Settings as SettingsIcon,
-  Palette as PaletteIcon,
-  ViewModule as LayoutIcon
+  Settings as SettingsIcon
 } from '@mui/icons-material';
 import { AstronomicalCalculations, MoonPhaseData } from '../../services/environment/AstronomicalCalculations';
-import { WeatherEstimationService, PressureReading } from '../../services/environment/WeatherEstimation';
 
 export interface OverlayElement {
   id: string;
@@ -62,7 +52,7 @@ export interface OverlayElement {
     padding: number;
     shadow: boolean;
   };
-  content?: any; // Element-specific content
+  content?: unknown; // Element-specific content
   zIndex: number;
 }
 
@@ -100,6 +90,8 @@ interface InvestigationOverlayProps {
   canvasWidth: number;
   canvasHeight: number;
 }
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 
 export const InvestigationOverlay: React.FC<InvestigationOverlayProps> = ({
   data,
@@ -634,7 +626,7 @@ export const InvestigationOverlay: React.FC<InvestigationOverlayProps> = ({
                         fullWidth
                         size="small"
                         value={selectedElementData.style.backgroundColor}
-                        onChange={(e) => updateElementStyle(selectedElement!, { backgroundColor: e.target.value })}
+                        onChange={(e) => updateElementStyle(selectedElement ?? '', { backgroundColor: e.target.value })}
                       />
                     </Box>
                     
@@ -644,7 +636,7 @@ export const InvestigationOverlay: React.FC<InvestigationOverlayProps> = ({
                         fullWidth
                         size="small"
                         value={selectedElementData.style.textColor}
-                        onChange={(e) => updateElementStyle(selectedElement!, { textColor: e.target.value })}
+                        onChange={(e) => updateElementStyle(selectedElement ?? '', { textColor: e.target.value })}
                       />
                     </Box>
                     
@@ -654,7 +646,7 @@ export const InvestigationOverlay: React.FC<InvestigationOverlayProps> = ({
                         fullWidth
                         size="small"
                         value={selectedElementData.style.borderColor}
-                        onChange={(e) => updateElementStyle(selectedElement!, { borderColor: e.target.value })}
+                        onChange={(e) => updateElementStyle(selectedElement ?? '', { borderColor: e.target.value })}
                       />
                     </Box>
                   </Grid>
@@ -668,7 +660,7 @@ export const InvestigationOverlay: React.FC<InvestigationOverlayProps> = ({
                       </Typography>
                       <Slider
                         value={selectedElementData.style.opacity}
-                        onChange={(_, value) => updateElementStyle(selectedElement!, { opacity: value as number })}
+                        onChange={(_, value) => updateElementStyle(selectedElement ?? '', { opacity: value as number })}
                         min={0}
                         max={1}
                         step={0.1}
@@ -681,7 +673,7 @@ export const InvestigationOverlay: React.FC<InvestigationOverlayProps> = ({
                       </Typography>
                       <Slider
                         value={selectedElementData.style.borderWidth}
-                        onChange={(_, value) => updateElementStyle(selectedElement!, { borderWidth: value as number })}
+                        onChange={(_, value) => updateElementStyle(selectedElement ?? '', { borderWidth: value as number })}
                         min={0}
                         max={10}
                         step={1}
@@ -694,7 +686,7 @@ export const InvestigationOverlay: React.FC<InvestigationOverlayProps> = ({
                       </Typography>
                       <Slider
                         value={selectedElementData.style.borderRadius}
-                        onChange={(_, value) => updateElementStyle(selectedElement!, { borderRadius: value as number })}
+                        onChange={(_, value) => updateElementStyle(selectedElement ?? '', { borderRadius: value as number })}
                         min={0}
                         max={20}
                         step={1}
@@ -705,7 +697,7 @@ export const InvestigationOverlay: React.FC<InvestigationOverlayProps> = ({
                       control={
                         <Switch
                           checked={selectedElementData.style.shadow}
-                          onChange={(e) => updateElementStyle(selectedElement!, { shadow: e.target.checked })}
+                          onChange={(e) => updateElementStyle(selectedElement ?? '', { shadow: e.target.checked })}
                         />
                       }
                       label="Drop Shadow"

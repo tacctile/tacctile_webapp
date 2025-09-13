@@ -16,7 +16,7 @@ interface EvidenceFile {
   path: string;
   size: number;
   timestamp: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export const EvidencePreviewModal: React.FC<EvidencePreviewModalProps> = ({

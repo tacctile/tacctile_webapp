@@ -23,7 +23,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
   onElementVisibilityChange,
   onElementLockChange,
   onElementDelete,
-  onLayerReorder
+  onLayerReorder: _onLayerReorder
 }) => {
   const [expandedLayers, setExpandedLayers] = useState<Set<string>>(new Set(['walls', 'doors', 'windows']));
   const [selectedElements, setSelectedElements] = useState<Set<string>>(new Set());

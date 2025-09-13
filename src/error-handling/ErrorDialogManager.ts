@@ -55,7 +55,10 @@ export class ErrorDialogManager extends EventEmitter {
     this.emit('dialog:shown', error, dialog);
 
     try {
-      const result = await this.renderer!.showDialog(dialog);
+      if (!this.renderer) {
+        throw new Error('Renderer not available');
+      }
+      const result = await this.renderer.showDialog(dialog);
       this.handleDialogResult(dialogId, result, error);
     } catch (displayError) {
       console.error('Failed to display error dialog:', displayError);

@@ -40,8 +40,8 @@ import {
   Stream as StreamIcon,
   Security as KeyIcon,
 } from '@mui/icons-material';
-import StreamingCore, { StreamPlatform, StreamHealth, StreamStats } from '../../services/streaming/StreamingCore';
-import ChatManager, { ChatMessage, ChatStats } from '../../services/streaming/ChatManager';
+import { StreamingCore, StreamPlatform, StreamHealth, StreamStats } from '../../services/streaming/StreamingCore';
+import { ChatManager, ChatMessage, ChatStats } from '../../services/streaming/ChatManager';
 
 interface StreamingDashboardProps {
   onOverlayOpen?: () => void;
@@ -107,7 +107,7 @@ export const StreamingDashboard: React.FC<StreamingDashboardProps> = ({ onOverla
       setIsStreaming(false);
     });
 
-    streamingCore.on('streamHealthUpdate', ({ platformId, health }) => {
+    streamingCore.on('streamHealthUpdate', ({ health }) => {
       setStreamHealth(prev => {
         const updated = prev.filter(h => h.platform !== health.platform);
         return [...updated, health];
