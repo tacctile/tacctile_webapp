@@ -1,5 +1,5 @@
 import { ipcRenderer } from 'electron';
-import { SocialAccount, SocialApiError, ConnectionStatus } from '../../components/social-hub/types';
+import { SocialAccount, SocialApiErrorClass, ConnectionStatus } from '../../components/social-hub/types';
 
 export interface StoredAccount {
   platform: string;
@@ -72,7 +72,7 @@ export class AccountManager {
       return accountInfo;
     } catch (error) {
       this.setConnectionStatus(platform, 'error');
-      throw new SocialApiError({
+      throw new SocialApiErrorClass({
         platform,
         code: 'CONNECTION_FAILED',
         message: `Failed to connect to ${platform}: ${error.message}`,

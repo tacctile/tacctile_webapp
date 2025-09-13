@@ -47,7 +47,7 @@ function ensureDirectories() {
     Paths.backupsDir,
     Paths.exportsDir
   ];
-
+  
   dirs.forEach(dir => {
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
@@ -73,28 +73,24 @@ function createWindow() {
   console.log('📏 Default bounds:', defaultBounds);
 
   // Create the browser window with cross-platform options
-  const preloadPath = join(__dirname, 'preload.js');
-  console.log('📄 Preload script path:', preloadPath);
-  console.log('📄 Preload exists:', existsSync(preloadPath));
-
   mainWindow = new BrowserWindow({
     ...windowOptions,
     ...defaultBounds,
     minWidth: minimumSize.width,
     minHeight: minimumSize.height,
-    title: 'Tacctile',
+    title: 'Ghost Hunter Toolbox',
     icon: getAppIcon(),
     webPreferences: {
-      preload: preloadPath,
+      preload: join(__dirname, '../preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false, // Temporarily disable for debugging
+      sandbox: true,
       webSecurity: !isDev
     }
   });
 
   console.log('✅ BrowserWindow created successfully');
-
+  
   // Load the app
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     console.log('🌐 Loading Vite dev server...');
@@ -127,11 +123,11 @@ function createWindow() {
       mainWindow.focus();
     }
   }, 3000);
-
+  
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
-
+  
   // Platform-specific window behavior
   if (Platform.isMac) {
     // macOS: Hide window on close instead of quit
@@ -150,13 +146,13 @@ function createWindow() {
       }
     });
   }
-
+  
   // Handle external links
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
   });
-
+  
   // Security: Prevent navigation to external URLs
   mainWindow.webContents.on('will-navigate', (event, url) => {
     if (!url.startsWith('file://') && !url.startsWith(MAIN_WINDOW_VITE_DEV_SERVER_URL || '')) {
@@ -179,14 +175,14 @@ function getAppIcon(): string | nativeImage | undefined {
 // Create system tray
 function createTray() {
   if (!Features.supportsSystemTray) return;
-
+  
   const icon = nativeImage.createFromPath(
     join(__dirname, '../../assets/tray-icon.png')
   ).resize({ width: 16, height: 16 });
-
+  
   tray = new Tray(icon);
-  tray.setToolTip('Tacctile');
-
+  tray.setToolTip('Ghost Hunter Toolbox');
+  
   // Tray context menu
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -219,9 +215,9 @@ function createTray() {
       }
     }
   ]);
-
+  
   tray.setContextMenu(contextMenu);
-
+  
   // Click behavior
   tray.on('click', () => {
     if (Platform.isWindows) {
@@ -254,7 +250,7 @@ function createMenu() {
         { role: 'quit' as const }
       ]
     }] : []),
-
+    
     // File menu
     {
       label: 'File',
@@ -310,7 +306,7 @@ function createMenu() {
         ...(Platform.isMac ? [] : [{ role: 'quit' as const }])
       ]
     },
-
+    
     // Edit menu
     {
       label: 'Edit',
@@ -340,7 +336,7 @@ function createMenu() {
         ])
       ]
     },
-
+    
     // View menu
     {
       label: 'View',
@@ -356,7 +352,7 @@ function createMenu() {
         { role: 'togglefullscreen' }
       ]
     },
-
+    
     // Investigation menu
     {
       label: 'Investigation',
@@ -390,7 +386,7 @@ function createMenu() {
         }
       ]
     },
-
+    
     // Window menu
     {
       label: 'Window',
@@ -405,7 +401,7 @@ function createMenu() {
         ] : [])
       ]
     },
-
+    
     // Help menu
     {
       role: 'help',
@@ -428,8 +424,8 @@ function createMenu() {
           click: () => {
             dialog.showMessageBox(mainWindow!, {
               type: 'info',
-              title: 'About Tacctile',
-              message: 'Tacctile',
+              title: 'About Ghost Hunter Toolbox',
+              message: 'Ghost Hunter Toolbox',
               detail: `Version: ${app.getVersion()}\nPlatform: ${Platform.displayName}\nElectron: ${process.versions.electron}\nNode: ${process.versions.node}`,
               buttons: ['OK']
             });
@@ -438,7 +434,7 @@ function createMenu() {
       ]
     }
   ];
-
+  
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
 }
@@ -447,15 +443,15 @@ function createMenu() {
 app.whenReady().then(() => {
   // Ensure directories exist
   ensureDirectories();
-
+  
   // Setup IPC handlers
   setupSocialHandlers();
-
+  
   // Create window and UI elements
   createWindow();
   createMenu();
   createTray();
-
+  
   // macOS: Re-create window when dock icon is clicked
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

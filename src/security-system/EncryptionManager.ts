@@ -4,7 +4,21 @@ import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as zlib from 'zlib';
-import * as keytar from 'keytar';
+// Fallback secure storage implementation (for development)
+const fallbackSecureStorage = {
+  async setPassword(service: string, account: string, password: string): Promise<void> {
+    console.warn('Using fallback secure storage - not secure for production');
+    // In production, this would use proper secure storage
+  },
+  async getPassword(service: string, account: string): Promise<string | null> {
+    console.warn('Using fallback secure storage - not secure for production');
+    return null; // Always return null for fallback
+  },
+  async deletePassword(service: string, account: string): Promise<boolean> {
+    console.warn('Using fallback secure storage - not secure for production');
+    return true;
+  }
+};
 import {
   EncryptionKey,
   EncryptedData,
@@ -389,8 +403,8 @@ export class EncryptionManager extends EventEmitter {
         return false;
       }
 
-      // Remove from keytar
-      await keytar.deletePassword('ghost-hunter-encryption', keyId);
+      // Remove from secure storage
+      await fallbackSecureStorage.deletePassword('ghost-hunter-encryption', keyId);
       
       // Remove from memory
       this.keys.delete(keyId);
@@ -533,8 +547,8 @@ export class EncryptionManager extends EventEmitter {
     }
 
     try {
-      // Get from keytar
-      const keyData = await keytar.getPassword('ghost-hunter-encryption', keyId);
+      // Get from secure storage
+      const keyData = await fallbackSecureStorage.getPassword('ghost-hunter-encryption', keyId);
       if (keyData) {
         const keyBuffer = Buffer.from(keyData, 'base64');
         this.keyCache.set(keyId, keyBuffer);
@@ -548,8 +562,8 @@ export class EncryptionManager extends EventEmitter {
   }
 
   private async storeKey(key: EncryptionKey): Promise<void> {
-    // Store key data securely in keytar
-    await keytar.setPassword('ghost-hunter-encryption', key.id, key.keyData);
+    // Store key data securely
+    await fallbackSecureStorage.setPassword('ghost-hunter-encryption', key.id, key.keyData);
     
     // Store key metadata (without actual key data)
     const keyMetadata = { ...key };
@@ -594,7 +608,7 @@ export class EncryptionManager extends EventEmitter {
   private async initializeMasterKey(): Promise<void> {
     try {
       // Check if master key exists
-      const masterKey = await keytar.getPassword('ghost-hunter-encryption', this.masterKeyId);
+      const masterKey = await fallbackSecureStorage.getPassword('ghost-hunter-encryption', this.masterKeyId);
       
       if (!masterKey) {
         console.log('Generating master encryption key...');

@@ -444,7 +444,7 @@ export const WindowState = {
   // Window chrome options
   getWindowOptions(): Electron.BrowserWindowConstructorOptions {
     const baseOptions: Electron.BrowserWindowConstructorOptions = {
-      show: false,
+      show: true, // Force show window immediately
       frame: true,
       transparent: false,
       hasShadow: true,

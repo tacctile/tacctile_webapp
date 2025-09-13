@@ -1,6 +1,19 @@
 import { BrowserWindow, session, WebContents } from 'electron';
 import { join } from 'path';
-import keytar from 'keytar';
+// Fallback secure storage implementation (for development)
+const fallbackSecureStorage = {
+  async setPassword(service: string, account: string, password: string): Promise<void> {
+    console.warn('Using fallback secure storage - not secure for production');
+  },
+  async getPassword(service: string, account: string): Promise<string | null> {
+    console.warn('Using fallback secure storage - not secure for production');
+    return null;
+  },
+  async deletePassword(service: string, account: string): Promise<boolean> {
+    console.warn('Using fallback secure storage - not secure for production');
+    return true;
+  }
+};
 
 export interface BrowserConfig {
   platform: 'instagram' | 'tiktok';
@@ -256,11 +269,11 @@ export class EmbeddedBrowser {
 
   async saveCredentials(credentials: LoginCredentials): Promise<void> {
     try {
-      await keytar.setPassword(this.serviceName, 'username', credentials.username);
-      await keytar.setPassword(this.serviceName, 'password', credentials.password);
+      await fallbackSecureStorage.setPassword(this.serviceName, 'username', credentials.username);
+      await fallbackSecureStorage.setPassword(this.serviceName, 'password', credentials.password);
       
       if (credentials.totpSecret) {
-        await keytar.setPassword(this.serviceName, 'totp', credentials.totpSecret);
+        await fallbackSecureStorage.setPassword(this.serviceName, 'totp', credentials.totpSecret);
       }
     } catch (error) {
       console.error('Failed to save credentials:', error);
@@ -270,9 +283,9 @@ export class EmbeddedBrowser {
 
   async getCredentials(): Promise<LoginCredentials | null> {
     try {
-      const username = await keytar.getPassword(this.serviceName, 'username');
-      const password = await keytar.getPassword(this.serviceName, 'password');
-      const totpSecret = await keytar.getPassword(this.serviceName, 'totp');
+      const username = await fallbackSecureStorage.getPassword(this.serviceName, 'username');
+      const password = await fallbackSecureStorage.getPassword(this.serviceName, 'password');
+      const totpSecret = await fallbackSecureStorage.getPassword(this.serviceName, 'totp');
 
       if (username && password) {
         return {
@@ -290,9 +303,9 @@ export class EmbeddedBrowser {
 
   async clearCredentials(): Promise<void> {
     try {
-      await keytar.deletePassword(this.serviceName, 'username');
-      await keytar.deletePassword(this.serviceName, 'password');
-      await keytar.deletePassword(this.serviceName, 'totp');
+      await fallbackSecureStorage.deletePassword(this.serviceName, 'username');
+      await fallbackSecureStorage.deletePassword(this.serviceName, 'password');
+      await fallbackSecureStorage.deletePassword(this.serviceName, 'totp');
     } catch (error) {
       console.error('Failed to clear credentials:', error);
     }

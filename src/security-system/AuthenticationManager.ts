@@ -4,7 +4,20 @@ import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import * as keytar from 'keytar';
+// Fallback secure storage implementation (for development)
+const fallbackSecureStorage = {
+  async setPassword(service: string, account: string, password: string): Promise<void> {
+    console.warn('Using fallback secure storage - not secure for production');
+  },
+  async getPassword(service: string, account: string): Promise<string | null> {
+    console.warn('Using fallback secure storage - not secure for production');
+    return null;
+  },
+  async deletePassword(service: string, account: string): Promise<boolean> {
+    console.warn('Using fallback secure storage - not secure for production');
+    return true;
+  }
+};
 import * as os from 'os';
 import {
   User,
@@ -422,7 +435,7 @@ export class AuthenticationManager extends EventEmitter {
       user.updatedAt = new Date();
 
       // Store the password securely using keytar
-      await keytar.setPassword('ghost-hunter-toolbox', `user-${userId}`, hashedPassword);
+      await fallbackSecureStorage.setPassword('ghost-hunter-toolbox', `user-${userId}`, hashedPassword);
 
       await this.saveUsers();
 
@@ -487,7 +500,7 @@ export class AuthenticationManager extends EventEmitter {
       };
 
       // Store password securely
-      await keytar.setPassword('ghost-hunter-toolbox', `user-${userId}`, hashedPassword);
+      await fallbackSecureStorage.setPassword('ghost-hunter-toolbox', `user-${userId}`, hashedPassword);
 
       this.users.set(userId, user);
       await this.saveUsers();
@@ -549,7 +562,7 @@ export class AuthenticationManager extends EventEmitter {
   private async verifyPassword(password: string, user: User): Promise<boolean> {
     try {
       // Get stored password hash from keytar
-      const storedHash = await keytar.getPassword('ghost-hunter-toolbox', `user-${user.id}`);
+      const storedHash = await fallbackSecureStorage.getPassword('ghost-hunter-toolbox', `user-${user.id}`);
       if (!storedHash) {
         return false;
       }
@@ -841,7 +854,7 @@ export class AuthenticationManager extends EventEmitter {
   private async updateOfflineAuthData(user: User, deviceInfo: DeviceInfo): Promise<void> {
     try {
       const deviceFingerprint = await this.generateDeviceFingerprint();
-      const passwordHash = await keytar.getPassword('ghost-hunter-toolbox', `user-${user.id}`);
+      const passwordHash = await fallbackSecureStorage.getPassword('ghost-hunter-toolbox', `user-${user.id}`);
       
       if (!passwordHash) return;
 

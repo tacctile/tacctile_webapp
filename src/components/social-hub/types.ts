@@ -31,3 +31,17 @@ export interface SocialApiError {
   message: string;
   details?: Record<string, unknown>;
 }
+
+export class SocialApiErrorClass extends Error implements SocialApiError {
+  public platform: string;
+  public code: string;
+  public details?: Record<string, unknown>;
+
+  constructor(error: SocialApiError) {
+    super(error.message);
+    this.name = 'SocialApiError';
+    this.platform = error.platform;
+    this.code = error.code;
+    this.details = error.details;
+  }
+}
