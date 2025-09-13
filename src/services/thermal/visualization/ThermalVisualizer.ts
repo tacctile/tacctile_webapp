@@ -646,9 +646,9 @@ export class ThermalVisualizer extends EventEmitter {
     let steps = 0;
     const maxSteps = 1000;
 
-    do {
+    while (steps <= maxSteps) {
       const key = `${x},${y}`;
-      if (visited.has(key) || steps > maxSteps) break;
+      if (visited.has(key)) break;
       
       visited.add(key);
       
@@ -679,7 +679,7 @@ export class ThermalVisualizer extends EventEmitter {
 
       if (!found) break;
       steps++;
-    } while (true);
+    }
 
     return contour;
   }

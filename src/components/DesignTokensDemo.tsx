@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useTheme } from '../utils/theme-manager';
 import { Icon } from './Icon';
 import { GhostIcons } from '../config/ghost-icons';
 
 const DesignTokensDemo: React.FC = () => {
-  const { theme, toggleTheme, isDark } = useTheme();
+  const { toggleTheme, isDark } = useTheme();
   const [activeTab, setActiveTab] = useState('colors');
 
   // Color categories

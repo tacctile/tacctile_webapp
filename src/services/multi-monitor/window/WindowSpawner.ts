@@ -747,19 +747,19 @@ export class WindowSpawner extends EventEmitter {
 
   public closeAllWindows(): Promise<void> {
     const promises = Array.from(this.windows.keys()).map(windowId => this.closeWindow(windowId));
-    return Promise.all(promises).then(() => {});
+    return Promise.all(promises).then(() => void 0);
   }
 
   public closeWindowsByType(windowType: WindowType): Promise<void> {
     const windowsToClose = this.getWindowsByType(windowType);
     const promises = windowsToClose.map(({ windowId }) => this.closeWindow(windowId));
-    return Promise.all(promises).then(() => {});
+    return Promise.all(promises).then(() => void 0);
   }
 
   public closeWindowsByDisplay(displayId: string): Promise<void> {
     const windowsToClose = this.getWindowsByDisplay(displayId);
     const promises = windowsToClose.map(({ windowId }) => this.closeWindow(windowId));
-    return Promise.all(promises).then(() => {});
+    return Promise.all(promises).then(() => void 0);
   }
 
   public dispose(): void {

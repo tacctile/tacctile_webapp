@@ -11,9 +11,7 @@ import {
   ThermalAlertHistory,
   AlertStatistics
 } from '../types';
-import { Logger } from '../../../utils/Logger';
-
-const logger = new Logger('ThermalAlertManager');
+import { logger } from '../../../utils/logger';
 
 export class ThermalAlertManager extends EventEmitter {
   private rules: Map<string, ThermalAlertRule>;

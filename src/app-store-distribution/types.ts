@@ -719,7 +719,7 @@ export enum StageType {
 }
 
 export interface StageConfiguration {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface NotificationConfiguration {
@@ -913,7 +913,7 @@ export interface DashboardWidget {
   type: WidgetType;
   title: string;
   metrics: string[];
-  configuration: Record<string, any>;
+  configuration: Record<string, unknown>;
   position: WidgetPosition;
 }
 
@@ -982,7 +982,7 @@ export enum ReportFrequency {
 export interface ReportFilter {
   field: string;
   operator: FilterOperator;
-  value: any;
+  value: unknown;
 }
 
 export enum FilterOperator {
@@ -1047,7 +1047,7 @@ export interface BuildLog {
   level: LogLevel;
   message: string;
   source: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export enum LogLevel {
@@ -1105,8 +1105,8 @@ export enum ValidationStatus {
 
 export interface ValidationDetail {
   field: string;
-  expected: any;
-  actual: any;
+  expected: unknown;
+  actual: unknown;
   severity: ValidationSeverity;
   fix?: string;
 }
@@ -1127,7 +1127,7 @@ export interface DistributionEvent {
   target?: string;
   status: EventStatus;
   message: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   duration?: number; // ms
 }
 
@@ -1204,7 +1204,7 @@ export interface WorkflowTrigger {
 
 export interface TriggerEvent {
   type: TriggerType;
-  filters?: Record<string, any>;
+  filters?: Record<string, unknown>;
 }
 
 export interface Job {
@@ -1221,7 +1221,7 @@ export interface JobStep {
   name: string;
   uses?: string; // Action/plugin
   run?: string; // Script
-  with?: Record<string, any>;
+  with?: Record<string, unknown>;
   env?: Record<string, string>;
   if?: string;
 }
@@ -1263,7 +1263,7 @@ export interface AppStoreEvent {
   version?: string;
   status: AppStoreEventStatus;
   message: string;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
 }
 
 export enum AppStoreEventType {

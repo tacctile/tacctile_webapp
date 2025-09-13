@@ -3,6 +3,7 @@ import { EventEmitter } from 'events';
 import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as os from 'os';
 import * as jwt from 'jsonwebtoken';
 import { NodeRSA } from 'node-rsa';
 import {
@@ -681,7 +682,6 @@ export class LicenseValidator extends EventEmitter {
   }
 
   private async getDeviceId(): Promise<string> {
-    const os = require('os');
     const machineInfo = [
       os.platform(),
       os.arch(),
@@ -693,7 +693,6 @@ export class LicenseValidator extends EventEmitter {
   }
 
   private async getDeviceInfo(): Promise<any> {
-    const os = require('os');
     return {
       hostname: os.hostname(),
       platform: os.platform(),

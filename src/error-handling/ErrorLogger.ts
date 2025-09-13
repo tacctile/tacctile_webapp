@@ -18,7 +18,7 @@ export interface LogEntry {
   level: ErrorSeverity;
   error: ApplicationError;
   formatted: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface LogRotationInfo {
@@ -233,8 +233,8 @@ export class ErrorLogger extends EventEmitter implements IErrorLogger {
     return parts.join(' ');
   }
 
-  private async collectMetadata(error: ApplicationError): Promise<Record<string, any>> {
-    const metadata: Record<string, any> = {
+  private async collectMetadata(error: ApplicationError): Promise<Record<string, unknown>> {
+    const metadata: Record<string, unknown> = {
       pid: process.pid,
       memory: process.memoryUsage(),
       uptime: process.uptime(),

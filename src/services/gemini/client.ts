@@ -8,6 +8,7 @@ import { GeminiConfig, GeminiResponse, MediaFile, AnalysisType, SafetySettings }
 import { logger } from '../../utils/logger';
 import { RateLimiter } from './rate-limiter';
 import { ResponseCache } from './cache';
+import * as crypto from 'crypto';
 
 export class GeminiClient {
   private genAI: GoogleGenerativeAI;
@@ -319,12 +320,12 @@ export class GeminiClient {
    * Generate cache key for request
    */
   private getCacheKey(file: MediaFile, analysisType: AnalysisType, customPrompt?: string): string {
-    const fileHash = require('crypto')
+    const fileHash = crypto
       .createHash('md5')
       .update(file.buffer)
       .digest('hex');
     
-    return `${fileHash}_${analysisType}_${customPrompt ? require('crypto').createHash('md5').update(customPrompt).digest('hex') : 'default'}`;
+    return `${fileHash}_${analysisType}_${customPrompt ? crypto.createHash('md5').update(customPrompt).digest('hex') : 'default'}`;
   }
 
   /**

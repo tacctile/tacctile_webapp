@@ -4,9 +4,22 @@
  */
 
 import { EventEmitter } from 'events';
-import { SerialPort } from 'serialport';
 import * as net from 'net';
-import * as usb from 'usb';
+// Optional hardware dependencies
+let SerialPort: any = null;
+let usb: any = null;
+
+try {
+  SerialPort = eval('require')('serialport').SerialPort;
+} catch (e) {
+  // SerialPort not available
+}
+
+try {
+  usb = eval('require')('usb');
+} catch (e) {
+  // USB not available
+}
 import {
   ThermalCamera,
   ThermalCameraType,

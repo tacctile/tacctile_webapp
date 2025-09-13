@@ -76,7 +76,7 @@ export class CrashReporter extends EventEmitter implements ErrorReporter {
     }
   }
 
-  public trackUserAction(action: string, component: string, details: Record<string, any> = {}): void {
+  public trackUserAction(action: string, component: string, details: Record<string, unknown> = {}): void {
     const userAction: UserAction = {
       timestamp: Date.now(),
       action,

@@ -470,7 +470,7 @@ export class CameraDiscovery extends EventEmitter {
           );
           break;
           
-        case CameraType.IP_ONVIF:
+        case CameraType.IP_ONVIF: {
           const device: ONVIFDevice = {
             address: config.connection.address,
             port: config.connection.port || 80,
@@ -481,6 +481,7 @@ export class CameraDiscovery extends EventEmitter {
           return this.getCameras().find(c => 
             c.connection.address === device.address
           ) || null;
+        }
           
         default:
           logger.warn(`Manual addition not supported for type ${config.type}`);

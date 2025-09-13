@@ -25,15 +25,7 @@ import {
   ValidationStatus,
   DistributionEvent,
   EventType,
-  EventStatus,
-  CIConfiguration,
-  CIProvider,
-  Workflow,
-  Job,
-  JobStep,
-  ReleaseType,
-  MacAppStoreCredentials,
-  MicrosoftStoreCredentials
+  EventStatus
 } from './types';
 
 export class DistributionPipelineManager extends EventEmitter {
@@ -218,7 +210,7 @@ export class DistributionPipelineManager extends EventEmitter {
 
   private createPipelineStages(
     configuration: AppStoreConfiguration,
-    releaseConfig: ReleaseConfiguration
+    _releaseConfig: ReleaseConfiguration
   ): PipelineStage[] {
     const stages: PipelineStage[] = [
       {
@@ -389,7 +381,7 @@ export class DistributionPipelineManager extends EventEmitter {
     });
   }
 
-  private getBuildCommand(platform: Platform, configuration: AppStoreConfiguration): { command: string; args: string[] } {
+  private getBuildCommand(platform: Platform, _configuration: AppStoreConfiguration): { command: string; args: string[] } {
     switch (platform) {
       case Platform.MAC_APP_STORE:
         return {
@@ -448,7 +440,7 @@ export class DistributionPipelineManager extends EventEmitter {
   ): Promise<{ success: boolean; output?: string }> {
     // This would integrate with the CodeSigningManager
     const signingConfig = stage.configuration.signingConfig;
-    const credentials = stage.configuration.credentials;
+    const _credentials = stage.configuration.credentials;
 
     if (!signingConfig.enabled) {
       buildResult.logs.push({

@@ -57,8 +57,10 @@ import {
   AppStoreMetadata,
   DistributionProfile,
   CertificateInfo,
+  CertificateType,
   ValidationResult,
   MarketingAsset,
+  MarketingAssetType,
   Screenshot,
   BuildStatus
 } from './types';
@@ -225,7 +227,7 @@ export class AppStoreDistributionSystem extends EventEmitter {
   public async importCertificate(
     certificateData: Buffer | string,
     password: string,
-    type: any,
+    type: CertificateType,
     platform: Platform
   ): Promise<CertificateInfo> {
     this.ensureInitialized();
@@ -292,9 +294,9 @@ export class AppStoreDistributionSystem extends EventEmitter {
    */
   public async uploadAsset(
     metadataId: string,
-    assetType: any,
+    assetType: MarketingAssetType,
     filePath: string,
-    options?: any
+    options?: Record<string, unknown>
   ): Promise<MarketingAsset | Screenshot> {
     this.ensureInitialized();
     return await this.metadataManager.uploadAsset(metadataId, assetType, filePath, options);
@@ -427,7 +429,7 @@ export class AppStoreDistributionSystem extends EventEmitter {
   /**
    * Export system configuration
    */
-  public async exportConfiguration(): Promise<any> {
+  public async exportConfiguration(): Promise<Record<string, unknown>> {
     this.ensureInitialized();
     
     return {
@@ -436,7 +438,7 @@ export class AppStoreDistributionSystem extends EventEmitter {
       certificates: Object.values(Platform).reduce((acc, platform) => {
         acc[platform] = this.codeSigningManager.getCertificatesByPlatform(platform);
         return acc;
-      }, {} as any),
+      }, {} as Record<string, CertificateInfo[]>),
       exportedAt: new Date().toISOString(),
       version: '1.0.0'
     };

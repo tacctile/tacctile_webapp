@@ -61,7 +61,7 @@ export interface AlertRule {
   lastTriggered?: number;
   actions: Array<{
     type: 'email' | 'webhook' | 'log' | 'notification';
-    config: Record<string, any>;
+    config: Record<string, unknown>;
   }>;
 }
 

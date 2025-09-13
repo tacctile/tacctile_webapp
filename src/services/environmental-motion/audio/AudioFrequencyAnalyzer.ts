@@ -5,7 +5,7 @@ import {
   AudioVisualizationSettings,
   AudioOverlayData
 } from '../types';
-import { Logger } from '../../../utils/Logger';
+import { Logger } from '../../../utils/logger';
 
 const logger = new Logger('AudioFrequencyAnalyzer');
 

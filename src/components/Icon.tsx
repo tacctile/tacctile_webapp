@@ -27,7 +27,6 @@ export const Icon: React.FC<IconProps> = ({
   icon: IconComponent,
   size = 'md',
   color = 'default',
-  variant,
   spin = false,
   pulse = false,
   bounce = false,

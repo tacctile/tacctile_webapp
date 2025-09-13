@@ -3,6 +3,7 @@ import { EventEmitter } from 'events';
 import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as zlib from 'zlib';
 import * as aesjs from 'aes-js';
 import * as keytar from 'keytar';
 import {
@@ -162,11 +163,12 @@ export class EncryptionManager extends EventEmitter {
       let decryptedData: Buffer;
       
       switch (encryptedData.algorithm) {
-        case 'AES-256-GCM':
+        case 'AES-256-GCM': {
           const authTag = encryptedData.metadata?.authTag ? 
             Buffer.from(encryptedData.metadata.authTag, 'base64') : undefined;
           decryptedData = this.decryptAESGCM(dataBuffer, key, ivBuffer, authTag);
           break;
+        }
         case 'AES-256-CBC':
           decryptedData = this.decryptAESCBC(dataBuffer, key, ivBuffer);
           break;
@@ -472,7 +474,6 @@ export class EncryptionManager extends EventEmitter {
   }
 
   private async compressData(data: Buffer): Promise<Buffer> {
-    const zlib = require('zlib');
     return new Promise((resolve, reject) => {
       zlib.gzip(data, (err, compressed) => {
         if (err) reject(err);
@@ -482,7 +483,6 @@ export class EncryptionManager extends EventEmitter {
   }
 
   private async decompressData(data: Buffer): Promise<Buffer> {
-    const zlib = require('zlib');
     return new Promise((resolve, reject) => {
       zlib.gunzip(data, (err, decompressed) => {
         if (err) reject(err);

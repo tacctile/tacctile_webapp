@@ -11,7 +11,7 @@ import {
   TrackingHistory,
   MotionPrediction
 } from '../types';
-import { Logger } from '../../../utils/Logger';
+import { Logger } from '../../../utils/logger';
 
 const logger = new Logger('AdvancedMotionDetector');
 

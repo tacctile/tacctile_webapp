@@ -12,9 +12,7 @@ import {
   MultiSpectralEvent,
   SPECTRAL_BAND_INFO
 } from '../types';
-import { Logger } from '../../../utils/Logger';
-
-const logger = new Logger('MultiSpectralCameraController');
+import { logger } from '../../../utils/logger';
 
 export class MultiSpectralCameraController extends EventEmitter {
   private camera: MultiSpectralCamera;

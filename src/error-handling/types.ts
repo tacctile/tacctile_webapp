@@ -139,7 +139,7 @@ export interface ErrorContext {
   buildVersion: string;
   environment: string;
   timestamp: number;
-  additionalData?: Record<string, any>;
+  additionalData?: Record<string, unknown>;
 }
 
 export interface ErrorMetadata {
@@ -161,14 +161,14 @@ export interface ErrorMetadata {
     uptime: number;
   };
   userActions?: UserAction[];
-  debugInfo?: Record<string, any>;
+  debugInfo?: Record<string, unknown>;
 }
 
 export interface UserAction {
   timestamp: number;
   action: string;
   component: string;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
 }
 
 export interface ErrorReport {

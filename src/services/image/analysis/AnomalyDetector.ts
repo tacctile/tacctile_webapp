@@ -6,6 +6,35 @@
 import { ImageAnomaly, AnomalyType } from '../types';
 import { logger } from '../../../utils/logger';
 
+interface Circle {
+  x: number;
+  y: number;
+  radius: number;
+  confidence: number;
+}
+
+interface Line {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  confidence: number;
+}
+
+interface Region {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  confidence: number;
+}
+
+interface Component {
+  pixels: Array<{x: number; y: number}>;
+  bounds: {x: number; y: number; width: number; height: number};
+  area: number;
+}
+
 export class AnomalyDetector {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
@@ -332,8 +361,8 @@ export class AnomalyDetector {
   /**
    * Hough circle transform
    */
-  private houghCircles(gray: Uint8ClampedArray, width: number, height: number): any[] {
-    const circles: any[] = [];
+  private houghCircles(gray: Uint8ClampedArray, width: number, height: number): Circle[] {
+    const circles: Circle[] = [];
     const minRadius = 5;
     const maxRadius = Math.min(width, height) / 4;
     
@@ -410,9 +439,9 @@ export class AnomalyDetector {
   /**
    * Find connected components
    */
-  private findConnectedComponents(edges: Uint8ClampedArray, width: number, height: number): any[] {
+  private findConnectedComponents(edges: Uint8ClampedArray, width: number, height: number): Component[] {
     const visited = new Uint8Array(width * height);
-    const components: any[] = [];
+    const components: Component[] = [];
     
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
@@ -479,8 +508,8 @@ export class AnomalyDetector {
   /**
    * Hough line transform
    */
-  private houghLines(data: Uint8ClampedArray, width: number, height: number): any[] {
-    const lines: any[] = [];
+  private houghLines(data: Uint8ClampedArray, width: number, height: number): Line[] {
+    const lines: Line[] = [];
     const edges = this.sobelEdgeDetection(data, width, height);
     
     const rhoMax = Math.sqrt(width * width + height * height);
@@ -552,8 +581,8 @@ export class AnomalyDetector {
     return (sizeScore + shapeScore) / 2;
   }
 
-  private findDarkRegions(data: Uint8ClampedArray, width: number, height: number): any[] {
-    const regions: any[] = [];
+  private findDarkRegions(data: Uint8ClampedArray, width: number, height: number): Region[] {
+    const regions: Region[] = [];
     const threshold = 50;
     
     // Simplified dark region detection
@@ -591,7 +620,7 @@ export class AnomalyDetector {
     return 0.5 + Math.random() * 0.5; // Placeholder
   }
 
-  private findLowContrastRegions(data: Uint8ClampedArray, width: number, height: number): any[] {
+  private findLowContrastRegions(data: Uint8ClampedArray, width: number, height: number): Region[] {
     // Simplified low contrast region detection
     return [];
   }
@@ -617,7 +646,7 @@ export class AnomalyDetector {
     return { x: 0, y: 0, width: 100, height: 10 }; // Placeholder
   }
 
-  private detectFacePatterns(data: Uint8ClampedArray, width: number, height: number): any[] {
+  private detectFacePatterns(data: Uint8ClampedArray, width: number, height: number): Region[] {
     // Simplified face pattern detection
     return [];
   }
@@ -630,12 +659,12 @@ export class AnomalyDetector {
     return Math.random(); // Placeholder
   }
 
-  private findDistortedRegions(data: Uint8ClampedArray, width: number, height: number): any[] {
+  private findDistortedRegions(data: Uint8ClampedArray, width: number, height: number): Region[] {
     // Simplified distortion detection
     return [];
   }
 
-  private findEnergyPatterns(data: Uint8ClampedArray, width: number, height: number): any[] {
+  private findEnergyPatterns(data: Uint8ClampedArray, width: number, height: number): Region[] {
     // Simplified energy pattern detection
     return [];
   }
@@ -723,7 +752,7 @@ export class AnomalyDetector {
               enhanced.data[idx + 2] = Math.min(255, enhanced.data[idx + 2] * 1.3);
               break;
               
-            case AnomalyType.FIGURE:
+            case AnomalyType.FIGURE: {
               // Increase contrast
               const avg = (enhanced.data[idx] + enhanced.data[idx + 1] + enhanced.data[idx + 2]) / 3;
               const factor = avg > 128 ? 1.3 : 0.7;
@@ -731,6 +760,7 @@ export class AnomalyDetector {
               enhanced.data[idx + 1] *= factor;
               enhanced.data[idx + 2] *= factor;
               break;
+            }
               
             case AnomalyType.MIST:
               // Add ethereal blue tint

@@ -233,12 +233,12 @@ export class ChatManager extends EventEmitter {
     this.connections.set('twitch', client);
   }
 
-  private parseTwitchBadges(badges: any): string[] {
+  private parseTwitchBadges(badges: Record<string, unknown>): string[] {
     if (!badges) return [];
     return Object.keys(badges);
   }
 
-  private parseTwitchEmotes(emotes: any, message: string): Array<{
+  private parseTwitchEmotes(emotes: Record<string, unknown>, message: string): Array<{
     name: string;
     url: string;
     start: number;
@@ -305,7 +305,7 @@ export class ChatManager extends EventEmitter {
       });
 
       if (response.data.items) {
-        response.data.items.forEach((item: any) => {
+        response.data.items.forEach((item: Record<string, any>) => {
           const chatMessage: ChatMessage = {
             id: `youtube_${item.id}`,
             platform: 'YouTube',
@@ -432,12 +432,13 @@ export class ChatManager extends EventEmitter {
     }
 
     switch (platformId) {
-      case 'twitch':
+      case 'twitch': {
         const platform = this.platforms.get('twitch');
         if (platform) {
           return connection.say(`#${platform.credentials.username}`, message);
         }
         break;
+      }
       // Add other platforms as needed
     }
 

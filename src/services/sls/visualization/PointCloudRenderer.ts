@@ -210,7 +210,7 @@ export class PointCloudRenderer {
         }
         break;
         
-      case 'depth':
+      case 'depth': {
         // Color by Z depth
         let minZ = Infinity, maxZ = -Infinity;
         for (let i = 0; i < numPoints; i++) {
@@ -228,8 +228,9 @@ export class PointCloudRenderer {
           colors[i * 3 + 2] = color.b;
         }
         break;
+      }
         
-      case 'height':
+      case 'height': {
         // Color by Y height
         let minY = Infinity, maxY = -Infinity;
         for (let i = 0; i < numPoints; i++) {
@@ -247,6 +248,7 @@ export class PointCloudRenderer {
           colors[i * 3 + 2] = color.b;
         }
         break;
+      }
         
       case 'normal':
         // Color by normal direction

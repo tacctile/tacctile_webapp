@@ -167,7 +167,7 @@ export class CameraMonitoringDashboard extends EventEmitter {
     
     // Stop any active streams/recordings
     this.streamManager.stopStream(camera.id);
-    this.recorder.stopRecording(camera.id).catch(() => {});
+    this.recorder.stopRecording(camera.id).catch(() => void 0);
 
     // Remove from grid
     this.removeCameraFromGrid(camera.id);

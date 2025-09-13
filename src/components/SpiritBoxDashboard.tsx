@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Box,
   Paper,
@@ -31,7 +31,6 @@ import {
   InputLabel,
   Alert,
   Snackbar,
-  Tooltip,
   Badge
 } from '@mui/material';
 import {
@@ -40,21 +39,12 @@ import {
   Stop,
   FiberManualRecord,
   RadioButtonChecked,
-  GraphicEq,
   Settings,
-  Analytics,
   Download,
-  Upload,
   Mic,
-  MicOff,
-  VolumeUp,
-  VolumeOff,
   Bookmark,
-  BookmarkBorder,
   Timeline,
-  Assessment,
   Warning,
-  CheckCircle,
   Info,
   Close
 } from '@mui/icons-material';
@@ -86,7 +76,7 @@ ChartJS.register(
 );
 
 import { RadioScannerCore, RadioFrequency, ScanSettings, RadioMetrics } from '../services/spirit-box/RadioScannerCore';
-import { AudioProcessor, AudioFeatures, AudioSegment, NoiseReductionSettings } from '../services/spirit-box/AudioProcessor';
+import { AudioProcessor, AudioFeatures, NoiseReductionSettings } from '../services/spirit-box/AudioProcessor';
 import { WordDetectionEngine, WordMatch, CommunicationEvent, DetectionSettings } from '../services/spirit-box/WordDetectionEngine';
 import { SessionRecorder, SessionMetadata, SessionEvent, AudioMarker, SessionAnalytics } from '../services/spirit-box/SessionRecorder';
 
@@ -152,13 +142,13 @@ export const SpiritBoxDashboard: React.FC<SpiritBoxDashboardProps> = ({ onClose 
 
   // Data State
   const [radioMetrics, setRadioMetrics] = useState<RadioMetrics | null>(null);
-  const [audioFeatures, setAudioFeatures] = useState<AudioFeatures | null>(null);
+  const [_audioFeatures, _setAudioFeatures] = useState<AudioFeatures | null>(null);
   const [detectedWords, setDetectedWords] = useState<WordMatch[]>([]);
   const [communicationEvents, setCommunicationEvents] = useState<CommunicationEvent[]>([]);
   const [sessionEvents, setSessionEvents] = useState<SessionEvent[]>([]);
   const [audioMarkers, setAudioMarkers] = useState<AudioMarker[]>([]);
   const [frequencies, setFrequencies] = useState<RadioFrequency[]>([]);
-  const [waveformData, setWaveformData] = useState<Float32Array[]>([]);
+  const [waveformData, _setWaveformData] = useState<Float32Array[]>([]);
   const [sessionAnalytics, setSessionAnalytics] = useState<SessionAnalytics | null>(null);
 
   // Dialog State
@@ -325,7 +315,7 @@ export const SpiritBoxDashboard: React.FC<SpiritBoxDashboardProps> = ({ onClose 
     if (!sessionRecorder.current) return;
 
     try {
-      const sessionId = await sessionRecorder.current.startSession(metadata);
+      const _sessionId = await sessionRecorder.current.startSession(metadata);
       await sessionRecorder.current.startRecording();
       
       // Start related services
@@ -386,7 +376,7 @@ export const SpiritBoxDashboard: React.FC<SpiritBoxDashboardProps> = ({ onClose 
     };
   }, [frequencies]);
 
-  const waveformChartData = useMemo(() => {
+  const _waveformChartData = useMemo(() => {
     if (!waveformData.length) return null;
 
     const flatData = waveformData.flat();
@@ -809,7 +799,7 @@ export const SpiritBoxDashboard: React.FC<SpiritBoxDashboardProps> = ({ onClose 
                   />
                   <CardContent sx={{ maxHeight: 500, overflow: 'auto' }}>
                     <List>
-                      {communicationEvents.slice().reverse().map((event, index) => (
+                      {communicationEvents.slice().reverse().map((event, _index) => (
                         <ListItem key={event.id} divider>
                           <ListItemIcon>
                             <Box display="flex" flexDirection="column" alignItems="center">
@@ -865,7 +855,7 @@ export const SpiritBoxDashboard: React.FC<SpiritBoxDashboardProps> = ({ onClose 
                   <CardHeader title="Session Events" />
                   <CardContent sx={{ maxHeight: 400, overflow: 'auto' }}>
                     <List dense>
-                      {sessionEvents.slice(-20).reverse().map((event, index) => (
+                      {sessionEvents.slice(-20).reverse().map((event, _index) => (
                         <ListItem key={event.id} divider>
                           <ListItemIcon>
                             {event.type === 'word_detected' && <Mic />}
@@ -902,7 +892,7 @@ export const SpiritBoxDashboard: React.FC<SpiritBoxDashboardProps> = ({ onClose 
                   <CardHeader title="Audio Markers" />
                   <CardContent sx={{ maxHeight: 400, overflow: 'auto' }}>
                     <List dense>
-                      {audioMarkers.slice().reverse().map((marker, index) => (
+                      {audioMarkers.slice().reverse().map((marker, _index) => (
                         <ListItem key={marker.id} divider>
                           <ListItemIcon>
                             <Box 

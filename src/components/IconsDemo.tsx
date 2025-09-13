@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Icon, IconButton, IconWithText, IconGroup, IconStack } from './Icon';
+import { Icon, IconButton, IconWithText, IconGroup } from './Icon';
 import { GhostIcons, SemanticIcons } from '../config/ghost-icons';
 import '../styles/icons.css';
 
@@ -106,7 +106,7 @@ const IconsDemo: React.FC = () => {
               <Icon 
                 icon={IconComponent} 
                 size={iconSize}
-                color={selectedCategory === 'evidence' ? name as any : 'default'}
+                color='default'
               />
               <span style={{ 
                 marginTop: '0.5rem', 
@@ -131,7 +131,7 @@ const IconsDemo: React.FC = () => {
               icon={IconComponent}
               text={name.toUpperCase()}
               iconSize="xl"
-              iconColor={name as any}
+              iconColor='default'
               vertical
             />
           ))}

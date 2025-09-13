@@ -567,13 +567,14 @@ export class NetworkSecurityManager extends EventEmitter {
       case 'block':
         await this.blockIP(threat.source);
         break;
-      case 'quarantine':
+      case 'quarantine': {
         const device = Array.from(this.devices.values())
           .find(d => d.ipAddress === threat.source);
         if (device) {
           await this.handleSuspiciousDevice(device);
         }
         break;
+      }
       case 'throttle':
         await this.throttleIP(threat.source);
         break;

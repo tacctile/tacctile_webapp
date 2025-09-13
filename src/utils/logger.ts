@@ -13,10 +13,12 @@ export enum LogLevel {
 class Logger {
   private level: LogLevel;
   private enableApiLogging: boolean;
+  private context?: string;
 
-  constructor() {
+  constructor(context?: string) {
     this.level = this.parseLogLevel(process.env.LOG_LEVEL || 'info');
     this.enableApiLogging = process.env.ENABLE_API_LOGGING === 'true';
+    this.context = context;
   }
 
   private parseLogLevel(level: string): LogLevel {
@@ -31,8 +33,9 @@ class Logger {
 
   private formatMessage(level: string, message: string, data?: any): string {
     const timestamp = new Date().toISOString();
+    const contextStr = this.context ? ` [${this.context}]` : '';
     const dataStr = data ? ` ${JSON.stringify(data)}` : '';
-    return `[${timestamp}] [${level}] ${message}${dataStr}`;
+    return `[${timestamp}] [${level}]${contextStr} ${message}${dataStr}`;
   }
 
   error(message: string, error?: any): void {
@@ -79,4 +82,5 @@ class Logger {
   }
 }
 
+export { Logger };
 export const logger = new Logger();

@@ -76,7 +76,7 @@ export const DataVisualizationPanel: React.FC<DataVisualizationPanelProps> = ({
     loadStatistics();
   }, [selectedDataType, currentTimeRange]);
 
-  const handleHeatMapOptionsChange = (key: keyof HeatMapOptions, value: any) => {
+  const handleHeatMapOptionsChange = (key: keyof HeatMapOptions, value: string | number | Record<number, string>) => {
     const newOptions = { ...heatMapOptions, [key]: value };
     setHeatMapOptions(newOptions);
     onOptionsChange(newOptions);
@@ -93,11 +93,11 @@ export const DataVisualizationPanel: React.FC<DataVisualizationPanelProps> = ({
     };
     setHeatMapOptions(newOptions);
     onOptionsChange(newOptions);
-    onDataTypeChange(presetType as any);
+    onDataTypeChange(presetType as 'emf' | 'temperature' | 'audio' | 'motion' | 'all');
   };
 
   const handleTimeRangePreset = (preset: string) => {
-    setTimeRangePreset(preset as any);
+    setTimeRangePreset(preset as 'all' | 'last-hour' | 'last-30min' | 'custom');
     const now = new Date();
     
     switch (preset) {
@@ -213,7 +213,7 @@ export const DataVisualizationPanel: React.FC<DataVisualizationPanelProps> = ({
             <label>Data Type:</label>
             <select
               value={selectedDataType}
-              onChange={(e) => onDataTypeChange(e.target.value as any)}
+              onChange={(e) => onDataTypeChange(e.target.value as 'emf' | 'temperature' | 'audio' | 'motion' | 'all')}
               disabled={!heatMapEnabled}
             >
               <option value="all">All Data</option>
@@ -268,7 +268,7 @@ export const DataVisualizationPanel: React.FC<DataVisualizationPanelProps> = ({
             <label>Activity Mode:</label>
             <select
               value={activityMode}
-              onChange={(e) => setActivityMode(e.target.value as any)}
+              onChange={(e) => setActivityMode(e.target.value as 'intensity' | 'heatLevel' | 'eventCount' | 'combined')}
               disabled={!activityEnabled}
             >
               <option value="intensity">Activity Intensity</option>

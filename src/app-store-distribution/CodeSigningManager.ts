@@ -229,7 +229,7 @@ export class CodeSigningManager extends EventEmitter {
     const results: ValidationResult[] = [];
     const now = new Date();
 
-    for (const [id, certificate] of this.certificates) {
+    for (const [, certificate] of this.certificates) {
       // Check expiration
       if (certificate.validTo <= now) {
         results.push({
@@ -426,7 +426,7 @@ export class CodeSigningManager extends EventEmitter {
   private async codesignApp(
     appPath: string,
     credentials: MacAppStoreCredentials,
-    certificate: CertificateInfo
+    _certificate?: CertificateInfo
   ): Promise<ValidationResult> {
     return new Promise((resolve) => {
       const args = [
@@ -655,10 +655,11 @@ export class CodeSigningManager extends EventEmitter {
       const certificatesData = JSON.parse(data);
 
       for (const [id, certData] of Object.entries(certificatesData)) {
+        const cert = certData as Partial<CertificateInfo>;
         this.certificates.set(id, {
-          ...(certData as any),
-          validFrom: new Date((certData as any).validFrom),
-          validTo: new Date((certData as any).validTo)
+          ...(cert as CertificateInfo),
+          validFrom: new Date(cert.validFrom as string | Date),
+          validTo: new Date(cert.validTo as string | Date)
         });
       }
     } catch (error) {

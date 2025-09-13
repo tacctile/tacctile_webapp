@@ -8,9 +8,7 @@ import {
   MultiSpectralEvent,
   SPECTRAL_BAND_INFO
 } from '../types';
-import { Logger } from '../../../utils/Logger';
-
-const logger = new Logger('SpectralFilterManager');
+import { logger } from '../../../utils/logger';
 
 export class SpectralFilterManager extends EventEmitter {
   private filterWheel?: FilterWheel;

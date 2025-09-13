@@ -24,7 +24,7 @@ export type {
   CommunicationEvent,
   PhoneticPattern,
   DetectionSettings,
-  WordDatabase,
+  WordDatabase as DetectionWordDatabase,
   PhoneticDictionary
 } from './WordDetectionEngine';
 
@@ -52,7 +52,7 @@ export type {
   WordEntry, 
   WordAssociation, 
   SemanticCategory, 
-  WordDatabase 
+  WordDatabase as AssociationWordDatabase 
 } from './WordAssociationEngine';
 
 // Context Trigger System

@@ -5,9 +5,7 @@ import {
   SpectralFrame,
   MultiSpectralEvent
 } from '../types';
-import { Logger } from '../../../utils/Logger';
-
-const logger = new Logger('PolarizationController');
+import { logger } from '../../../utils/logger';
 
 export class PolarizationController extends EventEmitter {
   private controller: IPolarizationController;

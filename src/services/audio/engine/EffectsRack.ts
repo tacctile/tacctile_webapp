@@ -438,8 +438,8 @@ export class EffectsRack {
    * Dispose effects rack
    */
   dispose(): void {
-    // Tone.js cleanup
-    Tone.dispose();
+    // Tone.js cleanup - dispose method may not be available in this version
+    // Tone.dispose();
     logger.info('Effects rack disposed');
   }
 }

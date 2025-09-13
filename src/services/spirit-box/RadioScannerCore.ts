@@ -344,10 +344,11 @@ export class RadioScannerCore extends EventEmitter {
         }
         break;
         
-      case 'random':
+      case 'random': {
         const freqArray = Array.from(this.frequencies.keys());
         this.currentFrequency = freqArray[Math.floor(Math.random() * freqArray.length)];
         break;
+      }
     }
 
     return Number(this.currentFrequency.toFixed(1));

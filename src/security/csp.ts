@@ -3,6 +3,8 @@
  * Implements strict CSP headers to prevent XSS and code injection attacks
  */
 
+import * as crypto from 'crypto';
+
 export interface CSPConfig {
   'default-src': string[];
   'script-src': string[];
@@ -133,7 +135,6 @@ export function validateCSPConfig(config: CSPConfig): boolean {
  * Create nonce for inline scripts (if needed)
  */
 export function createNonce(): string {
-  const crypto = require('crypto');
   return crypto.randomBytes(16).toString('base64');
 }
 

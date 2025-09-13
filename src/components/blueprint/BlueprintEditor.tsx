@@ -7,19 +7,17 @@ import { ZoomControls } from './ZoomControls';
 import { EvidencePreviewModal } from './EvidencePreviewModal';
 import { PositionOverlay } from './PositionOverlay';
 import { TeamPanel } from './TeamPanel';
-import { InvestigatorProfile, getWebSocketService } from '../../services/realtime/WebSocketService';
+import { InvestigatorProfile } from '../../services/realtime/WebSocketService';
 import { getPositionTracker, PositionOptions } from '../../services/realtime/PositionTracker';
 
 interface BlueprintEditorProps {
   className?: string;
   onSave?: (blueprint: any) => void;
-  onLoad?: () => any;
 }
 
 export const BlueprintEditor: React.FC<BlueprintEditorProps> = ({
   className,
-  onSave,
-  onLoad
+  onSave
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingEngineRef = useRef<DrawingEngine | null>(null);

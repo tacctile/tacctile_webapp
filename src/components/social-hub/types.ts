@@ -29,5 +29,5 @@ export interface SocialApiError {
   platform: string;
   code: string;
   message: string;
-  details?: any;
+  details?: Record<string, unknown>;
 }

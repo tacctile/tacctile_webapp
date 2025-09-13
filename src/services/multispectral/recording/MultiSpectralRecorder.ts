@@ -8,9 +8,7 @@ import {
   SpectralSequence,
   MultiSpectralCamera
 } from '../types';
-import { Logger } from '../../../utils/Logger';
-
-const logger = new Logger('MultiSpectralRecorder');
+import { logger } from '../../../utils/logger';
 
 export class MultiSpectralRecorder extends EventEmitter {
   private activeRecordings: Map<string, ActiveRecording>;

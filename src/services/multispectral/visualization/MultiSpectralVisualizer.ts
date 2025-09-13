@@ -7,9 +7,7 @@ import {
   SpectralBand,
   SPECTRAL_BAND_INFO
 } from '../types';
-import { Logger } from '../../../utils/Logger';
-
-const logger = new Logger('MultiSpectralVisualizer');
+import { logger } from '../../../utils/logger';
 
 export class MultiSpectralVisualizer extends EventEmitter {
   private activeVisualizations: Map<string, ComparisonVisualization>;

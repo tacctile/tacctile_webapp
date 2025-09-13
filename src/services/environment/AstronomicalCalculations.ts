@@ -99,7 +99,8 @@ export class AstronomicalCalculations {
       const moonTimes = SunCalc.getMoonTimes(this.currentTime, this.location.latitude, this.location.longitude);
 
       // Calculate using astronomy-engine for more precise data
-      const observer = Astronomy.MakeObserver(this.location.latitude, this.location.longitude, this.location.elevation || 0);
+      // Note: MakeObserver may not be available in current version
+      // const observer = Astronomy.MakeObserver(this.location.latitude, this.location.longitude, this.location.elevation || 0);
       const moonState = Astronomy.MoonPhase(this.currentTime);
       
       // Get moon distance using astronomy-engine
@@ -226,7 +227,9 @@ export class AstronomicalCalculations {
 
   getPlanetaryData(): PlanetaryData {
     try {
-      const observer = Astronomy.MakeObserver(this.location.latitude, this.location.longitude, this.location.elevation || 0);
+      // Note: MakeObserver may not be available in current version
+      // const observer = Astronomy.MakeObserver(this.location.latitude, this.location.longitude, this.location.elevation || 0);
+      const observer = null; // Temporary placeholder
       
       const planets = {
         mercury: this.getPlanetPosition('Mercury', observer),

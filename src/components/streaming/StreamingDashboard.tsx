@@ -8,7 +8,6 @@ import {
   Button,
   IconButton,
   Chip,
-  LinearProgress,
   Paper,
   List,
   ListItem,
@@ -27,16 +26,12 @@ import {
   Badge,
   Alert,
   Divider,
-  Tooltip,
   Avatar
 } from '@mui/material';
 import {
   PlayArrow as PlayIcon,
   Stop as StopIcon,
   Settings as SettingsIcon,
-  Chat as ChatIcon,
-  Visibility as ViewersIcon,
-  Signal as SignalIcon,
   Error as ErrorIcon,
   CheckCircle as ConnectedIcon,
   Pending as PendingIcon,
@@ -44,8 +39,6 @@ import {
   VideoSettings as VideoSettingsIcon,
   Stream as StreamIcon,
   Security as KeyIcon,
-  Assessment as StatsIcon,
-  FilterList as FilterIcon
 } from '@mui/icons-material';
 import StreamingCore, { StreamPlatform, StreamHealth, StreamStats } from '../../services/streaming/StreamingCore';
 import ChatManager, { ChatMessage, ChatStats } from '../../services/streaming/ChatManager';
@@ -189,7 +182,7 @@ export const StreamingDashboard: React.FC<StreamingDashboardProps> = ({ onOverla
     setTabValue(newValue);
   };
 
-  const getHealthStatusColor = (status: string) => {
+  const getHealthStatusColor = (status: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     switch (status) {
       case 'connected': return 'success';
       case 'connecting': return 'info';
@@ -385,7 +378,7 @@ export const StreamingDashboard: React.FC<StreamingDashboardProps> = ({ onOverla
                           <Chip
                             icon={getHealthStatusIcon(health?.status || 'disconnected')}
                             label={health?.status || 'disconnected'}
-                            color={getHealthStatusColor(health?.status || 'disconnected') as any}
+                            color={getHealthStatusColor(health?.status || 'disconnected')}
                             size="small"
                           />
                           {health?.status === 'connected' && (

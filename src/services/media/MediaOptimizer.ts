@@ -1,11 +1,12 @@
 import sharp from 'sharp';
 import ffmpeg from 'fluent-ffmpeg';
-import { createWriteStream, existsSync, mkdirSync } from 'fs';
+import { createWriteStream, existsSync, mkdirSync, statSync } from 'fs';
 import { join, extname, basename } from 'path';
 import { app } from 'electron';
+import * as ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 
 // Configure ffmpeg path
-const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+const ffmpegPath = ffmpegInstaller.path;
 ffmpeg.setFfmpegPath(ffmpegPath);
 
 export interface PlatformPreset {
@@ -262,8 +263,7 @@ export class MediaOptimizer {
     preset: PlatformPreset,
     watermark?: MediaOptimizationOptions['watermark']
   ): Promise<OptimizationResult> {
-    const fs = require('fs');
-    const originalSize = fs.statSync(inputPath).size;
+    const originalSize = statSync(inputPath).size;
 
     let sharpInstance = sharp(inputPath);
 
@@ -332,8 +332,7 @@ export class MediaOptimizer {
     watermark?: MediaOptimizationOptions['watermark']
   ): Promise<OptimizationResult> {
     return new Promise((resolve, reject) => {
-      const fs = require('fs');
-      const originalSize = fs.statSync(inputPath).size;
+      const originalSize = statSync(inputPath).size;
 
       let command = ffmpeg(inputPath);
 

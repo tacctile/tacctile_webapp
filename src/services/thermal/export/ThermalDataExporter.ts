@@ -9,9 +9,7 @@ import {
   ThermalMetadata,
   TemperatureStatistics
 } from '../types';
-import { Logger } from '../../../utils/Logger';
-
-const logger = new Logger('ThermalDataExporter');
+import { logger } from '../../../utils/logger';
 
 export class ThermalDataExporter extends EventEmitter {
   private activeJobs: Map<string, ThermalExportJob>;

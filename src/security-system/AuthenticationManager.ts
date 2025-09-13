@@ -6,6 +6,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as keytar from 'keytar';
+import * as os from 'os';
 import {
   User,
   UserSession,
@@ -784,7 +785,6 @@ export class AuthenticationManager extends EventEmitter {
   }
 
   private async generateDeviceFingerprint(): Promise<string> {
-    const os = require('os');
     const machineInfo = [
       os.platform(),
       os.arch(),
@@ -796,7 +796,6 @@ export class AuthenticationManager extends EventEmitter {
   }
 
   private getDeviceName(): string {
-    const os = require('os');
     return `${os.hostname()} (${os.platform()})`;
   }
 

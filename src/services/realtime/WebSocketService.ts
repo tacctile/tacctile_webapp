@@ -29,7 +29,7 @@ export interface TrailPoint extends InvestigatorPosition {
 
 export interface RealTimeMessage {
   type: 'position_update' | 'investigator_joined' | 'investigator_left' | 'trail_data' | 'status_update';
-  data: any;
+  data: unknown;
   timestamp: Date;
   senderId: string;
 }
@@ -181,7 +181,7 @@ export class WebSocketService extends EventEmitter {
 
   private handleMessage(message: RealTimeMessage): void {
     switch (message.type) {
-      case 'position_update':
+      case 'position_update': {
         const position = message.data as InvestigatorPosition;
         this.addToTrail(position.investigatorId, {
           ...position,
@@ -189,29 +189,34 @@ export class WebSocketService extends EventEmitter {
         });
         this.emit('position_update', position);
         break;
+      }
 
-      case 'investigator_joined':
+      case 'investigator_joined': {
         const joinedInvestigator = message.data as InvestigatorProfile;
         this.connectedInvestigators.set(joinedInvestigator.id, joinedInvestigator);
         this.emit('investigator_joined', joinedInvestigator);
         break;
+      }
 
-      case 'investigator_left':
+      case 'investigator_left': {
         const { investigatorId } = message.data;
         this.connectedInvestigators.delete(investigatorId);
         this.emit('investigator_left', investigatorId);
         break;
+      }
 
-      case 'status_update':
+      case 'status_update': {
         const updatedInvestigator = message.data as InvestigatorProfile;
         this.connectedInvestigators.set(updatedInvestigator.id, updatedInvestigator);
         this.emit('status_update', updatedInvestigator);
         break;
+      }
 
-      case 'trail_data':
+      case 'trail_data': {
         const trailData = message.data;
         this.emit('trail_data', trailData);
         break;
+      }
 
       default:
         console.log('Unknown message type:', message.type);
