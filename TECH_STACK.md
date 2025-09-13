@@ -1,4 +1,4 @@
-# Technology Stack - Ghost Hunter Toolbox
+# Technology Stack - Tacctile
 
 ## Core Framework
 - **Electron**: Desktop application wrapper

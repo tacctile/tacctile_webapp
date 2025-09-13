@@ -16,15 +16,15 @@ const config: ForgeConfig = {
     appCategoryType: 'public.app-category.utilities',
     win32metadata: {
       CompanyName: 'Tacctile',
-      FileDescription: 'Ghost Hunter Toolbox Desktop Application',
+      FileDescription: 'Tacctile Desktop Application',
       OriginalFilename: 'GhostHunterToolbox.exe',
-      ProductName: 'Ghost Hunter Toolbox',
+      ProductName: 'Tacctile',
       InternalName: 'ghosthunter'
     },
     protocols: [
       {
-        name: 'Ghost Hunter Protocol',
-        schemes: ['ghost-hunter']
+        name: 'Tacctile Protocol',
+        schemes: ['tacctile']
       }
     ],
     extraResource: [
@@ -47,8 +47,8 @@ const config: ForgeConfig = {
     new MakerZIP({}, ['darwin', 'linux', 'win32']),
     new MakerRpm({
       options: {
-        name: 'ghost-hunter-toolbox',
-        productName: 'Ghost Hunter Toolbox',
+        name: 'tacctile-toolbox',
+        productName: 'Tacctile',
         genericName: 'Ghost Hunting Software',
         description: 'Professional ghost hunting evidence analysis',
         version: '1.0.0',
@@ -59,8 +59,8 @@ const config: ForgeConfig = {
     }),
     new MakerDeb({
       options: {
-        name: 'ghost-hunter-toolbox',
-        productName: 'Ghost Hunter Toolbox',
+        name: 'tacctile-toolbox',
+        productName: 'Tacctile',
         genericName: 'Ghost Hunting Software',
         description: 'Professional ghost hunting evidence analysis',
         version: '1.0.0',
@@ -68,7 +68,7 @@ const config: ForgeConfig = {
         priority: 'optional',
         icon: join(__dirname, 'assets', 'icon.png'),
         categories: ['Utility', 'AudioVideo'],
-        mimeType: ['x-scheme-handler/ghost-hunter']
+        mimeType: ['x-scheme-handler/tacctile']
       }
     })
   ],

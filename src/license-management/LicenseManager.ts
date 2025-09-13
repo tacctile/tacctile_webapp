@@ -517,7 +517,7 @@ export class LicenseManager extends EventEmitter {
     const report: ComplianceReport = {
       id: reportId,
       generatedAt,
-      projectName: 'Ghost Hunter Toolbox',
+      projectName: 'Tacctile',
       projectVersion: '1.0.0',
       reportType,
       scope,

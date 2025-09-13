@@ -195,7 +195,7 @@ export class SecurityValidator {
         algorithm: 'RSA-SHA256',
         keySize: this.getKeySize(publicKey),
         issuer: 'Tacctile',
-        subject: 'Ghost Hunter Toolbox',
+        subject: 'Tacctile',
         validFrom: new Date(0), // Would need to be extracted from certificate
         validTo: new Date(2099, 11, 31), // Would need to be extracted from certificate
         fingerprint: this.calculatePublicKeyFingerprint(publicKey),

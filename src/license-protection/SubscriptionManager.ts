@@ -774,7 +774,7 @@ export class SubscriptionManager extends EventEmitter implements ISubscriptionMa
         headers: {
           'Content-Type': 'application/json',
           'X-API-Key': this.config.serverConfig.apiKey,
-          'User-Agent': 'Ghost Hunter Toolbox/1.0.0'
+          'User-Agent': 'Tacctile/1.0.0'
         }
       };
 

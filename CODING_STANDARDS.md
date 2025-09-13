@@ -1,4 +1,4 @@
-# Coding Standards - Ghost Hunter Toolbox
+# Coding Standards - Tacctile
 
 ## Agent-Driven Development
 - **MANDATORY**: Every task must use an agent from `.claude_agents.yaml`

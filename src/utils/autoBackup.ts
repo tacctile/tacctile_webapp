@@ -1,5 +1,5 @@
 /**
- * Auto-backup functionality for Ghost Hunter Toolbox
+ * Auto-backup functionality for Tacctile
  * Creates periodic backups of investigations and user data
  */
 
@@ -63,7 +63,7 @@ class AutoBackupManager {
   public async performBackup(): Promise<string> {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupDir = this.getBackupDirectory();
-    const backupFile = path.join(backupDir, `ghost-hunter-backup-${timestamp}.json`);
+    const backupFile = path.join(backupDir, `tacctile-backup-${timestamp}.json`);
 
     try {
       // Ensure backup directory exists
@@ -129,7 +129,7 @@ class AutoBackupManager {
     try {
       const files = await fs.readdir(backupDir);
       return files
-        .filter(file => file.startsWith('ghost-hunter-backup-') && file.endsWith('.json'))
+        .filter(file => file.startsWith('tacctile-backup-') && file.endsWith('.json'))
         .sort()
         .reverse(); // Most recent first
     } catch {
@@ -181,7 +181,7 @@ class AutoBackupManager {
     try {
       const files = await fs.readdir(backupDir);
       const backupFiles = files
-        .filter(file => file.startsWith('ghost-hunter-backup-') && file.endsWith('.json'))
+        .filter(file => file.startsWith('tacctile-backup-') && file.endsWith('.json'))
         .sort();
 
       if (backupFiles.length > this.config.maxBackups) {

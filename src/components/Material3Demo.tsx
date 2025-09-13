@@ -33,7 +33,7 @@ export const Material3Demo: React.FC = () => {
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h1 className="type-display-medium primary">Ghost Hunter Toolbox</h1>
+            <h1 className="type-display-medium primary">Tacctile</h1>
             <p className="type-body-large on-surface-variant">Material Design 3 Theme System</p>
           </div>
           <button 

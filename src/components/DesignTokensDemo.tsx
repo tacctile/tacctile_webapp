@@ -37,7 +37,7 @@ const DesignTokensDemo: React.FC = () => {
             <div>
               <h1 className="heading-1 text-primary">Design Tokens System</h1>
               <p className="body-lg text-surface-variant mt-2">
-                Comprehensive CSS Custom Properties for Ghost Hunter Toolbox
+                Comprehensive CSS Custom Properties for Tacctile
               </p>
             </div>
             <button
@@ -239,7 +239,7 @@ const DesignTokensDemo: React.FC = () => {
                     style={{ fontWeight: `var(--font-${weight.name})` }}
                     className="text-xl"
                   >
-                    {weight.name} ({weight.value}) - Ghost Hunter Toolbox
+                    {weight.name} ({weight.value}) - Tacctile
                   </div>
                 ))}
               </div>

@@ -14,7 +14,7 @@ const IconsDemo: React.FC = () => {
       {/* Header */}
       <header style={{ marginBottom: '3rem' }}>
         <h1 className="heading-1 mb-4">Material Icons System</h1>
-        <p className="lead">Ghost Hunter Toolbox - Comprehensive Icon Library</p>
+        <p className="lead">Tacctile - Comprehensive Icon Library</p>
       </header>
 
       {/* Icon Size Controls */}

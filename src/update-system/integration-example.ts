@@ -1,5 +1,5 @@
 /**
- * Integration Example for Ghost Hunter Toolbox Auto-Update System
+ * Integration Example for Tacctile Auto-Update System
  * 
  * This file demonstrates how to integrate the comprehensive auto-update system
  * into your Electron application with security, rollback capabilities, and
@@ -18,7 +18,7 @@ class GhostHunterUpdateIntegration {
     this.mainWindow = mainWindow;
 
     try {
-      console.log('Initializing Ghost Hunter Toolbox Update System...');
+      console.log('Initializing Tacctile Update System...');
       
       // Initialize the complete update system
       this.updateSystem = await initializeUpdateSystem(mainWindow);

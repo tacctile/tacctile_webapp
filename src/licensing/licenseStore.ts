@@ -1,5 +1,5 @@
 /**
- * Secure License Storage for Ghost Hunter Toolbox
+ * Secure License Storage for Tacctile
  * Uses electron-store with encryption for secure license storage
  */
 
@@ -40,7 +40,7 @@ export class LicenseStore {
     
     // Initialize secure store with encryption
     this.store = new Store<{ license?: StoredLicenseData }>({
-      name: 'ghost-hunter-license',
+      name: 'tacctile-license',
       encryptionKey: this.encryptionKey,
       schema: {
         license: {
@@ -340,7 +340,7 @@ export class LicenseStore {
    */
   private deriveEncryptionKey(): string {
     const deviceId = this.validator.getDeviceId();
-    const appName = 'ghost-hunter-toolbox';
+    const appName = 'tacctile-toolbox';
     
     // Create deterministic but device-specific encryption key
     return crypto.pbkdf2Sync(deviceId, appName, 10000, 32, 'sha256').toString('hex');

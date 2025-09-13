@@ -541,7 +541,7 @@ export class LicenseValidator extends EventEmitter {
         url,
         headers: {
           'Content-Type': 'application/json',
-          'User-Agent': `Ghost Hunter Toolbox/${app.getVersion()}`,
+          'User-Agent': `Tacctile/${app.getVersion()}`,
           'X-Client-Version': app.getVersion(),
           'X-Client-Platform': process.platform
         }

@@ -1,5 +1,5 @@
 /**
- * Stripe Payment Integration for Ghost Hunter Toolbox
+ * Stripe Payment Integration for Tacctile
  * Handles subscription management and license purchasing
  */
 
@@ -324,7 +324,7 @@ export class StripePaymentProcessor {
       return await this.stripe.customers.create({
         email,
         metadata: {
-          source: 'ghost-hunter-toolbox',
+          source: 'tacctile-toolbox',
         },
       });
     } catch (error) {

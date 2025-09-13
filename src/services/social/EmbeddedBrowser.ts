@@ -46,7 +46,7 @@ export class EmbeddedBrowser {
 
   constructor(config: BrowserConfig) {
     this.config = config;
-    this.serviceName = `ghost-hunter-${config.platform}`;
+    this.serviceName = `tacctile-${config.platform}`;
     this.sessionPartition = `persist:${config.platform}`;
   }
 
@@ -68,7 +68,7 @@ export class EmbeddedBrowser {
     this.window = new BrowserWindow({
       width: this.config.width || 1200,
       height: this.config.height || 800,
-      title: `${this.config.platform.charAt(0).toUpperCase() + this.config.platform.slice(1)} - Ghost Hunter Toolbox`,
+      title: `${this.config.platform.charAt(0).toUpperCase() + this.config.platform.slice(1)} - Tacctile`,
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,

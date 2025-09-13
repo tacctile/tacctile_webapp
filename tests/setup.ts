@@ -1,5 +1,5 @@
 /**
- * Test setup configuration for Ghost Hunter Toolbox
+ * Test setup configuration for Tacctile
  * Sets up mocks and test environment for Jest tests
  */
 
@@ -8,7 +8,7 @@ const mockElectron = {
   app: {
     getPath: jest.fn(() => '/mock/path'),
     getVersion: jest.fn(() => '1.0.0'),
-    getName: jest.fn(() => 'Ghost Hunter Toolbox'),
+    getName: jest.fn(() => 'Tacctile'),
     isPackaged: false,
   },
   ipcRenderer: {

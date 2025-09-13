@@ -1,5 +1,5 @@
 /**
- * End-to-end tests for Ghost Hunter Toolbox application
+ * End-to-end tests for Tacctile application
  * Uses Playwright for browser-based testing of the Electron app
  */
 
@@ -25,7 +25,7 @@ test.afterAll(async () => {
   await electronApp.close();
 });
 
-test.describe('Ghost Hunter Toolbox Application', () => {
+test.describe('Tacctile Application', () => {
   test('should launch successfully', async () => {
     // Wait for the app to load
     await page.waitForLoadState('domcontentloaded');
@@ -37,7 +37,7 @@ test.describe('Ghost Hunter Toolbox Application', () => {
   test('should have correct title', async () => {
     // Check window title
     const title = await page.title();
-    expect(title).toContain('Ghost Hunter Toolbox');
+    expect(title).toContain('Tacctile');
   });
 
   test('should have secure context', async () => {

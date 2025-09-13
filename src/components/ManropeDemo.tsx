@@ -5,7 +5,7 @@ const ManropeDemo: React.FC = () => {
     <div className="p-8" style={{ maxWidth: '1200px', margin: '0 auto' }}>
       {/* Header Section */}
       <header className="mb-8">
-        <h1 className="display-1 mb-4">Ghost Hunter Toolbox</h1>
+        <h1 className="display-1 mb-4">Tacctile</h1>
         <p className="lead">Manrope Typography System - All Weights Demonstrated</p>
       </header>
 

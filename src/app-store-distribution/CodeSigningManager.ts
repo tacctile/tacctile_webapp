@@ -353,17 +353,17 @@ export class CodeSigningManager extends EventEmitter {
   private extractCommonName(type: CertificateType): string {
     switch (type) {
       case CertificateType.APPLE_DEVELOPER:
-        return 'Mac Developer: Ghost Hunter Toolbox';
+        return 'Mac Developer: Tacctile';
       case CertificateType.APPLE_DISTRIBUTION:
-        return 'Mac App Distribution: Ghost Hunter Toolbox';
+        return 'Mac App Distribution: Tacctile';
       case CertificateType.APPLE_INSTALLER:
-        return 'Mac Installer Distribution: Ghost Hunter Toolbox';
+        return 'Mac Installer Distribution: Tacctile';
       case CertificateType.MICROSOFT_STORE:
-        return 'Ghost Hunter Toolbox Microsoft Store';
+        return 'Tacctile Microsoft Store';
       case CertificateType.MICROSOFT_AUTHENTICODE:
-        return 'Ghost Hunter Toolbox Code Signing';
+        return 'Tacctile Code Signing';
       default:
-        return 'Ghost Hunter Toolbox Certificate';
+        return 'Tacctile Certificate';
     }
   }
 

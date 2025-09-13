@@ -551,16 +551,16 @@ export class DistributionPipelineManager extends EventEmitter {
       case Platform.MAC_APP_STORE:
         artifacts.push({
           type: ArtifactType.APPLICATION,
-          name: 'Ghost Hunter Toolbox.app',
-          path: path.join(this.artifactsPath, buildResult.id, 'Ghost Hunter Toolbox.app'),
+          name: 'Tacctile.app',
+          path: path.join(this.artifactsPath, buildResult.id, 'Tacctile.app'),
           size: 50 * 1024 * 1024, // 50MB
           checksum: crypto.randomBytes(32).toString('hex'),
           signed: buildResult.configuration.buildConfig.signing.enabled
         });
         artifacts.push({
           type: ArtifactType.INSTALLER,
-          name: 'Ghost Hunter Toolbox.pkg',
-          path: path.join(this.artifactsPath, buildResult.id, 'Ghost Hunter Toolbox.pkg'),
+          name: 'Tacctile.pkg',
+          path: path.join(this.artifactsPath, buildResult.id, 'Tacctile.pkg'),
           size: 55 * 1024 * 1024, // 55MB
           checksum: crypto.randomBytes(32).toString('hex'),
           signed: true

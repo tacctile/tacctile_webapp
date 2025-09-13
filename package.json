@@ -52,7 +52,7 @@
   "license": "MIT",
   "build": {
     "appId": "com.tacctile.ghosthunter",
-    "productName": "Ghost Hunter Toolbox",
+    "productName": "Tacctile",
     "directories": {
       "output": "dist",
       "buildResources": "assets"
@@ -96,7 +96,7 @@
     },
     "protocols": [
       {
-        "name": "Ghost Hunter Protocol",
+        "name": "Tacctile Protocol",
         "schemes": [
           "ghost-hunter"
         ]

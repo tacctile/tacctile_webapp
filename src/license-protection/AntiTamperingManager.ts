@@ -475,14 +475,14 @@ export class AntiTamperingManager extends EventEmitter {
       };
 
       // Check for inconsistencies
-      if (process.title !== 'Ghost Hunter Toolbox' && process.title !== 'electron') {
+      if (process.title !== 'Tacctile' && process.title !== 'electron') {
         await this.reportTamperDetection({
           type: TamperType.PROCESS_INJECTION,
           severity: TamperSeverity.HIGH,
           description: 'Process title manipulation detected',
           details: {
             currentTitle: process.title,
-            expectedTitle: 'Ghost Hunter Toolbox',
+            expectedTitle: 'Tacctile',
             processInfo
           }
         });

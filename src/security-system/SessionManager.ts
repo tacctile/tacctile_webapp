@@ -392,7 +392,7 @@ export class SessionManager extends EventEmitter {
   }
 
   private getUserAgent(): string {
-    return `Ghost Hunter Toolbox/${app.getVersion()} (${process.platform}; ${process.arch})`;
+    return `Tacctile/${app.getVersion()} (${process.platform}; ${process.arch})`;
   }
 
   private startCleanupTimer(): void {

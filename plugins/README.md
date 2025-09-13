@@ -1,6 +1,6 @@
-# Ghost Hunter Toolbox Plugins
+# Tacctile Plugins
 
-This directory contains the plugin architecture for Ghost Hunter Toolbox.
+This directory contains the plugin architecture for Tacctile.
 
 ## Plugin Structure
 
@@ -39,7 +39,7 @@ Each plugin must include a `plugin.json` file with the following structure:
 ```
 
 ### Plugin API
-Plugins have access to the Ghost Hunter Toolbox API through the global `ghostHunter` object:
+Plugins have access to the Tacctile API through the global `ghostHunter` object:
 
 ```javascript
 // Example plugin implementation
@@ -71,4 +71,4 @@ Plugins are automatically discovered and loaded from:
 1. `/plugins/core` - Always loaded first
 2. `/plugins/extensions` - Loaded based on user preferences
 
-For more information, see the Ghost Hunter Toolbox Plugin Development Guide.
+For more information, see the Tacctile Plugin Development Guide.

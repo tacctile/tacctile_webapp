@@ -387,7 +387,7 @@ export class RollbackManager {
     const scriptPath = path.join(os.tmpdir(), 'ghost_hunter_rollback.bat');
     const script = `
 @echo off
-echo Rolling back Ghost Hunter Toolbox...
+echo Rolling back Tacctile...
 timeout /t 3
 xcopy "${backupPath}\\*" "${targetPath}\\" /E /Y /Q
 echo Rollback complete. Restarting application...
@@ -404,7 +404,7 @@ del "%~f0"
   private async createMacOSRestoreScript(backupPath: string, targetPath: string): Promise<void> {
     const scriptPath = path.join(os.tmpdir(), 'ghost_hunter_rollback.sh');
     const script = `#!/bin/bash
-echo "Rolling back Ghost Hunter Toolbox..."
+echo "Rolling back Tacctile..."
 sleep 3
 cp -rf "${backupPath}/"* "${targetPath}/"
 echo "Rollback complete. Restarting application..."
@@ -422,11 +422,11 @@ rm "$0"
   private async createLinuxRestoreScript(backupPath: string, targetPath: string): Promise<void> {
     const scriptPath = path.join(os.tmpdir(), 'ghost_hunter_rollback.sh');
     const script = `#!/bin/bash
-echo "Rolling back Ghost Hunter Toolbox..."
+echo "Rolling back Tacctile..."
 sleep 3
 cp -rf "${backupPath}/"* "${targetPath}/"
 echo "Rollback complete. Restarting application..."
-nohup "${path.join(targetPath, 'ghost-hunter-toolbox')}" &
+nohup "${path.join(targetPath, 'tacctile-toolbox')}" &
 rm "$0"
 `;
 

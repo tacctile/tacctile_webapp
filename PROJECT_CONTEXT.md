@@ -1,4 +1,4 @@
-# Ghost Hunter Toolbox - Project Context
+# Tacctile - Project Context
 
 ## Project Overview
 Professional ghost hunting evidence analysis software built with Electron for Windows/Mac desktop.

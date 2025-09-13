@@ -38,7 +38,7 @@ describe('Electron Application Integration', () => {
 
     test('should have correct window title', async () => {
       const title = await app.client.getTitle();
-      expect(title).toBe('Ghost Hunter Toolbox');
+      expect(title).toBe('Tacctile');
     });
   });
 

@@ -108,7 +108,7 @@ export class EncryptedLicenseManager extends EventEmitter {
       const payload = {
         license,
         generatedAt: new Date().toISOString(),
-        issuer: 'Ghost Hunter Toolbox License Server',
+        issuer: 'Tacctile License Server',
         version: '1.0.0'
       };
 
@@ -410,7 +410,7 @@ export class EncryptedLicenseManager extends EventEmitter {
         issuedAt: new Date().toISOString(),
         expiresAt: expiresAt.toISOString(),
         validityDays,
-        issuer: 'Ghost Hunter Toolbox Offline License',
+        issuer: 'Tacctile Offline License',
         machineBinding: true
       };
 
@@ -422,7 +422,7 @@ export class EncryptedLicenseManager extends EventEmitter {
         data: encryptedData,
         signature,
         expiresAt,
-        issuer: 'Ghost Hunter Toolbox',
+        issuer: 'Tacctile',
         algorithm: this.encryptionConfig.algorithm
       };
 
@@ -663,7 +663,7 @@ export class EncryptedLicenseManager extends EventEmitter {
 
   private async getPasswordSalt(password: string): Promise<Buffer> {
     // Generate deterministic salt from password for consistency
-    return crypto.createHash('sha256').update(password + 'ghost-hunter-salt').digest();
+    return crypto.createHash('sha256').update(password + 'tacctile-salt').digest();
   }
 
   private async compressData(data: string): Promise<string> {

@@ -1,6 +1,6 @@
 /**
  * Electron Main Process - Cross-Platform
- * Ghost Hunter Toolbox Desktop Application
+ * Tacctile Desktop Application
  */
 
 import { app, BrowserWindow, Menu, Tray, nativeImage, protocol, shell, dialog } from 'electron';
@@ -486,8 +486,8 @@ app.on('web-contents-created', (event, contents) => {
   });
 });
 
-// Handle protocol for deep linking (ghost-hunter://)
-app.setAsDefaultProtocolClient('ghost-hunter');
+// Handle protocol for deep linking (tacctile://)
+app.setAsDefaultProtocolClient('tacctile');
 
 // Handle certificate errors
 app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {

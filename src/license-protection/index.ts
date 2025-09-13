@@ -16,8 +16,8 @@
  * import { createLicenseProtectionSystem } from './license-protection';
  * 
  * const protectionSystem = await createLicenseProtectionSystem({
- *   productId: 'ghost-hunter-toolbox',
- *   productName: 'Ghost Hunter Toolbox',
+ *   productId: 'tacctile-toolbox',
+ *   productName: 'Tacctile',
  *   version: '1.0.0',
  *   serverConfig: {
  *     baseUrl: 'https://api.ghosthunter.com',
@@ -136,7 +136,7 @@ export function createDefaultConfig(
       data: '',
       signature: '',
       expiresAt: new Date(),
-      issuer: 'Ghost Hunter Toolbox',
+      issuer: 'Tacctile',
       algorithm: 'AES-256-GCM'
     }
   };
@@ -226,7 +226,7 @@ export function createDefaultConfig(
 
   const config: LicenseProtectionConfig = {
     productId,
-    productName: 'Ghost Hunter Toolbox',
+    productName: 'Tacctile',
     version: app.getVersion() || '1.0.0',
     serverConfig: defaultServerConfig,
     protection: defaultProtectionConfig,

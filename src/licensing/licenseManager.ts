@@ -1,5 +1,5 @@
 /**
- * License Manager for Ghost Hunter Toolbox
+ * License Manager for Tacctile
  * Handles startup license checking and enforcement
  */
 
@@ -67,9 +67,9 @@ export class LicenseManager {
   public async showLicenseDialog(parentWindow?: BrowserWindow): Promise<boolean> {
     const result = await dialog.showMessageBox(parentWindow || null, {
       type: 'warning',
-      title: 'License Required - Ghost Hunter Toolbox',
+      title: 'License Required - Tacctile',
       message: 'This application requires a valid license to continue.',
-      detail: 'Please enter your license information to activate Ghost Hunter Toolbox.',
+      detail: 'Please enter your license information to activate Tacctile.',
       buttons: ['Enter License', 'Start Trial', 'Quit'],
       defaultId: 0,
       cancelId: 2,
@@ -124,7 +124,7 @@ export class LicenseManager {
         await dialog.showMessageBox(null, {
           type: 'info',
           title: 'Trial Started',
-          message: 'Ghost Hunter Toolbox trial activated!',
+          message: 'Tacctile trial activated!',
           detail: `Your 14-day trial has started. You can create up to 3 investigations with basic features.`,
         });
         
@@ -289,7 +289,7 @@ export class LicenseManager {
     if (status.error?.includes('No license found')) {
       return 'No license found. Please activate your license to continue.';
     } else if (status.error?.includes('expired')) {
-      return 'Your license has expired. Please renew to continue using Ghost Hunter Toolbox.';
+      return 'Your license has expired. Please renew to continue using Tacctile.';
     } else if (status.error?.includes('Grace period expired')) {
       return 'Your offline grace period has expired. Please connect to the internet to validate your license.';
     } else if (status.error?.includes('different device')) {

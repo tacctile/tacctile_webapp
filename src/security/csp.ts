@@ -1,5 +1,5 @@
 /**
- * Content Security Policy configuration for Ghost Hunter Toolbox
+ * Content Security Policy configuration for Tacctile
  * Implements strict CSP headers to prevent XSS and code injection attacks
  */
 
@@ -160,6 +160,6 @@ export function addCSPReporting(config: CSPConfig, reportConfig: CSPReportConfig
 }
 
 /**
- * Default CSP for Ghost Hunter Toolbox
+ * Default CSP for Tacctile
  */
 export const DEFAULT_CSP = getCSPHeader(process.env.NODE_ENV === 'development');

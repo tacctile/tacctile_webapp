@@ -1,5 +1,5 @@
 /**
- * Sample Ghost Hunter Toolbox Plugin
+ * Sample Tacctile Plugin
  * Demonstrates basic plugin structure and API usage
  */
 
@@ -59,7 +59,7 @@ module.exports = {
         type: 'info',
         title: 'Sample Plugin',
         message: 'Hello from the Sample Plugin!',
-        detail: 'This is a demonstration of the Ghost Hunter Toolbox plugin API.',
+        detail: 'This is a demonstration of the Tacctile plugin API.',
         buttons: ['OK']
       });
     }

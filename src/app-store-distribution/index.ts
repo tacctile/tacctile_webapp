@@ -23,7 +23,7 @@
  * 
  * // Create a Mac App Store configuration
  * const config = await distributionSystem.createConfiguration({
- *   name: 'Ghost Hunter Toolbox',
+ *   name: 'Tacctile',
  *   platform: Platform.MAC_APP_STORE,
  *   enabled: true,
  *   credentials: macCredentials,

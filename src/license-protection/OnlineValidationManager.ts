@@ -325,7 +325,7 @@ export class OnlineValidationManager extends EventEmitter {
       const request: ValidationRequest = {
         licenseKey: 'stored-license-key', // Would be retrieved from secure storage
         hardwareFingerprint: 'current-hardware-fingerprint', // Would be generated
-        productId: 'ghost-hunter-toolbox',
+        productId: 'tacctile-toolbox',
         version: '1.0.0',
         timestamp: now
       };
@@ -472,7 +472,7 @@ export class OnlineValidationManager extends EventEmitter {
       method: method,
       headers: {
         'Content-Type': 'application/json',
-        'User-Agent': 'Ghost Hunter Toolbox/1.0.0',
+        'User-Agent': 'Tacctile/1.0.0',
         'X-API-Key': this.serverConfig.apiKey
       }
     };

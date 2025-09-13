@@ -1,5 +1,5 @@
 /**
- * License Key Validation System for Ghost Hunter Toolbox
+ * License Key Validation System for Tacctile
  * Uses cryptographic signatures to validate license keys
  */
 
