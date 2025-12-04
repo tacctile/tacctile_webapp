@@ -42,7 +42,22 @@ import RecipePanel from './RecipePanel';
 import FindingsPanel from './FindingsPanel';
 
 // Store
-import { useAudioToolStore } from '../../stores/useAudioToolStore';
+import {
+  useAudioToolStore,
+  selectAudioUrl,
+  selectPlayback,
+  selectViewMode,
+  selectSelections,
+  selectCurrentSelection,
+  selectLoopRegions,
+  selectFilterSettings,
+  selectRecipes,
+  selectIterations,
+  selectFindings,
+  selectSpectrogramSettings,
+  selectWaveformSettings,
+  selectFiltersBypassed,
+} from '../../stores/useAudioToolStore';
 import type { AudioViewMode, LoopRegion, AudioFinding } from '../../types/audio';
 
 // ============================================================================
@@ -223,69 +238,65 @@ const AudioTool: React.FC<AudioToolProps> = ({
   const [showSettings, setShowSettings] = useState(false);
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
 
-  // Store state
-  const {
-    audioBuffer,
-    viewMode,
-    playback,
-    currentSelection,
-    selections,
-    loopRegions,
-    activeLoopId,
-    filterSettings,
-    filtersBypassed,
-    recipes,
-    iterations,
-    activeIterationId,
-    findings,
-    spectrogramSettings,
-    waveformSettings,
-    zoom,
-    scrollPosition,
-  } = useAudioToolStore();
+  // Store state - use selectors for stable references
+  const audioBuffer = useAudioToolStore((state) => state.audioBuffer);
+  const viewMode = useAudioToolStore(selectViewMode);
+  const playback = useAudioToolStore(selectPlayback);
+  const currentSelection = useAudioToolStore(selectCurrentSelection);
+  const selections = useAudioToolStore(selectSelections);
+  const loopRegions = useAudioToolStore(selectLoopRegions);
+  const activeLoopId = useAudioToolStore((state) => state.activeLoopId);
+  const filterSettings = useAudioToolStore(selectFilterSettings);
+  const filtersBypassed = useAudioToolStore(selectFiltersBypassed);
+  const recipes = useAudioToolStore(selectRecipes);
+  const iterations = useAudioToolStore(selectIterations);
+  const activeIterationId = useAudioToolStore((state) => state.activeIterationId);
+  const findings = useAudioToolStore(selectFindings);
+  const spectrogramSettings = useAudioToolStore(selectSpectrogramSettings);
+  const waveformSettings = useAudioToolStore(selectWaveformSettings);
+  const zoom = useAudioToolStore((state) => state.zoom);
+  const scrollPosition = useAudioToolStore((state) => state.scrollPosition);
 
-  // Store actions
-  const {
-    loadAudio,
-    setAudioBuffer,
-    setViewMode,
-    play,
-    pause,
-    stop,
-    seek,
-    setPlaybackRate,
-    setVolume,
-    toggleMute,
-    toggleLooping,
-    updatePlaybackTime,
-    setDuration,
-    startSelection,
-    updateSelection,
-    finishSelection,
-    cancelSelection,
-    addLoopRegion,
-    removeLoopRegion,
-    setActiveLoop,
-    updateLoopRegion,
-    createLoopFromSelection,
-    setFilterSettings,
-    setEQBand,
-    setNoiseReduction,
-    setGain,
-    resetFilters,
-    toggleFiltersBypass,
-    applyRecipe,
-    saveRecipe,
-    deleteRecipe,
-    createIteration,
-    deleteIteration,
-    setActiveIteration,
-    createFindingFromSelection,
-    updateFinding,
-    deleteFinding,
-    setFindingVisibility,
-    setZoom,
-  } = useAudioToolStore();
+  // Store actions - extract stable references
+  const loadAudio = useAudioToolStore((state) => state.loadAudio);
+  const setAudioBuffer = useAudioToolStore((state) => state.setAudioBuffer);
+  const setViewMode = useAudioToolStore((state) => state.setViewMode);
+  const play = useAudioToolStore((state) => state.play);
+  const pause = useAudioToolStore((state) => state.pause);
+  const stop = useAudioToolStore((state) => state.stop);
+  const seek = useAudioToolStore((state) => state.seek);
+  const setPlaybackRate = useAudioToolStore((state) => state.setPlaybackRate);
+  const setVolume = useAudioToolStore((state) => state.setVolume);
+  const toggleMute = useAudioToolStore((state) => state.toggleMute);
+  const toggleLooping = useAudioToolStore((state) => state.toggleLooping);
+  const updatePlaybackTime = useAudioToolStore((state) => state.updatePlaybackTime);
+  const setDuration = useAudioToolStore((state) => state.setDuration);
+  const startSelection = useAudioToolStore((state) => state.startSelection);
+  const updateSelection = useAudioToolStore((state) => state.updateSelection);
+  const finishSelection = useAudioToolStore((state) => state.finishSelection);
+  const cancelSelection = useAudioToolStore((state) => state.cancelSelection);
+  const addLoopRegion = useAudioToolStore((state) => state.addLoopRegion);
+  const removeLoopRegion = useAudioToolStore((state) => state.removeLoopRegion);
+  const setActiveLoop = useAudioToolStore((state) => state.setActiveLoop);
+  const updateLoopRegion = useAudioToolStore((state) => state.updateLoopRegion);
+  const createLoopFromSelection = useAudioToolStore((state) => state.createLoopFromSelection);
+  const setFilterSettings = useAudioToolStore((state) => state.setFilterSettings);
+  const setEQBand = useAudioToolStore((state) => state.setEQBand);
+  const setNoiseReduction = useAudioToolStore((state) => state.setNoiseReduction);
+  const setGain = useAudioToolStore((state) => state.setGain);
+  const resetFilters = useAudioToolStore((state) => state.resetFilters);
+  const toggleFiltersBypass = useAudioToolStore((state) => state.toggleFiltersBypass);
+  const applyRecipe = useAudioToolStore((state) => state.applyRecipe);
+  const saveRecipe = useAudioToolStore((state) => state.saveRecipe);
+  const deleteRecipe = useAudioToolStore((state) => state.deleteRecipe);
+  const createIteration = useAudioToolStore((state) => state.createIteration);
+  const deleteIteration = useAudioToolStore((state) => state.deleteIteration);
+  const setActiveIteration = useAudioToolStore((state) => state.setActiveIteration);
+  const createFindingFromSelection = useAudioToolStore((state) => state.createFindingFromSelection);
+  const updateFinding = useAudioToolStore((state) => state.updateFinding);
+  const deleteFinding = useAudioToolStore((state) => state.deleteFinding);
+  const setFindingVisibility = useAudioToolStore((state) => state.setFindingVisibility);
+  const setZoom = useAudioToolStore((state) => state.setZoom);
 
   // Initialize audio element and Web Audio API
   useEffect(() => {

@@ -175,13 +175,12 @@ const AudioMixerPanel: React.FC<AudioMixerPanelProps> = ({ audioMixer, available
   const analyserRefs = useRef<Map<string, AnalyserNode>>(new Map());
   void analyserRefs; // Intentionally unused, reserved for Web Audio API integration
 
-  const {
-    updateAudioSource,
-    addAudioSource,
-    removeAudioSource,
-    setMasterVolume,
-    setMasterMuted,
-  } = useStreamingToolStore();
+  // Store actions - extract stable references
+  const updateAudioSource = useStreamingToolStore((state) => state.updateAudioSource);
+  const addAudioSource = useStreamingToolStore((state) => state.addAudioSource);
+  const removeAudioSource = useStreamingToolStore((state) => state.removeAudioSource);
+  const setMasterVolume = useStreamingToolStore((state) => state.setMasterVolume);
+  const setMasterMuted = useStreamingToolStore((state) => state.setMasterMuted);
 
   // Simulate audio levels (in real implementation, use Web Audio API AnalyserNode)
   useEffect(() => {

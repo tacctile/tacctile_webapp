@@ -17,7 +17,23 @@ import RecordingPanel from './RecordingPanel';
 import AudioMixerPanel from './AudioMixerPanel';
 
 // Store
-import { useStreamingToolStore } from '../../stores/useStreamingToolStore';
+import {
+  useStreamingToolStore,
+  selectScenes,
+  selectActiveSceneId,
+  selectPreviewSceneId,
+  selectIsStreaming,
+  selectStreamStartTime,
+  selectIsRecording,
+  selectRecordingStartTime,
+  selectStreamSettings,
+  selectRecordingSettings,
+  selectDestinations,
+  selectAudioMixer,
+  selectAvailableDevices,
+  selectStreamingMode,
+  selectViewMode,
+} from '../../stores/useStreamingToolStore';
 
 // ============================================================================
 // STYLED COMPONENTS
@@ -136,53 +152,49 @@ const StreamingTool: React.FC<StreamingToolProps> = ({
   // Local state
   const [activePanelTab, setActivePanelTab] = useState<'sources' | 'output' | 'recording'>('sources');
 
-  // Store state
-  const {
-    mode,
-    viewMode,
-    scenes,
-    activeSceneId,
-    previewSceneId,
-    isStreaming,
-    streamStartTime,
-    isRecording,
-    recordingStartTime,
-    streamSettings,
-    recordingSettings,
-    destinations,
-    audioMixer,
-    availableDevices,
-  } = useStreamingToolStore();
+  // Store state - use selectors for stable references
+  const mode = useStreamingToolStore(selectStreamingMode);
+  const viewMode = useStreamingToolStore(selectViewMode);
+  const scenes = useStreamingToolStore(selectScenes);
+  const activeSceneId = useStreamingToolStore(selectActiveSceneId);
+  const previewSceneId = useStreamingToolStore(selectPreviewSceneId);
+  const isStreaming = useStreamingToolStore(selectIsStreaming);
+  const streamStartTime = useStreamingToolStore(selectStreamStartTime);
+  const isRecording = useStreamingToolStore(selectIsRecording);
+  const recordingStartTime = useStreamingToolStore(selectRecordingStartTime);
+  const streamSettings = useStreamingToolStore(selectStreamSettings);
+  const recordingSettings = useStreamingToolStore(selectRecordingSettings);
+  const destinations = useStreamingToolStore(selectDestinations);
+  const audioMixer = useStreamingToolStore(selectAudioMixer);
+  const availableDevices = useStreamingToolStore(selectAvailableDevices);
 
-  // Store actions
-  const {
-    createScene,
-    deleteScene,
-    duplicateScene,
-    renameScene,
-    setActiveScene,
-    setPreviewScene,
-    addSource,
-    removeSource,
-    updateSource,
-    updateSourceTransform,
-    selectSource,
-    executeTransition,
-    startStreaming,
-    stopStreaming,
-    updateStreamSettings,
-    addDestination,
-    removeDestination,
-    updateDestination,
-    toggleDestination,
-    testDestination,
-    startRecording,
-    stopRecording,
-    updateRecordingSettings,
-    setMode,
-    setViewMode,
-    refreshDevices,
-  } = useStreamingToolStore();
+  // Store actions - extract stable references
+  const createScene = useStreamingToolStore((state) => state.createScene);
+  const deleteScene = useStreamingToolStore((state) => state.deleteScene);
+  const duplicateScene = useStreamingToolStore((state) => state.duplicateScene);
+  const renameScene = useStreamingToolStore((state) => state.renameScene);
+  const setActiveScene = useStreamingToolStore((state) => state.setActiveScene);
+  const setPreviewScene = useStreamingToolStore((state) => state.setPreviewScene);
+  const addSource = useStreamingToolStore((state) => state.addSource);
+  const removeSource = useStreamingToolStore((state) => state.removeSource);
+  const updateSource = useStreamingToolStore((state) => state.updateSource);
+  const updateSourceTransform = useStreamingToolStore((state) => state.updateSourceTransform);
+  const selectSource = useStreamingToolStore((state) => state.selectSource);
+  const executeTransition = useStreamingToolStore((state) => state.executeTransition);
+  const startStreaming = useStreamingToolStore((state) => state.startStreaming);
+  const stopStreaming = useStreamingToolStore((state) => state.stopStreaming);
+  const updateStreamSettings = useStreamingToolStore((state) => state.updateStreamSettings);
+  const addDestination = useStreamingToolStore((state) => state.addDestination);
+  const removeDestination = useStreamingToolStore((state) => state.removeDestination);
+  const updateDestination = useStreamingToolStore((state) => state.updateDestination);
+  const toggleDestination = useStreamingToolStore((state) => state.toggleDestination);
+  const testDestination = useStreamingToolStore((state) => state.testDestination);
+  const startRecording = useStreamingToolStore((state) => state.startRecording);
+  const stopRecording = useStreamingToolStore((state) => state.stopRecording);
+  const updateRecordingSettings = useStreamingToolStore((state) => state.updateRecordingSettings);
+  const setMode = useStreamingToolStore((state) => state.setMode);
+  const setViewMode = useStreamingToolStore((state) => state.setViewMode);
+  const refreshDevices = useStreamingToolStore((state) => state.refreshDevices);
 
   // Initialize devices on mount
   useEffect(() => {
