@@ -14,21 +14,31 @@ import {
   Collapse,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import LayersIcon from '@mui/icons-material/Layers';
-import VideocamIcon from '@mui/icons-material/Videocam';
-import MicIcon from '@mui/icons-material/Mic';
-import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
-import SensorsIcon from '@mui/icons-material/Sensors';
-import ThermostatIcon from '@mui/icons-material/Thermostat';
-import MotionPhotosOnIcon from '@mui/icons-material/MotionPhotosOn';
-import RadioIcon from '@mui/icons-material/Radio';
-import FlagIcon from '@mui/icons-material/Flag';
-import PersonPinIcon from '@mui/icons-material/PersonPin';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import type { DataLayer, DataLayerType } from '../../types/session';
+
+// ============================================================================
+// MATERIAL SYMBOL COMPONENT
+// ============================================================================
+
+interface MaterialSymbolProps {
+  icon: string;
+  filled?: boolean;
+  size?: number;
+  color?: string;
+}
+
+const MaterialSymbol: React.FC<MaterialSymbolProps> = ({ icon, filled = false, size = 24, color }) => (
+  <span
+    className="material-symbols-outlined"
+    style={{
+      fontSize: size,
+      color: color,
+      fontVariationSettings: `'FILL' ${filled ? 1 : 0}, 'wght' 400, 'GRAD' 0, 'opsz' 24`,
+    }}
+  >
+    {icon}
+  </span>
+);
 
 // ============================================================================
 // STYLED COMPONENTS
@@ -118,25 +128,25 @@ const QuickActions = styled(Box)({
 const getLayerIcon = (layerId: DataLayerType): React.ReactNode => {
   switch (layerId) {
     case 'video':
-      return <VideocamIcon />;
+      return <MaterialSymbol icon="videocam" />;
     case 'audio':
-      return <MicIcon />;
+      return <MaterialSymbol icon="mic" />;
     case 'photo':
-      return <PhotoCameraIcon />;
+      return <MaterialSymbol icon="photo_camera" />;
     case 'emf':
-      return <SensorsIcon />;
+      return <MaterialSymbol icon="sensors" />;
     case 'thermal':
-      return <ThermostatIcon />;
+      return <MaterialSymbol icon="thermostat" />;
     case 'motion':
-      return <MotionPhotosOnIcon />;
+      return <MaterialSymbol icon="motion_sensor_active" />;
     case 'spirit_box':
-      return <RadioIcon />;
+      return <MaterialSymbol icon="radio" />;
     case 'flags':
-      return <FlagIcon />;
+      return <MaterialSymbol icon="flag" />;
     case 'user_markers':
-      return <PersonPinIcon />;
+      return <MaterialSymbol icon="person_pin" />;
     default:
-      return <LayersIcon />;
+      return <MaterialSymbol icon="layers" />;
   }
 };
 
@@ -169,7 +179,7 @@ export const DataLayerToggle: React.FC<DataLayerToggleProps> = ({
     <ToggleContainer>
       <ToggleHeader onClick={onToggleCollapsed}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <LayersIcon sx={{ fontSize: 18, color: '#19abb5' }} />
+          <MaterialSymbol icon="layers" size={18} color="#19abb5" />
           <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#e1e1e1' }}>
             Data Layers
           </Typography>
@@ -187,7 +197,7 @@ export const DataLayerToggle: React.FC<DataLayerToggleProps> = ({
           />
         </Box>
         <IconButton size="small" sx={{ color: '#888' }}>
-          {collapsed ? <ExpandMoreIcon /> : <ExpandLessIcon />}
+          <MaterialSymbol icon={collapsed ? 'expand_more' : 'expand_less'} size={20} />
         </IconButton>
       </ToggleHeader>
 
@@ -237,7 +247,7 @@ export const DataLayerToggle: React.FC<DataLayerToggleProps> = ({
                 '&:hover': { color: '#19abb5' },
               }}
             >
-              <VisibilityIcon sx={{ fontSize: 16 }} />
+              <MaterialSymbol icon="visibility" size={16} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Hide all layers">
@@ -249,7 +259,7 @@ export const DataLayerToggle: React.FC<DataLayerToggleProps> = ({
                 '&:hover': { color: '#888' },
               }}
             >
-              <VisibilityOffIcon sx={{ fontSize: 16 }} />
+              <MaterialSymbol icon="visibility_off" size={16} />
             </IconButton>
           </Tooltip>
           <Box sx={{ flex: 1 }} />
