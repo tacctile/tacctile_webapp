@@ -26,3 +26,21 @@ export {
   useFlagTypes,
   useFlagExport,
 } from './useEvidenceFlags';
+
+// Keyboard Shortcuts
+export {
+  useKeyboardShortcuts,
+  createPlaybackShortcuts,
+  createEditingShortcuts,
+  createViewShortcuts,
+  createNavigationShortcuts,
+  formatShortcut,
+} from './useKeyboardShortcuts';
+export type { KeyboardShortcut } from './useKeyboardShortcuts';
+
+// Optimized Media Playback
+export {
+  useOptimizedVideo,
+  useOptimizedAudio,
+  useOptimizedMediaPlayback,
+} from './useOptimizedMedia';

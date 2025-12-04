@@ -23,6 +23,10 @@ export default defineConfig({
         theme_color: '#19abb5',
         background_color: '#121212',
         display: 'standalone',
+        orientation: 'any',
+        start_url: '/',
+        scope: '/',
+        categories: ['productivity', 'utilities'],
         icons: [
           {
             src: 'pwa-192x192.png',
@@ -40,11 +44,39 @@ export default defineConfig({
             type: 'image/png',
             purpose: 'any maskable'
           }
-        ]
+        ],
+        // Enable file handling for media files
+        file_handlers: [
+          {
+            action: '/',
+            accept: {
+              'video/*': ['.mp4', '.webm', '.mov', '.avi', '.mkv'],
+              'audio/*': ['.mp3', '.wav', '.ogg', '.flac', '.m4a'],
+              'image/*': ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']
+            }
+          }
+        ],
+        // Enable share target
+        share_target: {
+          action: '/share',
+          method: 'POST',
+          enctype: 'multipart/form-data',
+          params: {
+            files: [
+              {
+                name: 'media',
+                accept: ['video/*', 'audio/*', 'image/*']
+              }
+            ]
+          }
+        }
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Precache all static assets
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,woff}'],
+        // Runtime caching strategies
         runtimeCaching: [
+          // Cache Google Fonts
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: 'CacheFirst',
@@ -72,8 +104,90 @@ export default defineConfig({
                 statuses: [0, 200]
               }
             }
+          },
+          // Cache Material Symbols
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/css2\?family=Material\+Symbols.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'material-symbols-cache',
+              expiration: {
+                maxEntries: 5,
+                maxAgeSeconds: 60 * 60 * 24 * 365
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          // Cache FFmpeg WASM files
+          {
+            urlPattern: /^https:\/\/unpkg\.com\/@ffmpeg\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'ffmpeg-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          // Cache API responses with network-first strategy
+          {
+            urlPattern: /^https:\/\/api\..*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-cache',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 5 // 5 minutes
+              },
+              networkTimeoutSeconds: 10,
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          // Cache local media files for offline access (blob URLs and object URLs)
+          {
+            urlPattern: /^blob:.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'local-media-cache',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 7 // 1 week
+              }
+            }
+          },
+          // Cache images
+          {
+            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'image-cache',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+              }
+            }
           }
-        ]
+        ],
+        // Skip waiting to immediately activate new service worker
+        skipWaiting: true,
+        clientsClaim: true,
+        // Navigation preload for faster page loads
+        navigationPreload: true,
+        // Clean old caches
+        cleanupOutdatedCaches: true
+      },
+      // Dev options
+      devOptions: {
+        enabled: false,
+        type: 'module'
       }
     })
   ],
@@ -93,16 +207,100 @@ export default defineConfig({
   build: {
     target: 'esnext',
     minify: 'terser',
-    sourcemap: true,
+    sourcemap: false, // Disable sourcemaps in production for smaller bundle
+    terserOptions: {
+      compress: {
+        drop_console: true, // Remove console.log in production
+        drop_debugger: true,
+        pure_funcs: ['console.log', 'console.info', 'console.debug']
+      }
+    },
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'mui-vendor': ['@mui/material', '@mui/icons-material', '@mui/system'],
-          'three-vendor': ['three', '@react-three/fiber', '@react-three/drei'],
-          'charts-vendor': ['chart.js', 'react-chartjs-2'],
-          'audio-vendor': ['wavesurfer.js', 'tone', 'meyda'],
-          'visualization': ['konva', 'paper', 'pixi.js']
+        // Aggressive manual chunk splitting for <200KB initial bundle
+        manualChunks: (id) => {
+          // React core - essential, loaded first
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
+            return 'react-core';
+          }
+          // React Router - needed for navigation
+          if (id.includes('react-router')) {
+            return 'react-router';
+          }
+          // MUI core - split into smaller chunks
+          if (id.includes('@mui/material')) {
+            // Split MUI by component type
+            if (id.includes('/Button') || id.includes('/IconButton')) {
+              return 'mui-buttons';
+            }
+            if (id.includes('/Box') || id.includes('/Typography') || id.includes('/Divider')) {
+              return 'mui-layout';
+            }
+            if (id.includes('/Slider') || id.includes('/Toggle') || id.includes('/Select')) {
+              return 'mui-inputs';
+            }
+            if (id.includes('/Tooltip') || id.includes('/Dialog') || id.includes('/Modal')) {
+              return 'mui-overlays';
+            }
+            return 'mui-core';
+          }
+          if (id.includes('@mui/system') || id.includes('@emotion')) {
+            return 'mui-system';
+          }
+          // Heavy libraries - load only when needed
+          if (id.includes('three') || id.includes('@react-three')) {
+            return 'three-vendor';
+          }
+          if (id.includes('chart.js') || id.includes('chartjs')) {
+            return 'charts-vendor';
+          }
+          if (id.includes('wavesurfer')) {
+            return 'wavesurfer';
+          }
+          if (id.includes('tone') || id.includes('meyda')) {
+            return 'audio-analysis';
+          }
+          if (id.includes('konva') || id.includes('paper') || id.includes('pixi')) {
+            return 'canvas-vendor';
+          }
+          // Firebase/Supabase - auth bundle
+          if (id.includes('firebase') || id.includes('@firebase')) {
+            return 'firebase-vendor';
+          }
+          if (id.includes('supabase') || id.includes('@supabase')) {
+            return 'supabase-vendor';
+          }
+          // Utilities
+          if (id.includes('lodash')) {
+            return 'lodash';
+          }
+          if (id.includes('date-fns')) {
+            return 'date-fns';
+          }
+          // FFmpeg - only load when needed
+          if (id.includes('ffmpeg')) {
+            return 'ffmpeg-vendor';
+          }
+          // Sentry - only in production
+          if (id.includes('@sentry')) {
+            return 'sentry';
+          }
+          // Stripe - billing
+          if (id.includes('stripe')) {
+            return 'stripe';
+          }
+          // IndexedDB/LocalForage - offline storage
+          if (id.includes('dexie') || id.includes('localforage') || id.includes('idb')) {
+            return 'offline-storage';
+          }
+          // File handling
+          if (id.includes('filepond')) {
+            return 'filepond';
+          }
+          // Map libraries
+          if (id.includes('leaflet') || id.includes('react-leaflet')) {
+            return 'maps';
+          }
         },
         assetFileNames: (assetInfo) => {
           // Bundle fonts in a dedicated fonts directory
@@ -111,12 +309,16 @@ export default defineConfig({
           }
           // Other assets use default naming
           return 'assets/[name]-[hash][extname]';
-        }
+        },
+        // Smaller chunk file names
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js'
       }
     },
     // Ensure fonts are properly included
-    assetsInlineLimit: 0, // Don't inline fonts, always copy them
-    chunkSizeWarningLimit: 1000 // Increase chunk size warning limit for large libraries
+    assetsInlineLimit: 4096, // Inline small assets (<4KB)
+    chunkSizeWarningLimit: 500, // Warn for chunks >500KB
+    reportCompressedSize: true
   },
   css: {
     preprocessorOptions: {
@@ -138,18 +340,18 @@ export default defineConfig({
   preview: {
     port: 4173,
     host: true,
-    cors: true
+    cors: true,
+    headers: {
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+      'Cross-Origin-Opener-Policy': 'same-origin'
+    }
   },
   optimizeDeps: {
     include: [
       'react',
       'react-dom',
-      '@mui/material',
-      '@mui/icons-material',
       '@emotion/react',
-      '@emotion/styled',
-      'wavesurfer.js',
-      'chart.js'
+      '@emotion/styled'
     ],
     exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/core']
   }

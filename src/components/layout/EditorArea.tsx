@@ -1,7 +1,8 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useMemo, Suspense, lazy } from 'react';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import CircularProgress from '@mui/material/CircularProgress';
 import { styled } from '@mui/material/styles';
 
 // Icons
@@ -14,9 +15,19 @@ import AudioFileIcon from '@mui/icons-material/AudioFile';
 import VideoFileIcon from '@mui/icons-material/VideoFile';
 import TimelineIcon from '@mui/icons-material/Timeline';
 
-// Tools
-import { ImageTool } from '../image-tool';
-import AudioTool from '../audio-tool/AudioTool';
+// Error Boundary
+import { ErrorBoundary } from '@/components/common';
+
+// Lazy load tools
+const ImageTool = lazy(() => import('../image-tool/ImageTool'));
+const AudioTool = lazy(() => import('../audio-tool/AudioTool'));
+
+// Loading fallback
+const ToolLoader: React.FC = () => (
+  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', backgroundColor: '#121212' }}>
+    <CircularProgress sx={{ color: '#19abb5' }} />
+  </Box>
+);
 
 const TabBar = styled(Box)(({ theme }) => ({
   height: 35,
@@ -207,19 +218,27 @@ const EditorArea: React.FC<EditorAreaProps> = ({
     switch (activeTabInfo.fileType) {
       case 'image':
         return (
-          <ImageTool
-            evidenceId={activeTabInfo.id}
-            investigationId="current-investigation"
-            imageUrl={activeTabInfo.url}
-          />
+          <ErrorBoundary toolName="Image Tool">
+            <Suspense fallback={<ToolLoader />}>
+              <ImageTool
+                evidenceId={activeTabInfo.id}
+                investigationId="current-investigation"
+                imageUrl={activeTabInfo.url}
+              />
+            </Suspense>
+          </ErrorBoundary>
         );
       case 'audio':
         return (
-          <AudioTool
-            evidenceId={activeTabInfo.id}
-            investigationId="current-investigation"
-            audioUrl={activeTabInfo.url}
-          />
+          <ErrorBoundary toolName="Audio Tool">
+            <Suspense fallback={<ToolLoader />}>
+              <AudioTool
+                evidenceId={activeTabInfo.id}
+                investigationId="current-investigation"
+                audioUrl={activeTabInfo.url}
+              />
+            </Suspense>
+          </ErrorBoundary>
         );
       case 'video':
         return (
