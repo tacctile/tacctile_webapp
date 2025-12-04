@@ -1,7 +1,8 @@
 @echo off
 echo Starting auto-backup...
 
-cd /d "C:\Users\knoxw\StudioProjects\tacctile_desktop"
+REM Change to the script's directory (works from any location)
+cd /d "%~dp0"
 
 git add .
 if %errorlevel% neq 0 (

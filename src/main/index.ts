@@ -413,13 +413,13 @@ function createMenu() {
         {
           label: 'Documentation',
           click: async () => {
-            await shell.openExternal('https://github.com/tacctile/tacctile_desktop/wiki');
+            await shell.openExternal('https://github.com/tacctile/tacctile_webapp/wiki');
           }
         },
         {
           label: 'Report Issue',
           click: async () => {
-            await shell.openExternal('https://github.com/tacctile/tacctile_desktop/issues');
+            await shell.openExternal('https://github.com/tacctile/tacctile_webapp/issues');
           }
         },
         { type: 'separator' },
