@@ -40,7 +40,20 @@ import RecipePanel from './RecipePanel';
 import CompareView from './CompareView';
 
 // Store
-import { useImageToolStore } from '../../stores/useImageToolStore';
+import {
+  useImageToolStore,
+  selectImageUrl,
+  selectImageViewMode,
+  selectImageAdjustments,
+  selectImageCrop,
+  selectImageAnnotations,
+  selectImageRecipes,
+  selectUserEdits,
+  selectActiveUserEdit,
+  selectImageZoom,
+  selectImageActiveTool,
+  selectSelectedAnnotation,
+} from '../../stores/useImageToolStore';
 import type { ImageViewMode, CompareMode, ImageToolType, ImageAnnotation } from '../../types/image';
 
 // ============================================================================
@@ -170,27 +183,27 @@ const ImageTool: React.FC<ImageToolProps> = ({
   // Store state - use selectors for stable references
   const imageElement = useImageToolStore((state) => state.imageElement);
   const originalDimensions = useImageToolStore((state) => state.originalDimensions);
-  const viewMode = useImageToolStore((state) => state.viewMode);
+  const viewMode = useImageToolStore(selectImageViewMode);
   const compareMode = useImageToolStore((state) => state.compareMode);
   const compareEditIds = useImageToolStore((state) => state.compareEditIds);
-  const zoom = useImageToolStore((state) => state.zoom);
+  const zoom = useImageToolStore(selectImageZoom);
   const panX = useImageToolStore((state) => state.panX);
   const panY = useImageToolStore((state) => state.panY);
   const fitToView = useImageToolStore((state) => state.fitToView);
-  const activeTool = useImageToolStore((state) => state.activeTool);
-  const adjustments = useImageToolStore((state) => state.adjustments);
-  const crop = useImageToolStore((state) => state.crop);
+  const activeTool = useImageToolStore(selectImageActiveTool);
+  const adjustments = useImageToolStore(selectImageAdjustments);
+  const crop = useImageToolStore(selectImageCrop);
   const activeFilterId = useImageToolStore((state) => state.activeFilterId);
-  const annotations = useImageToolStore((state) => state.annotations);
-  const selectedAnnotationId = useImageToolStore((state) => state.selectedAnnotationId);
+  const annotations = useImageToolStore(selectImageAnnotations);
+  const selectedAnnotationId = useImageToolStore(selectSelectedAnnotation);
   const annotationDefaults = useImageToolStore((state) => state.annotationDefaults);
-  const recipes = useImageToolStore((state) => state.recipes);
-  const userEdits = useImageToolStore((state) => state.userEdits);
-  const activeUserEditId = useImageToolStore((state) => state.activeUserEditId);
+  const recipes = useImageToolStore(selectImageRecipes);
+  const userEdits = useImageToolStore(selectUserEdits);
+  const activeUserEditId = useImageToolStore(selectActiveUserEdit);
   const showAdjustmentsPanel = useImageToolStore((state) => state.showAdjustmentsPanel);
   const showAnnotationsPanel = useImageToolStore((state) => state.showAnnotationsPanel);
   const showRecipesPanel = useImageToolStore((state) => state.showRecipesPanel);
-  const currentImageUrl = useImageToolStore((state) => state.imageUrl);
+  const currentImageUrl = useImageToolStore(selectImageUrl);
 
   // Store actions - extract stable references
   const loadImage = useImageToolStore((state) => state.loadImage);
