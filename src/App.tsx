@@ -13,6 +13,7 @@ import BottomPanel from '@/components/layout/BottomPanel';
 import StatusBar from '@/components/layout/StatusBar';
 import { LayoutProvider } from '@/contexts/LayoutContext';
 import { StreamingTool } from '@/components/streaming-tool';
+import { SessionTimeline } from '@/components/session-timeline';
 
 // Material 3 Dark Theme with Tacctile Brand Colors
 const darkTheme = createTheme({
@@ -204,8 +205,10 @@ const App: React.FC = () => {
               minWidth: 0,
               overflow: 'hidden'
             }}>
-              {/* Render Streaming Tool when selected, otherwise Editor Area */}
-              {selectedTool === 'streaming' ? (
+              {/* Render tool-specific content based on selected tool */}
+              {selectedTool === 'session' ? (
+                <SessionTimeline investigationId="current-investigation" />
+              ) : selectedTool === 'streaming' ? (
                 <StreamingTool
                   investigationId="current-investigation"
                   onStreamStart={() => console.log('Stream started')}
