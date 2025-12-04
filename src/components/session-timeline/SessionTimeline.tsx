@@ -45,17 +45,17 @@ import { ClockSyncDialog, ClockSyncBanner } from './ClockSyncDialog';
 
 import {
   useSessionTimelineStore,
-  useTimelineItems,
-  useVisibleItems,
-  useDataLayers,
-  useZoomLevel,
-  useTimeRange,
-  useSelectedItem,
-  usePlayheadPosition,
-  useClockSyncPrompt,
-  useTimelineLoading,
-  useTimelineError,
-  useInvestigationTitle,
+  selectTimelineItems,
+  selectVisibleItems,
+  selectDataLayers,
+  selectZoomLevel,
+  selectTimeRange,
+  selectSelectedItem,
+  selectPlayheadPosition,
+  selectClockSyncPrompt,
+  selectTimelineLoading,
+  selectTimelineError,
+  selectInvestigationTitle,
 } from '../../stores/useSessionTimelineStore';
 
 import { ZOOM_LEVELS, EVIDENCE_TYPE_TO_LAYER, formatTimelineTimestamp, formatDuration } from '../../types/session';
@@ -212,17 +212,17 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   const [layerPanelCollapsed, setLayerPanelCollapsed] = useState(false);
 
   // Store state
-  const items = useTimelineItems();
-  const visibleItems = useVisibleItems();
-  const dataLayers = useDataLayers();
-  const zoomLevel = useZoomLevel();
-  const timeRange = useTimeRange();
-  const selectedItem = useSelectedItem();
-  const playheadPosition = usePlayheadPosition();
-  const clockSyncPrompt = useClockSyncPrompt();
-  const isLoading = useTimelineLoading();
-  const error = useTimelineError();
-  const investigationTitle = useInvestigationTitle();
+  const items = useSessionTimelineStore(selectTimelineItems);
+  const visibleItems = useSessionTimelineStore(selectVisibleItems);
+  const dataLayers = useSessionTimelineStore(selectDataLayers);
+  const zoomLevel = useSessionTimelineStore(selectZoomLevel);
+  const timeRange = useSessionTimelineStore(selectTimeRange);
+  const selectedItem = useSessionTimelineStore(selectSelectedItem);
+  const playheadPosition = useSessionTimelineStore(selectPlayheadPosition);
+  const clockSyncPrompt = useSessionTimelineStore(selectClockSyncPrompt);
+  const isLoading = useSessionTimelineStore(selectTimelineLoading);
+  const error = useSessionTimelineStore(selectTimelineError);
+  const investigationTitle = useSessionTimelineStore(selectInvestigationTitle);
 
   // Store actions - extract stable references
   const loadTimeline = useSessionTimelineStore((state) => state.loadTimeline);
