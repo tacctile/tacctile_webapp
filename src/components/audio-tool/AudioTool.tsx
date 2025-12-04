@@ -492,7 +492,9 @@ const AudioTool: React.FC<AudioToolProps> = ({
 
   const handleSyncFinding = useCallback(
     (findingId: string) => {
-      const finding = findings.find((f) => f.id === findingId);
+      // Ensure findings is an array
+      const safeFindings = Array.isArray(findings) ? findings : [];
+      const finding = safeFindings.find((f) => f.id === findingId);
       if (finding && onSyncFinding) {
         onSyncFinding(finding);
       }
@@ -620,7 +622,7 @@ const AudioTool: React.FC<AudioToolProps> = ({
                 playbackRate={playback.playbackRate}
                 volume={playback.volume}
                 muted={playback.muted}
-                loopRegions={loopRegions}
+                loopRegions={Array.isArray(loopRegions) ? loopRegions : []}
                 activeLoopId={activeLoopId}
                 settings={waveformSettings}
                 zoom={zoom}
@@ -645,10 +647,10 @@ const AudioTool: React.FC<AudioToolProps> = ({
                 zoom={zoom}
                 scrollPosition={scrollPosition}
                 currentSelection={currentSelection}
-                selections={selections}
-                loopRegions={loopRegions}
+                selections={Array.isArray(selections) ? selections : []}
+                loopRegions={Array.isArray(loopRegions) ? loopRegions : []}
                 activeLoopId={activeLoopId}
-                findings={findings}
+                findings={Array.isArray(findings) ? findings : []}
                 selectionEnabled={true}
                 onSelectionStart={handleSelectionStart}
                 onSelectionUpdate={updateSelection}
@@ -691,7 +693,7 @@ const AudioTool: React.FC<AudioToolProps> = ({
           </SidePanelSection>
           <SidePanelSection>
             <FindingsPanel
-              findings={findings}
+              findings={Array.isArray(findings) ? findings : []}
               currentSelection={currentSelection}
               selectedFindingId={selectedFindingId}
               onCreateFinding={handleCreateFinding}
