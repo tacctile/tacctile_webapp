@@ -105,6 +105,7 @@ interface ActivityBarProps {
   selectedTool: string;
   onToolSelect: (toolId: string) => void;
   onToggle: () => void;
+  compact?: boolean; // For mobile/tablet - horizontal layout
 }
 
 const ActivityBar: React.FC<ActivityBarProps> = ({
@@ -112,7 +113,63 @@ const ActivityBar: React.FC<ActivityBarProps> = ({
   selectedTool,
   onToolSelect,
   onToggle,
+  compact = false,
 }) => {
+  // Compact mode renders a horizontal bottom navigation bar for mobile
+  if (compact) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'row',
+          justifyContent: 'space-around',
+          alignItems: 'center',
+          width: '100%',
+          height: 56,
+          backgroundColor: '#181818',
+          borderTop: '1px solid #2b2b2b',
+          overflowX: 'auto',
+          overflowY: 'hidden',
+          // Hide scrollbar but allow scrolling
+          '&::-webkit-scrollbar': { display: 'none' },
+          msOverflowStyle: 'none',
+          scrollbarWidth: 'none',
+        }}
+      >
+        {toolsSection.map((item) => (
+          <IconButton
+            key={item.id}
+            onClick={() => onToolSelect(item.id)}
+            sx={{
+              flexDirection: 'column',
+              padding: '4px 12px',
+              minWidth: 64,
+              color: selectedTool === item.id ? '#19abb5' : '#858585',
+              '&:hover': {
+                backgroundColor: 'rgba(25, 171, 181, 0.08)',
+              },
+            }}
+          >
+            <MaterialSymbol
+              icon={item.icon}
+              filled={selectedTool === item.id}
+              size={22}
+            />
+            <Box
+              component="span"
+              sx={{
+                fontSize: 10,
+                fontWeight: selectedTool === item.id ? 600 : 400,
+                mt: 0.5,
+              }}
+            >
+              {item.label}
+            </Box>
+          </IconButton>
+        ))}
+      </Box>
+    );
+  }
   const renderNavItem = (item: NavItem) => (
     <Tooltip
       key={item.id}
