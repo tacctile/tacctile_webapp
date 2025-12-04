@@ -745,22 +745,22 @@ export const useImageToolStore = create<ImageToolState & ImageToolActions>()(
 );
 
 // ============================================================================
-// SELECTOR HOOKS
+// SELECTOR FUNCTIONS
 // ============================================================================
 
-export const useImageUrl = () => useImageToolStore((state) => state.imageUrl);
-export const useImageViewMode = () => useImageToolStore((state) => state.viewMode);
-export const useImageAdjustments = () => useImageToolStore((state) => state.adjustments);
-export const useImageCrop = () => useImageToolStore((state) => state.crop);
-export const useImageAnnotations = () => useImageToolStore((state) => state.annotations);
-export const useImageRecipes = () => useImageToolStore((state) => state.recipes);
-export const useUserEdits = () => useImageToolStore((state) => state.userEdits);
-export const useActiveUserEdit = () => useImageToolStore((state) => state.activeUserEditId);
-export const useImageZoom = () => useImageToolStore((state) => state.zoom);
-export const useImageActiveTool = () => useImageToolStore((state) => state.activeTool);
-export const useSelectedAnnotation = () => useImageToolStore((state) => state.selectedAnnotationId);
-export const useImageIsLoading = () => useImageToolStore((state) => state.isLoading);
-export const useImageIsProcessing = () => useImageToolStore((state) => state.isProcessing);
-export const useImageError = () => useImageToolStore((state) => state.error);
+export const selectImageUrl = (state: ImageToolState) => state.imageUrl;
+export const selectImageViewMode = (state: ImageToolState) => state.viewMode;
+export const selectImageAdjustments = (state: ImageToolState) => state.adjustments;
+export const selectImageCrop = (state: ImageToolState) => state.crop;
+export const selectImageAnnotations = (state: ImageToolState) => state.annotations;
+export const selectImageRecipes = (state: ImageToolState) => state.recipes;
+export const selectUserEdits = (state: ImageToolState) => state.userEdits;
+export const selectActiveUserEdit = (state: ImageToolState) => state.activeUserEditId;
+export const selectImageZoom = (state: ImageToolState) => state.zoom;
+export const selectImageActiveTool = (state: ImageToolState) => state.activeTool;
+export const selectSelectedAnnotation = (state: ImageToolState) => state.selectedAnnotationId;
+export const selectImageIsLoading = (state: ImageToolState) => state.isLoading;
+export const selectImageIsProcessing = (state: ImageToolState) => state.isProcessing;
+export const selectImageError = (state: ImageToolState) => state.error;
 
 export default useImageToolStore;

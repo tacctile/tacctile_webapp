@@ -574,57 +574,50 @@ export const useStreamingToolStore = create<StreamingToolState & StreamingToolAc
 );
 
 // ============================================================================
-// Selector Hooks
+// Selector Functions
 // ============================================================================
 
 // Scene selectors
-export const useScenes = () => useStreamingToolStore((s) => s.scenes);
-export const useActiveSceneId = () => useStreamingToolStore((s) => s.activeSceneId);
-export const usePreviewSceneId = () => useStreamingToolStore((s) => s.previewSceneId);
-export const useActiveScene = () => {
-  const scenes = useStreamingToolStore((s) => s.scenes);
-  const activeSceneId = useStreamingToolStore((s) => s.activeSceneId);
-  return scenes.find((s) => s.id === activeSceneId) || null;
+export const selectScenes = (state: StreamingToolState) => state.scenes;
+export const selectActiveSceneId = (state: StreamingToolState) => state.activeSceneId;
+export const selectPreviewSceneId = (state: StreamingToolState) => state.previewSceneId;
+export const selectActiveScene = (state: StreamingToolState) => {
+  return state.scenes.find((s) => s.id === state.activeSceneId) || null;
 };
-export const usePreviewScene = () => {
-  const scenes = useStreamingToolStore((s) => s.scenes);
-  const previewSceneId = useStreamingToolStore((s) => s.previewSceneId);
-  return scenes.find((s) => s.id === previewSceneId) || null;
+export const selectPreviewScene = (state: StreamingToolState) => {
+  return state.scenes.find((s) => s.id === state.previewSceneId) || null;
 };
 
 // Source selectors
-export const useSelectedSourceId = () => useStreamingToolStore((s) => s.selectedSourceId);
-export const useSelectedSource = () => {
-  const scenes = useStreamingToolStore((s) => s.scenes);
-  const activeSceneId = useStreamingToolStore((s) => s.activeSceneId);
-  const selectedSourceId = useStreamingToolStore((s) => s.selectedSourceId);
-  const scene = scenes.find((s) => s.id === activeSceneId);
-  return scene?.sources.find((s) => s.id === selectedSourceId) || null;
+export const selectSelectedSourceId = (state: StreamingToolState) => state.selectedSourceId;
+export const selectSelectedSource = (state: StreamingToolState) => {
+  const scene = state.scenes.find((s) => s.id === state.activeSceneId);
+  return scene?.sources.find((s) => s.id === state.selectedSourceId) || null;
 };
 
 // Streaming selectors
-export const useIsStreaming = () => useStreamingToolStore((s) => s.isStreaming);
-export const useStreamStartTime = () => useStreamingToolStore((s) => s.streamStartTime);
-export const useDestinations = () => useStreamingToolStore((s) => s.destinations);
-export const useStreamSettings = () => useStreamingToolStore((s) => s.streamSettings);
-export const useStreamStats = () => useStreamingToolStore((s) => s.streamStats);
+export const selectIsStreaming = (state: StreamingToolState) => state.isStreaming;
+export const selectStreamStartTime = (state: StreamingToolState) => state.streamStartTime;
+export const selectDestinations = (state: StreamingToolState) => state.destinations;
+export const selectStreamSettings = (state: StreamingToolState) => state.streamSettings;
+export const selectStreamStats = (state: StreamingToolState) => state.streamStats;
 
 // Recording selectors
-export const useIsRecording = () => useStreamingToolStore((s) => s.isRecording);
-export const useRecordingStartTime = () => useStreamingToolStore((s) => s.recordingStartTime);
-export const useRecordings = () => useStreamingToolStore((s) => s.recordings);
-export const useRecordingSettings = () => useStreamingToolStore((s) => s.recordingSettings);
+export const selectIsRecording = (state: StreamingToolState) => state.isRecording;
+export const selectRecordingStartTime = (state: StreamingToolState) => state.recordingStartTime;
+export const selectRecordings = (state: StreamingToolState) => state.recordings;
+export const selectRecordingSettings = (state: StreamingToolState) => state.recordingSettings;
 
 // Audio selectors
-export const useAudioMixer = () => useStreamingToolStore((s) => s.audioMixer);
+export const selectAudioMixer = (state: StreamingToolState) => state.audioMixer;
 
 // Mode selectors
-export const useStreamingMode = () => useStreamingToolStore((s) => s.mode);
-export const useViewMode = () => useStreamingToolStore((s) => s.viewMode);
-export const usePreviewEnabled = () => useStreamingToolStore((s) => s.previewEnabled);
+export const selectStreamingMode = (state: StreamingToolState) => state.mode;
+export const selectViewMode = (state: StreamingToolState) => state.viewMode;
+export const selectPreviewEnabled = (state: StreamingToolState) => state.previewEnabled;
 
 // Device selectors
-export const useAvailableDevices = () => useStreamingToolStore((s) => s.availableDevices);
+export const selectAvailableDevices = (state: StreamingToolState) => state.availableDevices;
 
 // Transition selectors
-export const useTransition = () => useStreamingToolStore((s) => s.transition);
+export const selectTransition = (state: StreamingToolState) => state.transition;
