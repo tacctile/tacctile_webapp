@@ -15,7 +15,7 @@ export default defineConfig({
     }),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.svg', 'robots.txt', 'apple-touch-icon.svg'],
       manifest: {
         name: 'Tacctile - Ghost Hunting App',
         short_name: 'Tacctile',
@@ -29,19 +29,19 @@ export default defineConfig({
         categories: ['productivity', 'utilities'],
         icons: [
           {
-            src: 'pwa-192x192.png',
+            src: 'pwa-192x192.svg',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/svg+xml'
           },
           {
-            src: 'pwa-512x512.png',
+            src: 'pwa-512x512.svg',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/svg+xml'
           },
           {
-            src: 'pwa-512x512.png',
+            src: 'pwa-512x512.svg',
             sizes: '512x512',
-            type: 'image/png',
+            type: 'image/svg+xml',
             purpose: 'any maskable'
           }
         ],
@@ -227,22 +227,10 @@ export default defineConfig({
           if (id.includes('react-router')) {
             return 'react-router';
           }
-          // MUI core - split into smaller chunks
+          // MUI core - keep together to avoid circular dependency issues
+          // Splitting MUI by component type breaks internal dependencies (e.g., ButtonBase)
           if (id.includes('@mui/material')) {
-            // Split MUI by component type
-            if (id.includes('/Button') || id.includes('/IconButton')) {
-              return 'mui-buttons';
-            }
-            if (id.includes('/Box') || id.includes('/Typography') || id.includes('/Divider')) {
-              return 'mui-layout';
-            }
-            if (id.includes('/Slider') || id.includes('/Toggle') || id.includes('/Select')) {
-              return 'mui-inputs';
-            }
-            if (id.includes('/Tooltip') || id.includes('/Dialog') || id.includes('/Modal')) {
-              return 'mui-overlays';
-            }
-            return 'mui-core';
+            return 'mui-material';
           }
           if (id.includes('@mui/system') || id.includes('@emotion')) {
             return 'mui-system';
