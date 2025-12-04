@@ -714,24 +714,24 @@ export const useAudioToolStore = create<AudioToolState & AudioToolActions>()(
 );
 
 // ============================================================================
-// SELECTOR HOOKS
+// SELECTOR FUNCTIONS
 // ============================================================================
 
-export const useAudioUrl = () => useAudioToolStore((state) => state.audioUrl);
-export const usePlayback = () => useAudioToolStore((state) => state.playback);
-export const useViewMode = () => useAudioToolStore((state) => state.viewMode);
-export const useSelections = () => useAudioToolStore((state) => state.selections);
-export const useCurrentSelection = () => useAudioToolStore((state) => state.currentSelection);
-export const useLoopRegions = () => useAudioToolStore((state) => state.loopRegions);
-export const useFilterSettings = () => useAudioToolStore((state) => state.filterSettings);
-export const useRecipes = () => useAudioToolStore((state) => state.recipes);
-export const useIterations = () => useAudioToolStore((state) => state.iterations);
-export const useFindings = () => useAudioToolStore((state) => state.findings);
-export const useSpectrogramSettings = () => useAudioToolStore((state) => state.spectrogramSettings);
-export const useWaveformSettings = () => useAudioToolStore((state) => state.waveformSettings);
-export const useIsLoading = () => useAudioToolStore((state) => state.isLoading);
-export const useIsProcessing = () => useAudioToolStore((state) => state.isProcessing);
-export const useAudioError = () => useAudioToolStore((state) => state.error);
-export const useFiltersBypassed = () => useAudioToolStore((state) => state.filtersBypassed);
+export const selectAudioUrl = (state: AudioToolState) => state.audioUrl;
+export const selectPlayback = (state: AudioToolState) => state.playback;
+export const selectViewMode = (state: AudioToolState) => state.viewMode;
+export const selectSelections = (state: AudioToolState) => state.selections;
+export const selectCurrentSelection = (state: AudioToolState) => state.currentSelection;
+export const selectLoopRegions = (state: AudioToolState) => state.loopRegions;
+export const selectFilterSettings = (state: AudioToolState) => state.filterSettings;
+export const selectRecipes = (state: AudioToolState) => state.recipes;
+export const selectIterations = (state: AudioToolState) => state.iterations;
+export const selectFindings = (state: AudioToolState) => state.findings;
+export const selectSpectrogramSettings = (state: AudioToolState) => state.spectrogramSettings;
+export const selectWaveformSettings = (state: AudioToolState) => state.waveformSettings;
+export const selectIsLoading = (state: AudioToolState) => state.isLoading;
+export const selectIsProcessing = (state: AudioToolState) => state.isProcessing;
+export const selectAudioError = (state: AudioToolState) => state.error;
+export const selectFiltersBypassed = (state: AudioToolState) => state.filtersBypassed;
 
 export default useAudioToolStore;

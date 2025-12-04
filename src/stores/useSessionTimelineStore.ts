@@ -653,37 +653,34 @@ export const useSessionTimelineStore = create<SessionTimelineState & SessionTime
 );
 
 // ============================================================================
-// SELECTOR HOOKS
+// SELECTOR FUNCTIONS
 // ============================================================================
 
-export const useTimelineItems = () => useSessionTimelineStore((state) => state.items);
-export const useVisibleItems = () =>
-  useSessionTimelineStore((state) => {
-    const visibleLayerIds = state.dataLayers.filter((l) => l.visible).map((l) => l.id);
-    return state.items.filter((item) => {
-      const layerType = EVIDENCE_TYPE_TO_LAYER[item.type];
-      return visibleLayerIds.includes(layerType);
-    });
+export const selectTimelineItems = (state: SessionTimelineState) => state.items;
+export const selectVisibleItems = (state: SessionTimelineState) => {
+  const visibleLayerIds = state.dataLayers.filter((l) => l.visible).map((l) => l.id);
+  return state.items.filter((item) => {
+    const layerType = EVIDENCE_TYPE_TO_LAYER[item.type];
+    return visibleLayerIds.includes(layerType);
   });
-export const useDataLayers = () => useSessionTimelineStore((state) => state.dataLayers);
-export const useZoomLevel = () => useSessionTimelineStore((state) => state.zoomLevel);
-export const useTimeRange = () => useSessionTimelineStore((state) => state.fullTimeRange);
-export const useVisibleTimeRange = () => useSessionTimelineStore((state) => state.visibleTimeRange);
-export const useSelectedItem = () =>
-  useSessionTimelineStore((state) => {
-    if (!state.selectedItemId) return null;
-    return state.items.find((item) => item.id === state.selectedItemId) || null;
-  });
-export const useHoveredItem = () =>
-  useSessionTimelineStore((state) => {
-    if (!state.hoveredItemId) return null;
-    return state.items.find((item) => item.id === state.hoveredItemId) || null;
-  });
-export const usePlayheadPosition = () => useSessionTimelineStore((state) => state.playheadPosition);
-export const useIsPlaying = () => useSessionTimelineStore((state) => state.isPlaying);
-export const useClockSyncPrompt = () => useSessionTimelineStore((state) => state.clockSyncPrompt);
-export const useTimelineLoading = () => useSessionTimelineStore((state) => state.isLoading);
-export const useTimelineError = () => useSessionTimelineStore((state) => state.error);
-export const useInvestigationTitle = () => useSessionTimelineStore((state) => state.investigationTitle);
+};
+export const selectDataLayers = (state: SessionTimelineState) => state.dataLayers;
+export const selectZoomLevel = (state: SessionTimelineState) => state.zoomLevel;
+export const selectTimeRange = (state: SessionTimelineState) => state.fullTimeRange;
+export const selectVisibleTimeRange = (state: SessionTimelineState) => state.visibleTimeRange;
+export const selectSelectedItem = (state: SessionTimelineState) => {
+  if (!state.selectedItemId) return null;
+  return state.items.find((item) => item.id === state.selectedItemId) || null;
+};
+export const selectHoveredItem = (state: SessionTimelineState) => {
+  if (!state.hoveredItemId) return null;
+  return state.items.find((item) => item.id === state.hoveredItemId) || null;
+};
+export const selectPlayheadPosition = (state: SessionTimelineState) => state.playheadPosition;
+export const selectIsPlaying = (state: SessionTimelineState) => state.isPlaying;
+export const selectClockSyncPrompt = (state: SessionTimelineState) => state.clockSyncPrompt;
+export const selectTimelineLoading = (state: SessionTimelineState) => state.isLoading;
+export const selectTimelineError = (state: SessionTimelineState) => state.error;
+export const selectInvestigationTitle = (state: SessionTimelineState) => state.investigationTitle;
 
 export default useSessionTimelineStore;
