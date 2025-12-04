@@ -300,25 +300,6 @@ const AudioTool: React.FC<AudioToolProps> = ({
     gainNode.connect(audioContext.destination);
     gainNodeRef.current = gainNode;
 
-    // Audio event listeners
-    audio.addEventListener('timeupdate', () => {
-      updatePlaybackTime(audio.currentTime);
-    });
-
-    audio.addEventListener('loadedmetadata', () => {
-      setDuration(audio.duration);
-      onAudioLoaded?.(audio.duration);
-    });
-
-    audio.addEventListener('ended', () => {
-      if (playback.looping && !activeLoopId) {
-        audio.currentTime = 0;
-        audio.play();
-      } else {
-        pause();
-      }
-    });
-
     return () => {
       audio.pause();
       audio.src = '';
@@ -328,6 +309,40 @@ const AudioTool: React.FC<AudioToolProps> = ({
       audioContext.close();
     };
   }, []);
+
+  // Setup audio event listeners with proper dependencies
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const handleTimeUpdate = () => {
+      updatePlaybackTime(audio.currentTime);
+    };
+
+    const handleLoadedMetadata = () => {
+      setDuration(audio.duration);
+      onAudioLoaded?.(audio.duration);
+    };
+
+    const handleEnded = () => {
+      if (playback.looping && !activeLoopId) {
+        audio.currentTime = 0;
+        audio.play();
+      } else {
+        pause();
+      }
+    };
+
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('ended', handleEnded);
+
+    return () => {
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.removeEventListener('ended', handleEnded);
+    };
+  }, [updatePlaybackTime, setDuration, onAudioLoaded, playback.looping, activeLoopId, pause]);
 
   // Load audio from URL
   useEffect(() => {
@@ -360,14 +375,14 @@ const AudioTool: React.FC<AudioToolProps> = ({
         }
       })
       .catch(console.error);
-  }, [audioUrl, evidenceId, investigationId]);
+  }, [audioUrl, evidenceId, investigationId, loadAudio, setAudioBuffer]);
 
   // Use external audio buffer if provided
   useEffect(() => {
     if (externalAudioBuffer) {
       setAudioBuffer(externalAudioBuffer);
     }
-  }, [externalAudioBuffer]);
+  }, [externalAudioBuffer, setAudioBuffer]);
 
   // Sync playback state
   useEffect(() => {

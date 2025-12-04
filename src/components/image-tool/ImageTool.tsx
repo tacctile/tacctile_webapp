@@ -167,77 +167,73 @@ const ImageTool: React.FC<ImageToolProps> = ({
 }) => {
   const [showSettings, setShowSettings] = useState(false);
 
-  // Store state
-  const {
-    imageElement,
-    originalDimensions,
-    viewMode,
-    compareMode,
-    compareEditIds,
-    zoom,
-    panX,
-    panY,
-    fitToView,
-    activeTool,
-    adjustments,
-    crop,
-    activeFilterId,
-    annotations,
-    selectedAnnotationId,
-    annotationDefaults,
-    recipes,
-    userEdits,
-    activeUserEditId,
-    // isLoading is used for UI state
-    showAdjustmentsPanel,
-    showAnnotationsPanel,
-    showRecipesPanel,
-  } = useImageToolStore();
+  // Store state - use selectors for stable references
+  const imageElement = useImageToolStore((state) => state.imageElement);
+  const originalDimensions = useImageToolStore((state) => state.originalDimensions);
+  const viewMode = useImageToolStore((state) => state.viewMode);
+  const compareMode = useImageToolStore((state) => state.compareMode);
+  const compareEditIds = useImageToolStore((state) => state.compareEditIds);
+  const zoom = useImageToolStore((state) => state.zoom);
+  const panX = useImageToolStore((state) => state.panX);
+  const panY = useImageToolStore((state) => state.panY);
+  const fitToView = useImageToolStore((state) => state.fitToView);
+  const activeTool = useImageToolStore((state) => state.activeTool);
+  const adjustments = useImageToolStore((state) => state.adjustments);
+  const crop = useImageToolStore((state) => state.crop);
+  const activeFilterId = useImageToolStore((state) => state.activeFilterId);
+  const annotations = useImageToolStore((state) => state.annotations);
+  const selectedAnnotationId = useImageToolStore((state) => state.selectedAnnotationId);
+  const annotationDefaults = useImageToolStore((state) => state.annotationDefaults);
+  const recipes = useImageToolStore((state) => state.recipes);
+  const userEdits = useImageToolStore((state) => state.userEdits);
+  const activeUserEditId = useImageToolStore((state) => state.activeUserEditId);
+  const showAdjustmentsPanel = useImageToolStore((state) => state.showAdjustmentsPanel);
+  const showAnnotationsPanel = useImageToolStore((state) => state.showAnnotationsPanel);
+  const showRecipesPanel = useImageToolStore((state) => state.showRecipesPanel);
+  const currentImageUrl = useImageToolStore((state) => state.imageUrl);
 
-  // Store actions
-  const {
-    loadImage,
-    setImageElement,
-    setViewMode,
-    setCompareMode,
-    setCompareEdits,
-    zoomIn,
-    zoomOut,
-    setPan,
-    doFitToView,
-    setActiveTool,
-    setAdjustment,
-    resetAdjustments,
-    resetAdjustment,
-    setCrop,
-    addAnnotation,
-    updateAnnotation,
-    deleteAnnotation,
-    selectAnnotation,
-    setAnnotationVisibility,
-    setAnnotationDefaults,
-    clearAnnotations,
-    bringAnnotationToFront,
-    sendAnnotationToBack,
-    undo,
-    redo,
-    canUndo,
-    canRedo,
-    saveRecipe,
-    applyRecipe,
-    deleteRecipe,
-    saveUserEdit,
-    loadUserEdit,
-    deleteUserEdit,
-    togglePanel,
-  } = useImageToolStore();
+  // Store actions - extract stable references
+  const loadImage = useImageToolStore((state) => state.loadImage);
+  const setImageElement = useImageToolStore((state) => state.setImageElement);
+  const setViewMode = useImageToolStore((state) => state.setViewMode);
+  const setCompareMode = useImageToolStore((state) => state.setCompareMode);
+  const setCompareEdits = useImageToolStore((state) => state.setCompareEdits);
+  const zoomIn = useImageToolStore((state) => state.zoomIn);
+  const zoomOut = useImageToolStore((state) => state.zoomOut);
+  const setPan = useImageToolStore((state) => state.setPan);
+  const doFitToView = useImageToolStore((state) => state.doFitToView);
+  const setActiveTool = useImageToolStore((state) => state.setActiveTool);
+  const setAdjustment = useImageToolStore((state) => state.setAdjustment);
+  const resetAdjustments = useImageToolStore((state) => state.resetAdjustments);
+  const resetAdjustment = useImageToolStore((state) => state.resetAdjustment);
+  const setCrop = useImageToolStore((state) => state.setCrop);
+  const addAnnotation = useImageToolStore((state) => state.addAnnotation);
+  const updateAnnotation = useImageToolStore((state) => state.updateAnnotation);
+  const deleteAnnotation = useImageToolStore((state) => state.deleteAnnotation);
+  const selectAnnotation = useImageToolStore((state) => state.selectAnnotation);
+  const setAnnotationVisibility = useImageToolStore((state) => state.setAnnotationVisibility);
+  const setAnnotationDefaults = useImageToolStore((state) => state.setAnnotationDefaults);
+  const clearAnnotations = useImageToolStore((state) => state.clearAnnotations);
+  const bringAnnotationToFront = useImageToolStore((state) => state.bringAnnotationToFront);
+  const sendAnnotationToBack = useImageToolStore((state) => state.sendAnnotationToBack);
+  const undo = useImageToolStore((state) => state.undo);
+  const redo = useImageToolStore((state) => state.redo);
+  const canUndo = useImageToolStore((state) => state.canUndo);
+  const canRedo = useImageToolStore((state) => state.canRedo);
+  const saveRecipe = useImageToolStore((state) => state.saveRecipe);
+  const applyRecipe = useImageToolStore((state) => state.applyRecipe);
+  const deleteRecipe = useImageToolStore((state) => state.deleteRecipe);
+  const saveUserEdit = useImageToolStore((state) => state.saveUserEdit);
+  const loadUserEdit = useImageToolStore((state) => state.loadUserEdit);
+  const deleteUserEdit = useImageToolStore((state) => state.deleteUserEdit);
+  const togglePanel = useImageToolStore((state) => state.togglePanel);
 
-  // Load image
+  // Load image - only if URL changed to prevent redundant calls
   useEffect(() => {
-    if (imageUrl && evidenceId && investigationId) {
+    if (imageUrl && evidenceId && investigationId && imageUrl !== currentImageUrl) {
       loadImage(evidenceId, investigationId, imageUrl);
     }
-  }, [imageUrl, evidenceId, investigationId, loadImage]);
+  }, [imageUrl, evidenceId, investigationId, currentImageUrl, loadImage]);
 
   // Notify parent when image loads
   useEffect(() => {

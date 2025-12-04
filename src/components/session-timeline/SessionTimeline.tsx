@@ -212,7 +212,6 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   const [layerPanelCollapsed, setLayerPanelCollapsed] = useState(false);
 
   // Store state
-  const store = useSessionTimelineStore();
   const items = useTimelineItems();
   const visibleItems = useVisibleItems();
   const dataLayers = useDataLayers();
@@ -225,13 +224,32 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   const error = useTimelineError();
   const investigationTitle = useInvestigationTitle();
 
+  // Store actions - extract stable references
+  const loadTimeline = useSessionTimelineStore((state) => state.loadTimeline);
+  const refreshTimeline = useSessionTimelineStore((state) => state.refreshTimeline);
+  const importFromHub = useSessionTimelineStore((state) => state.importFromHub);
+  const setZoomLevel = useSessionTimelineStore((state) => state.setZoomLevel);
+  const zoomIn = useSessionTimelineStore((state) => state.zoomIn);
+  const zoomOut = useSessionTimelineStore((state) => state.zoomOut);
+  const fitToView = useSessionTimelineStore((state) => state.fitToView);
+  const toggleDataLayer = useSessionTimelineStore((state) => state.toggleDataLayer);
+  const showAllLayers = useSessionTimelineStore((state) => state.showAllLayers);
+  const hideAllLayers = useSessionTimelineStore((state) => state.hideAllLayers);
+  const selectItem = useSessionTimelineStore((state) => state.selectItem);
+  const setHoveredItem = useSessionTimelineStore((state) => state.setHoveredItem);
+  const setPlayheadPosition = useSessionTimelineStore((state) => state.setPlayheadPosition);
+  const acknowledgeClockSync = useSessionTimelineStore((state) => state.acknowledgeClockSync);
+  const verifyDeviceClock = useSessionTimelineStore((state) => state.verifyDeviceClock);
+  const selectedItemId = useSessionTimelineStore((state) => state.selectedItemId);
+  const hoveredItemId = useSessionTimelineStore((state) => state.hoveredItemId);
+
   // Scroll state
   const [scrollPosition, setScrollPosition] = useState(0);
 
   // Load timeline on mount
   useEffect(() => {
-    store.loadTimeline(investigationId);
-  }, [investigationId]);
+    loadTimeline(investigationId);
+  }, [investigationId, loadTimeline]);
 
   // Update container width on resize
   useEffect(() => {
@@ -303,8 +321,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
 
   // Handle ruler click (set playhead)
   const handleRulerClick = useCallback((timestamp: number) => {
-    store.setPlayheadPosition(timestamp);
-  }, [store]);
+    setPlayheadPosition(timestamp);
+  }, [setPlayheadPosition]);
 
   // Clock sync dialog
   const [clockSyncDialogOpen, setClockSyncDialogOpen] = useState(false);
@@ -339,7 +357,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
           </Alert>
           <Button
             variant="outlined"
-            onClick={() => store.loadTimeline(investigationId)}
+            onClick={() => loadTimeline(investigationId)}
             sx={{ mt: 2, color: '#19abb5', borderColor: '#19abb5' }}
           >
             Retry
@@ -370,7 +388,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
           <Tooltip title="Zoom out">
             <IconButton
               size="small"
-              onClick={store.zoomOut}
+              onClick={zoomOut}
               disabled={zoomLevel.id === ZOOM_LEVELS[ZOOM_LEVELS.length - 1].id}
               sx={{ color: '#888' }}
             >
@@ -384,7 +402,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
             onChange={(_, value) => {
               if (value) {
                 const level = ZOOM_LEVELS.find((z) => z.id === value);
-                if (level) store.setZoomLevel(level);
+                if (level) setZoomLevel(level);
               }
             }}
             size="small"
@@ -413,7 +431,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
           <Tooltip title="Zoom in">
             <IconButton
               size="small"
-              onClick={store.zoomIn}
+              onClick={zoomIn}
               disabled={zoomLevel.id === ZOOM_LEVELS[0].id}
               sx={{ color: '#888' }}
             >
@@ -422,7 +440,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
           </Tooltip>
 
           <Tooltip title="Fit to view">
-            <IconButton size="small" onClick={store.fitToView} sx={{ color: '#888' }}>
+            <IconButton size="small" onClick={fitToView} sx={{ color: '#888' }}>
               <FitScreenIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -432,7 +450,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
 
         {/* Layer pills */}
         <ToolbarSection sx={{ flex: 1, overflow: 'hidden' }}>
-          <LayerPills layers={dataLayers} onToggleLayer={store.toggleDataLayer} />
+          <LayerPills layers={dataLayers} onToggleLayer={toggleDataLayer} />
         </ToolbarSection>
 
         <ToolbarDivider orientation="vertical" />
@@ -440,7 +458,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
         {/* Actions */}
         <ToolbarSection>
           <Tooltip title="Import from Hub">
-            <IconButton size="small" onClick={store.importFromHub} sx={{ color: '#888' }}>
+            <IconButton size="small" onClick={importFromHub} sx={{ color: '#888' }}>
               <CloudSyncIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -448,7 +466,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
           <Tooltip title="Refresh timeline">
             <IconButton
               size="small"
-              onClick={store.refreshTimeline}
+              onClick={refreshTimeline}
               disabled={isLoading}
               sx={{ color: '#888' }}
             >
@@ -490,7 +508,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
           <ClockSyncBanner
             devices={clockSyncPrompt.devices}
             onOpenDialog={() => setClockSyncDialogOpen(true)}
-            onDismiss={store.acknowledgeClockSync}
+            onDismiss={acknowledgeClockSync}
           />
         </Box>
       )}
@@ -522,7 +540,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                 <Button
                   variant="outlined"
                   startIcon={<CloudSyncIcon />}
-                  onClick={store.importFromHub}
+                  onClick={importFromHub}
                   sx={{ color: '#19abb5', borderColor: '#19abb5' }}
                 >
                   Import from Hub
@@ -551,10 +569,10 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                       timeRange={timeRange}
                       zoomLevel={zoomLevel}
                       scrollPosition={scrollPosition}
-                      selectedItemId={store.selectedItemId}
-                      hoveredItemId={store.hoveredItemId}
-                      onItemSelect={store.selectItem}
-                      onItemHover={store.setHoveredItem}
+                      selectedItemId={selectedItemId}
+                      hoveredItemId={hoveredItemId}
+                      onItemSelect={selectItem}
+                      onItemHover={setHoveredItem}
                       onItemDoubleClick={handleItemDoubleClick}
                     />
                   ))}
@@ -723,9 +741,9 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
 
                   <DataLayerToggle
                     layers={dataLayers}
-                    onToggleLayer={store.toggleDataLayer}
-                    onShowAll={store.showAllLayers}
-                    onHideAll={store.hideAllLayers}
+                    onToggleLayer={toggleDataLayer}
+                    onShowAll={showAllLayers}
+                    onHideAll={hideAllLayers}
                     collapsed={layerPanelCollapsed}
                     onToggleCollapsed={() => setLayerPanelCollapsed(!layerPanelCollapsed)}
                   />
@@ -742,10 +760,10 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
         devices={Array.isArray(clockSyncPrompt.devices) ? clockSyncPrompt.devices : []}
         onClose={() => setClockSyncDialogOpen(false)}
         onAcknowledge={() => {
-          store.acknowledgeClockSync();
+          acknowledgeClockSync();
           setClockSyncDialogOpen(false);
         }}
-        onVerifyDevice={store.verifyDeviceClock}
+        onVerifyDevice={verifyDeviceClock}
       />
     </TimelineContainer>
   );
