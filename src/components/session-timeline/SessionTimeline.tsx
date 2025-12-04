@@ -223,6 +223,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   const isLoading = useSessionTimelineStore(selectTimelineLoading);
   const error = useSessionTimelineStore(selectTimelineError);
   const investigationTitle = useSessionTimelineStore(selectInvestigationTitle);
+  const selectedItemId = useSessionTimelineStore((state) => state.selectedItemId);
+  const hoveredItemId = useSessionTimelineStore((state) => state.hoveredItemId);
 
   // Store actions - extract stable references
   const loadTimeline = useSessionTimelineStore((state) => state.loadTimeline);
@@ -240,8 +242,6 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   const setPlayheadPosition = useSessionTimelineStore((state) => state.setPlayheadPosition);
   const acknowledgeClockSync = useSessionTimelineStore((state) => state.acknowledgeClockSync);
   const verifyDeviceClock = useSessionTimelineStore((state) => state.verifyDeviceClock);
-  const selectedItemId = useSessionTimelineStore((state) => state.selectedItemId);
-  const hoveredItemId = useSessionTimelineStore((state) => state.hoveredItemId);
 
   // Scroll state
   const [scrollPosition, setScrollPosition] = useState(0);
