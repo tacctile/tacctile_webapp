@@ -40,7 +40,7 @@ export const LayoutProvider: React.FC<LayoutProviderProps> = ({ children }) => {
   const [bottomPanelVisible, setBottomPanelVisible] = useState(true);
   const [sidePanelWidth, setSidePanelWidth] = useState(250);
   const [bottomPanelHeight, setBottomPanelHeight] = useState(200);
-  const [selectedTool, setSelectedTool] = useState('photo');
+  const [selectedTool, setSelectedTool] = useState('session');
 
   const value = {
     activityBarExpanded,

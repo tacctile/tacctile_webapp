@@ -3,30 +3,31 @@ import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Divider from '@mui/material/Divider';
-import Badge from '@mui/material/Badge';
 import { styled } from '@mui/material/styles';
-
-// Icons for paranormal investigation tools - using outlined/filled variants
-import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
-import PhotoCameraOutlinedIcon from '@mui/icons-material/PhotoCameraOutlined';
-import VideocamIcon from '@mui/icons-material/Videocam';
-import VideocamOutlinedIcon from '@mui/icons-material/VideocamOutlined';
-import MicIcon from '@mui/icons-material/Mic';
-import MicOutlinedIcon from '@mui/icons-material/MicOutlined';
-import WifiTetheringIcon from '@mui/icons-material/WifiTethering';
-import TimelineIcon from '@mui/icons-material/Timeline';
-import DeviceThermostatIcon from '@mui/icons-material/DeviceThermostat';
-import DeviceThermostatOutlinedIcon from '@mui/icons-material/ThermostatOutlined';
-import BlurOnIcon from '@mui/icons-material/BlurOn';
-import BlurOnOutlinedIcon from '@mui/icons-material/BlurCircularOutlined';
-import RadioIcon from '@mui/icons-material/Radio';
-import RadioOutlinedIcon from '@mui/icons-material/RadioOutlined';
-import SettingsIcon from '@mui/icons-material/Settings';
-import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import PushPinIcon from '@mui/icons-material/PushPin';
 import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined';
 
-const StyledActivityBar = styled(Box)<{ expanded: boolean }>(({ theme, expanded }) => ({
+// Material Symbol component for Google Material Symbols
+interface MaterialSymbolProps {
+  icon: string;
+  filled?: boolean;
+  size?: number;
+  className?: string;
+}
+
+const MaterialSymbol: React.FC<MaterialSymbolProps> = ({ icon, filled = false, size = 24, className }) => (
+  <span
+    className={`material-symbols-outlined ${className || ''}`}
+    style={{
+      fontSize: size,
+      fontVariationSettings: `'FILL' ${filled ? 1 : 0}, 'wght' 400, 'GRAD' 0, 'opsz' 24`,
+    }}
+  >
+    {icon}
+  </span>
+);
+
+const StyledActivityBar = styled(Box)<{ expanded: boolean }>(({ expanded }) => ({
   width: expanded ? 200 : 50,
   backgroundColor: '#181818',
   borderRight: '1px solid #2b2b2b',
@@ -38,7 +39,7 @@ const StyledActivityBar = styled(Box)<{ expanded: boolean }>(({ theme, expanded 
   zIndex: 100,
 }));
 
-const ToolButton = styled(IconButton)<{ selected?: boolean }>(({ theme, selected }) => ({
+const ToolButton = styled(IconButton)<{ selected?: boolean }>(({ selected }) => ({
   width: '100%',
   height: 48,
   borderRadius: 0,
@@ -61,26 +62,42 @@ const ToolLabel = styled('span')({
   whiteSpace: 'nowrap',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
+  fontFamily: '"Manrope", sans-serif',
 });
 
-interface Tool {
+const SectionDivider = styled(Divider)({
+  borderColor: '#2b2b2b',
+  margin: '8px 0',
+});
+
+interface NavItem {
   id: string;
-  icon: React.ReactElement;
-  iconOutlined: React.ReactElement;
+  icon: string;
   label: string;
   tooltip: string;
-  badge?: number;
+  route: string;
 }
 
-const tools: Tool[] = [
-  { id: 'photo', icon: <PhotoCameraIcon />, iconOutlined: <PhotoCameraOutlinedIcon />, label: 'Photo Evidence', tooltip: 'Capture and analyze photos' },
-  { id: 'video', icon: <VideocamIcon />, iconOutlined: <VideocamOutlinedIcon />, label: 'Video Recording', tooltip: 'Record video evidence' },
-  { id: 'audio', icon: <MicIcon />, iconOutlined: <MicOutlinedIcon />, label: 'EVP Recorder', tooltip: 'Electronic Voice Phenomena' },
-  { id: 'emf', icon: <WifiTetheringIcon />, iconOutlined: <WifiTetheringIcon />, label: 'EMF Detector', tooltip: 'Electromagnetic field detection' },
-  { id: 'analysis', icon: <TimelineIcon />, iconOutlined: <TimelineIcon />, label: 'Data Analysis', tooltip: 'Analyze investigation data' },
-  { id: 'thermal', icon: <DeviceThermostatIcon />, iconOutlined: <DeviceThermostatOutlinedIcon />, label: 'Thermal Imaging', tooltip: 'Temperature anomalies' },
-  { id: 'motion', icon: <BlurOnIcon />, iconOutlined: <BlurOnOutlinedIcon />, label: 'Motion Detection', tooltip: 'Detect movement patterns' },
-  { id: 'spiritbox', icon: <RadioIcon />, iconOutlined: <RadioOutlinedIcon />, label: 'Spirit Box', tooltip: 'Radio frequency sweeping' },
+// TOP SECTION - Tools
+const toolsSection: NavItem[] = [
+  { id: 'session', icon: 'home', label: 'Session', tooltip: 'Session Overview timeline', route: '/session' },
+  { id: 'video', icon: 'movie', label: 'Video', tooltip: 'Video analysis tool', route: '/video' },
+  { id: 'audio', icon: 'graphic_eq', label: 'Audio', tooltip: 'Audio analysis tool', route: '/audio' },
+  { id: 'images', icon: 'image', label: 'Images', tooltip: 'Image analysis tool', route: '/images' },
+  { id: 'streaming', icon: 'cell_tower', label: 'Streaming', tooltip: 'Streaming output tool', route: '/streaming' },
+];
+
+// MIDDLE SECTION
+const middleSection: NavItem[] = [
+  { id: 'evidence', icon: 'flag', label: 'Evidence', tooltip: 'All flags/findings list', route: '/evidence' },
+  { id: 'notes', icon: 'sticky_note_2', label: 'Notes', tooltip: 'Case notes and investigation log', route: '/notes' },
+  { id: 'team', icon: 'group', label: 'Team', tooltip: 'Collaborators and permissions', route: '/team' },
+  { id: 'export', icon: 'download', label: 'Export', tooltip: 'Generate .tacc/.teck packages', route: '/export' },
+];
+
+// BOTTOM SECTION
+const bottomSection: NavItem[] = [
+  { id: 'settings', icon: 'settings', label: 'Settings', tooltip: 'User preferences, storage connection, subscription', route: '/settings' },
 ];
 
 interface ActivityBarProps {
@@ -100,6 +117,29 @@ const ActivityBar: React.FC<ActivityBarProps> = ({
   onToolSelect,
   onPinToggle,
 }) => {
+  const renderNavItem = (item: NavItem) => (
+    <Tooltip
+      key={item.id}
+      title={expanded ? '' : item.tooltip}
+      placement="right"
+      arrow
+    >
+      <ToolButton
+        selected={selectedTool === item.id}
+        onClick={() => onToolSelect(item.id)}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: expanded ? 'flex-start' : 'center' }}>
+          <MaterialSymbol
+            icon={item.icon}
+            filled={selectedTool === item.id}
+            size={22}
+          />
+          {expanded && <ToolLabel>{item.label}</ToolLabel>}
+        </Box>
+      </ToolButton>
+    </Tooltip>
+  );
+
   return (
     <StyledActivityBar
       expanded={expanded}
@@ -122,46 +162,25 @@ const ActivityBar: React.FC<ActivityBarProps> = ({
         </IconButton>
       </Box>
 
-      {/* Tools */}
-      <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-        {tools.map((tool) => (
-          <Tooltip
-            key={tool.id}
-            title={expanded ? '' : tool.tooltip}
-            placement="right"
-            arrow
-          >
-            <ToolButton
-              selected={selectedTool === tool.id}
-              onClick={() => onToolSelect(tool.id)}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: expanded ? 'flex-start' : 'center' }}>
-                <Badge
-                  badgeContent={tool.badge}
-                  color="error"
-                  variant="dot"
-                  invisible={!tool.badge}
-                >
-                  {selectedTool === tool.id ? tool.icon : tool.iconOutlined}
-                </Badge>
-                {expanded && <ToolLabel>{tool.label}</ToolLabel>}
-              </Box>
-            </ToolButton>
-          </Tooltip>
-        ))}
+      {/* TOP SECTION - Tools */}
+      <Box sx={{ overflowY: 'auto', overflowX: 'hidden' }}>
+        {toolsSection.map(renderNavItem)}
       </Box>
 
-      <Divider sx={{ borderColor: '#2b2b2b' }} />
+      {/* MIDDLE SECTION */}
+      <SectionDivider />
+      <Box sx={{ overflowY: 'auto', overflowX: 'hidden' }}>
+        {middleSection.map(renderNavItem)}
+      </Box>
 
-      {/* Settings */}
-      <Tooltip title={expanded ? '' : 'Settings'} placement="right" arrow>
-        <ToolButton onClick={() => onToolSelect('settings')}>
-          <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: expanded ? 'flex-start' : 'center' }}>
-            {selectedTool === 'settings' ? <SettingsIcon /> : <SettingsOutlinedIcon />}
-            {expanded && <ToolLabel>Settings</ToolLabel>}
-          </Box>
-        </ToolButton>
-      </Tooltip>
+      {/* Spacer to push bottom section down */}
+      <Box sx={{ flex: 1 }} />
+
+      {/* BOTTOM SECTION */}
+      <SectionDivider />
+      <Box sx={{ pb: 1 }}>
+        {bottomSection.map(renderNavItem)}
+      </Box>
     </StyledActivityBar>
   );
 };

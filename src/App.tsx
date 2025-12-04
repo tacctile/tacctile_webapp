@@ -102,7 +102,7 @@ const App: React.FC = () => {
   const [sidePanelWidth, setSidePanelWidth] = useState(250);
   const [bottomPanelVisible, setBottomPanelVisible] = useState(true);
   const [bottomPanelHeight, setBottomPanelHeight] = useState(200);
-  const [selectedTool, setSelectedTool] = useState('photo');
+  const [selectedTool, setSelectedTool] = useState('session');
   const [openTabs, setOpenTabs] = useState<Array<{id: string, title: string, pinned: boolean}>>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
 
