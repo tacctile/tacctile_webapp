@@ -95,9 +95,13 @@ const darkTheme = createTheme({
   },
 });
 
+const ACTIVITY_BAR_EXPANDED_KEY = 'tacctile_activity_bar_expanded';
+
 const App: React.FC = () => {
-  const [activityBarExpanded, setActivityBarExpanded] = useState(false);
-  const [activityBarPinned, setActivityBarPinned] = useState(false);
+  const [activityBarExpanded, setActivityBarExpanded] = useState(() => {
+    const saved = localStorage.getItem(ACTIVITY_BAR_EXPANDED_KEY);
+    return saved === 'true';
+  });
   const [sidePanelVisible, setSidePanelVisible] = useState(true);
   const [sidePanelWidth, setSidePanelWidth] = useState(250);
   const [bottomPanelVisible, setBottomPanelVisible] = useState(true);
@@ -106,11 +110,13 @@ const App: React.FC = () => {
   const [openTabs, setOpenTabs] = useState<Array<{id: string, title: string, pinned: boolean}>>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
 
-  const handleActivityBarHover = useCallback((hover: boolean) => {
-    if (!activityBarPinned) {
-      setActivityBarExpanded(hover);
-    }
-  }, [activityBarPinned]);
+  const handleActivityBarToggle = useCallback(() => {
+    setActivityBarExpanded(prev => {
+      const newValue = !prev;
+      localStorage.setItem(ACTIVITY_BAR_EXPANDED_KEY, String(newValue));
+      return newValue;
+    });
+  }, []);
 
   const handleToolSelect = useCallback((toolId: string) => {
     setSelectedTool(toolId);
@@ -173,11 +179,9 @@ const App: React.FC = () => {
             {/* Activity Bar */}
             <ActivityBar
               expanded={activityBarExpanded}
-              pinned={activityBarPinned}
               selectedTool={selectedTool}
-              onHover={handleActivityBarHover}
               onToolSelect={handleToolSelect}
-              onPinToggle={() => setActivityBarPinned(!activityBarPinned)}
+              onToggle={handleActivityBarToggle}
             />
 
             {/* Side Panel */}
