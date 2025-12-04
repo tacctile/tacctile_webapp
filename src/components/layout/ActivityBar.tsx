@@ -4,8 +4,8 @@ import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Divider from '@mui/material/Divider';
 import { styled } from '@mui/material/styles';
-import PushPinIcon from '@mui/icons-material/PushPin';
-import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined';
+import MenuIcon from '@mui/icons-material/Menu';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 
 // Material Symbol component for Google Material Symbols
 interface MaterialSymbolProps {
@@ -102,25 +102,21 @@ const bottomSection: NavItem[] = [
 
 interface ActivityBarProps {
   expanded: boolean;
-  pinned: boolean;
   selectedTool: string;
-  onHover: (hover: boolean) => void;
   onToolSelect: (toolId: string) => void;
-  onPinToggle: () => void;
+  onToggle: () => void;
 }
 
 const ActivityBar: React.FC<ActivityBarProps> = ({
   expanded,
-  pinned,
   selectedTool,
-  onHover,
   onToolSelect,
-  onPinToggle,
+  onToggle,
 }) => {
   const renderNavItem = (item: NavItem) => (
     <Tooltip
       key={item.id}
-      title={expanded ? '' : item.tooltip}
+      title={expanded ? '' : item.label}
       placement="right"
       arrow
     >
@@ -141,26 +137,22 @@ const ActivityBar: React.FC<ActivityBarProps> = ({
   );
 
   return (
-    <StyledActivityBar
-      expanded={expanded}
-      onMouseEnter={() => onHover(true)}
-      onMouseLeave={() => onHover(false)}
-    >
-      {/* Pin button */}
-      <Box sx={{ display: 'flex', justifyContent: expanded ? 'flex-end' : 'center', p: 0.5 }}>
-        <IconButton
-          size="small"
-          onClick={onPinToggle}
-          sx={{
-            color: '#858585',
-            opacity: expanded ? 1 : 0,
-            transition: 'opacity 0.2s',
-            '&:hover': { color: '#e1e1e1' },
-          }}
-        >
-          {pinned ? <PushPinIcon fontSize="small" /> : <PushPinOutlinedIcon fontSize="small" />}
-        </IconButton>
-      </Box>
+    <StyledActivityBar expanded={expanded}>
+      {/* Toggle button */}
+      <Tooltip title={expanded ? '' : 'Expand menu'} placement="right" arrow>
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 0.5 }}>
+          <IconButton
+            size="small"
+            onClick={onToggle}
+            sx={{
+              color: '#858585',
+              '&:hover': { color: '#e1e1e1' },
+            }}
+          >
+            {expanded ? <ChevronLeftIcon fontSize="small" /> : <MenuIcon fontSize="small" />}
+          </IconButton>
+        </Box>
+      </Tooltip>
 
       {/* TOP SECTION - Tools */}
       <Box sx={{ overflowY: 'auto', overflowX: 'hidden' }}>
