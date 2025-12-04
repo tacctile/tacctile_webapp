@@ -12,6 +12,7 @@ import EditorArea from '@/components/layout/EditorArea';
 import BottomPanel from '@/components/layout/BottomPanel';
 import StatusBar from '@/components/layout/StatusBar';
 import { LayoutProvider } from '@/contexts/LayoutContext';
+import { StreamingTool } from '@/components/streaming-tool';
 
 // Material 3 Dark Theme with Tacctile Brand Colors
 const darkTheme = createTheme({
@@ -203,23 +204,36 @@ const App: React.FC = () => {
               minWidth: 0,
               overflow: 'hidden'
             }}>
-              {/* Editor Area */}
-              <EditorArea
-                tabs={openTabs}
-                activeTab={activeTab}
-                onTabSelect={setActiveTab}
-                onTabClose={handleCloseTab}
-                onTabPin={handlePinTab}
-                onTabReorder={setOpenTabs}
-              />
-
-              {/* Bottom Panel */}
-              {bottomPanelVisible && (
-                <BottomPanel
-                  height={bottomPanelHeight}
-                  onResize={setBottomPanelHeight}
-                  onClose={() => setBottomPanelVisible(false)}
+              {/* Render Streaming Tool when selected, otherwise Editor Area */}
+              {selectedTool === 'streaming' ? (
+                <StreamingTool
+                  investigationId="current-investigation"
+                  onStreamStart={() => console.log('Stream started')}
+                  onStreamStop={() => console.log('Stream stopped')}
+                  onRecordingStart={() => console.log('Recording started')}
+                  onRecordingStop={(id) => console.log('Recording stopped:', id)}
                 />
+              ) : (
+                <>
+                  {/* Editor Area */}
+                  <EditorArea
+                    tabs={openTabs}
+                    activeTab={activeTab}
+                    onTabSelect={setActiveTab}
+                    onTabClose={handleCloseTab}
+                    onTabPin={handlePinTab}
+                    onTabReorder={setOpenTabs}
+                  />
+
+                  {/* Bottom Panel */}
+                  {bottomPanelVisible && (
+                    <BottomPanel
+                      height={bottomPanelHeight}
+                      onResize={setBottomPanelHeight}
+                      onClose={() => setBottomPanelVisible(false)}
+                    />
+                  )}
+                </>
               )}
             </Box>
           </Box>
