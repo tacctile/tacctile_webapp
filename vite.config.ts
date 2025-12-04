@@ -202,7 +202,9 @@ export default defineConfig({
       '@types': path.resolve(__dirname, './src/types'),
       '@styles': path.resolve(__dirname, './src/styles'),
       '@assets': path.resolve(__dirname, './src/assets')
-    }
+    },
+    // Ensure single React instance across all chunks - critical for MUI/React 19 compatibility
+    dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime']
   },
   build: {
     target: 'esnext',
@@ -219,21 +221,20 @@ export default defineConfig({
       output: {
         // Aggressive manual chunk splitting for <200KB initial bundle
         manualChunks: (id) => {
-          // React core - essential, loaded first
-          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
-            return 'react-core';
+          // React + MUI + Emotion must be in the same chunk to avoid React duplication
+          // This prevents "Cannot read properties of undefined (reading 'useLayoutEffect')" errors
+          if (
+            id.includes('node_modules/react/') ||
+            id.includes('node_modules/react-dom/') ||
+            id.includes('@mui/material') ||
+            id.includes('@mui/system') ||
+            id.includes('@emotion')
+          ) {
+            return 'react-mui';
           }
           // React Router - needed for navigation
           if (id.includes('react-router')) {
             return 'react-router';
-          }
-          // MUI core - keep together to avoid circular dependency issues
-          // Splitting MUI by component type breaks internal dependencies (e.g., ButtonBase)
-          if (id.includes('@mui/material')) {
-            return 'mui-material';
-          }
-          if (id.includes('@mui/system') || id.includes('@emotion')) {
-            return 'mui-system';
           }
           // Heavy libraries - load only when needed
           if (id.includes('three') || id.includes('@react-three')) {
@@ -338,8 +339,12 @@ export default defineConfig({
     include: [
       'react',
       'react-dom',
+      'react/jsx-runtime',
+      'react/jsx-dev-runtime',
       '@emotion/react',
-      '@emotion/styled'
+      '@emotion/styled',
+      '@mui/material',
+      '@mui/system'
     ],
     exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/core']
   }
