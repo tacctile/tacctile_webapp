@@ -491,7 +491,7 @@ const ImageTool: React.FC<ImageToolProps> = ({
               imageElement={imageElement}
               compareMode={compareMode}
               currentAdjustments={adjustments}
-              userEdits={userEdits}
+              userEdits={Array.isArray(userEdits) ? userEdits : []}
               compareEditIds={compareEditIds}
             />
           ) : (
@@ -500,7 +500,7 @@ const ImageTool: React.FC<ImageToolProps> = ({
               imageElement={imageElement}
               adjustments={adjustments}
               crop={crop}
-              annotations={annotations}
+              annotations={Array.isArray(annotations) ? annotations : []}
               selectedAnnotationId={selectedAnnotationId}
               activeTool={activeTool}
               zoom={zoom}
@@ -532,7 +532,7 @@ const ImageTool: React.FC<ImageToolProps> = ({
             {showAnnotationsPanel && (
               <SidePanelSection sx={{ flex: '0 0 auto', maxHeight: '35%', overflow: 'hidden' }}>
                 <AnnotationsPanel
-                  annotations={annotations}
+                  annotations={Array.isArray(annotations) ? annotations : []}
                   selectedAnnotationId={selectedAnnotationId}
                   activeTool={activeTool}
                   annotationDefaults={annotationDefaults}
@@ -551,8 +551,8 @@ const ImageTool: React.FC<ImageToolProps> = ({
             {showRecipesPanel && (
               <SidePanelSection sx={{ flex: 1, overflow: 'hidden' }}>
                 <RecipePanel
-                  recipes={recipes}
-                  userEdits={userEdits}
+                  recipes={Array.isArray(recipes) ? recipes : []}
+                  userEdits={Array.isArray(userEdits) ? userEdits : []}
                   activeRecipeId={activeFilterId}
                   activeUserEditId={activeUserEditId}
                   onApplyRecipe={applyRecipe}
@@ -579,10 +579,10 @@ const ImageTool: React.FC<ImageToolProps> = ({
           )}
           {activeFilterId && (
             <Typography variant="caption" sx={{ color: '#19abb5' }}>
-              Filter: {recipes.find((r) => r.id === activeFilterId)?.name}
+              Filter: {Array.isArray(recipes) ? recipes.find((r) => r.id === activeFilterId)?.name : ''}
             </Typography>
           )}
-          {annotations.length > 0 && (
+          {Array.isArray(annotations) && annotations.length > 0 && (
             <Typography variant="caption">
               {annotations.length} annotation{annotations.length !== 1 ? 's' : ''}
             </Typography>

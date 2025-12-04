@@ -115,13 +115,16 @@ interface EditorAreaProps {
 }
 
 const EditorArea: React.FC<EditorAreaProps> = ({
-  tabs,
+  tabs: tabsProp,
   activeTab,
   onTabSelect,
   onTabClose,
   onTabPin,
   onTabReorder,
 }) => {
+  // Ensure tabs is always an array
+  const tabs = Array.isArray(tabsProp) ? tabsProp : [];
+
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [draggedTab, setDraggedTab] = useState<string | null>(null);
   const [dragOverTab, setDragOverTab] = useState<string | null>(null);

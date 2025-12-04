@@ -265,7 +265,9 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       user_markers: [],
     };
 
-    visibleItems.forEach((item) => {
+    // Ensure visibleItems is an array
+    const safeVisibleItems = Array.isArray(visibleItems) ? visibleItems : [];
+    safeVisibleItems.forEach((item) => {
       const layerType = EVIDENCE_TYPE_TO_LAYER[item.type];
       if (layerType && grouped[layerType]) {
         grouped[layerType].push(item);
@@ -278,15 +280,21 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   // Aggregate all flags
   const allFlags = useMemo(() => {
     const flags: TimelineItemFlag[] = [];
-    items.forEach((item) => {
-      flags.push(...item.flags);
+    // Ensure items is an array
+    const safeItems = Array.isArray(items) ? items : [];
+    safeItems.forEach((item) => {
+      // Ensure item.flags is an array before spreading
+      const itemFlags = Array.isArray(item.flags) ? item.flags : [];
+      flags.push(...itemFlags);
     });
     return flags.sort((a, b) => a.absoluteTimestamp - b.absoluteTimestamp);
   }, [items]);
 
   // Handle item double-click (open in tool)
   const handleItemDoubleClick = useCallback((itemId: string) => {
-    const item = items.find((i) => i.id === itemId);
+    // Ensure items is an array
+    const safeItems = Array.isArray(items) ? items : [];
+    const item = safeItems.find((i) => i.id === itemId);
     if (item) {
       // TODO: Navigate to appropriate tool with this evidence
       console.log('Open in tool:', item);
@@ -308,7 +316,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   }, [clockSyncPrompt.shown, clockSyncPrompt.acknowledged]);
 
   // Render
-  if (isLoading && items.length === 0) {
+  const safeItems = Array.isArray(items) ? items : [];
+  if (isLoading && safeItems.length === 0) {
     return (
       <TimelineContainer>
         <EmptyState>
@@ -476,7 +485,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       </Toolbar>
 
       {/* Clock sync banner */}
-      {!clockSyncPrompt.acknowledged && clockSyncPrompt.devices.length > 0 && (
+      {!clockSyncPrompt.acknowledged && Array.isArray(clockSyncPrompt.devices) && clockSyncPrompt.devices.length > 0 && (
         <Box sx={{ padding: '8px 16px', backgroundColor: '#1a1a1a' }}>
           <ClockSyncBanner
             devices={clockSyncPrompt.devices}
@@ -501,7 +510,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
 
           {/* Tracks */}
           <TracksContainer ref={tracksRef} onScroll={handleScroll}>
-            {items.length === 0 ? (
+            {safeItems.length === 0 ? (
               <EmptyState>
                 <InfoOutlinedIcon sx={{ fontSize: 48, color: '#333', mb: 2 }} />
                 <Typography variant="h6" sx={{ color: '#666', mb: 1 }}>
@@ -669,14 +678,14 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                     <Typography variant="caption" sx={{ color: '#888' }}>
                       Total Items
                     </Typography>
-                    <Typography variant="body2">{items.length}</Typography>
+                    <Typography variant="body2">{safeItems.length}</Typography>
                   </DetailRow>
 
                   <DetailRow>
                     <Typography variant="caption" sx={{ color: '#888' }}>
                       Total Flags
                     </Typography>
-                    <Typography variant="body2">{allFlags.length}</Typography>
+                    <Typography variant="body2">{Array.isArray(allFlags) ? allFlags.length : 0}</Typography>
                   </DetailRow>
 
                   {timeRange && (
@@ -730,7 +739,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       {/* Clock sync dialog */}
       <ClockSyncDialog
         open={clockSyncDialogOpen}
-        devices={clockSyncPrompt.devices}
+        devices={Array.isArray(clockSyncPrompt.devices) ? clockSyncPrompt.devices : []}
         onClose={() => setClockSyncDialogOpen(false)}
         onAcknowledge={() => {
           store.acknowledgeClockSync();
