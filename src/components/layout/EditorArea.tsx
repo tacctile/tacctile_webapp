@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
@@ -13,6 +13,10 @@ import PhotoIcon from '@mui/icons-material/Photo';
 import AudioFileIcon from '@mui/icons-material/AudioFile';
 import VideoFileIcon from '@mui/icons-material/VideoFile';
 import TimelineIcon from '@mui/icons-material/Timeline';
+
+// Tools
+import { ImageTool } from '../image-tool';
+import AudioTool from '../audio-tool/AudioTool';
 
 const TabBar = styled(Box)(({ theme }) => ({
   height: 35,
@@ -68,10 +72,10 @@ const ContentArea = styled(Box)(({ theme }) => ({
   flex: 1,
   backgroundColor: '#1e1e1e',
   display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
+  alignItems: 'stretch',
+  justifyContent: 'stretch',
   position: 'relative',
-  overflow: 'auto',
+  overflow: 'hidden',
 }));
 
 const WelcomeScreen = styled(Box)(({ theme }) => ({
@@ -80,10 +84,14 @@ const WelcomeScreen = styled(Box)(({ theme }) => ({
   color: '#858585',
 }));
 
+type FileType = 'image' | 'audio' | 'video' | 'data' | 'unknown';
+
 interface Tab {
   id: string;
   title: string;
   pinned: boolean;
+  url?: string;
+  fileType?: FileType;
 }
 
 interface EditorAreaProps {
@@ -161,13 +169,72 @@ const EditorArea: React.FC<EditorAreaProps> = ({
     setIsDraggingOver(false);
   };
 
-  const getFileIcon = (fileName: string) => {
+  const getFileType = (fileName: string): FileType => {
     const ext = fileName.split('.').pop()?.toLowerCase();
-    if (['jpg', 'jpeg', 'png', 'gif'].includes(ext || '')) return <PhotoIcon fontSize="small" />;
-    if (['wav', 'mp3', 'ogg'].includes(ext || '')) return <AudioFileIcon fontSize="small" />;
-    if (['mp4', 'avi', 'mov'].includes(ext || '')) return <VideoFileIcon fontSize="small" />;
-    if (['csv', 'json'].includes(ext || '')) return <TimelineIcon fontSize="small" />;
-    return null;
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'svg'].includes(ext || '')) return 'image';
+    if (['wav', 'mp3', 'ogg', 'flac', 'aac', 'm4a'].includes(ext || '')) return 'audio';
+    if (['mp4', 'avi', 'mov', 'mkv', 'webm', 'wmv'].includes(ext || '')) return 'video';
+    if (['csv', 'json', 'xml'].includes(ext || '')) return 'data';
+    return 'unknown';
+  };
+
+  const getFileIcon = (fileName: string) => {
+    const fileType = getFileType(fileName);
+    switch (fileType) {
+      case 'image': return <PhotoIcon fontSize="small" />;
+      case 'audio': return <AudioFileIcon fontSize="small" />;
+      case 'video': return <VideoFileIcon fontSize="small" />;
+      case 'data': return <TimelineIcon fontSize="small" />;
+      default: return null;
+    }
+  };
+
+  // Get active tab info
+  const activeTabInfo = useMemo(() => {
+    if (!activeTab) return null;
+    const tab = tabs.find(t => t.id === activeTab);
+    if (!tab) return null;
+    return {
+      ...tab,
+      fileType: tab.fileType || getFileType(tab.title),
+    };
+  }, [activeTab, tabs]);
+
+  // Render tool content based on file type
+  const renderToolContent = () => {
+    if (!activeTabInfo) return null;
+
+    switch (activeTabInfo.fileType) {
+      case 'image':
+        return (
+          <ImageTool
+            evidenceId={activeTabInfo.id}
+            investigationId="current-investigation"
+            imageUrl={activeTabInfo.url}
+          />
+        );
+      case 'audio':
+        return (
+          <AudioTool
+            evidenceId={activeTabInfo.id}
+            investigationId="current-investigation"
+            audioUrl={activeTabInfo.url}
+          />
+        );
+      case 'video':
+        return (
+          <Box sx={{ p: 2, textAlign: 'center', color: '#888888' }}>
+            <Typography variant="h6">Video Tool</Typography>
+            <Typography variant="body2">Video editing coming soon</Typography>
+          </Box>
+        );
+      default:
+        return (
+          <Box sx={{ p: 2, width: '100%', height: '100%' }}>
+            <Typography variant="h6">{activeTabInfo.title}</Typography>
+          </Box>
+        );
+    }
   };
 
   return (
@@ -272,11 +339,8 @@ const EditorArea: React.FC<EditorAreaProps> = ({
             </Typography>
           </WelcomeScreen>
         ) : (
-          <Box sx={{ p: 2, width: '100%', height: '100%' }}>
-            <Typography variant="h6">
-              {tabs.find(t => t.id === activeTab)?.title}
-            </Typography>
-            {/* Content for each tab would go here */}
+          <Box sx={{ width: '100%', height: '100%', overflow: 'hidden' }}>
+            {renderToolContent()}
           </Box>
         )}
       </ContentArea>
