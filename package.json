@@ -43,12 +43,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/tacctile/tacctile_desktop.git"
+    "url": "https://github.com/tacctile/tacctile_webapp.git"
   },
   "bugs": {
-    "url": "https://github.com/tacctile/tacctile_desktop/issues"
+    "url": "https://github.com/tacctile/tacctile_webapp/issues"
   },
-  "homepage": "https://github.com/tacctile/tacctile_desktop#readme",
+  "homepage": "https://github.com/tacctile/tacctile_webapp#readme",
   "license": "MIT",
   "build": {
     "appId": "com.tacctile.ghosthunter",
