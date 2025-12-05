@@ -3,14 +3,14 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
-import ActivityBar from '@/components/layout/ActivityBar';
-import EditorArea from '@/components/layout/EditorArea';
-import BottomPanel from '@/components/layout/BottomPanel';
+import { TopHeaderBar } from '@/components/layout/TopHeaderBar';
+import { ExpandableLabelRow } from '@/components/layout/ExpandableLabelRow';
 import StatusBar from '@/components/layout/StatusBar';
 import { LayoutProvider } from '@/contexts/LayoutContext';
 import { ErrorBoundary, LoadingSkeleton } from '@/components/common';
 import { useKeyboardShortcuts, createNavigationShortcuts, createViewShortcuts, createEditingShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useNavigationStore } from '@/stores/useNavigationStore';
+import { useAppPersistence } from '@/stores/useAppPersistence';
 
 // Lazy load heavy tool components - only load when user opens that tool
 const HomePage = lazy(() => import('@/components/home/HomePage'));
@@ -22,7 +22,7 @@ const VideoTool = lazy(() => import('@/components/video-tool/VideoTool'));
 const WorkspaceDemo = lazy(() => import('@/pages/WorkspaceDemo'));
 
 // Tool IDs for navigation
-const TOOLS = ['home', 'session', 'video', 'audio', 'images', 'streaming', 'workspace-demo'] as const;
+const TOOLS = ['home', 'session', 'video', 'audio', 'images', 'streaming', 'export', 'notes', 'team', 'settings', 'workspace-demo'] as const;
 type ToolId = typeof TOOLS[number];
 
 // Professional DaVinci-style Dark Theme
@@ -190,8 +190,6 @@ const createAppTheme = (isMobile: boolean) => createTheme({
   },
 });
 
-const ACTIVITY_BAR_EXPANDED_KEY = 'tacctile_activity_bar_expanded';
-
 // Loading fallback component with skeleton matching tool type
 const ToolLoadingFallback: React.FC<{ tool: ToolId }> = ({ tool }) => {
   const variant = useMemo(() => {
@@ -218,53 +216,14 @@ const App: React.FC = () => {
   // Create theme based on device
   const theme = useMemo(() => createAppTheme(isMobile), [isMobile]);
 
-  const [activityBarExpanded, setActivityBarExpanded] = useState(() => {
-    const saved = localStorage.getItem(ACTIVITY_BAR_EXPANDED_KEY);
-    // Default to collapsed on mobile/tablet
-    if (isMobile || isTablet) return false;
-    return saved === 'true';
-  });
-  const [bottomPanelVisible, setBottomPanelVisible] = useState(!isMobile && !isTablet);
-  const [bottomPanelHeight, setBottomPanelHeight] = useState(200);
-  const [openTabs, setOpenTabs] = useState<Array<{id: string, title: string, pinned: boolean}>>([]);
-  const [activeTab, setActiveTab] = useState<string | null>(null);
-
   // Use navigation store for tool selection
   const selectedTool = useNavigationStore((state) => state.activeTool);
   const setActiveTool = useNavigationStore((state) => state.setActiveTool);
-
-  const handleActivityBarToggle = useCallback(() => {
-    setActivityBarExpanded(prev => {
-      const newValue = !prev;
-      localStorage.setItem(ACTIVITY_BAR_EXPANDED_KEY, String(newValue));
-      return newValue;
-    });
-  }, []);
+  const activeSessionId = useAppPersistence((state) => state.activeSessionId);
 
   const handleToolSelect = useCallback((toolId: string) => {
     setActiveTool(toolId as ToolId);
   }, [setActiveTool]);
-
-  const handleOpenFile = useCallback((file: { id: string; name: string }) => {
-    const existingTab = openTabs.find(tab => tab.id === file.id);
-    if (!existingTab) {
-      setOpenTabs([...openTabs, { id: file.id, title: file.name, pinned: false }]);
-    }
-    setActiveTab(file.id);
-  }, [openTabs]);
-
-  const handleCloseTab = useCallback((tabId: string) => {
-    setOpenTabs(openTabs.filter(tab => tab.id !== tabId));
-    if (activeTab === tabId) {
-      setActiveTab(openTabs.length > 1 ? openTabs[0].id : null);
-    }
-  }, [openTabs, activeTab]);
-
-  const handlePinTab = useCallback((tabId: string) => {
-    setOpenTabs(openTabs.map(tab =>
-      tab.id === tabId ? { ...tab, pinned: !tab.pinned } : tab
-    ));
-  }, [openTabs]);
 
   // Navigation shortcuts
   const navigateTool = useCallback((index: number) => {
@@ -306,7 +265,7 @@ const App: React.FC = () => {
     }),
     ...createViewShortcuts({
       toggleFullscreen,
-      toggleBottomPanel: () => setBottomPanelVisible(v => !v),
+      toggleBottomPanel: () => {}, // No bottom panel anymore
     }),
     ...createEditingShortcuts({}),
     // F11 fullscreen override
@@ -387,33 +346,44 @@ const App: React.FC = () => {
             </Suspense>
           </ErrorBoundary>
         );
+      case 'export':
+      case 'notes':
+      case 'team':
+      case 'settings':
+        // Placeholder for tools not yet implemented
+        return (
+          <Box sx={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#555',
+          }}>
+            <Box
+              component="span"
+              className="material-symbols-outlined"
+              sx={{ fontSize: 64, mb: 2, opacity: 0.3 }}
+            >
+              {selectedTool === 'export' ? 'download' :
+               selectedTool === 'notes' ? 'sticky_note_2' :
+               selectedTool === 'team' ? 'group' : 'settings'}
+            </Box>
+            <Box sx={{ fontSize: 14, textTransform: 'capitalize' }}>
+              {selectedTool} - Coming Soon
+            </Box>
+          </Box>
+        );
       default:
         return (
-          <ErrorBoundary toolName="Editor">
-            <>
-              {/* Editor Area */}
-              <EditorArea
-                tabs={openTabs}
-                activeTab={activeTab}
-                onTabSelect={setActiveTab}
-                onTabClose={handleCloseTab}
-                onTabPin={handlePinTab}
-                onTabReorder={setOpenTabs}
-              />
-
-              {/* Bottom Panel - hidden on mobile */}
-              {bottomPanelVisible && !isMobile && (
-                <BottomPanel
-                  height={bottomPanelHeight}
-                  onResize={setBottomPanelHeight}
-                  onClose={() => setBottomPanelVisible(false)}
-                />
-              )}
-            </>
+          <ErrorBoundary toolName="Home">
+            <Suspense fallback={toolFallback}>
+              <HomePage />
+            </Suspense>
           </ErrorBoundary>
         );
     }
-  }, [selectedTool, openTabs, activeTab, handleCloseTab, handlePinTab, bottomPanelVisible, bottomPanelHeight, isMobile]);
+  }, [selectedTool]);
 
   return (
     <ThemeProvider theme={theme}>
@@ -436,57 +406,38 @@ const App: React.FC = () => {
             paddingRight: 'env(safe-area-inset-right)',
           }}
         >
-          {/* Main Layout */}
+          {/* Top Header Bar - Fixed, never collapses */}
+          <TopHeaderBar
+            selectedTool={selectedTool}
+            onToolSelect={handleToolSelect}
+            notificationCount={3}
+            userName="Sarah Chen"
+          />
+
+          {/* Expandable Label Row */}
+          {!isMobile && (
+            <ExpandableLabelRow selectedTool={selectedTool} />
+          )}
+
+          {/* Main Content Area */}
           <Box sx={{
             display: 'flex',
+            flexDirection: 'column',
             flex: 1,
+            minWidth: 0,
             overflow: 'hidden',
-            // Stack vertically on very small screens
-            flexDirection: { xs: 'column', sm: 'row' },
           }}>
-            {/* Activity Bar - bottom on mobile, left on tablet/desktop */}
-            <Box
-              sx={{
-                order: { xs: 1, sm: 0 },
-                // On mobile, show as bottom nav bar
-                position: { xs: 'fixed', sm: 'relative' },
-                bottom: { xs: 0, sm: 'auto' },
-                left: { xs: 0, sm: 'auto' },
-                right: { xs: 0, sm: 'auto' },
-                zIndex: { xs: 1200, sm: 'auto' },
-                backgroundColor: { xs: '#1a1a1a', sm: 'transparent' },
-                borderTop: { xs: '1px solid #2b2b2b', sm: 'none' },
-              }}
-            >
-              <ActivityBar
-                expanded={activityBarExpanded && isDesktop}
-                selectedTool={selectedTool}
-                onToolSelect={handleToolSelect}
-                onToggle={handleActivityBarToggle}
-                compact={isMobile || isTablet}
-              />
-            </Box>
-
-            {/* Main Content Area */}
-            <Box sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              flex: 1,
-              minWidth: 0,
-              overflow: 'hidden',
-              // Add padding at bottom for mobile nav bar
-              pb: { xs: '56px', sm: 0 },
-            }}>
-              {renderTool()}
-            </Box>
+            {renderTool()}
           </Box>
 
-          {/* Status Bar - hidden on mobile */}
+          {/* Status Bar */}
           {!isMobile && (
             <StatusBar
-              investigationName="Investigation_2024_01"
+              investigationName={activeSessionId ? 'Current Session' : 'No Active Session'}
               currentTool={selectedTool}
               syncStatus="synced"
+              sessionName={activeSessionId || undefined}
+              userName="Sarah Chen"
             />
           )}
         </Box>

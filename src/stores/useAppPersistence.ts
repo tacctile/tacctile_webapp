@@ -29,6 +29,9 @@ export interface AppPersistenceState {
   // Panel states per tool
   panelStates: Record<string, Record<string, PanelState>>;
 
+  // UI state
+  labelRowExpanded: boolean;
+
   // Last saved timestamp
   lastSavedAt: number | null;
 
@@ -38,6 +41,7 @@ export interface AppPersistenceState {
   setPlayheadPosition: (position: number) => void;
   setQuickAnalyzeFile: (file: { name: string; type: 'video' | 'audio' | 'image'; url: string } | null) => void;
   setPanelState: (tool: string, panelId: string, state: Partial<PanelState>) => void;
+  setLabelRowExpanded: (expanded: boolean) => void;
   updateLastSaved: () => void;
 
   // Restore helpers
@@ -56,6 +60,7 @@ export const useAppPersistence = create<AppPersistenceState>()(
       playheadPosition: 0,
       quickAnalyzeFile: null,
       panelStates: {},
+      labelRowExpanded: true, // Default expanded for new users
       lastSavedAt: null,
 
       // Actions
@@ -97,6 +102,12 @@ export const useAppPersistence = create<AppPersistenceState>()(
           },
           lastSavedAt: Date.now(),
         })),
+
+      setLabelRowExpanded: (expanded) =>
+        set({
+          labelRowExpanded: expanded,
+          lastSavedAt: Date.now(),
+        }),
 
       updateLastSaved: () => set({ lastSavedAt: Date.now() }),
 

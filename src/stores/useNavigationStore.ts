@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
-export type ToolType = 'home' | 'session' | 'video' | 'audio' | 'images' | 'streaming' | 'workspace-demo';
+export type ToolType = 'home' | 'session' | 'video' | 'audio' | 'images' | 'streaming' | 'export' | 'notes' | 'team' | 'settings' | 'workspace-demo';
 
 interface NavigationState {
   activeTool: ToolType;
