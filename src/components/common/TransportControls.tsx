@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback } from 'react';
-import { Box, IconButton, Typography, Slider, Tooltip } from '@mui/material';
+import { Box, IconButton, Typography, Slider, Tooltip, Button } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
 import FastRewindIcon from '@mui/icons-material/FastRewind';
@@ -7,6 +7,8 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import FastForwardIcon from '@mui/icons-material/FastForward';
 import SkipNextIcon from '@mui/icons-material/SkipNext';
+import ReplayIcon from '@mui/icons-material/Replay';
+import LoopIcon from '@mui/icons-material/Loop';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
 
 const TransportContainer = styled(Box)({
@@ -158,6 +160,46 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
         <IconButton size="small" onClick={jumpToEnd} sx={{ color: '#888' }}>
           <SkipNextIcon />
         </IconButton>
+      </Tooltip>
+
+      {/* Divider */}
+      <Box sx={{ width: 1, height: 20, backgroundColor: '#333', mx: 1 }} />
+
+      {/* Reverse and Loop buttons */}
+      <Tooltip title="Reverse playback">
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<ReplayIcon sx={{ fontSize: 14 }} />}
+          sx={{
+            fontSize: 9,
+            color: '#666',
+            borderColor: '#333',
+            minWidth: 'auto',
+            px: 1,
+            '&:hover': { borderColor: '#19abb5', color: '#19abb5' }
+          }}
+        >
+          Rev
+        </Button>
+      </Tooltip>
+
+      <Tooltip title="Loop playback">
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<LoopIcon sx={{ fontSize: 14 }} />}
+          sx={{
+            fontSize: 9,
+            color: '#666',
+            borderColor: '#333',
+            minWidth: 'auto',
+            px: 1,
+            '&:hover': { borderColor: '#19abb5', color: '#19abb5' }
+          }}
+        >
+          Loop
+        </Button>
       </Tooltip>
 
       {showSpeed && (

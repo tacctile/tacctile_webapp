@@ -79,12 +79,11 @@ const WaveformSection = styled(Box)({
 });
 
 const EQSection = styled(Box)({
-  height: 160,
-  backgroundColor: '#111',
+  height: 150,
+  backgroundColor: '#0d0d0d',
   borderBottom: '1px solid #252525',
   display: 'flex',
   flexDirection: 'column',
-  padding: '8px 12px',
 });
 
 const ToolbarSection = styled(Box)({
@@ -769,28 +768,37 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         {renderWaveform()}
       </WaveformSection>
 
-      {/* EQ Section */}
+      {/* EQ Section - thinner header */}
       <EQSection>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-          <Typography sx={{ fontSize: 10, fontWeight: 600, color: '#666', textTransform: 'uppercase' }}>
-            Parametric EQ
+        <Box sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          height: 24,
+          px: 1,
+          borderBottom: '1px solid #1a1a1a',
+        }}>
+          <Typography sx={{ fontSize: 9, fontWeight: 600, color: '#555', textTransform: 'uppercase' }}>
+            EQ
           </Typography>
           <Button
             size="small"
             onClick={resetEQ}
             disabled={!loadedAudio}
-            sx={{ fontSize: 9, color: '#555', minWidth: 'auto', py: 0, px: 1, '&:hover': { color: '#19abb5' } }}
+            sx={{ fontSize: 8, color: '#444', minWidth: 'auto', py: 0, px: 1, '&:hover': { color: '#19abb5' } }}
           >
-            Reset All
+            Reset
           </Button>
         </Box>
 
-        <IntegratedEQ
-          values={eqValues}
-          onChange={handleEQChange}
-          analyzerData={meterLevels}
-          disabled={!loadedAudio}
-        />
+        <Box sx={{ flex: 1, p: 1 }}>
+          <IntegratedEQ
+            values={eqValues}
+            onChange={handleEQChange}
+            analyzerData={meterLevels}
+            disabled={!loadedAudio}
+          />
+        </Box>
       </EQSection>
 
       {/* Filter Bar - always visible */}
@@ -844,24 +852,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
           <FilterValue>{filters.speed}x</FilterValue>
         </FilterItem>
 
-        <Box sx={{ width: 1, height: 24, backgroundColor: '#333', mx: 1 }} />
-
-        <FilterButton
-          variant="outlined"
-          startIcon={<ReplayIcon sx={{ fontSize: 12 }} />}
-          disabled={!loadedAudio}
-        >
-          Reverse
-        </FilterButton>
-
-        <FilterButton
-          variant="outlined"
-          startIcon={<LoopIcon sx={{ fontSize: 12 }} />}
-          disabled={!loadedAudio}
-        >
-          Loop
-        </FilterButton>
-
+        {/* Just a spacer - NO background color */}
         <Box sx={{ flex: 1 }} />
 
         <Button
