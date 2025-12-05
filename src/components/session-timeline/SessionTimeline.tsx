@@ -23,6 +23,9 @@ import {
   Select,
   MenuItem,
   FormControl,
+  Tooltip,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -34,9 +37,8 @@ import ImageIcon from '@mui/icons-material/Image';
 import PersonIcon from '@mui/icons-material/Person';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import VolumeOffIcon from '@mui/icons-material/VolumeOff';
-import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import DragHandleIcon from '@mui/icons-material/DragHandle';
 
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
@@ -79,13 +81,18 @@ interface TimelineFlag {
   color?: string;
 }
 
-interface VideoTrack {
-  id: string;
-  fileName: string;
-  userName: string;
-  visible: boolean;
-  muted: boolean;
-}
+// Lane height options
+type LaneHeightSize = 'small' | 'medium' | 'large';
+const LANE_HEIGHT_MULTIPLIERS: Record<LaneHeightSize, number> = {
+  small: 0.5,
+  medium: 1,
+  large: 1.5,
+};
+const BASE_LANE_HEIGHT = 36;
+
+// LocalStorage keys
+const STORAGE_KEY_LANE_HEIGHT = 'sessionTimeline_laneHeight';
+const STORAGE_KEY_DIVIDER_POSITION = 'sessionTimeline_dividerPosition';
 
 interface SwimLane {
   id: string;
@@ -410,51 +417,42 @@ const VideoPlaceholder = styled(Box)({
   color: '#444',
 });
 
-const VideoTrackSelector = styled(Box)({
-  position: 'absolute',
-  top: 8,
-  left: 8,
+// Resizable divider between video preview and timeline
+const ResizeDivider = styled(Box)({
+  height: 8,
+  backgroundColor: '#1a1a1a',
+  borderTop: '1px solid #252525',
+  borderBottom: '1px solid #252525',
+  cursor: 'row-resize',
   display: 'flex',
-  flexDirection: 'column',
-  gap: 4,
-  backgroundColor: 'rgba(0, 0, 0, 0.85)',
-  borderRadius: 4,
-  padding: '8px',
-  maxHeight: 240,
-  overflowY: 'auto',
-  border: '1px solid #333',
-  '&::-webkit-scrollbar': {
-    width: 4,
+  alignItems: 'center',
+  justifyContent: 'center',
+  transition: 'background-color 0.15s',
+  '&:hover': {
+    backgroundColor: '#252525',
   },
-  '&::-webkit-scrollbar-thumb': {
-    backgroundColor: '#444',
-    borderRadius: 2,
+  '&:active': {
+    backgroundColor: '#333',
   },
 });
 
-const VideoTrackItem = styled(Box)<{ active?: boolean }>(({ active }) => ({
+// Lane height control toolbar
+const LaneHeightToolbar = styled(Box)({
   display: 'flex',
   alignItems: 'center',
-  gap: 6,
-  fontSize: 10,
-  color: active ? '#ccc' : '#666',
-  cursor: 'pointer',
-  padding: '4px 6px',
-  borderRadius: 2,
-  backgroundColor: active ? 'rgba(25, 171, 181, 0.1)' : 'transparent',
-  '&:hover': {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-  },
-}));
+  gap: 8,
+  padding: '4px 12px',
+  backgroundColor: '#161616',
+  borderBottom: '1px solid #252525',
+});
 
-// Timeline Section (Bottom of Center)
+// Timeline Section (Bottom of Center) - height controlled dynamically
 const TimelineSection = styled(Box)({
-  height: 320,
-  minHeight: 200,
+  minHeight: 150,
   backgroundColor: '#0d0d0d',
   display: 'flex',
   flexDirection: 'column',
-  borderTop: '1px solid #252525',
+  overflow: 'hidden',
 });
 
 const TimeRuler = styled(Box)({
@@ -527,29 +525,33 @@ const SectionTitle = styled(Typography)({
   flex: 1,
 });
 
-const SwimLane = styled(Box)({
-  height: 36,
+// SwimLane height is now controlled dynamically
+const SwimLane = styled(Box)<{ laneHeight?: number; dimmed?: boolean }>(({ laneHeight = 36, dimmed = false }) => ({
+  height: laneHeight,
+  minHeight: 18,
   display: 'flex',
   alignItems: 'center',
   position: 'relative',
   borderBottom: '1px solid #1a1a1a',
   backgroundColor: '#0d0d0d',
-});
+  opacity: dimmed ? 0.5 : 1,
+  transition: 'opacity 0.15s, height 0.15s',
+}));
 
-const LaneLabel = styled(Box)({
+const LaneLabel = styled(Box)<{ laneHeight?: number }>(({ laneHeight = 36 }) => ({
   width: 100,
   minWidth: 100,
   padding: '0 8px',
   display: 'flex',
   alignItems: 'center',
   gap: 4,
-  fontSize: 10,
+  fontSize: laneHeight < 24 ? 8 : 10,
   color: '#666',
   backgroundColor: '#141414',
   height: '100%',
   borderRight: '1px solid #1f1f1f',
   overflow: 'hidden',
-});
+}));
 
 const LaneContent = styled(Box)({
   flex: 1,
@@ -558,7 +560,11 @@ const LaneContent = styled(Box)({
   overflow: 'hidden',
 });
 
-const TimelineClip = styled(Box)<{ clipType: 'video' | 'audio' | 'image'; highlighted?: boolean }>(({ clipType, highlighted }) => {
+const TimelineClip = styled(Box)<{
+  clipType: 'video' | 'audio' | 'image';
+  highlighted?: boolean;
+  clipHeight?: number;
+}>(({ clipType, highlighted, clipHeight = 28 }) => {
   const colors: Record<string, string> = {
     video: '#c45c5c',
     audio: '#5a9a6b',
@@ -567,20 +573,22 @@ const TimelineClip = styled(Box)<{ clipType: 'video' | 'audio' | 'image'; highli
   return {
     position: 'absolute',
     top: 4,
-    height: 28,
+    height: Math.max(16, clipHeight),
     backgroundColor: colors[clipType] || '#666',
     borderRadius: 3,
     display: 'flex',
     alignItems: 'center',
     padding: '0 8px',
+    paddingLeft: 4,
+    gap: 4,
     cursor: 'pointer',
     overflow: 'hidden',
     whiteSpace: 'nowrap',
-    fontSize: 10,
+    fontSize: clipHeight < 20 ? 8 : 10,
     color: '#fff',
     border: highlighted ? '2px solid #19abb5' : '2px solid transparent',
     boxShadow: highlighted ? '0 0 10px rgba(25, 171, 181, 0.6)' : 'none',
-    transition: 'border-color 0.15s, box-shadow 0.15s',
+    transition: 'border-color 0.15s, box-shadow 0.15s, height 0.15s',
     '&:hover': {
       filter: 'brightness(1.15)',
       zIndex: 5,
@@ -588,22 +596,45 @@ const TimelineClip = styled(Box)<{ clipType: 'video' | 'audio' | 'image'; highli
   };
 });
 
-const TimelineImage = styled(Box)<{ highlighted?: boolean }>(({ highlighted }) => ({
+const TimelineImage = styled(Box)<{ highlighted?: boolean; imageHeight?: number }>(({ highlighted, imageHeight = 28 }) => ({
   position: 'absolute',
   top: 4,
-  width: 16,
-  height: 28,
+  width: Math.max(16, imageHeight * 0.6),
+  height: Math.max(16, imageHeight),
   backgroundColor: '#5a7fbf',
   borderRadius: 3,
   cursor: 'pointer',
   border: highlighted ? '2px solid #19abb5' : '2px solid transparent',
   boxShadow: highlighted ? '0 0 10px rgba(25, 171, 181, 0.6)' : 'none',
   display: 'flex',
+  flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
+  gap: 2,
+  transition: 'width 0.15s, height 0.15s',
   '&:hover': {
     filter: 'brightness(1.15)',
     zIndex: 5,
+  },
+}));
+
+// Eyeball visibility button on clips
+const ClipVisibilityButton = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  cursor: 'pointer',
+  padding: 2,
+  borderRadius: 2,
+  transition: 'all 0.15s',
+  flexShrink: 0,
+  '&:hover': {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  '& svg': {
+    color: isActive ? '#19abb5' : 'rgba(255, 255, 255, 0.4)',
+    fontSize: 14,
+    transition: 'color 0.15s',
   },
 }));
 
@@ -717,10 +748,35 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   const [audioSectionCollapsed, setAudioSectionCollapsed] = useState(false);
   const [imagesSectionCollapsed, setImagesSectionCollapsed] = useState(false);
 
-  // Video track visibility and state
-  const [videoTracks, setVideoTracks] = useState<VideoTrack[]>([]);
-  const [activeVideoTrack, setActiveVideoTrack] = useState<string | null>(null);
-  const [isVideoMuted, setIsVideoMuted] = useState(false);
+  // Active file visibility - only one file can be active at a time
+  const [activeFileId, setActiveFileId] = useState<string | null>(null);
+
+  // Lane height setting (persisted to localStorage)
+  const [laneHeightSize, setLaneHeightSize] = useState<LaneHeightSize>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEY_LANE_HEIGHT);
+      if (saved && (saved === 'small' || saved === 'medium' || saved === 'large')) {
+        return saved as LaneHeightSize;
+      }
+    }
+    return 'medium';
+  });
+
+  // Resizable divider position (percentage of container height for video preview)
+  // Default is 50% for video preview area
+  const [dividerPosition, setDividerPosition] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEY_DIVIDER_POSITION);
+      if (saved) {
+        const val = parseFloat(saved);
+        if (!isNaN(val) && val >= 20 && val <= 80) {
+          return val;
+        }
+      }
+    }
+    return 50;
+  });
+  const [isDraggingDivider, setIsDraggingDivider] = useState(false);
 
   // Flag user filter
   const [flagUserFilter, setFlagUserFilter] = useState<string>('all');
@@ -774,22 +830,35 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     }
   }, [timeRange, setSessionBounds, setGlobalTimestamp, globalTimestamp]);
 
-  // Generate video tracks from items
+  // Initialize active file to first video on mount
   useEffect(() => {
-    const videos = items.filter((item) => item.type === 'video');
-    setVideoTracks(
-      videos.map((v) => ({
-        id: v.id,
-        fileName: v.fileName,
-        userName: v.user || 'Unassigned',
-        visible: true,
-        muted: false,
-      }))
-    );
-    if (videos.length > 0 && !activeVideoTrack) {
-      setActiveVideoTrack(videos[0].id);
+    if (items.length > 0 && !activeFileId) {
+      const firstVideo = items.find((item) => item.type === 'video');
+      if (firstVideo) {
+        setActiveFileId(firstVideo.id);
+      }
     }
-  }, [items, activeVideoTrack]);
+  }, [items, activeFileId]);
+
+  // Persist lane height to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_LANE_HEIGHT, laneHeightSize);
+  }, [laneHeightSize]);
+
+  // Persist divider position to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_DIVIDER_POSITION, dividerPosition.toString());
+  }, [dividerPosition]);
+
+  // Calculate the actual lane height in pixels
+  const laneHeight = useMemo(() => {
+    return Math.round(BASE_LANE_HEIGHT * LANE_HEIGHT_MULTIPLIERS[laneHeightSize]);
+  }, [laneHeightSize]);
+
+  // Clip height is lane height minus top padding (4px each side)
+  const clipHeight = useMemo(() => {
+    return Math.max(16, laneHeight - 8);
+  }, [laneHeight]);
 
   // Determine which image is at current playhead position
   useEffect(() => {
@@ -1029,12 +1098,48 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     [setGlobalTimestamp]
   );
 
-  // Toggle video track visibility
-  const toggleVideoTrack = useCallback((trackId: string) => {
-    setVideoTracks((prev) =>
-      prev.map((t) => (t.id === trackId ? { ...t, visible: !t.visible } : t))
-    );
+  // Toggle file visibility (only one can be active at a time)
+  const handleFileVisibilityToggle = useCallback((fileId: string) => {
+    setActiveFileId((prev) => (prev === fileId ? null : fileId));
   }, []);
+
+  // Handle lane height change
+  const handleLaneHeightChange = useCallback(
+    (_: React.MouseEvent<HTMLElement>, newSize: LaneHeightSize | null) => {
+      if (newSize !== null) {
+        setLaneHeightSize(newSize);
+      }
+    },
+    []
+  );
+
+  // Handle divider drag for resizing
+  const handleDividerDrag = useCallback(
+    (e: React.MouseEvent) => {
+      if (!containerRef.current) return;
+      e.preventDefault();
+      setIsDraggingDivider(true);
+
+      const containerRect = containerRef.current.getBoundingClientRect();
+
+      const handleMove = (moveEvent: MouseEvent) => {
+        const y = moveEvent.clientY - containerRect.top;
+        const percent = (y / containerRect.height) * 100;
+        // Clamp between 20% and 80%
+        setDividerPosition(Math.max(20, Math.min(80, percent)));
+      };
+
+      const handleUp = () => {
+        setIsDraggingDivider(false);
+        document.removeEventListener('mousemove', handleMove);
+        document.removeEventListener('mouseup', handleUp);
+      };
+
+      document.addEventListener('mousemove', handleMove);
+      document.addEventListener('mouseup', handleUp);
+    },
+    []
+  );
 
   // Format time for ruler
   const formatRulerTime = (timestamp: number): string => {
@@ -1072,23 +1177,51 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     laneItems: TimelineMediaItem[],
     laneType: 'video' | 'audio' | 'image'
   ) => {
+    // Calculate max chars for file name based on clip height
+    const maxChars = clipHeight < 20 ? 12 : clipHeight < 24 ? 18 : 25;
+
     return laneItems.map((item) => {
       const pos = getClipPosition(item.capturedAt, item.duration);
       const isHighlighted =
         item.capturedAt <= globalTimestamp &&
         (item.endAt ? item.endAt >= globalTimestamp : item.capturedAt + 1000 >= globalTimestamp);
+      const isActive = activeFileId === item.id;
+      const isDimmed = activeFileId !== null && !isActive;
 
       if (laneType === 'image') {
+        const iconSize = clipHeight < 20 ? 8 : clipHeight < 24 ? 10 : 12;
         return (
           <TimelineImage
             key={item.id}
             highlighted={isHighlighted}
-            sx={{ left: pos.left }}
+            imageHeight={clipHeight}
+            sx={{
+              left: pos.left,
+              opacity: isDimmed ? 0.5 : 1,
+              transition: 'opacity 0.15s',
+            }}
             onClick={(e) => { e.stopPropagation(); handleItemClick(item); }}
             onDoubleClick={(e) => { e.stopPropagation(); handleItemDoubleClick(item); }}
             title={item.fileName}
           >
-            <PhotoIcon sx={{ fontSize: 10, color: '#fff' }} />
+            <Tooltip title={isActive ? 'Active - click to deactivate' : 'Click to activate'} placement="top">
+              <ClipVisibilityButton
+                isActive={isActive}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleFileVisibilityToggle(item.id);
+                }}
+              >
+                {isActive ? (
+                  <VisibilityIcon sx={{ fontSize: `${iconSize}px !important` }} />
+                ) : (
+                  <VisibilityOffIcon sx={{ fontSize: `${iconSize}px !important` }} />
+                )}
+              </ClipVisibilityButton>
+            </Tooltip>
+            {clipHeight >= 24 && (
+              <PhotoIcon sx={{ fontSize: iconSize, color: '#fff' }} />
+            )}
           </TimelineImage>
         );
       }
@@ -1113,27 +1246,53 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
         );
       });
 
+      const eyeIconSize = clipHeight < 20 ? 10 : clipHeight < 24 ? 12 : 14;
+
       return (
         <TimelineClip
           key={item.id}
           clipType={laneType}
           highlighted={isHighlighted}
-          sx={{ left: pos.left, width: pos.width, minWidth: 40 }}
+          clipHeight={clipHeight}
+          sx={{
+            left: pos.left,
+            width: pos.width,
+            minWidth: clipHeight < 20 ? 30 : 40,
+            opacity: isDimmed ? 0.5 : 1,
+            transition: 'opacity 0.15s',
+          }}
           onClick={(e) => { e.stopPropagation(); handleItemClick(item); }}
           onDoubleClick={(e) => { e.stopPropagation(); handleItemDoubleClick(item); }}
           title={`${item.fileName}\nDouble-click to open in ${laneType} tool`}
         >
+          {/* Eyeball visibility toggle */}
+          <Tooltip title={isActive ? 'Active - click to deactivate' : 'Click to activate'} placement="top">
+            <ClipVisibilityButton
+              isActive={isActive}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleFileVisibilityToggle(item.id);
+              }}
+            >
+              {isActive ? (
+                <VisibilityIcon sx={{ fontSize: `${eyeIconSize}px !important` }} />
+              ) : (
+                <VisibilityOffIcon sx={{ fontSize: `${eyeIconSize}px !important` }} />
+              )}
+            </ClipVisibilityButton>
+          </Tooltip>
           <Typography
             sx={{
-              fontSize: 10,
+              fontSize: clipHeight < 20 ? 8 : 10,
               color: '#fff',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
               flex: 1,
+              minWidth: 0,
             }}
           >
-            {item.fileName.length > 25 ? item.fileName.substring(0, 22) + '...' : item.fileName}
+            {item.fileName.length > maxChars ? item.fileName.substring(0, maxChars - 3) + '...' : item.fileName}
           </Typography>
           {clipFlags}
         </TimelineClip>
@@ -1158,119 +1317,102 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     );
   }
 
-  // Get active video for preview
-  const activeVideo = items.find((i) => i.id === activeVideoTrack);
-  const visibleVideoTracks = videoTracks.filter((t) => t.visible);
+  // Get active video for preview (now based on activeFileId)
+  const activeVideo = items.find((i) => i.id === activeFileId && i.type === 'video');
+
+  // Check if any lanes have items that should be dimmed
+  const hasActiveFile = activeFileId !== null;
 
   // Main content (center area)
   const mainContent = (
     <MainContainer ref={containerRef}>
-      {/* Video Preview Section */}
-      <VideoPreviewSection>
-        {visibleVideoTracks.length > 0 ? (
-          <>
-            {/* Video player placeholder */}
-            <Box
-              sx={{
-                width: '100%',
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background:
-                  'linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 50%, #1a1a1a 100%)',
-                flexDirection: 'column',
-              }}
-            >
-              <VideocamIcon sx={{ fontSize: 48, color: '#333', mb: 1 }} />
-              <Typography sx={{ color: '#555', fontSize: 12 }}>
-                {activeVideo?.fileName || 'Video preview'}
-              </Typography>
-              <Typography sx={{ color: '#444', fontSize: 10, mt: 0.5 }}>
-                {new Date(globalTimestamp).toLocaleTimeString()}
-              </Typography>
-            </Box>
-
-            {/* Video track selector */}
-            <VideoTrackSelector>
-              <Typography
-                sx={{
-                  fontSize: 9,
-                  color: '#666',
-                  textTransform: 'uppercase',
-                  fontWeight: 600,
-                  mb: 1,
-                  px: 0.5,
-                }}
-              >
-                Video Tracks
-              </Typography>
-              {videoTracks.map((track) => (
-                <VideoTrackItem
-                  key={track.id}
-                  active={track.visible}
-                >
-                  <IconButton
-                    size="small"
-                    onClick={() => toggleVideoTrack(track.id)}
-                    sx={{ padding: 0, color: track.visible ? '#19abb5' : '#555' }}
-                  >
-                    {track.visible ? (
-                      <VisibilityIcon sx={{ fontSize: 14 }} />
-                    ) : (
-                      <VisibilityOffIcon sx={{ fontSize: 14 }} />
-                    )}
-                  </IconButton>
-                  <Typography
-                    sx={{
-                      fontSize: 10,
-                      color: track.visible ? '#ccc' : '#555',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      flex: 1,
-                      cursor: 'pointer',
-                    }}
-                    onClick={() => setActiveVideoTrack(track.id)}
-                  >
-                    {track.fileName}
-                  </Typography>
-                  <Typography sx={{ fontSize: 9, color: '#555' }}>
-                    {track.userName}
-                  </Typography>
-                </VideoTrackItem>
-              ))}
-
-              {/* Audio mute toggle */}
-              <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid #333' }}>
-                <VideoTrackItem onClick={() => setIsVideoMuted(!isVideoMuted)}>
-                  {isVideoMuted ? (
-                    <VolumeOffIcon sx={{ fontSize: 14, color: '#c45c5c' }} />
-                  ) : (
-                    <VolumeUpIcon sx={{ fontSize: 14, color: '#19abb5' }} />
-                  )}
-                  <Typography sx={{ fontSize: 10, color: '#888' }}>
-                    {isVideoMuted ? 'Audio muted' : 'Audio enabled'}
-                  </Typography>
-                </VideoTrackItem>
-              </Box>
-            </VideoTrackSelector>
-          </>
-        ) : (
-          <VideoPlaceholder>
-            <VideocamIcon sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
-            <Typography sx={{ fontSize: 12, color: '#555' }}>
-              No video tracks visible
+      {/* Video Preview Section - height controlled by divider */}
+      <VideoPreviewSection
+        sx={{
+          height: `${dividerPosition}%`,
+          flex: 'none',
+          userSelect: isDraggingDivider ? 'none' : 'auto',
+        }}
+      >
+        {/* Video player placeholder */}
+        <Box
+          sx={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background:
+              'linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 50%, #1a1a1a 100%)',
+            flexDirection: 'column',
+          }}
+        >
+          <VideocamIcon sx={{ fontSize: 48, color: '#333', mb: 1 }} />
+          <Typography sx={{ color: '#555', fontSize: 12 }}>
+            {activeVideo?.fileName || 'Video preview'}
+          </Typography>
+          <Typography sx={{ color: '#444', fontSize: 10, mt: 0.5 }}>
+            {new Date(globalTimestamp).toLocaleTimeString()}
+          </Typography>
+          {activeVideo && (
+            <Typography sx={{ color: '#19abb5', fontSize: 9, mt: 0.5 }}>
+              Active file
             </Typography>
-            <Typography sx={{ fontSize: 10, color: '#444', mt: 0.5 }}>
-              Enable tracks in the selector above
-            </Typography>
-          </VideoPlaceholder>
-        )}
+          )}
+        </Box>
       </VideoPreviewSection>
 
-      {/* Timeline Section */}
-      <TimelineSection>
+      {/* Resizable Divider */}
+      <ResizeDivider onMouseDown={handleDividerDrag}>
+        <DragHandleIcon sx={{ fontSize: 16, color: '#555' }} />
+      </ResizeDivider>
+
+      {/* Timeline Section - takes remaining height */}
+      <TimelineSection
+        sx={{
+          flex: 1,
+          userSelect: isDraggingDivider ? 'none' : 'auto',
+        }}
+      >
+        {/* Lane Height Controls Toolbar */}
+        <LaneHeightToolbar>
+          <Typography sx={{ fontSize: 9, color: '#666', textTransform: 'uppercase' }}>
+            Lane Height:
+          </Typography>
+          <ToggleButtonGroup
+            value={laneHeightSize}
+            exclusive
+            onChange={handleLaneHeightChange}
+            size="small"
+            sx={{
+              '& .MuiToggleButton-root': {
+                padding: '2px 8px',
+                fontSize: 9,
+                color: '#666',
+                border: '1px solid #333',
+                textTransform: 'none',
+                '&.Mui-selected': {
+                  backgroundColor: 'rgba(25, 171, 181, 0.2)',
+                  color: '#19abb5',
+                  '&:hover': {
+                    backgroundColor: 'rgba(25, 171, 181, 0.3)',
+                  },
+                },
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                },
+              },
+            }}
+          >
+            <ToggleButton value="small">S</ToggleButton>
+            <ToggleButton value="medium">M</ToggleButton>
+            <ToggleButton value="large">L</ToggleButton>
+          </ToggleButtonGroup>
+          <Typography sx={{ fontSize: 9, color: '#555', ml: 1 }}>
+            {laneHeightSize === 'small' ? '0.5x' : laneHeightSize === 'medium' ? '1x' : '1.5x'}
+          </Typography>
+        </LaneHeightToolbar>
+
         {/* Time Ruler */}
         <TimeRuler>{renderTimeRuler()}</TimeRuler>
 
@@ -1314,12 +1456,12 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
               <>
                 {/* Per-user lanes (permanent) */}
                 {laneData.users.map((user) => (
-                  <SwimLane key={`video-${user}`}>
-                    <LaneLabel>
-                      <PersonIcon sx={{ fontSize: 12, color: '#555' }} />
+                  <SwimLane key={`video-${user}`} laneHeight={laneHeight}>
+                    <LaneLabel laneHeight={laneHeight}>
+                      <PersonIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: '#555' }} />
                       <Typography
                         sx={{
-                          fontSize: 10,
+                          fontSize: laneHeight < 24 ? 8 : 10,
                           color: '#888',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
@@ -1336,9 +1478,9 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                 ))}
                 {/* Catch-all lane (only if has items) */}
                 {laneData.videoCatchAll.length > 0 && (
-                  <SwimLane>
-                    <LaneLabel>
-                      <Typography sx={{ fontSize: 10, color: '#666', fontStyle: 'italic' }}>
+                  <SwimLane laneHeight={laneHeight}>
+                    <LaneLabel laneHeight={laneHeight}>
+                      <Typography sx={{ fontSize: laneHeight < 24 ? 8 : 10, color: '#666', fontStyle: 'italic' }}>
                         Unassigned
                       </Typography>
                     </LaneLabel>
@@ -1371,12 +1513,12 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
             {!audioSectionCollapsed && (
               <>
                 {laneData.users.map((user) => (
-                  <SwimLane key={`audio-${user}`}>
-                    <LaneLabel>
-                      <PersonIcon sx={{ fontSize: 12, color: '#555' }} />
+                  <SwimLane key={`audio-${user}`} laneHeight={laneHeight}>
+                    <LaneLabel laneHeight={laneHeight}>
+                      <PersonIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: '#555' }} />
                       <Typography
                         sx={{
-                          fontSize: 10,
+                          fontSize: laneHeight < 24 ? 8 : 10,
                           color: '#888',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
@@ -1392,9 +1534,9 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                   </SwimLane>
                 ))}
                 {laneData.audioCatchAll.length > 0 && (
-                  <SwimLane>
-                    <LaneLabel>
-                      <Typography sx={{ fontSize: 10, color: '#666', fontStyle: 'italic' }}>
+                  <SwimLane laneHeight={laneHeight}>
+                    <LaneLabel laneHeight={laneHeight}>
+                      <Typography sx={{ fontSize: laneHeight < 24 ? 8 : 10, color: '#666', fontStyle: 'italic' }}>
                         Unassigned
                       </Typography>
                     </LaneLabel>
@@ -1427,12 +1569,12 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
             {!imagesSectionCollapsed && (
               <>
                 {laneData.users.map((user) => (
-                  <SwimLane key={`images-${user}`}>
-                    <LaneLabel>
-                      <PersonIcon sx={{ fontSize: 12, color: '#555' }} />
+                  <SwimLane key={`images-${user}`} laneHeight={laneHeight}>
+                    <LaneLabel laneHeight={laneHeight}>
+                      <PersonIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: '#555' }} />
                       <Typography
                         sx={{
-                          fontSize: 10,
+                          fontSize: laneHeight < 24 ? 8 : 10,
                           color: '#888',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
@@ -1448,9 +1590,9 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                   </SwimLane>
                 ))}
                 {laneData.imagesCatchAll.length > 0 && (
-                  <SwimLane>
-                    <LaneLabel>
-                      <Typography sx={{ fontSize: 10, color: '#666', fontStyle: 'italic' }}>
+                  <SwimLane laneHeight={laneHeight}>
+                    <LaneLabel laneHeight={laneHeight}>
+                      <Typography sx={{ fontSize: laneHeight < 24 ? 8 : 10, color: '#666', fontStyle: 'italic' }}>
                         Unassigned
                       </Typography>
                     </LaneLabel>
