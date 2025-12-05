@@ -3,21 +3,26 @@
  * Rebuilt to match the exact layout structure and styling of Video, Audio, and Image Tools
  *
  * Layout:
- * - LEFT PANEL: EvidenceBank + MetadataPanel (280px)
+ * - LEFT PANEL (280px): EvidenceBank + MetadataPanel
  * - CENTER: Video preview (top) + Timeline with swim lanes (bottom)
- * - RIGHT PANEL: Image preview (top) + FlagsPanel (bottom)
+ * - RIGHT PANEL (280px): Image preview (top) + FlagsPanel (bottom)
  * - BOTTOM: TransportControls (48px)
+ *
+ * Infrastructure kept for Phase 2:
+ * - User lane data structure supporting 10+ users
+ * - Device metadata fields
+ * - Clock sync logic (just not the popup)
  */
 
 import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react';
-import { useShallow } from 'zustand/react/shallow';
 import {
   Box,
   Typography,
   CircularProgress,
-  Alert,
-  Button,
-  Checkbox,
+  IconButton,
+  Select,
+  MenuItem,
+  FormControl,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -27,22 +32,353 @@ import MicIcon from '@mui/icons-material/Mic';
 import PhotoIcon from '@mui/icons-material/Photo';
 import ImageIcon from '@mui/icons-material/Image';
 import PersonIcon from '@mui/icons-material/Person';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import VolumeOffIcon from '@mui/icons-material/VolumeOff';
+import VolumeUpIcon from '@mui/icons-material/VolumeUp';
+import FilterListIcon from '@mui/icons-material/FilterList';
 
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
 import { MetadataPanel, FlagsPanel, type Flag } from '@/components/common';
 
-import {
-  useSessionTimelineStore,
-  selectTimelineItems,
-  selectTimeRange,
-  selectTimelineLoading,
-  selectTimelineError,
-} from '../../stores/useSessionTimelineStore';
 import { usePlayheadStore } from '../../stores/usePlayheadStore';
 import { useNavigationStore } from '../../stores/useNavigationStore';
 
-import type { TimelineItem } from '../../types/session';
+// ============================================================================
+// TYPES
+// ============================================================================
+
+interface TimelineMediaItem {
+  id: string;
+  evidenceId: string;
+  type: 'video' | 'audio' | 'photo';
+  fileName: string;
+  thumbnailUrl?: string;
+  capturedAt: number; // absolute timestamp
+  duration?: number; // seconds
+  endAt?: number; // absolute timestamp
+  user: string;
+  deviceInfo?: string;
+  format?: string;
+  gps?: string;
+  flagCount: number;
+  hasEdits: boolean;
+  flags: TimelineFlag[];
+}
+
+interface TimelineFlag {
+  id: string;
+  timestamp: number; // relative to file start (seconds)
+  absoluteTimestamp: number;
+  title: string;
+  note?: string;
+  confidence: 'low' | 'medium' | 'high';
+  userId: string;
+  userDisplayName: string;
+  color?: string;
+}
+
+interface VideoTrack {
+  id: string;
+  fileName: string;
+  userName: string;
+  visible: boolean;
+  muted: boolean;
+}
+
+interface SwimLane {
+  id: string;
+  user: string;
+  type: 'video' | 'audio' | 'image';
+  isPermanent: boolean;
+  items: TimelineMediaItem[];
+}
+
+// ============================================================================
+// DUMMY DATA - Multiple users with comprehensive media files
+// ============================================================================
+
+const USERS = ['Sarah', 'Mike', 'Jen'];
+
+const generateDummyData = (): TimelineMediaItem[] => {
+  // Session starts 2 hours ago, spans 90 minutes
+  const sessionStart = Date.now() - 2 * 60 * 60 * 1000;
+
+  const items: TimelineMediaItem[] = [
+    // Sarah's videos
+    {
+      id: 'v1',
+      evidenceId: 'ev-v1',
+      type: 'video',
+      fileName: 'sarah_main_camera.mp4',
+      capturedAt: sessionStart,
+      duration: 2400, // 40 min
+      endAt: sessionStart + 2400 * 1000,
+      user: 'Sarah',
+      deviceInfo: 'Sony A7IV',
+      format: 'H.265 / 4K',
+      gps: '39.95°N, 75.16°W',
+      flagCount: 3,
+      hasEdits: true,
+      flags: [
+        { id: 'f1', timestamp: 342, absoluteTimestamp: sessionStart + 342 * 1000, title: 'Shadow movement', note: 'Dark figure moved across doorway', confidence: 'medium', userId: 'sarah', userDisplayName: 'Sarah', color: '#ff6b6b' },
+        { id: 'f2', timestamp: 1124, absoluteTimestamp: sessionStart + 1124 * 1000, title: 'Light anomaly', confidence: 'low', userId: 'sarah', userDisplayName: 'Sarah', color: '#ffe66d' },
+        { id: 'f3', timestamp: 1890, absoluteTimestamp: sessionStart + 1890 * 1000, title: 'Cold spot detected', note: 'Temperature dropped 8 degrees', confidence: 'high', userId: 'mike', userDisplayName: 'Mike', color: '#4ecdc4' },
+      ],
+    },
+    {
+      id: 'v2',
+      evidenceId: 'ev-v2',
+      type: 'video',
+      fileName: 'sarah_handheld.mp4',
+      capturedAt: sessionStart + 45 * 60 * 1000, // 45 min in
+      duration: 1200, // 20 min
+      endAt: sessionStart + 45 * 60 * 1000 + 1200 * 1000,
+      user: 'Sarah',
+      deviceInfo: 'iPhone 15 Pro',
+      format: 'H.265 / 4K',
+      gps: '39.95°N, 75.16°W',
+      flagCount: 2,
+      hasEdits: false,
+      flags: [
+        { id: 'f4', timestamp: 234, absoluteTimestamp: sessionStart + 45 * 60 * 1000 + 234 * 1000, title: 'Orb captured', confidence: 'medium', userId: 'jen', userDisplayName: 'Jen', color: '#a855f7' },
+        { id: 'f5', timestamp: 890, absoluteTimestamp: sessionStart + 45 * 60 * 1000 + 890 * 1000, title: 'Door moved', note: 'Door closed on its own', confidence: 'high', userId: 'sarah', userDisplayName: 'Sarah', color: '#ff6b6b' },
+      ],
+    },
+    // Mike's videos
+    {
+      id: 'v3',
+      evidenceId: 'ev-v3',
+      type: 'video',
+      fileName: 'mike_basement_cam.mp4',
+      capturedAt: sessionStart + 10 * 60 * 1000, // 10 min in
+      duration: 3600, // 60 min
+      endAt: sessionStart + 10 * 60 * 1000 + 3600 * 1000,
+      user: 'Mike',
+      deviceInfo: 'GoPro Hero 11',
+      format: 'H.264 / 4K',
+      gps: '39.95°N, 75.16°W',
+      flagCount: 1,
+      hasEdits: true,
+      flags: [
+        { id: 'f6', timestamp: 1567, absoluteTimestamp: sessionStart + 10 * 60 * 1000 + 1567 * 1000, title: 'Footsteps heard', note: 'Clear footsteps on floor above', confidence: 'high', userId: 'mike', userDisplayName: 'Mike', color: '#4ecdc4' },
+      ],
+    },
+    // Jen's video
+    {
+      id: 'v4',
+      evidenceId: 'ev-v4',
+      type: 'video',
+      fileName: 'jen_static_attic.mp4',
+      capturedAt: sessionStart + 5 * 60 * 1000,
+      duration: 4800, // 80 min
+      endAt: sessionStart + 5 * 60 * 1000 + 4800 * 1000,
+      user: 'Jen',
+      deviceInfo: 'Wyze Cam v3',
+      format: 'H.264 / 1080p',
+      gps: null,
+      flagCount: 0,
+      hasEdits: false,
+      flags: [],
+    },
+    // Unassigned video (catch-all lane)
+    {
+      id: 'v5',
+      evidenceId: 'ev-v5',
+      type: 'video',
+      fileName: 'imported_security_footage.mp4',
+      capturedAt: sessionStart + 30 * 60 * 1000,
+      duration: 1800, // 30 min
+      endAt: sessionStart + 30 * 60 * 1000 + 1800 * 1000,
+      user: '', // No user - goes to catch-all
+      deviceInfo: 'Security DVR',
+      format: 'H.264 / 720p',
+      gps: null,
+      flagCount: 1,
+      hasEdits: false,
+      flags: [
+        { id: 'f7', timestamp: 456, absoluteTimestamp: sessionStart + 30 * 60 * 1000 + 456 * 1000, title: 'Motion detected', confidence: 'low', userId: 'system', userDisplayName: 'System', color: '#9ca3af' },
+      ],
+    },
+
+    // Sarah's audio
+    {
+      id: 'a1',
+      evidenceId: 'ev-a1',
+      type: 'audio',
+      fileName: 'sarah_recorder_master.wav',
+      capturedAt: sessionStart + 5 * 60 * 1000,
+      duration: 3000, // 50 min
+      endAt: sessionStart + 5 * 60 * 1000 + 3000 * 1000,
+      user: 'Sarah',
+      deviceInfo: 'Zoom H6',
+      format: 'WAV / 96kHz',
+      gps: null,
+      flagCount: 4,
+      hasEdits: true,
+      flags: [
+        { id: 'f8', timestamp: 482, absoluteTimestamp: sessionStart + 5 * 60 * 1000 + 482 * 1000, title: 'Class A EVP - Voice', note: 'Clear voice saying "help me"', confidence: 'high', userId: 'sarah', userDisplayName: 'Sarah', color: '#ff6b6b' },
+        { id: 'f9', timestamp: 1256, absoluteTimestamp: sessionStart + 5 * 60 * 1000 + 1256 * 1000, title: 'Whisper detected', confidence: 'medium', userId: 'sarah', userDisplayName: 'Sarah', color: '#ff6b6b' },
+        { id: 'f10', timestamp: 1890, absoluteTimestamp: sessionStart + 5 * 60 * 1000 + 1890 * 1000, title: 'Unexplained knock', confidence: 'medium', userId: 'mike', userDisplayName: 'Mike', color: '#4ecdc4' },
+        { id: 'f11', timestamp: 2400, absoluteTimestamp: sessionStart + 5 * 60 * 1000 + 2400 * 1000, title: 'Breathing sound', note: 'Heavy breathing, no one present', confidence: 'high', userId: 'jen', userDisplayName: 'Jen', color: '#a855f7' },
+      ],
+    },
+    // Mike's audio
+    {
+      id: 'a2',
+      evidenceId: 'ev-a2',
+      type: 'audio',
+      fileName: 'mike_spirit_box_session.wav',
+      capturedAt: sessionStart + 60 * 60 * 1000, // 1 hour in
+      duration: 900, // 15 min
+      endAt: sessionStart + 60 * 60 * 1000 + 900 * 1000,
+      user: 'Mike',
+      deviceInfo: 'SB7 Spirit Box',
+      format: 'WAV / 48kHz',
+      gps: null,
+      flagCount: 2,
+      hasEdits: false,
+      flags: [
+        { id: 'f12', timestamp: 156, absoluteTimestamp: sessionStart + 60 * 60 * 1000 + 156 * 1000, title: 'Response to question', note: 'Said name when asked', confidence: 'medium', userId: 'mike', userDisplayName: 'Mike', color: '#4ecdc4' },
+        { id: 'f13', timestamp: 567, absoluteTimestamp: sessionStart + 60 * 60 * 1000 + 567 * 1000, title: 'Multiple words', confidence: 'low', userId: 'mike', userDisplayName: 'Mike', color: '#4ecdc4' },
+      ],
+    },
+    // Jen's audio
+    {
+      id: 'a3',
+      evidenceId: 'ev-a3',
+      type: 'audio',
+      fileName: 'jen_ambient_recording.wav',
+      capturedAt: sessionStart,
+      duration: 5400, // 90 min - full session
+      endAt: sessionStart + 5400 * 1000,
+      user: 'Jen',
+      deviceInfo: 'Tascam DR-40X',
+      format: 'WAV / 96kHz',
+      gps: null,
+      flagCount: 1,
+      hasEdits: false,
+      flags: [
+        { id: 'f14', timestamp: 3200, absoluteTimestamp: sessionStart + 3200 * 1000, title: 'Loud bang', note: 'Origin unknown', confidence: 'high', userId: 'jen', userDisplayName: 'Jen', color: '#a855f7' },
+      ],
+    },
+
+    // Sarah's images
+    {
+      id: 'i1',
+      evidenceId: 'ev-i1',
+      type: 'photo',
+      fileName: 'sarah_anomaly_window.jpg',
+      capturedAt: sessionStart + 25 * 60 * 1000,
+      user: 'Sarah',
+      deviceInfo: 'Canon EOS R5',
+      format: 'RAW / CR3',
+      gps: '39.95°N, 75.16°W',
+      flagCount: 1,
+      hasEdits: true,
+      flags: [
+        { id: 'f15', timestamp: 0, absoluteTimestamp: sessionStart + 25 * 60 * 1000, title: 'Figure in window', note: 'Possible figure reflection', confidence: 'low', userId: 'sarah', userDisplayName: 'Sarah', color: '#ff6b6b' },
+      ],
+    },
+    {
+      id: 'i2',
+      evidenceId: 'ev-i2',
+      type: 'photo',
+      fileName: 'sarah_cold_spot.jpg',
+      capturedAt: sessionStart + 52 * 60 * 1000,
+      user: 'Sarah',
+      deviceInfo: 'iPhone 15 Pro',
+      format: 'HEIC',
+      gps: '39.95°N, 75.16°W',
+      flagCount: 0,
+      hasEdits: false,
+      flags: [],
+    },
+    // Mike's images
+    {
+      id: 'i3',
+      evidenceId: 'ev-i3',
+      type: 'photo',
+      fileName: 'mike_orb_hallway.jpg',
+      capturedAt: sessionStart + 35 * 60 * 1000,
+      user: 'Mike',
+      deviceInfo: 'Full Spectrum Camera',
+      format: 'JPEG',
+      gps: null,
+      flagCount: 2,
+      hasEdits: true,
+      flags: [
+        { id: 'f16', timestamp: 0, absoluteTimestamp: sessionStart + 35 * 60 * 1000, title: 'Multiple orbs', note: '3 distinct orbs visible', confidence: 'medium', userId: 'mike', userDisplayName: 'Mike', color: '#4ecdc4' },
+        { id: 'f17', timestamp: 0, absoluteTimestamp: sessionStart + 35 * 60 * 1000, title: 'Light streak', confidence: 'low', userId: 'sarah', userDisplayName: 'Sarah', color: '#ff6b6b' },
+      ],
+    },
+    {
+      id: 'i4',
+      evidenceId: 'ev-i4',
+      type: 'photo',
+      fileName: 'mike_basement_corner.jpg',
+      capturedAt: sessionStart + 72 * 60 * 1000,
+      user: 'Mike',
+      deviceInfo: 'GoPro Hero 11',
+      format: 'JPEG',
+      gps: null,
+      flagCount: 0,
+      hasEdits: false,
+      flags: [],
+    },
+    // Jen's images
+    {
+      id: 'i5',
+      evidenceId: 'ev-i5',
+      type: 'photo',
+      fileName: 'jen_thermal_capture.jpg',
+      capturedAt: sessionStart + 45 * 60 * 1000,
+      user: 'Jen',
+      deviceInfo: 'FLIR One Pro',
+      format: 'JPEG / Thermal',
+      gps: null,
+      flagCount: 1,
+      hasEdits: false,
+      flags: [
+        { id: 'f18', timestamp: 0, absoluteTimestamp: sessionStart + 45 * 60 * 1000, title: 'Cold spot - 12°F drop', confidence: 'high', userId: 'jen', userDisplayName: 'Jen', color: '#a855f7' },
+      ],
+    },
+    {
+      id: 'i6',
+      evidenceId: 'ev-i6',
+      type: 'photo',
+      fileName: 'jen_attic_shadow.jpg',
+      capturedAt: sessionStart + 68 * 60 * 1000,
+      user: 'Jen',
+      deviceInfo: 'Wyze Cam v3',
+      format: 'JPEG',
+      gps: null,
+      flagCount: 1,
+      hasEdits: true,
+      flags: [
+        { id: 'f19', timestamp: 0, absoluteTimestamp: sessionStart + 68 * 60 * 1000, title: 'Shadow figure', note: 'Human-shaped shadow with no source', confidence: 'medium', userId: 'jen', userDisplayName: 'Jen', color: '#a855f7' },
+      ],
+    },
+    // Unassigned image
+    {
+      id: 'i7',
+      evidenceId: 'ev-i7',
+      type: 'photo',
+      fileName: 'imported_old_photo.jpg',
+      capturedAt: sessionStart + 20 * 60 * 1000,
+      user: '', // No user - goes to catch-all
+      deviceInfo: 'Unknown',
+      format: 'JPEG',
+      gps: null,
+      flagCount: 0,
+      hasEdits: false,
+      flags: [],
+    },
+  ];
+
+  return items;
+};
 
 // ============================================================================
 // STYLED COMPONENTS
@@ -81,30 +417,39 @@ const VideoTrackSelector = styled(Box)({
   display: 'flex',
   flexDirection: 'column',
   gap: 4,
-  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  backgroundColor: 'rgba(0, 0, 0, 0.85)',
   borderRadius: 4,
   padding: '8px',
-  maxHeight: 200,
+  maxHeight: 240,
   overflowY: 'auto',
+  border: '1px solid #333',
+  '&::-webkit-scrollbar': {
+    width: 4,
+  },
+  '&::-webkit-scrollbar-thumb': {
+    backgroundColor: '#444',
+    borderRadius: 2,
+  },
 });
 
-const VideoTrackItem = styled(Box)({
+const VideoTrackItem = styled(Box)<{ active?: boolean }>(({ active }) => ({
   display: 'flex',
   alignItems: 'center',
   gap: 6,
   fontSize: 10,
-  color: '#ccc',
+  color: active ? '#ccc' : '#666',
   cursor: 'pointer',
-  padding: '2px 4px',
+  padding: '4px 6px',
   borderRadius: 2,
+  backgroundColor: active ? 'rgba(25, 171, 181, 0.1)' : 'transparent',
   '&:hover': {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
-});
+}));
 
 // Timeline Section (Bottom of Center)
 const TimelineSection = styled(Box)({
-  height: 300,
+  height: 320,
   minHeight: 200,
   backgroundColor: '#0d0d0d',
   display: 'flex',
@@ -120,13 +465,23 @@ const TimeRuler = styled(Box)({
   alignItems: 'center',
   position: 'relative',
   overflow: 'hidden',
+  paddingLeft: 100, // Offset for lane labels
+});
+
+const TimeRulerTick = styled(Box)({
+  position: 'absolute',
+  height: '100%',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
 });
 
 const TimeRulerLabel = styled(Typography)({
-  position: 'absolute',
   fontSize: 9,
   color: '#555',
   fontFamily: '"JetBrains Mono", monospace',
+  whiteSpace: 'nowrap',
 });
 
 const SwimLanesContainer = styled(Box)({
@@ -157,6 +512,7 @@ const SwimLaneSectionHeader = styled(Box)<{ color: string }>(({ color }) => ({
   padding: '6px 12px',
   backgroundColor: '#1a1a1a',
   cursor: 'pointer',
+  userSelect: 'none',
   '&:hover': {
     backgroundColor: '#1e1e1e',
   },
@@ -172,7 +528,7 @@ const SectionTitle = styled(Typography)({
 });
 
 const SwimLane = styled(Box)({
-  height: 32,
+  height: 36,
   display: 'flex',
   alignItems: 'center',
   position: 'relative',
@@ -192,6 +548,7 @@ const LaneLabel = styled(Box)({
   backgroundColor: '#141414',
   height: '100%',
   borderRight: '1px solid #1f1f1f',
+  overflow: 'hidden',
 });
 
 const LaneContent = styled(Box)({
@@ -201,7 +558,7 @@ const LaneContent = styled(Box)({
   overflow: 'hidden',
 });
 
-const TimelineClip = styled(Box)<{ type: 'video' | 'audio' | 'image'; highlighted?: boolean }>(({ type, highlighted }) => {
+const TimelineClip = styled(Box)<{ clipType: 'video' | 'audio' | 'image'; highlighted?: boolean }>(({ clipType, highlighted }) => {
   const colors: Record<string, string> = {
     video: '#c45c5c',
     audio: '#5a9a6b',
@@ -210,22 +567,23 @@ const TimelineClip = styled(Box)<{ type: 'video' | 'audio' | 'image'; highlighte
   return {
     position: 'absolute',
     top: 4,
-    height: 24,
-    backgroundColor: colors[type] || '#666',
-    borderRadius: 2,
+    height: 28,
+    backgroundColor: colors[clipType] || '#666',
+    borderRadius: 3,
     display: 'flex',
     alignItems: 'center',
-    padding: '0 6px',
+    padding: '0 8px',
     cursor: 'pointer',
     overflow: 'hidden',
     whiteSpace: 'nowrap',
-    fontSize: 9,
+    fontSize: 10,
     color: '#fff',
     border: highlighted ? '2px solid #19abb5' : '2px solid transparent',
-    boxShadow: highlighted ? '0 0 8px rgba(25, 171, 181, 0.5)' : 'none',
+    boxShadow: highlighted ? '0 0 10px rgba(25, 171, 181, 0.6)' : 'none',
     transition: 'border-color 0.15s, box-shadow 0.15s',
     '&:hover': {
-      filter: 'brightness(1.1)',
+      filter: 'brightness(1.15)',
+      zIndex: 5,
     },
   };
 });
@@ -233,32 +591,34 @@ const TimelineClip = styled(Box)<{ type: 'video' | 'audio' | 'image'; highlighte
 const TimelineImage = styled(Box)<{ highlighted?: boolean }>(({ highlighted }) => ({
   position: 'absolute',
   top: 4,
-  width: 12,
-  height: 24,
+  width: 16,
+  height: 28,
   backgroundColor: '#5a7fbf',
-  borderRadius: 2,
+  borderRadius: 3,
   cursor: 'pointer',
   border: highlighted ? '2px solid #19abb5' : '2px solid transparent',
-  boxShadow: highlighted ? '0 0 8px rgba(25, 171, 181, 0.5)' : 'none',
+  boxShadow: highlighted ? '0 0 10px rgba(25, 171, 181, 0.6)' : 'none',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   '&:hover': {
-    filter: 'brightness(1.1)',
+    filter: 'brightness(1.15)',
+    zIndex: 5,
   },
 }));
 
-const FlagMarker = styled(Box)<{ color?: string }>(({ color }) => ({
+const FlagDot = styled(Box)<{ color?: string }>(({ color }) => ({
   position: 'absolute',
-  top: 8,
-  width: 8,
-  height: 8,
+  top: 2,
+  width: 6,
+  height: 6,
   backgroundColor: color || '#19abb5',
   borderRadius: '50%',
   cursor: 'pointer',
-  zIndex: 5,
+  zIndex: 10,
   '&:hover': {
-    transform: 'scale(1.3)',
+    transform: 'scale(1.5)',
+    boxShadow: `0 0 6px ${color || '#19abb5'}`,
   },
 }));
 
@@ -268,26 +628,36 @@ const GlobalPlayhead = styled(Box)({
   bottom: 0,
   width: 2,
   backgroundColor: '#19abb5',
-  boxShadow: '0 0 8px rgba(25, 171, 181, 0.5)',
+  boxShadow: '0 0 10px rgba(25, 171, 181, 0.7)',
   zIndex: 100,
-  pointerEvents: 'none',
+  cursor: 'ew-resize',
   '&::before': {
     content: '""',
     position: 'absolute',
     top: 0,
-    left: -4,
-    width: 10,
-    height: 10,
+    left: -5,
+    width: 12,
+    height: 12,
     backgroundColor: '#19abb5',
     borderRadius: '50% 50% 50% 0',
     transform: 'rotate(-45deg)',
   },
 });
 
+const PlayheadDragArea = styled(Box)({
+  position: 'absolute',
+  top: 0,
+  bottom: 0,
+  width: 20,
+  marginLeft: -9,
+  cursor: 'ew-resize',
+  zIndex: 99,
+});
+
 // Right Panel Components
 const ImagePreviewSection = styled(Box)({
-  height: 200,
-  minHeight: 150,
+  height: 220,
+  minHeight: 180,
   backgroundColor: '#0a0a0a',
   borderBottom: '1px solid #252525',
   display: 'flex',
@@ -298,9 +668,10 @@ const ImagePreviewHeader = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  padding: '4px 12px',
+  padding: '6px 12px',
   backgroundColor: '#1a1a1a',
   borderBottom: '1px solid #252525',
+  minHeight: 28,
 });
 
 const ImagePreviewContent = styled(Box)({
@@ -309,6 +680,7 @@ const ImagePreviewContent = styled(Box)({
   alignItems: 'center',
   justifyContent: 'center',
   backgroundColor: '#000',
+  position: 'relative',
 });
 
 const EmptyState = styled(Box)({
@@ -320,18 +692,6 @@ const EmptyState = styled(Box)({
   padding: 32,
   textAlign: 'center',
 });
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-interface VideoTrack {
-  id: string;
-  fileName: string;
-  userName: string;
-  visible: boolean;
-  muted: boolean;
-}
 
 // ============================================================================
 // COMPONENT
@@ -347,71 +707,99 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const lanesContainerRef = useRef<HTMLDivElement>(null);
   const [selectedEvidence, setSelectedEvidence] = useState<EvidenceItem | null>(null);
-  const [currentImage, setCurrentImage] = useState<TimelineItem | null>(null);
+  const [currentImage, setCurrentImage] = useState<TimelineMediaItem | null>(null);
+
+  // Dummy data
+  const [items] = useState<TimelineMediaItem[]>(() => generateDummyData());
 
   // Section collapse state
   const [videoSectionCollapsed, setVideoSectionCollapsed] = useState(false);
   const [audioSectionCollapsed, setAudioSectionCollapsed] = useState(false);
   const [imagesSectionCollapsed, setImagesSectionCollapsed] = useState(false);
 
-  // Video track visibility
+  // Video track visibility and state
   const [videoTracks, setVideoTracks] = useState<VideoTrack[]>([]);
+  const [activeVideoTrack, setActiveVideoTrack] = useState<string | null>(null);
+  const [isVideoMuted, setIsVideoMuted] = useState(false);
+
+  // Flag user filter
+  const [flagUserFilter, setFlagUserFilter] = useState<string>('all');
+
+  // Playhead dragging
+  const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
+
+  // Loading state (for realistic UX)
+  const [isLoading, setIsLoading] = useState(true);
 
   // Global playhead store
   const globalTimestamp = usePlayheadStore((state) => state.timestamp);
   const setGlobalTimestamp = usePlayheadStore((state) => state.setTimestamp);
+  const setSessionBounds = usePlayheadStore((state) => state.setSessionBounds);
 
   // Navigation store
   const navigateToTool = useNavigationStore((state) => state.navigateToTool);
 
-  // Store state
-  const items = useSessionTimelineStore(selectTimelineItems);
-  const timeRange = useSessionTimelineStore(selectTimeRange);
-  const isLoading = useSessionTimelineStore(selectTimelineLoading);
-  const error = useSessionTimelineStore(selectTimelineError);
+  // Calculate time range from items
+  const timeRange = useMemo(() => {
+    if (items.length === 0) return null;
+    let minTime = Infinity;
+    let maxTime = -Infinity;
+    items.forEach((item) => {
+      minTime = Math.min(minTime, item.capturedAt);
+      const endTime = item.endAt || item.capturedAt;
+      maxTime = Math.max(maxTime, endTime);
+    });
+    // Add 2% padding
+    const padding = (maxTime - minTime) * 0.02;
+    return { start: minTime - padding, end: maxTime + padding };
+  }, [items]);
 
-  // Store actions
-  const { loadTimeline } = useSessionTimelineStore(
-    useShallow((state) => ({
-      loadTimeline: state.loadTimeline,
-    }))
-  );
-
-  // Load ref
-  const loadedInvestigationRef = useRef<string | null>(null);
-
-  // Load timeline on mount
+  // Initialize on mount
   useEffect(() => {
-    if (loadedInvestigationRef.current === investigationId) return;
-    loadedInvestigationRef.current = investigationId;
-    loadTimeline(investigationId);
-  }, [investigationId, loadTimeline]);
+    // Simulate loading
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Set session bounds when time range changes
+  useEffect(() => {
+    if (timeRange) {
+      setSessionBounds(timeRange.start, timeRange.end);
+      // Initialize playhead to start if not set
+      if (globalTimestamp < timeRange.start || globalTimestamp > timeRange.end) {
+        setGlobalTimestamp(timeRange.start);
+      }
+    }
+  }, [timeRange, setSessionBounds, setGlobalTimestamp, globalTimestamp]);
 
   // Generate video tracks from items
   useEffect(() => {
-    const safeItems = Array.isArray(items) ? items : [];
-    const videos = safeItems.filter((item) => item.type === 'video');
+    const videos = items.filter((item) => item.type === 'video');
     setVideoTracks(
       videos.map((v) => ({
         id: v.id,
         fileName: v.fileName,
-        userName: v.capturedBy || 'Unknown',
+        userName: v.user || 'Unassigned',
         visible: true,
         muted: false,
       }))
     );
-  }, [items]);
+    if (videos.length > 0 && !activeVideoTrack) {
+      setActiveVideoTrack(videos[0].id);
+    }
+  }, [items, activeVideoTrack]);
 
   // Determine which image is at current playhead position
   useEffect(() => {
-    const safeItems = Array.isArray(items) ? items : [];
-    const images = safeItems
+    const photos = items
       .filter((item) => item.type === 'photo')
       .sort((a, b) => a.capturedAt - b.capturedAt);
 
     // Find the most recent image before or at the playhead
-    let currentImg: TimelineItem | null = null;
-    for (const img of images) {
+    let currentImg: TimelineMediaItem | null = null;
+    for (const img of photos) {
       if (img.capturedAt <= globalTimestamp) {
         currentImg = img;
       } else {
@@ -423,40 +811,35 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
 
   // Convert timeline items to evidence items for EvidenceBank
   const evidenceItems = useMemo(() => {
-    const safeItems = Array.isArray(items) ? items : [];
-    return safeItems
-      .filter((item) => ['video', 'audio', 'photo'].includes(item.type))
-      .map((item): EvidenceItem => ({
-        id: item.id,
-        type: item.type === 'photo' ? 'image' : (item.type as 'video' | 'audio'),
-        fileName: item.fileName,
-        duration: item.duration,
-        capturedAt: item.capturedAt,
-        user: item.capturedBy || 'Unknown',
-        deviceInfo: item.deviceInfo,
-        flagCount: item.flagCount,
-        hasFindings: item.hasEdits || item.flagCount > 0,
-      }));
+    return items.map((item): EvidenceItem => ({
+      id: item.id,
+      type: item.type === 'photo' ? 'image' : item.type,
+      fileName: item.fileName,
+      duration: item.duration,
+      capturedAt: item.capturedAt,
+      user: item.user || 'Unknown',
+      deviceInfo: item.deviceInfo,
+      flagCount: item.flagCount,
+      hasFindings: item.hasEdits || item.flagCount > 0,
+    }));
   }, [items]);
 
   // Group items by type and user for swim lanes
   const laneData = useMemo(() => {
-    const safeItems = Array.isArray(items) ? items : [];
-
-    // Get unique users
-    const userSet = new Set<string>();
-    safeItems.forEach((item) => {
-      if (item.capturedBy) userSet.add(item.capturedBy);
+    // Get unique users from items + permanent users
+    const userSet = new Set<string>(USERS);
+    items.forEach((item) => {
+      if (item.user) userSet.add(item.user);
     });
-    const users = Array.from(userSet);
+    const users = Array.from(userSet).filter(Boolean);
 
     // Group by type and user
-    const videoByUser: Record<string, TimelineItem[]> = {};
-    const audioByUser: Record<string, TimelineItem[]> = {};
-    const imagesByUser: Record<string, TimelineItem[]> = {};
-    const videoCatchAll: TimelineItem[] = [];
-    const audioCatchAll: TimelineItem[] = [];
-    const imagesCatchAll: TimelineItem[] = [];
+    const videoByUser: Record<string, TimelineMediaItem[]> = {};
+    const audioByUser: Record<string, TimelineMediaItem[]> = {};
+    const imagesByUser: Record<string, TimelineMediaItem[]> = {};
+    const videoCatchAll: TimelineMediaItem[] = [];
+    const audioCatchAll: TimelineMediaItem[] = [];
+    const imagesCatchAll: TimelineMediaItem[] = [];
 
     users.forEach((u) => {
       videoByUser[u] = [];
@@ -464,8 +847,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       imagesByUser[u] = [];
     });
 
-    safeItems.forEach((item) => {
-      const user = item.capturedBy;
+    items.forEach((item) => {
+      const user = item.user;
       if (item.type === 'video') {
         if (user && videoByUser[user]) {
           videoByUser[user].push(item);
@@ -498,22 +881,20 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     };
   }, [items]);
 
-  // Aggregate all flags at current playhead position
+  // Aggregate all flags at/near current playhead position
   const currentFlags = useMemo(() => {
-    const safeItems = Array.isArray(items) ? items : [];
     const flags: Flag[] = [];
-    const tolerance = 2000; // 2 second tolerance
+    const tolerance = 5000; // 5 second tolerance for "at playhead"
 
-    safeItems.forEach((item) => {
-      const itemFlags = Array.isArray(item.flags) ? item.flags : [];
-      itemFlags.forEach((flag) => {
+    items.forEach((item) => {
+      item.flags.forEach((flag) => {
         // Check if flag is near current playhead position
         if (Math.abs(flag.absoluteTimestamp - globalTimestamp) < tolerance) {
           flags.push({
             id: flag.id,
             timestamp: flag.absoluteTimestamp,
             label: flag.title,
-            note: undefined,
+            note: flag.note,
             createdBy: flag.userDisplayName,
             createdAt: flag.absoluteTimestamp,
           });
@@ -521,8 +902,26 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       });
     });
 
+    // Apply user filter
+    if (flagUserFilter !== 'all') {
+      return flags.filter((f) => f.createdBy === flagUserFilter);
+    }
+
     return flags;
-  }, [items, globalTimestamp]);
+  }, [items, globalTimestamp, flagUserFilter]);
+
+  // Get unique flag creators for filter dropdown
+  const flagUsers = useMemo(() => {
+    const userSet = new Set<string>();
+    items.forEach((item) => {
+      item.flags.forEach((flag) => {
+        if (flag.userDisplayName) {
+          userSet.add(flag.userDisplayName);
+        }
+      });
+    });
+    return Array.from(userSet).sort();
+  }, [items]);
 
   // Calculate clip position on timeline
   const getClipPosition = useCallback(
@@ -532,8 +931,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       const left = ((startTime - timeRange.start) / totalDuration) * 100;
       const width = duration
         ? ((duration * 1000) / totalDuration) * 100
-        : 1; // Min 1% for images
-      return { left: `${Math.max(0, left)}%`, width: `${Math.max(1, width)}%` };
+        : 0.5; // Min width for images
+      return { left: `${Math.max(0, Math.min(100, left))}%`, width: `${Math.max(0.5, Math.min(100 - left, width))}%` };
     },
     [timeRange]
   );
@@ -548,28 +947,55 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   // Handle timeline click (set playhead)
   const handleTimelineClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!timeRange || !lanesContainerRef.current) return;
+      if (!timeRange || !lanesContainerRef.current || isDraggingPlayhead) return;
       const rect = lanesContainerRef.current.getBoundingClientRect();
       const x = e.clientX - rect.left - 100; // 100px for lane label width
       const width = rect.width - 100;
       const percent = Math.max(0, Math.min(1, x / width));
-      const newTimestamp =
-        timeRange.start + percent * (timeRange.end - timeRange.start);
+      const newTimestamp = timeRange.start + percent * (timeRange.end - timeRange.start);
       setGlobalTimestamp(newTimestamp);
+    },
+    [timeRange, setGlobalTimestamp, isDraggingPlayhead]
+  );
+
+  // Handle playhead drag
+  const handlePlayheadDrag = useCallback(
+    (e: React.MouseEvent) => {
+      if (!timeRange || !lanesContainerRef.current) return;
+      e.preventDefault();
+      setIsDraggingPlayhead(true);
+
+      const handleMove = (moveEvent: MouseEvent) => {
+        const rect = lanesContainerRef.current!.getBoundingClientRect();
+        const x = moveEvent.clientX - rect.left - 100;
+        const width = rect.width - 100;
+        const percent = Math.max(0, Math.min(1, x / width));
+        const newTimestamp = timeRange.start + percent * (timeRange.end - timeRange.start);
+        setGlobalTimestamp(newTimestamp);
+      };
+
+      const handleUp = () => {
+        setIsDraggingPlayhead(false);
+        document.removeEventListener('mousemove', handleMove);
+        document.removeEventListener('mouseup', handleUp);
+      };
+
+      document.addEventListener('mousemove', handleMove);
+      document.addEventListener('mouseup', handleUp);
     },
     [timeRange, setGlobalTimestamp]
   );
 
   // Handle item single click (show metadata)
   const handleItemClick = useCallback(
-    (item: TimelineItem) => {
+    (item: TimelineMediaItem) => {
       const evidenceItem: EvidenceItem = {
         id: item.id,
-        type: item.type === 'photo' ? 'image' : (item.type as 'video' | 'audio'),
+        type: item.type === 'photo' ? 'image' : item.type,
         fileName: item.fileName,
         duration: item.duration,
         capturedAt: item.capturedAt,
-        user: item.capturedBy || 'Unknown',
+        user: item.user || 'Unknown',
         deviceInfo: item.deviceInfo,
         flagCount: item.flagCount,
         hasFindings: item.hasEdits || item.flagCount > 0,
@@ -581,7 +1007,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
 
   // Handle item double click (open in tool)
   const handleItemDoubleClick = useCallback(
-    (item: TimelineItem) => {
+    (item: TimelineMediaItem) => {
       const toolMap: Record<string, 'video' | 'audio' | 'images'> = {
         video: 'video',
         audio: 'audio',
@@ -589,7 +1015,6 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       };
       const tool = toolMap[item.type];
       if (tool) {
-        // Navigate to appropriate tool with the file
         navigateToTool(tool, item.evidenceId);
       }
     },
@@ -611,37 +1036,47 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     );
   }, []);
 
+  // Format time for ruler
+  const formatRulerTime = (timestamp: number): string => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
   // Render time ruler
   const renderTimeRuler = () => {
     if (!timeRange) return null;
     const duration = timeRange.end - timeRange.start;
-    const intervalMs = duration > 3600000 ? 600000 : duration > 600000 ? 60000 : 10000; // 10min, 1min, or 10s intervals
-    const markers: React.ReactElement[] = [];
+    // Calculate appropriate interval based on duration
+    let intervalMs = 600000; // 10 min default
+    if (duration < 1800000) intervalMs = 60000; // 1 min for < 30 min
+    else if (duration < 7200000) intervalMs = 300000; // 5 min for < 2 hr
 
-    for (let t = timeRange.start; t <= timeRange.end; t += intervalMs) {
+    const markers: React.ReactElement[] = [];
+    const startOffset = Math.ceil(timeRange.start / intervalMs) * intervalMs;
+
+    for (let t = startOffset; t <= timeRange.end; t += intervalMs) {
       const left = ((t - timeRange.start) / duration) * 100;
-      const date = new Date(t);
-      const label = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       markers.push(
-        <TimeRulerLabel key={t} sx={{ left: `${left}%` }}>
-          {label}
-        </TimeRulerLabel>
+        <TimeRulerTick key={t} sx={{ left: `${left}%` }}>
+          <Box sx={{ width: 1, height: 8, backgroundColor: '#333' }} />
+          <TimeRulerLabel>{formatRulerTime(t)}</TimeRulerLabel>
+        </TimeRulerTick>
       );
     }
 
     return markers;
   };
 
-  // Render swim lane with clips
+  // Render clips in a lane
   const renderLane = (
-    laneItems: TimelineItem[],
+    laneItems: TimelineMediaItem[],
     laneType: 'video' | 'audio' | 'image'
   ) => {
     return laneItems.map((item) => {
       const pos = getClipPosition(item.capturedAt, item.duration);
       const isHighlighted =
         item.capturedAt <= globalTimestamp &&
-        (item.endAt ? item.endAt >= globalTimestamp : true);
+        (item.endAt ? item.endAt >= globalTimestamp : item.capturedAt + 1000 >= globalTimestamp);
 
       if (laneType === 'image') {
         return (
@@ -649,23 +1084,31 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
             key={item.id}
             highlighted={isHighlighted}
             sx={{ left: pos.left }}
-            onClick={() => handleItemClick(item)}
-            onDoubleClick={() => handleItemDoubleClick(item)}
+            onClick={(e) => { e.stopPropagation(); handleItemClick(item); }}
+            onDoubleClick={(e) => { e.stopPropagation(); handleItemDoubleClick(item); }}
+            title={item.fileName}
           >
-            <PhotoIcon sx={{ fontSize: 8, color: '#fff' }} />
+            <PhotoIcon sx={{ fontSize: 10, color: '#fff' }} />
           </TimelineImage>
         );
       }
 
       // Render flags on clip
-      const clipFlags = (item.flags || []).map((flag) => {
+      const clipFlags = item.flags.map((flag) => {
         const flagOffset =
-          ((flag.timestamp * 1000) / (item.duration ? item.duration * 1000 : 1)) * 100;
+          item.duration && item.duration > 0
+            ? (flag.timestamp / item.duration) * 100
+            : 50;
         return (
-          <FlagMarker
+          <FlagDot
             key={flag.id}
-            sx={{ left: `${flagOffset}%` }}
+            color={flag.color}
+            sx={{ left: `${Math.min(95, Math.max(5, flagOffset))}%` }}
             title={flag.title}
+            onClick={(e) => {
+              e.stopPropagation();
+              setGlobalTimestamp(flag.absoluteTimestamp);
+            }}
           />
         );
       });
@@ -673,14 +1116,25 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       return (
         <TimelineClip
           key={item.id}
-          type={laneType}
+          clipType={laneType}
           highlighted={isHighlighted}
-          sx={{ left: pos.left, width: pos.width }}
-          onClick={() => handleItemClick(item)}
-          onDoubleClick={() => handleItemDoubleClick(item)}
+          sx={{ left: pos.left, width: pos.width, minWidth: 40 }}
+          onClick={(e) => { e.stopPropagation(); handleItemClick(item); }}
+          onDoubleClick={(e) => { e.stopPropagation(); handleItemDoubleClick(item); }}
+          title={`${item.fileName}\nDouble-click to open in ${laneType} tool`}
         >
-          {item.fileName.substring(0, 20)}
-          {item.fileName.length > 20 ? '...' : ''}
+          <Typography
+            sx={{
+              fontSize: 10,
+              color: '#fff',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              flex: 1,
+            }}
+          >
+            {item.fileName.length > 25 ? item.fileName.substring(0, 22) + '...' : item.fileName}
+          </Typography>
           {clipFlags}
         </TimelineClip>
       );
@@ -688,8 +1142,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   };
 
   // Loading state
-  const safeItems = Array.isArray(items) ? items : [];
-  if (isLoading && safeItems.length === 0) {
+  if (isLoading) {
     return (
       <Box
         sx={{
@@ -705,29 +1158,16 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     );
   }
 
-  if (error) {
-    return (
-      <EmptyState sx={{ backgroundColor: '#121212' }}>
-        <Alert severity="error" sx={{ maxWidth: 400 }}>
-          {error}
-        </Alert>
-        <Button
-          variant="outlined"
-          onClick={() => loadTimeline(investigationId)}
-          sx={{ mt: 2, color: '#19abb5', borderColor: '#19abb5' }}
-        >
-          Retry
-        </Button>
-      </EmptyState>
-    );
-  }
+  // Get active video for preview
+  const activeVideo = items.find((i) => i.id === activeVideoTrack);
+  const visibleVideoTracks = videoTracks.filter((t) => t.visible);
 
   // Main content (center area)
   const mainContent = (
     <MainContainer ref={containerRef}>
       {/* Video Preview Section */}
       <VideoPreviewSection>
-        {videoTracks.some((t) => t.visible) ? (
+        {visibleVideoTracks.length > 0 ? (
           <>
             {/* Video player placeholder */}
             <Box
@@ -739,10 +1179,15 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                 justifyContent: 'center',
                 background:
                   'linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 50%, #1a1a1a 100%)',
+                flexDirection: 'column',
               }}
             >
-              <Typography sx={{ color: '#444', fontSize: 12 }}>
-                Video preview at current playhead position
+              <VideocamIcon sx={{ fontSize: 48, color: '#333', mb: 1 }} />
+              <Typography sx={{ color: '#555', fontSize: 12 }}>
+                {activeVideo?.fileName || 'Video preview'}
+              </Typography>
+              <Typography sx={{ color: '#444', fontSize: 10, mt: 0.5 }}>
+                {new Date(globalTimestamp).toLocaleTimeString()}
               </Typography>
             </Box>
 
@@ -754,23 +1199,28 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                   color: '#666',
                   textTransform: 'uppercase',
                   fontWeight: 600,
-                  mb: 0.5,
+                  mb: 1,
+                  px: 0.5,
                 }}
               >
                 Video Tracks
               </Typography>
               {videoTracks.map((track) => (
-                <VideoTrackItem key={track.id} onClick={() => toggleVideoTrack(track.id)}>
-                  <Checkbox
-                    checked={track.visible}
+                <VideoTrackItem
+                  key={track.id}
+                  active={track.visible}
+                >
+                  <IconButton
                     size="small"
-                    sx={{
-                      padding: 0,
-                      '& .MuiSvgIcon-root': { fontSize: 14 },
-                      color: '#555',
-                      '&.Mui-checked': { color: '#19abb5' },
-                    }}
-                  />
+                    onClick={() => toggleVideoTrack(track.id)}
+                    sx={{ padding: 0, color: track.visible ? '#19abb5' : '#555' }}
+                  >
+                    {track.visible ? (
+                      <VisibilityIcon sx={{ fontSize: 14 }} />
+                    ) : (
+                      <VisibilityOffIcon sx={{ fontSize: 14 }} />
+                    )}
+                  </IconButton>
                   <Typography
                     sx={{
                       fontSize: 10,
@@ -778,20 +1228,42 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
-                      maxWidth: 120,
+                      flex: 1,
+                      cursor: 'pointer',
                     }}
+                    onClick={() => setActiveVideoTrack(track.id)}
                   >
                     {track.fileName}
                   </Typography>
+                  <Typography sx={{ fontSize: 9, color: '#555' }}>
+                    {track.userName}
+                  </Typography>
                 </VideoTrackItem>
               ))}
+
+              {/* Audio mute toggle */}
+              <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid #333' }}>
+                <VideoTrackItem onClick={() => setIsVideoMuted(!isVideoMuted)}>
+                  {isVideoMuted ? (
+                    <VolumeOffIcon sx={{ fontSize: 14, color: '#c45c5c' }} />
+                  ) : (
+                    <VolumeUpIcon sx={{ fontSize: 14, color: '#19abb5' }} />
+                  )}
+                  <Typography sx={{ fontSize: 10, color: '#888' }}>
+                    {isVideoMuted ? 'Audio muted' : 'Audio enabled'}
+                  </Typography>
+                </VideoTrackItem>
+              </Box>
             </VideoTrackSelector>
           </>
         ) : (
           <VideoPlaceholder>
             <VideocamIcon sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
             <Typography sx={{ fontSize: 12, color: '#555' }}>
-              No video at current position
+              No video tracks visible
+            </Typography>
+            <Typography sx={{ fontSize: 10, color: '#444', mt: 0.5 }}>
+              Enable tracks in the selector above
             </Typography>
           </VideoPlaceholder>
         )}
@@ -806,11 +1278,19 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
         <SwimLanesContainer ref={lanesContainerRef} onClick={handleTimelineClick}>
           {/* Global Playhead */}
           {timeRange && (
-            <GlobalPlayhead
-              sx={{
-                left: `calc(100px + ${playheadPosition}% * (100% - 100px) / 100)`,
-              }}
-            />
+            <>
+              <GlobalPlayhead
+                sx={{
+                  left: `calc(100px + ${playheadPosition}% * (100% - 100px) / 100)`,
+                }}
+              />
+              <PlayheadDragArea
+                sx={{
+                  left: `calc(100px + ${playheadPosition}% * (100% - 100px) / 100)`,
+                }}
+                onMouseDown={handlePlayheadDrag}
+              />
+            </>
           )}
 
           {/* VIDEO Section */}
@@ -822,7 +1302,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
               <VideocamIcon sx={{ fontSize: 14, color: '#c45c5c' }} />
               <SectionTitle>Video</SectionTitle>
               <Typography sx={{ fontSize: 10, color: '#555' }}>
-                ({safeItems.filter((i) => i.type === 'video').length})
+                ({items.filter((i) => i.type === 'video').length})
               </Typography>
               {videoSectionCollapsed ? (
                 <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} />
@@ -832,7 +1312,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
             </SwimLaneSectionHeader>
             {!videoSectionCollapsed && (
               <>
-                {/* Per-user lanes */}
+                {/* Per-user lanes (permanent) */}
                 {laneData.users.map((user) => (
                   <SwimLane key={`video-${user}`}>
                     <LaneLabel>
@@ -843,6 +1323,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                           color: '#888',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
+                          flex: 1,
                         }}
                       >
                         {user}
@@ -879,7 +1360,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
               <MicIcon sx={{ fontSize: 14, color: '#5a9a6b' }} />
               <SectionTitle>Audio</SectionTitle>
               <Typography sx={{ fontSize: 10, color: '#555' }}>
-                ({safeItems.filter((i) => i.type === 'audio').length})
+                ({items.filter((i) => i.type === 'audio').length})
               </Typography>
               {audioSectionCollapsed ? (
                 <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} />
@@ -899,6 +1380,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                           color: '#888',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
+                          flex: 1,
                         }}
                       >
                         {user}
@@ -934,7 +1416,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
               <PhotoIcon sx={{ fontSize: 14, color: '#5a7fbf' }} />
               <SectionTitle>Images</SectionTitle>
               <Typography sx={{ fontSize: 10, color: '#555' }}>
-                ({safeItems.filter((i) => i.type === 'photo').length})
+                ({items.filter((i) => i.type === 'photo').length})
               </Typography>
               {imagesSectionCollapsed ? (
                 <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} />
@@ -954,6 +1436,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                           color: '#888',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
+                          flex: 1,
                         }}
                       >
                         {user}
@@ -1014,14 +1497,15 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                 background:
                   'linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 50%, #1a1a1a 100%)',
                 cursor: 'pointer',
+                padding: 2,
               }}
               onDoubleClick={() => handleItemDoubleClick(currentImage)}
             >
-              <ImageIcon sx={{ fontSize: 32, color: '#5a7fbf', mb: 1 }} />
+              <ImageIcon sx={{ fontSize: 40, color: '#5a7fbf', mb: 1 }} />
               <Typography
                 sx={{
-                  fontSize: 10,
-                  color: '#888',
+                  fontSize: 11,
+                  color: '#ccc',
                   textAlign: 'center',
                   px: 1,
                   overflow: 'hidden',
@@ -1032,7 +1516,15 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
               >
                 {currentImage.fileName}
               </Typography>
-              <Typography sx={{ fontSize: 9, color: '#555', mt: 0.5 }}>
+              <Typography sx={{ fontSize: 10, color: '#666', mt: 0.5 }}>
+                {currentImage.user || 'Unknown'}
+              </Typography>
+              {currentImage.flagCount > 0 && (
+                <Typography sx={{ fontSize: 9, color: '#19abb5', mt: 0.5 }}>
+                  {currentImage.flagCount} flag{currentImage.flagCount !== 1 ? 's' : ''}
+                </Typography>
+              )}
+              <Typography sx={{ fontSize: 9, color: '#555', mt: 1 }}>
                 Double-click to open
               </Typography>
             </Box>
@@ -1045,8 +1537,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                 color: '#444',
               }}
             >
-              <ImageIcon sx={{ fontSize: 32, mb: 1, opacity: 0.3 }} />
-              <Typography sx={{ fontSize: 10, color: '#555' }}>
+              <ImageIcon sx={{ fontSize: 40, mb: 1, opacity: 0.3 }} />
+              <Typography sx={{ fontSize: 11, color: '#555', textAlign: 'center' }}>
                 No image at current position
               </Typography>
             </Box>
@@ -1054,8 +1546,45 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
         </ImagePreviewContent>
       </ImagePreviewSection>
 
-      {/* Flags Panel */}
-      <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      {/* Flags Panel with user filter */}
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        {/* User filter for flags */}
+        {flagUsers.length > 0 && (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              padding: '6px 12px',
+              backgroundColor: '#1a1a1a',
+              borderBottom: '1px solid #252525',
+            }}
+          >
+            <FilterListIcon sx={{ fontSize: 14, color: '#666' }} />
+            <Typography sx={{ fontSize: 10, color: '#666' }}>Filter:</Typography>
+            <FormControl size="small" sx={{ minWidth: 80 }}>
+              <Select
+                value={flagUserFilter}
+                onChange={(e) => setFlagUserFilter(e.target.value)}
+                sx={{
+                  fontSize: 10,
+                  color: '#ccc',
+                  height: 24,
+                  backgroundColor: '#252525',
+                  '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+                  '& .MuiSelect-select': { padding: '2px 8px' },
+                }}
+              >
+                <MenuItem value="all" sx={{ fontSize: 11 }}>All Users</MenuItem>
+                {flagUsers.map((user) => (
+                  <MenuItem key={user} value={user} sx={{ fontSize: 11 }}>
+                    {user}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        )}
         <FlagsPanel
           flags={currentFlags}
           onFlagClick={handleFlagClick}
@@ -1108,7 +1637,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       inspectorPanel={inspectorContent}
       mainContent={mainContent}
       evidenceTitle="Evidence"
-      inspectorTitle="Flags"
+      inspectorTitle="Preview & Flags"
       showTransport={true}
     />
   );
