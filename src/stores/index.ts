@@ -23,3 +23,16 @@ export {
   useFiltersBypassed,
 } from './useAudioToolStore';
 export * from './usePlayheadStore';
+
+// AI Sidekick
+export {
+  useAISidekickStore,
+  useSendToAISidekick,
+  selectMessages,
+  selectIsLoading,
+  selectError,
+  selectIsCollapsed,
+  selectIsSearchMode,
+  selectSearchResults,
+  selectApiKey,
+} from './useAISidekickStore';
