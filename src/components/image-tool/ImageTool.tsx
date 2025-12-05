@@ -13,6 +13,8 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Tooltip from '@mui/material/Tooltip';
 import Divider from '@mui/material/Divider';
 import { styled } from '@mui/material/styles';
+import { WorkspaceLayout } from '@/components/layout';
+import { EvidenceBank } from '@/components/evidence-bank';
 
 // Icons
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
@@ -180,6 +182,15 @@ const ImageTool: React.FC<ImageToolProps> = ({
   onImageLoaded,
 }) => {
   const [showSettings, setShowSettings] = useState(false);
+  const [selectedEvidence, setSelectedEvidence] = useState<any>(null);
+
+  // Mock image evidence data
+  const imageEvidence = [
+    { id: 'i1', type: 'image' as const, fileName: 'thermal_anomaly_001.jpg', capturedAt: Date.now() - 5400000, user: 'Mike', deviceInfo: 'FLIR E8', flagCount: 1, hasFindings: true },
+    { id: 'i2', type: 'image' as const, fileName: 'full_spectrum_023.jpg', capturedAt: Date.now() - 5200000, user: 'Sarah', deviceInfo: 'Modified Canon', flagCount: 0, hasFindings: false },
+    { id: 'i3', type: 'image' as const, fileName: 'shadow_figure_frame.jpg', capturedAt: Date.now() - 4900000, user: 'Jen', deviceInfo: 'Sony A7IV', flagCount: 3, hasFindings: true },
+    { id: 'i4', type: 'image' as const, fileName: 'baseline_room_01.jpg', capturedAt: Date.now() - 7200000, user: 'Mike', deviceInfo: 'iPhone 15 Pro', flagCount: 0, hasFindings: false },
+  ];
 
   // Store state - use selectors for stable references
   const imageElement = useImageToolStore((state) => state.imageElement);
@@ -365,9 +376,45 @@ const ImageTool: React.FC<ImageToolProps> = ({
   }, [crop.rotation, setCrop]);
 
   return (
-    <ToolContainer>
-      {/* Toolbar */}
-      <Toolbar>
+    <WorkspaceLayout
+      evidencePanel={
+        <EvidenceBank
+          items={imageEvidence}
+          selectedId={selectedEvidence?.id}
+          onSelect={(item) => setSelectedEvidence(item)}
+          onDoubleClick={(item) => {
+            console.log('Load image file:', item.fileName);
+            // TODO: Load the image into the viewer
+          }}
+          filterByType="image"
+        />
+      }
+      inspectorPanel={
+        <Box sx={{ height: '100%', overflow: 'auto' }}>
+          {showAdjustmentsPanel && (
+            <AdjustmentsPanel
+              adjustments={adjustments}
+              onAdjustmentChange={setAdjustment}
+              onReset={resetAdjustments}
+              onResetSingle={resetAdjustment}
+            />
+          )}
+          {!showAdjustmentsPanel && (
+            <Box sx={{ padding: 2 }}>
+              <Typography sx={{ fontSize: 11, fontWeight: 600, color: '#808080', textTransform: 'uppercase', mb: 2 }}>
+                Adjustments
+              </Typography>
+              <Typography sx={{ fontSize: 12, color: '#666' }}>
+                Select an image to enable adjustments
+              </Typography>
+            </Box>
+          )}
+        </Box>
+      }
+      mainContent={
+        <ToolContainer>
+          {/* Toolbar */}
+          <Toolbar>
         {/* View Mode */}
         <ToolbarGroup>
           <Typography variant="caption" sx={{ color: '#888888', mr: 1 }}>
@@ -565,85 +612,39 @@ const ImageTool: React.FC<ImageToolProps> = ({
           )}
         </CanvasArea>
 
-        {/* Side Panel */}
-        {(showAdjustmentsPanel || showAnnotationsPanel || showRecipesPanel) && (
-          <SidePanel>
-            {showAdjustmentsPanel && (
-              <SidePanelSection sx={{ flex: '0 0 auto', maxHeight: '50%', overflow: 'auto' }}>
-                <AdjustmentsPanel
-                  adjustments={adjustments}
-                  onAdjustmentChange={setAdjustment}
-                  onReset={resetAdjustments}
-                  onResetSingle={resetAdjustment}
-                />
-              </SidePanelSection>
-            )}
-            {showAnnotationsPanel && (
-              <SidePanelSection sx={{ flex: '0 0 auto', maxHeight: '35%', overflow: 'hidden' }}>
-                <AnnotationsPanel
-                  annotations={Array.isArray(annotations) ? annotations : []}
-                  selectedAnnotationId={selectedAnnotationId}
-                  activeTool={activeTool}
-                  annotationDefaults={annotationDefaults}
-                  onToolChange={setActiveTool}
-                  onAnnotationSelect={selectAnnotation}
-                  onAnnotationUpdate={updateAnnotation}
-                  onAnnotationDelete={deleteAnnotation}
-                  onAnnotationVisibilityToggle={setAnnotationVisibility}
-                  onDefaultsChange={setAnnotationDefaults}
-                  onClearAll={clearAnnotations}
-                  onBringToFront={bringAnnotationToFront}
-                  onSendToBack={sendAnnotationToBack}
-                />
-              </SidePanelSection>
-            )}
-            {showRecipesPanel && (
-              <SidePanelSection sx={{ flex: 1, overflow: 'hidden' }}>
-                <RecipePanel
-                  recipes={Array.isArray(recipes) ? recipes : []}
-                  userEdits={Array.isArray(userEdits) ? userEdits : []}
-                  activeRecipeId={activeFilterId}
-                  activeUserEditId={activeUserEditId}
-                  onApplyRecipe={applyRecipe}
-                  onSaveRecipe={saveRecipe}
-                  onDeleteRecipe={deleteRecipe}
-                  onSaveUserEdit={saveUserEdit}
-                  onLoadUserEdit={loadUserEdit}
-                  onDeleteUserEdit={deleteUserEdit}
-                  onCompareSelect={handleCompareSelect}
-                />
-              </SidePanelSection>
-            )}
-          </SidePanel>
-        )}
       </MainContent>
 
-      {/* Status Bar */}
-      <StatusBar>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          {originalDimensions && (
-            <Typography variant="caption">
-              {originalDimensions.width} x {originalDimensions.height}
-            </Typography>
-          )}
-          {activeFilterId && (
-            <Typography variant="caption" sx={{ color: '#19abb5' }}>
-              Filter: {Array.isArray(recipes) ? recipes.find((r) => r.id === activeFilterId)?.name : ''}
-            </Typography>
-          )}
-          {Array.isArray(annotations) && annotations.length > 0 && (
-            <Typography variant="caption">
-              {annotations.length} annotation{annotations.length !== 1 ? 's' : ''}
-            </Typography>
-          )}
-        </Box>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          {crop.flipHorizontal && <Typography variant="caption">Flipped H</Typography>}
-          {crop.flipVertical && <Typography variant="caption">Flipped V</Typography>}
-          {crop.rotation !== 0 && <Typography variant="caption">Rotated {crop.rotation}</Typography>}
-        </Box>
-      </StatusBar>
-    </ToolContainer>
+          {/* Status Bar */}
+          <StatusBar>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              {originalDimensions && (
+                <Typography variant="caption">
+                  {originalDimensions.width} x {originalDimensions.height}
+                </Typography>
+              )}
+              {activeFilterId && (
+                <Typography variant="caption" sx={{ color: '#19abb5' }}>
+                  Filter: {Array.isArray(recipes) ? recipes.find((r) => r.id === activeFilterId)?.name : ''}
+                </Typography>
+              )}
+              {Array.isArray(annotations) && annotations.length > 0 && (
+                <Typography variant="caption">
+                  {annotations.length} annotation{annotations.length !== 1 ? 's' : ''}
+                </Typography>
+              )}
+            </Box>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              {crop.flipHorizontal && <Typography variant="caption">Flipped H</Typography>}
+              {crop.flipVertical && <Typography variant="caption">Flipped V</Typography>}
+              {crop.rotation !== 0 && <Typography variant="caption">Rotated {crop.rotation}</Typography>}
+            </Box>
+          </StatusBar>
+        </ToolContainer>
+      }
+      evidenceTitle="Images"
+      inspectorTitle="Adjustments"
+      showTransport={true}
+    />
   );
 };
 
