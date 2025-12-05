@@ -35,14 +35,15 @@ import PauseIcon from '@mui/icons-material/Pause';
 import CloudSyncIcon from '@mui/icons-material/CloudSync';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
-import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 
 import { TimelineRuler } from './TimelineRuler';
 import { TimelineTrack } from './TimelineTrack';
 import { FlagsTrack } from './FlagMarker';
 import { DataLayerToggle, LayerPills } from './DataLayerToggle';
 import { ClockSyncDialog, ClockSyncBanner } from './ClockSyncDialog';
+
+import { WorkspaceLayout } from '@/components/layout';
+import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
 
 import {
   useSessionTimelineStore,
@@ -131,27 +132,6 @@ const TracksContainer = styled(Box)({
   },
 });
 
-const SidePanel = styled(Box)({
-  width: 280,
-  backgroundColor: '#161616',
-  borderLeft: '1px solid #2b2b2b',
-  display: 'flex',
-  flexDirection: 'column',
-  overflow: 'hidden',
-});
-
-const SidePanelHeader = styled(Box)({
-  padding: '12px 16px',
-  backgroundColor: '#151515',
-  borderBottom: '1px solid #2b2b2b',
-});
-
-const SidePanelContent = styled(Box)({
-  flex: 1,
-  overflow: 'auto',
-  padding: 16,
-});
-
 const EmptyState = styled(Box)({
   display: 'flex',
   flexDirection: 'column',
@@ -160,21 +140,6 @@ const EmptyState = styled(Box)({
   height: '100%',
   padding: 32,
   textAlign: 'center',
-});
-
-const ItemDetailsPanel = styled(Box)({
-  padding: 16,
-});
-
-const DetailRow = styled(Box)({
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'flex-start',
-  padding: '8px 0',
-  borderBottom: '1px solid #252525',
-  '&:last-child': {
-    borderBottom: 'none',
-  },
 });
 
 const StatusBadge = styled(Box)<{ type: 'info' | 'warning' | 'success' }>(({ type }) => {
@@ -221,8 +186,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const tracksRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(800);
-  const [sidePanelCollapsed, setSidePanelCollapsed] = useState(false);
   const [layerPanelCollapsed, setLayerPanelCollapsed] = useState(false);
+  const [selectedEvidence, setSelectedEvidence] = useState<EvidenceItem | null>(null);
 
   // Global playhead store
   const globalTimestamp = usePlayheadStore((state) => state.timestamp);
@@ -298,14 +263,14 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   useEffect(() => {
     const updateWidth = () => {
       if (containerRef.current) {
-        setContainerWidth(containerRef.current.clientWidth - (sidePanelCollapsed ? 0 : 280) - 140);
+        setContainerWidth(containerRef.current.clientWidth - 140);
       }
     };
 
     updateWidth();
     window.addEventListener('resize', updateWidth);
     return () => window.removeEventListener('resize', updateWidth);
-  }, [sidePanelCollapsed]);
+  }, []);
 
   // Handle scroll
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
@@ -349,6 +314,24 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       flags.push(...itemFlags);
     });
     return flags.sort((a, b) => a.absoluteTimestamp - b.absoluteTimestamp);
+  }, [items]);
+
+  // Convert timeline items to evidence items for EvidenceBank
+  const evidenceItems = useMemo(() => {
+    const safeItems = Array.isArray(items) ? items : [];
+    return safeItems
+      .filter((item) => ['video', 'audio', 'image'].includes(item.type))
+      .map((item): EvidenceItem => ({
+        id: item.id,
+        type: item.type as 'video' | 'audio' | 'image',
+        fileName: item.fileName,
+        duration: item.duration,
+        capturedAt: item.capturedAt,
+        user: item.user || 'Unknown',
+        deviceInfo: item.deviceInfo,
+        flagCount: item.flagCount,
+        hasFindings: item.hasEdits || item.flagCount > 0,
+      }));
   }, [items]);
 
   // Calculate playhead pixel position from global timestamp
@@ -416,8 +399,74 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     );
   }
 
+  // Create the inspector panel content
+  const inspectorPanel = (
+    <Box sx={{ padding: 2 }}>
+      {selectedEvidence ? (
+        <>
+          <Typography sx={{ fontSize: 14, fontWeight: 600, color: '#e1e1e1', mb: 2 }}>
+            {selectedEvidence.fileName}
+          </Typography>
+          <Box sx={{ fontSize: 12, color: '#888' }}>
+            {/* Basic metadata display */}
+            <Box sx={{ py: 0.5, borderBottom: '1px solid #252525', display: 'flex', justifyContent: 'space-between' }}>
+              <span>Type</span>
+              <span style={{ color: '#e1e1e1', textTransform: 'capitalize' }}>{selectedEvidence.type}</span>
+            </Box>
+            <Box sx={{ py: 0.5, borderBottom: '1px solid #252525', display: 'flex', justifyContent: 'space-between' }}>
+              <span>User</span>
+              <span style={{ color: '#e1e1e1' }}>{selectedEvidence.user}</span>
+            </Box>
+            <Box sx={{ py: 0.5, borderBottom: '1px solid #252525', display: 'flex', justifyContent: 'space-between' }}>
+              <span>Device</span>
+              <span style={{ color: '#e1e1e1' }}>{selectedEvidence.deviceInfo || '—'}</span>
+            </Box>
+            {selectedEvidence.duration && (
+              <Box sx={{ py: 0.5, borderBottom: '1px solid #252525', display: 'flex', justifyContent: 'space-between' }}>
+                <span>Duration</span>
+                <span style={{ color: '#e1e1e1' }}>{formatDuration(selectedEvidence.duration)}</span>
+              </Box>
+            )}
+            <Box sx={{ py: 0.5, borderBottom: '1px solid #252525', display: 'flex', justifyContent: 'space-between' }}>
+              <span>Captured</span>
+              <span style={{ color: '#e1e1e1' }}>{formatTimelineTimestamp(selectedEvidence.capturedAt, 'short')}</span>
+            </Box>
+            <Box sx={{ py: 0.5, borderBottom: '1px solid #252525', display: 'flex', justifyContent: 'space-between' }}>
+              <span>Flags</span>
+              <span style={{ color: '#19abb5' }}>{selectedEvidence.flagCount || 0}</span>
+            </Box>
+            <Box sx={{ py: 0.5, display: 'flex', justifyContent: 'space-between' }}>
+              <span>Findings</span>
+              <span style={{ color: selectedEvidence.hasFindings ? '#19abb5' : '#666' }}>
+                {selectedEvidence.hasFindings ? 'Yes' : 'No'}
+              </span>
+            </Box>
+          </Box>
+        </>
+      ) : (
+        <Typography sx={{ color: '#666', fontSize: 13, textAlign: 'center', mt: 4 }}>
+          Select evidence to view metadata
+        </Typography>
+      )}
+    </Box>
+  );
+
   return (
-    <TimelineContainer ref={containerRef}>
+    <WorkspaceLayout
+      evidencePanel={
+        <EvidenceBank
+          items={evidenceItems}
+          selectedId={selectedEvidence?.id}
+          onSelect={(item) => setSelectedEvidence(item)}
+          onDoubleClick={(item) => {
+            // TODO: Navigate to appropriate tool
+            console.log('Open in tool:', item.type, item.fileName);
+          }}
+        />
+      }
+      inspectorPanel={inspectorPanel}
+      mainContent={
+        <TimelineContainer ref={containerRef}>
       {/* Toolbar */}
       <Toolbar>
         <ToolbarSection>
@@ -536,18 +585,6 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
               <AccessTimeIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-
-          <ToolbarDivider orientation="vertical" />
-
-          <Tooltip title={sidePanelCollapsed ? 'Show details panel' : 'Hide details panel'}>
-            <IconButton
-              size="small"
-              onClick={() => setSidePanelCollapsed(!sidePanelCollapsed)}
-              sx={{ color: '#888' }}
-            >
-              {sidePanelCollapsed ? <KeyboardArrowLeftIcon /> : <KeyboardArrowRightIcon />}
-            </IconButton>
-          </Tooltip>
         </ToolbarSection>
       </Toolbar>
 
@@ -638,192 +675,25 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
             )}
           </TracksContainer>
         </TimelineArea>
-
-        {/* Side panel */}
-        {!sidePanelCollapsed && (
-          <SidePanel>
-            <SidePanelHeader>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#e1e1e1' }}>
-                {selectedItem ? 'Item Details' : 'Session Info'}
-              </Typography>
-            </SidePanelHeader>
-
-            <SidePanelContent>
-              {selectedItem ? (
-                <ItemDetailsPanel>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
-                    {selectedItem.title}
-                  </Typography>
-
-                  <DetailRow>
-                    <Typography variant="caption" sx={{ color: '#888' }}>
-                      Type
-                    </Typography>
-                    <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>
-                      {selectedItem.type.replace('_', ' ')}
-                    </Typography>
-                  </DetailRow>
-
-                  <DetailRow>
-                    <Typography variant="caption" sx={{ color: '#888' }}>
-                      Captured
-                    </Typography>
-                    <Typography variant="body2">
-                      {formatTimelineTimestamp(selectedItem.capturedAt, 'full')}
-                    </Typography>
-                  </DetailRow>
-
-                  {selectedItem.duration && (
-                    <DetailRow>
-                      <Typography variant="caption" sx={{ color: '#888' }}>
-                        Duration
-                      </Typography>
-                      <Typography variant="body2">
-                        {formatDuration(selectedItem.duration)}
-                      </Typography>
-                    </DetailRow>
-                  )}
-
-                  <DetailRow>
-                    <Typography variant="caption" sx={{ color: '#888' }}>
-                      File
-                    </Typography>
-                    <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
-                      {selectedItem.fileName}
-                    </Typography>
-                  </DetailRow>
-
-                  {selectedItem.deviceInfo && (
-                    <DetailRow>
-                      <Typography variant="caption" sx={{ color: '#888' }}>
-                        Device
-                      </Typography>
-                      <Typography variant="body2">{selectedItem.deviceInfo}</Typography>
-                    </DetailRow>
-                  )}
-
-                  <DetailRow>
-                    <Typography variant="caption" sx={{ color: '#888' }}>
-                      Flags
-                    </Typography>
-                    <Typography variant="body2">{selectedItem.flagCount}</Typography>
-                  </DetailRow>
-
-                  <DetailRow>
-                    <Typography variant="caption" sx={{ color: '#888' }}>
-                      Status
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      {selectedItem.hasEdits && (
-                        <StatusBadge type="warning">Edited</StatusBadge>
-                      )}
-                      {selectedItem.flagCount > 0 && (
-                        <StatusBadge type="info">{selectedItem.flagCount} Flags</StatusBadge>
-                      )}
-                      {!selectedItem.hasEdits && selectedItem.flagCount === 0 && (
-                        <StatusBadge type="success">Unmodified</StatusBadge>
-                      )}
-                    </Box>
-                  </DetailRow>
-
-                  <Box sx={{ mt: 2 }}>
-                    <Button
-                      fullWidth
-                      variant="outlined"
-                      size="small"
-                      onClick={() => handleItemDoubleClick(selectedItem.id)}
-                      sx={{
-                        color: '#19abb5',
-                        borderColor: '#19abb5',
-                        '&:hover': {
-                          backgroundColor: 'rgba(25, 171, 181, 0.1)',
-                        },
-                      }}
-                    >
-                      Open in Tool
-                    </Button>
-                  </Box>
-                </ItemDetailsPanel>
-              ) : (
-                <>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
-                    {investigationTitle || 'Investigation'}
-                  </Typography>
-
-                  <DetailRow>
-                    <Typography variant="caption" sx={{ color: '#888' }}>
-                      Total Items
-                    </Typography>
-                    <Typography variant="body2">{safeItems.length}</Typography>
-                  </DetailRow>
-
-                  <DetailRow>
-                    <Typography variant="caption" sx={{ color: '#888' }}>
-                      Total Flags
-                    </Typography>
-                    <Typography variant="body2">{Array.isArray(allFlags) ? allFlags.length : 0}</Typography>
-                  </DetailRow>
-
-                  {timeRange && (
-                    <>
-                      <DetailRow>
-                        <Typography variant="caption" sx={{ color: '#888' }}>
-                          Start Time
-                        </Typography>
-                        <Typography variant="body2">
-                          {formatTimelineTimestamp(timeRange.start, 'full')}
-                        </Typography>
-                      </DetailRow>
-
-                      <DetailRow>
-                        <Typography variant="caption" sx={{ color: '#888' }}>
-                          End Time
-                        </Typography>
-                        <Typography variant="body2">
-                          {formatTimelineTimestamp(timeRange.end, 'full')}
-                        </Typography>
-                      </DetailRow>
-
-                      <DetailRow>
-                        <Typography variant="caption" sx={{ color: '#888' }}>
-                          Duration
-                        </Typography>
-                        <Typography variant="body2">
-                          {formatDuration((timeRange.end - timeRange.start) / 1000)}
-                        </Typography>
-                      </DetailRow>
-                    </>
-                  )}
-
-                  <Divider sx={{ my: 2, borderColor: '#252525' }} />
-
-                  <DataLayerToggle
-                    layers={dataLayers}
-                    onToggleLayer={toggleDataLayer}
-                    onShowAll={showAllLayers}
-                    onHideAll={hideAllLayers}
-                    collapsed={layerPanelCollapsed}
-                    onToggleCollapsed={() => setLayerPanelCollapsed(!layerPanelCollapsed)}
-                  />
-                </>
-              )}
-            </SidePanelContent>
-          </SidePanel>
-        )}
       </MainContent>
 
-      {/* Clock sync dialog */}
-      <ClockSyncDialog
-        open={clockSyncDialogOpen}
-        devices={Array.isArray(clockSyncPrompt.devices) ? clockSyncPrompt.devices : []}
-        onClose={() => setClockSyncDialogOpen(false)}
-        onAcknowledge={() => {
-          acknowledgeClockSync();
-          setClockSyncDialogOpen(false);
-        }}
-        onVerifyDevice={verifyDeviceClock}
-      />
-    </TimelineContainer>
+          {/* Clock sync dialog */}
+          <ClockSyncDialog
+            open={clockSyncDialogOpen}
+            devices={Array.isArray(clockSyncPrompt.devices) ? clockSyncPrompt.devices : []}
+            onClose={() => setClockSyncDialogOpen(false)}
+            onAcknowledge={() => {
+              acknowledgeClockSync();
+              setClockSyncDialogOpen(false);
+            }}
+            onVerifyDevice={verifyDeviceClock}
+          />
+        </TimelineContainer>
+      }
+      evidenceTitle="Evidence"
+      inspectorTitle="Metadata"
+      showTransport={true}
+    />
   );
 };
 
