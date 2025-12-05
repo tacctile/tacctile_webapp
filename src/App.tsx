@@ -22,9 +22,10 @@ const SessionTimeline = lazy(() => import('@/components/session-timeline/Session
 const AudioTool = lazy(() => import('@/components/audio-tool/AudioTool'));
 const ImageTool = lazy(() => import('@/components/image-tool/ImageTool'));
 const VideoTool = lazy(() => import('@/components/video-tool/VideoTool'));
+const WorkspaceDemo = lazy(() => import('@/pages/WorkspaceDemo'));
 
 // Tool IDs for navigation
-const TOOLS = ['session', 'video', 'audio', 'images', 'streaming'] as const;
+const TOOLS = ['session', 'video', 'audio', 'images', 'streaming', 'workspace-demo'] as const;
 type ToolId = typeof TOOLS[number];
 
 // Material 3 Dark Theme with Tacctile Brand Colors
@@ -329,6 +330,14 @@ const App: React.FC = () => {
           <ErrorBoundary toolName="Video Tool">
             <Suspense fallback={toolFallback}>
               <VideoTool investigationId="current-investigation" />
+            </Suspense>
+          </ErrorBoundary>
+        );
+      case 'workspace-demo':
+        return (
+          <ErrorBoundary toolName="Workspace Demo">
+            <Suspense fallback={toolFallback}>
+              <WorkspaceDemo />
             </Suspense>
           </ErrorBoundary>
         );

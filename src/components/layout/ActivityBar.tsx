@@ -85,6 +85,7 @@ const toolsSection: NavItem[] = [
   { id: 'audio', icon: 'graphic_eq', label: 'Audio', tooltip: 'Audio analysis tool', route: '/audio' },
   { id: 'images', icon: 'image', label: 'Images', tooltip: 'Image analysis tool', route: '/images' },
   { id: 'streaming', icon: 'cell_tower', label: 'Streaming', tooltip: 'Streaming output tool', route: '/streaming' },
+  { id: 'workspace-demo', icon: 'view_quilt', label: 'Workspace', tooltip: 'Workspace layout demo', route: '/workspace-demo' },
 ];
 
 // MIDDLE SECTION

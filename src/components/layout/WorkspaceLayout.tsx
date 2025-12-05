@@ -1,5 +1,5 @@
 import React, { useState, useCallback, ReactNode } from 'react';
-import { Box, IconButton, Tooltip } from '@mui/material';
+import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -110,6 +110,135 @@ const CollapseButton = styled(IconButton)({
     backgroundColor: 'rgba(25, 171, 181, 0.1)',
   },
 });
+
+// ============================================================================
+// METADATA INSPECTOR COMPONENT
+// ============================================================================
+
+export interface SelectedEvidence {
+  id: string;
+  type: 'video' | 'audio' | 'image';
+  fileName: string;
+  duration?: number;
+  capturedAt: number;
+  user: string;
+  deviceInfo?: string;
+  flagCount: number;
+  hasFindings: boolean;
+  // Extended metadata
+  fileSize?: number;
+  resolution?: string;
+  codec?: string;
+  gpsLocation?: string;
+  hash?: string;
+}
+
+export const MetadataInspector: React.FC<{ item: SelectedEvidence | null }> = ({ item }) => {
+  if (!item) {
+    return (
+      <Box sx={{
+        padding: 2,
+        color: '#666',
+        fontSize: '13px',
+        textAlign: 'center',
+        marginTop: 4,
+      }}>
+        Select evidence to view metadata
+      </Box>
+    );
+  }
+
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleString();
+  };
+
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return 'Unknown';
+    const mb = bytes / (1024 * 1024);
+    return `${mb.toFixed(2)} MB`;
+  };
+
+  const MetadataRow = ({ label, value }: { label: string; value: string | number | undefined }) => (
+    <Box sx={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      padding: '6px 0',
+      borderBottom: '1px solid #252525',
+    }}>
+      <Typography sx={{ fontSize: '12px', color: '#888' }}>{label}</Typography>
+      <Typography sx={{ fontSize: '12px', color: '#e1e1e1' }}>{value || '—'}</Typography>
+    </Box>
+  );
+
+  return (
+    <Box sx={{ padding: 2 }}>
+      {/* File name header */}
+      <Typography sx={{
+        fontSize: '14px',
+        fontWeight: 600,
+        color: '#e1e1e1',
+        marginBottom: 2,
+        wordBreak: 'break-word',
+      }}>
+        {item.fileName}
+      </Typography>
+
+      {/* Type badge */}
+      <Box sx={{
+        display: 'inline-block',
+        padding: '2px 8px',
+        borderRadius: 1,
+        fontSize: '11px',
+        fontWeight: 600,
+        textTransform: 'uppercase',
+        marginBottom: 2,
+        backgroundColor: item.type === 'video' ? '#f44336' : item.type === 'audio' ? '#4caf50' : '#2196f3',
+        color: '#fff',
+      }}>
+        {item.type}
+      </Box>
+
+      {/* Metadata rows */}
+      <Box sx={{ marginTop: 2 }}>
+        <MetadataRow label="Captured" value={formatDate(item.capturedAt)} />
+        <MetadataRow label="User" value={item.user} />
+        <MetadataRow label="Device" value={item.deviceInfo} />
+        <MetadataRow label="Duration" value={item.duration ? `${Math.floor(item.duration / 60)}:${(item.duration % 60).toString().padStart(2, '0')}` : undefined} />
+        <MetadataRow label="File Size" value={formatFileSize(item.fileSize)} />
+        <MetadataRow label="Resolution" value={item.resolution} />
+        <MetadataRow label="Codec" value={item.codec} />
+        <MetadataRow label="GPS" value={item.gpsLocation} />
+        <MetadataRow label="Flags" value={item.flagCount} />
+        <MetadataRow label="SHA-256" value={item.hash?.substring(0, 16) + '...'} />
+      </Box>
+
+      {/* Findings indicator */}
+      {item.hasFindings && (
+        <Box sx={{
+          marginTop: 2,
+          padding: '8px 12px',
+          backgroundColor: 'rgba(25, 171, 181, 0.1)',
+          border: '1px solid rgba(25, 171, 181, 0.3)',
+          borderRadius: 1,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+        }}>
+          <Box sx={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            backgroundColor: '#19abb5',
+            boxShadow: '0 0 6px #19abb5',
+          }} />
+          <Typography sx={{ fontSize: '12px', color: '#19abb5' }}>
+            Has findings
+          </Typography>
+        </Box>
+      )}
+    </Box>
+  );
+};
 
 interface WorkspaceLayoutProps {
   // Panel content

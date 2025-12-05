@@ -4,7 +4,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { Box, Typography, Tooltip } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import type { TimelineItem, TimeRange, ZoomLevel, DataLayer } from '../../types/session';
 import { EVIDENCE_TYPE_COLORS, formatDuration, formatTimelineTimestamp } from '../../types/session';
@@ -327,108 +327,58 @@ export const TimelineTrack: React.FC<TimelineTrackProps> = ({
 
             if (isInstant) {
               return (
-                <Tooltip
+                <InstantMarker
                   key={item.id}
-                  title={
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {item.title}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: '#aaa' }}>
-                        {formatTimelineTimestamp(item.capturedAt, 'full')}
-                      </Typography>
-                      {item.flagCount > 0 && (
-                        <Typography variant="caption" sx={{ display: 'block', color: '#19abb5' }}>
-                          {item.flagCount} flag{item.flagCount !== 1 ? 's' : ''}
-                        </Typography>
-                      )}
-                    </Box>
-                  }
-                  placement="top"
-                  arrow
-                >
-                  <InstantMarker
-                    color={color}
-                    sx={{
-                      left,
-                      boxShadow: isSelected
-                        ? `0 0 0 2px #19abb5`
-                        : isHovered
-                        ? `0 0 0 1px ${color}`
-                        : 'none',
-                    }}
-                    onClick={() => onItemSelect(item.id)}
-                    onMouseEnter={() => onItemHover(item.id)}
-                    onMouseLeave={() => onItemHover(null)}
-                    onDoubleClick={() => onItemDoubleClick(item.id)}
-                  />
-                </Tooltip>
-              );
-            }
-
-            return (
-              <Tooltip
-                key={item.id}
-                title={
-                  <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      {item.title}
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: '#aaa', display: 'block' }}>
-                      {formatTimelineTimestamp(item.capturedAt, 'full')}
-                    </Typography>
-                    {item.duration && (
-                      <Typography variant="caption" sx={{ color: '#aaa', display: 'block' }}>
-                        Duration: {formatDuration(item.duration)}
-                      </Typography>
-                    )}
-                    {item.flagCount > 0 && (
-                      <Typography variant="caption" sx={{ display: 'block', color: '#19abb5' }}>
-                        {item.flagCount} flag{item.flagCount !== 1 ? 's' : ''}
-                      </Typography>
-                    )}
-                    {item.deviceInfo && (
-                      <Typography variant="caption" sx={{ display: 'block', color: '#666' }}>
-                        Device: {item.deviceInfo}
-                      </Typography>
-                    )}
-                  </Box>
-                }
-                placement="top"
-                arrow
-              >
-                <MediaItem
-                  width={width}
                   color={color}
-                  selected={isSelected}
-                  hovered={isHovered}
-                  sx={{ left }}
+                  sx={{
+                    left,
+                    boxShadow: isSelected
+                      ? `0 0 0 2px #19abb5`
+                      : isHovered
+                      ? `0 0 0 1px ${color}`
+                      : 'none',
+                  }}
                   onClick={() => onItemSelect(item.id)}
                   onMouseEnter={() => onItemHover(item.id)}
                   onMouseLeave={() => onItemHover(null)}
                   onDoubleClick={() => onItemDoubleClick(item.id)}
-                >
-                  <ItemContent>
-                    <ItemTitle>{item.title}</ItemTitle>
-                    <ItemMeta>
-                      {item.duration ? formatDuration(item.duration) : item.fileName}
-                    </ItemMeta>
-                  </ItemContent>
+                />
+              );
+            }
 
-                  {item.flagCount > 0 && (
-                    <FlagIndicator>
-                      <MaterialSymbol icon="flag" size={8} />
-                      {item.flagCount}
-                    </FlagIndicator>
-                  )}
+            return (
+              <MediaItem
+                key={item.id}
+                width={width}
+                color={color}
+                selected={isSelected}
+                hovered={isHovered}
+                sx={{ left }}
+                onClick={() => onItemSelect(item.id)}
+                onMouseEnter={() => onItemHover(item.id)}
+                onMouseLeave={() => onItemHover(null)}
+                onDoubleClick={() => onItemDoubleClick(item.id)}
+              >
+                <ItemContent>
+                  <ItemTitle>{item.title}</ItemTitle>
+                  <ItemMeta>
+                    {item.duration ? formatDuration(item.duration) : item.fileName}
+                  </ItemMeta>
+                </ItemContent>
 
-                  {item.hasEdits && (
-                    <EditIndicator>
-                      <MaterialSymbol icon="edit" size={10} color="#000" />
-                    </EditIndicator>
-                  )}
-                </MediaItem>
-              </Tooltip>
+                {item.flagCount > 0 && (
+                  <FlagIndicator>
+                    <MaterialSymbol icon="flag" size={8} />
+                    {item.flagCount}
+                  </FlagIndicator>
+                )}
+
+                {item.hasEdits && (
+                  <EditIndicator>
+                    <MaterialSymbol icon="edit" size={10} color="#000" />
+                  </EditIndicator>
+                )}
+              </MediaItem>
             );
           })}
         </ItemsContainer>
