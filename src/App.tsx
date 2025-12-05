@@ -4,7 +4,6 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
 import { TopHeaderBar } from '@/components/layout/TopHeaderBar';
-import { ExpandableLabelRow } from '@/components/layout/ExpandableLabelRow';
 import StatusBar from '@/components/layout/StatusBar';
 import { LayoutProvider } from '@/contexts/LayoutContext';
 import { ErrorBoundary, LoadingSkeleton } from '@/components/common';
@@ -406,18 +405,13 @@ const App: React.FC = () => {
             paddingRight: 'env(safe-area-inset-right)',
           }}
         >
-          {/* Top Header Bar - Fixed, never collapses */}
+          {/* Top Header Bar - Fixed, icons only with tooltips */}
           <TopHeaderBar
             selectedTool={selectedTool}
             onToolSelect={handleToolSelect}
             notificationCount={3}
             userName="Sarah Chen"
           />
-
-          {/* Expandable Label Row */}
-          {!isMobile && (
-            <ExpandableLabelRow selectedTool={selectedTool} />
-          )}
 
           {/* Main Content Area */}
           <Box sx={{
