@@ -1,3 +1,13 @@
+/**
+ * StatusBar Component
+ * Bottom status bar with session info, sync status, and environmental data
+ *
+ * Layout:
+ * - Left: Session name, User name
+ * - Center: Sync status
+ * - Right: Environmental data (temp, EMF, GPS), time
+ */
+
 import React, { useState, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -9,17 +19,11 @@ import CloudDoneIcon from '@mui/icons-material/CloudDone';
 import CloudOffIcon from '@mui/icons-material/CloudOff';
 import SyncIcon from '@mui/icons-material/Sync';
 import FolderIcon from '@mui/icons-material/Folder';
-import WifiIcon from '@mui/icons-material/Wifi';
-import WifiOffIcon from '@mui/icons-material/WifiOff';
-import BatteryFullIcon from '@mui/icons-material/BatteryFull';
-import Battery60Icon from '@mui/icons-material/Battery60';
-import Battery30Icon from '@mui/icons-material/Battery30';
-import BatteryAlertIcon from '@mui/icons-material/BatteryAlert';
+import PersonIcon from '@mui/icons-material/Person';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import ThermostatIcon from '@mui/icons-material/Thermostat';
 import WifiTetheringIcon from '@mui/icons-material/WifiTethering';
-import GitHubIcon from '@mui/icons-material/GitHub';
-import NotificationsIcon from '@mui/icons-material/Notifications';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 
 const StyledStatusBar = styled(Box)(({ theme }) => ({
   height: 22,
@@ -53,22 +57,32 @@ const StatusItem = styled(Box)({
   },
 });
 
+const Divider = styled(Box)({
+  width: 1,
+  height: 12,
+  backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  margin: '0 4px',
+});
+
 interface StatusBarProps {
   investigationName?: string;
   currentTool?: string;
   syncStatus?: 'synced' | 'syncing' | 'offline';
+  sessionName?: string;
+  userName?: string;
 }
 
 const StatusBar: React.FC<StatusBarProps> = ({
   investigationName = 'No Investigation',
   currentTool = 'none',
   syncStatus = 'synced',
+  sessionName,
+  userName = 'User',
 }) => {
   const [time, setTime] = useState(new Date());
-  const [batteryLevel, setBatteryLevel] = useState(85);
   const [temperature, setTemperature] = useState(21.5);
   const [emfReading, setEmfReading] = useState(0.3);
-  const [connectedDevices, setConnectedDevices] = useState(4);
+  const [gpsLocation, setGpsLocation] = useState('45.5231° N, 122.6765° W');
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -92,54 +106,53 @@ const StatusBar: React.FC<StatusBarProps> = ({
     }
   };
 
-  const getBatteryIcon = () => {
-    if (batteryLevel > 60) return <BatteryFullIcon sx={{ fontSize: 14 }} />;
-    if (batteryLevel > 30) return <Battery60Icon sx={{ fontSize: 14 }} />;
-    if (batteryLevel > 10) return <Battery30Icon sx={{ fontSize: 14 }} />;
-    return <BatteryAlertIcon sx={{ fontSize: 14, color: '#ff5252' }} />;
-  };
-
-  const getToolName = () => {
-    const tools: { [key: string]: string } = {
-      photo: 'Photo Evidence',
-      video: 'Video Recording',
-      audio: 'EVP Recorder',
-      emf: 'EMF Detector',
-      analysis: 'Data Analysis',
-      thermal: 'Thermal Imaging',
-      motion: 'Motion Detection',
-      spiritbox: 'Spirit Box',
-      settings: 'Settings',
-    };
-    return tools[currentTool] || 'Ready';
+  const getSyncLabel = () => {
+    switch (syncStatus) {
+      case 'synced':
+        return 'Synced';
+      case 'syncing':
+        return 'Syncing...';
+      case 'offline':
+        return 'Offline';
+    }
   };
 
   return (
     <StyledStatusBar>
-      {/* Left section */}
+      {/* Left section - Session & User */}
       <StatusSection>
-        <Tooltip title="Current Investigation">
+        <Tooltip title="Current Session">
           <StatusItem>
             <FolderIcon sx={{ fontSize: 14 }} />
-            <Typography variant="caption">{investigationName}</Typography>
+            <Typography variant="caption" sx={{ fontWeight: 500 }}>
+              {sessionName || investigationName}
+            </Typography>
           </StatusItem>
         </Tooltip>
 
-        <Tooltip title="Active Tool">
-          <StatusItem>
-            <Typography variant="caption">{getToolName()}</Typography>
-          </StatusItem>
-        </Tooltip>
+        <Divider />
 
-        <Tooltip title="Sync Status">
+        <Tooltip title="Current User">
           <StatusItem>
-            {getSyncIcon()}
-            <Typography variant="caption">{syncStatus}</Typography>
+            <PersonIcon sx={{ fontSize: 14 }} />
+            <Typography variant="caption">
+              {userName}
+            </Typography>
           </StatusItem>
         </Tooltip>
       </StatusSection>
 
-      {/* Center section - Live readings */}
+      {/* Center section - Sync Status */}
+      <StatusSection>
+        <Tooltip title={`Cloud Status: ${getSyncLabel()}`}>
+          <StatusItem>
+            {getSyncIcon()}
+            <Typography variant="caption">{getSyncLabel()}</Typography>
+          </StatusItem>
+        </Tooltip>
+      </StatusSection>
+
+      {/* Right section - Environmental Data & Time */}
       <StatusSection>
         <Tooltip title="Temperature">
           <StatusItem>
@@ -158,43 +171,29 @@ const StatusBar: React.FC<StatusBarProps> = ({
         <Tooltip title="GPS Location">
           <StatusItem>
             <LocationOnIcon sx={{ fontSize: 14 }} />
-            <Typography variant="caption">45.5231° N, 122.6765° W</Typography>
+            <Typography variant="caption">{gpsLocation}</Typography>
+          </StatusItem>
+        </Tooltip>
+
+        <Divider />
+
+        <Tooltip title="Current Time">
+          <StatusItem>
+            <AccessTimeIcon sx={{ fontSize: 14 }} />
+            <Typography variant="caption" sx={{ fontFamily: '"JetBrains Mono", monospace' }}>
+              {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </Typography>
           </StatusItem>
         </Tooltip>
       </StatusSection>
 
-      {/* Right section */}
-      <StatusSection>
-        <Tooltip title="Connected Devices">
-          <StatusItem>
-            <WifiIcon sx={{ fontSize: 14 }} />
-            <Typography variant="caption">{connectedDevices}</Typography>
-          </StatusItem>
-        </Tooltip>
-
-        <Tooltip title="Battery Level">
-          <StatusItem>
-            {getBatteryIcon()}
-            <Typography variant="caption">{batteryLevel}%</Typography>
-          </StatusItem>
-        </Tooltip>
-
-        <Tooltip title="Notifications">
-          <StatusItem>
-            <NotificationsIcon sx={{ fontSize: 14 }} />
-          </StatusItem>
-        </Tooltip>
-
-        <Tooltip title="GitHub">
-          <StatusItem>
-            <GitHubIcon sx={{ fontSize: 14 }} />
-          </StatusItem>
-        </Tooltip>
-
-        <Typography variant="caption">
-          {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </Typography>
-      </StatusSection>
+      {/* CSS for spinning animation */}
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </StyledStatusBar>
   );
 };

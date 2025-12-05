@@ -4,3 +4,5 @@ export { default as EditorArea } from './EditorArea';
 export { default as SidePanel } from './SidePanel';
 export { default as StatusBar } from './StatusBar';
 export { WorkspaceLayout } from './WorkspaceLayout';
+export { TopHeaderBar, NAV_TOOLS } from './TopHeaderBar';
+export { ExpandableLabelRow } from './ExpandableLabelRow';

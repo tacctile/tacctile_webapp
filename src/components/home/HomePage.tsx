@@ -3,8 +3,8 @@
  * Landing screen for Tacctile - displays storage locations, sessions, and quick analyze
  *
  * Layout:
- * - LEFT PANEL (250px): Storage locations + Quick Analyze drop zone
- * - RIGHT PANEL: Session cards grid with search, sort, and view controls
+ * - LEFT PANEL (280px, same as other tools): Storage locations + Quick Analyze drop zone
+ * - RIGHT PANEL (fills remaining space): Session cards grid with search, sort, and view controls
  */
 
 import React, { useCallback, useState, useMemo, useRef } from 'react';
@@ -45,6 +45,13 @@ import { useNavigationStore } from '@/stores/useNavigationStore';
 import { useAppPersistence } from '@/stores/useAppPersistence';
 
 // ============================================================================
+// CONSTANTS - Match WorkspaceLayout panel widths
+// ============================================================================
+
+const LEFT_PANEL_WIDTH = 280;
+const COLLAPSED_WIDTH = 36;
+
+// ============================================================================
 // STYLED COMPONENTS
 // ============================================================================
 
@@ -55,11 +62,11 @@ const PageContainer = styled(Box)({
   overflow: 'hidden',
 });
 
-// Left Panel Styles
+// Left Panel Styles - matches WorkspaceLayout left panel
 const LeftPanel = styled(Box)<{ collapsed?: boolean }>(({ collapsed }) => ({
-  width: collapsed ? 36 : 250,
-  minWidth: collapsed ? 36 : 250,
-  maxWidth: collapsed ? 36 : 250,
+  width: collapsed ? COLLAPSED_WIDTH : LEFT_PANEL_WIDTH,
+  minWidth: collapsed ? COLLAPSED_WIDTH : LEFT_PANEL_WIDTH,
+  maxWidth: collapsed ? COLLAPSED_WIDTH : LEFT_PANEL_WIDTH,
   backgroundColor: '#181818',
   borderRight: '1px solid #252525',
   display: 'flex',
@@ -72,10 +79,10 @@ const PanelHeader = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  padding: '8px 12px',
+  padding: '6px 10px',
   backgroundColor: '#1a1a1a',
   borderBottom: '1px solid #252525',
-  minHeight: 36,
+  minHeight: 32,
 });
 
 const PanelTitle = styled(Typography)({
@@ -96,15 +103,15 @@ const CollapseButton = styled(IconButton)({
 });
 
 const CollapsedPanel = styled(Box)({
-  width: 36,
-  minWidth: 36,
-  maxWidth: 36,
+  width: COLLAPSED_WIDTH,
+  minWidth: COLLAPSED_WIDTH,
+  maxWidth: COLLAPSED_WIDTH,
   backgroundColor: '#181818',
   borderRight: '1px solid #252525',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  paddingTop: 8,
+  paddingTop: 6,
 });
 
 const StorageList = styled(Box)({
@@ -213,10 +220,6 @@ const RightHeader = styled(Box)({
   padding: '12px 20px',
   backgroundColor: '#1a1a1a',
   borderBottom: '1px solid #252525',
-});
-
-const Logo = styled('img')({
-  height: 28,
 });
 
 const SearchField = styled(TextField)({
@@ -410,6 +413,12 @@ const SecondaryButton = styled(Button)({
     borderColor: '#19abb5',
     color: '#19abb5',
   },
+});
+
+const Logo = styled('img')({
+  width: 120,
+  opacity: 0.3,
+  marginBottom: 24,
 });
 
 // ============================================================================
@@ -740,8 +749,6 @@ export const HomePage: React.FC = () => {
       <RightPanel>
         {/* Header */}
         <RightHeader>
-          <Logo src="/tacctile_app_main_logo.png" alt="Tacctile" />
-
           <SearchField
             placeholder="Search sessions..."
             size="small"
@@ -789,12 +796,12 @@ export const HomePage: React.FC = () => {
         <ContentArea>
           {sessions.length === 0 ? (
             <EmptyState>
-              <FolderIcon sx={{ fontSize: 64, color: '#333', mb: 2 }} />
-              <Typography sx={{ fontSize: 16, color: '#666', mb: 1 }}>
-                No sessions yet
+              <Logo src="/tacctile_app_main_logo.png" alt="Tacctile" />
+              <Typography sx={{ fontSize: 18, color: '#666', mb: 1, fontWeight: 500 }}>
+                Create your first session
               </Typography>
-              <Typography sx={{ fontSize: 12, color: '#555', mb: 3 }}>
-                Create your first session to start analyzing evidence
+              <Typography sx={{ fontSize: 12, color: '#555', mb: 3, maxWidth: 300 }}>
+                Sessions help you organize your paranormal investigation evidence - videos, audio recordings, and images.
               </Typography>
               <PrimaryButton onClick={handleNewSession} startIcon={<AddIcon />}>
                 New Session
