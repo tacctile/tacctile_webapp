@@ -136,18 +136,6 @@ const ToolbarSection = styled(Box)({
   gap: 8,
 });
 
-const VideoRefOverlay = styled(Box)({
-  position: 'absolute',
-  top: 8,
-  right: 48,
-  width: 180,
-  backgroundColor: '#1a1a1a',
-  border: '1px solid #252525',
-  borderRadius: 2,
-  overflow: 'hidden',
-  zIndex: 10,
-});
-
 const FilterSection = styled(Box)({
   padding: '8px 12px',
   borderBottom: '1px solid #252525',
@@ -522,37 +510,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
           boxShadow: '0 0 8px rgba(25, 171, 181, 0.5)',
           zIndex: 5,
         }} />
-
-        {/* Video reference overlay */}
-        {loadedAudio.hasVideo && videoRefVisible && (
-          <VideoRefOverlay>
-            <Box sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '4px 8px',
-              borderBottom: '1px solid #252525',
-            }}>
-              <Typography sx={{ fontSize: 9, color: '#888', textTransform: 'uppercase' }}>
-                Video Reference
-              </Typography>
-              <IconButton size="small" onClick={() => setVideoRefVisible(false)} sx={{ padding: '2px' }}>
-                <CloseIcon sx={{ fontSize: 12, color: '#666' }} />
-              </IconButton>
-            </Box>
-            <Box sx={{ height: 100, backgroundColor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Typography sx={{ color: '#333', fontSize: 10 }}>Synced video</Typography>
-            </Box>
-            <Button
-              fullWidth
-              size="small"
-              onClick={() => navigateToTool('video', loadedAudio.id)}
-              sx={{ fontSize: 9, color: '#19abb5', borderRadius: 0 }}
-            >
-              Open in Video Tool
-            </Button>
-          </VideoRefOverlay>
-        )}
       </Box>
     );
   };
@@ -585,98 +542,62 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     );
   };
 
-  // Inspector content (right panel)
+  // Right panel content - Video Reference (if applicable) + Flags
   const inspectorContent = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      {/* Filters section */}
-      <Box sx={{ flexShrink: 0, overflowY: 'auto', maxHeight: '50%' }}>
-        <FilterSection>
-          <SectionTitle>Repair</SectionTitle>
-          <PrecisionSlider
-            label="De-noise"
-            value={filters.deNoise}
-            min={0}
-            max={100}
-            unit="%"
-            onChange={(v) => setFilters(prev => ({ ...prev, deNoise: v }))}
-            disabled={!loadedAudio}
-          />
-          <PrecisionSlider
-            label="De-hum"
-            value={filters.deHum}
-            min={0}
-            max={100}
-            unit="%"
-            onChange={(v) => setFilters(prev => ({ ...prev, deHum: v }))}
-            disabled={!loadedAudio}
-          />
-        </FilterSection>
-
-        <FilterSection>
-          <SectionTitle>Enhance</SectionTitle>
-          <PrecisionSlider
-            label="Gain"
-            value={filters.gain}
-            min={-24}
-            max={24}
-            unit="dB"
-            onChange={(v) => setFilters(prev => ({ ...prev, gain: v }))}
-            disabled={!loadedAudio}
-          />
-        </FilterSection>
-
-        <FilterSection>
-          <SectionTitle>Playback</SectionTitle>
-          <PrecisionSlider
-            label="Speed"
-            value={filters.speed}
-            min={0.25}
-            max={2}
-            step={0.25}
-            unit="x"
-            onChange={(v) => setFilters(prev => ({ ...prev, speed: v }))}
-            disabled={!loadedAudio}
-          />
-          <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-            <Button
+      {/* Video Reference - only show if audio is from video */}
+      {loadedAudio?.hasVideo && (
+        <Box sx={{
+          height: 150,
+          flexShrink: 0,
+          borderBottom: '1px solid #252525',
+          display: 'flex',
+          flexDirection: 'column',
+        }}>
+          <Box sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '4px 12px',
+            backgroundColor: '#1e1e1e',
+          }}>
+            <Typography sx={{ fontSize: 9, color: '#666', textTransform: 'uppercase', fontWeight: 600 }}>
+              Video Reference
+            </Typography>
+            <IconButton
               size="small"
-              variant="outlined"
-              startIcon={<ReplayIcon sx={{ fontSize: 14 }} />}
-              disabled={!loadedAudio}
-              sx={{ flex: 1, fontSize: 10, color: '#666', borderColor: '#333', py: 0.5 }}
+              onClick={() => setVideoRefVisible(!videoRefVisible)}
+              sx={{ padding: '2px', color: '#555' }}
             >
-              Reverse
-            </Button>
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<LoopIcon sx={{ fontSize: 14 }} />}
-              disabled={!loadedAudio}
-              sx={{ flex: 1, fontSize: 10, color: '#666', borderColor: '#333', py: 0.5 }}
-            >
-              Loop
-            </Button>
+              {videoRefVisible ? <CloseIcon sx={{ fontSize: 12 }} /> : <VideocamIcon sx={{ fontSize: 12 }} />}
+            </IconButton>
           </Box>
-        </FilterSection>
-
-        <Box sx={{ padding: '8px 12px' }}>
-          <Button
-            fullWidth
-            size="small"
-            variant="outlined"
-            onClick={() => setFilters({ deNoise: 0, deHum: 0, gain: 0, speed: 1 })}
-            sx={{ fontSize: 10, color: '#666', borderColor: '#333', py: 0.5 }}
-            disabled={!loadedAudio}
-          >
-            Reset Filters
-          </Button>
+          {videoRefVisible ? (
+            <>
+              <Box sx={{ flex: 1, backgroundColor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Typography sx={{ color: '#333', fontSize: 10 }}>Synced video</Typography>
+              </Box>
+              <Button
+                fullWidth
+                size="small"
+                onClick={() => navigateToTool('video', loadedAudio?.id)}
+                sx={{ fontSize: 9, color: '#19abb5', borderRadius: 0, py: 0.5, borderTop: '1px solid #252525' }}
+              >
+                Open in Video Tool
+              </Button>
+            </>
+          ) : (
+            <Box
+              sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backgroundColor: '#0d0d0d' }}
+              onClick={() => setVideoRefVisible(true)}
+            >
+              <Typography sx={{ color: '#444', fontSize: 10 }}>Click to show</Typography>
+            </Box>
+          )}
         </Box>
-      </Box>
+      )}
 
-      {/* Divider */}
-      <Box sx={{ height: 1, backgroundColor: '#252525', flexShrink: 0 }} />
-
-      {/* Flags section */}
+      {/* Flags - takes all remaining space */}
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <FlagsPanel
           flags={flags}
@@ -844,7 +765,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       inspectorPanel={inspectorContent}
       mainContent={mainContent}
       evidenceTitle="Audio Files"
-      inspectorTitle="Filters"
+      inspectorTitle=""
       showTransport={true}
     />
   );
