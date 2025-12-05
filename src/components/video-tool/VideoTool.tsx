@@ -10,7 +10,7 @@ import FlagIcon from '@mui/icons-material/Flag';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank } from '@/components/evidence-bank';
-import { MetadataPanel } from '@/components/common';
+import { MetadataPanel, PrecisionSlider, FlagsPanel, ResizablePanelSplit, type Flag } from '@/components/common';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
 import { useNavigationStore } from '@/stores/useNavigationStore';
 
@@ -117,6 +117,13 @@ const videoEvidence = [
   { id: 'v4', type: 'video' as const, fileName: 'handheld_investigation.mp4', duration: 2400, capturedAt: Date.now() - 6000000, user: 'Sarah', deviceInfo: 'iPhone 15 Pro', flagCount: 5, hasFindings: true, format: 'H.265 / 4K', gps: '39.95°N, 75.16°W' },
 ];
 
+// Mock flags data
+const mockFlags: Flag[] = [
+  { id: 'f1', timestamp: 873000, label: 'Shadow movement', note: 'Dark figure moves across doorway, left to right. Approximately 2 seconds duration.', createdBy: 'Sarah', createdAt: Date.now() - 3600000 },
+  { id: 'f2', timestamp: 1337000, label: 'Audio anomaly', note: 'Possible voice, sounds like whisper.', createdBy: 'Mike', createdAt: Date.now() - 3000000 },
+  { id: 'f3', timestamp: 2244000, label: 'Light flicker', createdBy: 'Sarah', createdAt: Date.now() - 1800000 },
+];
+
 // Filter defaults
 const defaultFilters = {
   brightness: 100,
@@ -146,6 +153,7 @@ export const VideoTool: React.FC<VideoToolProps> = ({ investigationId }) => {
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(100);
   const [filters, setFilters] = useState(defaultFilters);
+  const [flags, setFlags] = useState<Flag[]>(mockFlags);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const timestamp = usePlayheadStore((state) => state.timestamp);
@@ -450,112 +458,110 @@ export const VideoTool: React.FC<VideoToolProps> = ({ investigationId }) => {
   );
 
   // Filter controls for inspector panel
-  const inspectorContent = (
-    <Box sx={{ padding: 2 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography sx={{ fontSize: 11, fontWeight: 600, color: '#808080', textTransform: 'uppercase' }}>
-          Video Filters
-        </Typography>
-        <Typography
-          onClick={resetFilters}
-          sx={{ fontSize: 10, color: '#19abb5', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
-        >
-          Reset
-        </Typography>
-      </Box>
+  const filtersContent = (
+    <Box sx={{ height: '100%', overflowY: 'auto', padding: '8px 12px' }}>
+      <Typography sx={{ fontSize: 10, fontWeight: 600, color: '#666', textTransform: 'uppercase', mb: 1 }}>
+        Video Filters
+      </Typography>
 
-      {!loadedVideo ? (
-        <Typography sx={{ fontSize: 12, color: '#555' }}>
-          Load a video to enable filters
-        </Typography>
-      ) : (
-        <>
-          <FilterSection>
-            <FilterLabel>
-              <span>Brightness</span>
-              <span style={{ color: '#cccccc' }}>{filters.brightness}%</span>
-            </FilterLabel>
-            <FilterSlider
-              value={filters.brightness}
-              onChange={handleFilterChange('brightness')}
-              min={0}
-              max={200}
-            />
-          </FilterSection>
+      <PrecisionSlider
+        label="Brightness"
+        value={filters.brightness}
+        min={0}
+        max={200}
+        step={1}
+        unit="%"
+        onChange={(v) => setFilters(prev => ({ ...prev, brightness: v }))}
+        disabled={!loadedVideo}
+      />
+      <PrecisionSlider
+        label="Contrast"
+        value={filters.contrast}
+        min={0}
+        max={200}
+        step={1}
+        unit="%"
+        onChange={(v) => setFilters(prev => ({ ...prev, contrast: v }))}
+        disabled={!loadedVideo}
+      />
+      <PrecisionSlider
+        label="Saturation"
+        value={filters.saturation}
+        min={0}
+        max={200}
+        step={1}
+        unit="%"
+        onChange={(v) => setFilters(prev => ({ ...prev, saturation: v }))}
+        disabled={!loadedVideo}
+      />
+      <PrecisionSlider
+        label="Gamma"
+        value={filters.gamma}
+        min={0}
+        max={200}
+        step={1}
+        unit="%"
+        onChange={(v) => setFilters(prev => ({ ...prev, gamma: v }))}
+        disabled={!loadedVideo}
+      />
 
-          <FilterSection>
-            <FilterLabel>
-              <span>Contrast</span>
-              <span style={{ color: '#cccccc' }}>{filters.contrast}%</span>
-            </FilterLabel>
-            <FilterSlider
-              value={filters.contrast}
-              onChange={handleFilterChange('contrast')}
-              min={0}
-              max={200}
-            />
-          </FilterSection>
+      <Box sx={{ height: 1, backgroundColor: '#252525', my: 2 }} />
 
-          <FilterSection>
-            <FilterLabel>
-              <span>Saturation</span>
-              <span style={{ color: '#cccccc' }}>{filters.saturation}%</span>
-            </FilterLabel>
-            <FilterSlider
-              value={filters.saturation}
-              onChange={handleFilterChange('saturation')}
-              min={0}
-              max={200}
-            />
-          </FilterSection>
+      <Typography sx={{ fontSize: 10, fontWeight: 600, color: '#666', textTransform: 'uppercase', mb: 1 }}>
+        Enhancement
+      </Typography>
 
-          <FilterSection>
-            <FilterLabel>
-              <span>Gamma</span>
-              <span style={{ color: '#cccccc' }}>{filters.gamma}%</span>
-            </FilterLabel>
-            <FilterSlider
-              value={filters.gamma}
-              onChange={handleFilterChange('gamma')}
-              min={50}
-              max={150}
-            />
-          </FilterSection>
-
-          <Box sx={{ borderTop: '1px solid #252525', mt: 2, pt: 2 }}>
-            <Typography sx={{ fontSize: 11, fontWeight: 600, color: '#808080', textTransform: 'uppercase', mb: 2 }}>
-              Enhancement
-            </Typography>
-
-            <FilterSection>
-              <FilterLabel>
-                <span>Night Vision</span>
-                <span style={{ color: '#cccccc' }}>{filters.nightVision}%</span>
-              </FilterLabel>
-              <FilterSlider
-                value={filters.nightVision}
-                onChange={handleFilterChange('nightVision')}
-                min={0}
-                max={100}
-              />
-            </FilterSection>
-
-            <FilterSection>
-              <FilterLabel>
-                <span>Sharpen</span>
-                <span style={{ color: '#cccccc' }}>{filters.sharpen}%</span>
-              </FilterLabel>
-              <FilterSlider
-                value={filters.sharpen}
-                onChange={handleFilterChange('sharpen')}
-                min={0}
-                max={100}
-              />
-            </FilterSection>
-          </Box>
-        </>
-      )}
+      <PrecisionSlider
+        label="Night Vision"
+        value={filters.nightVision || 0}
+        min={0}
+        max={100}
+        step={1}
+        unit="%"
+        onChange={(v) => setFilters(prev => ({ ...prev, nightVision: v }))}
+        disabled={!loadedVideo}
+      />
+      <PrecisionSlider
+        label="Sharpen"
+        value={filters.sharpen || 0}
+        min={0}
+        max={100}
+        step={1}
+        unit="%"
+        onChange={(v) => setFilters(prev => ({ ...prev, sharpen: v }))}
+        disabled={!loadedVideo}
+      />
     </Box>
+  );
+
+  const inspectorContent = (
+    <ResizablePanelSplit
+      top={filtersContent}
+      bottom={
+        <FlagsPanel
+          flags={flags}
+          onFlagClick={(flag) => {
+            // Jump to timestamp
+            console.log('Jump to:', flag.timestamp);
+          }}
+          onFlagAdd={() => {
+            // Add flag at current position
+            console.log('Add flag');
+          }}
+          onFlagEdit={(flag) => {
+            console.log('Edit flag:', flag.id);
+          }}
+          onFlagDelete={(flagId) => {
+            setFlags(prev => prev.filter(f => f.id !== flagId));
+          }}
+          disabled={!loadedVideo}
+        />
+      }
+      defaultSplit={55}
+      minTopHeight={150}
+      minBottomHeight={150}
+      storageKey="tacctile_video_inspector_split"
+    />
   );
 
   return (
