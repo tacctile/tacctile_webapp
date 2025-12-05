@@ -161,7 +161,7 @@ const DUMMY_MESSAGES: ChatMessage[] = [
   {
     id: 'dummy-1',
     role: 'assistant',
-    content: 'Hello! I\'m your AI Sidekick. I can help you analyze your evidence and understand the tools. What would you like to know?',
+    content: 'Hello! I\'m Knox. I can help you analyze your evidence and understand the tools. What would you like to know?',
     timestamp: new Date(Date.now() - 60000),
   },
   {
@@ -327,7 +327,7 @@ export const AISidekickPanel: React.FC<AISidekickPanelProps> = ({ context }) => 
     return (
       <PanelContainer isCollapsed={true}>
         <CollapsedContent onClick={toggleCollapse}>
-          <Tooltip title="Expand AI Sidekick" placement="left">
+          <Tooltip title="Expand Knox" placement="left">
             <Box
               component="span"
               className="material-symbols-outlined"
@@ -354,7 +354,7 @@ export const AISidekickPanel: React.FC<AISidekickPanelProps> = ({ context }) => 
             smart_toy
           </Box>
           <Typography variant="body2" sx={{ fontWeight: 500, color: '#ccc' }} noWrap>
-            AI Sidekick
+            Knox
           </Typography>
         </HeaderTitle>
 
@@ -540,7 +540,7 @@ export const AISidekickPanel: React.FC<AISidekickPanelProps> = ({ context }) => 
             fullWidth
             multiline
             maxRows={4}
-            placeholder={apiKey ? "Ask AI Sidekick..." : "Configure API key to chat"}
+            placeholder={apiKey ? "Ask Knox..." : "Configure API key to chat"}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
