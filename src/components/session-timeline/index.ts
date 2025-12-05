@@ -3,7 +3,7 @@
  * Export all session timeline components from this index
  */
 
-export { SessionTimeline } from './SessionTimeline';
+export { default as SessionTimeline } from './SessionTimeline';
 export { TimelineRuler } from './TimelineRuler';
 export { TimelineTrack } from './TimelineTrack';
 export { FlagMarker, FlagsTrack } from './FlagMarker';
