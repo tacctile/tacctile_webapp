@@ -13,29 +13,36 @@ const TransportContainer = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: 8,
-  padding: '8px 16px',
-  backgroundColor: '#1a1a1a',
-  borderTop: '1px solid #2b2b2b',
+  gap: 6,
+  padding: '6px 12px',
+  backgroundColor: '#161616',
+  borderTop: '1px solid #252525',
 });
 
 const TimecodeDisplay = styled(Typography)({
-  fontFamily: 'monospace',
-  fontSize: '14px',
+  fontFamily: '"JetBrains Mono", "Consolas", monospace',
+  fontSize: '12px',
+  fontWeight: 500,
   color: '#19abb5',
-  minWidth: 100,
+  minWidth: 90,
   textAlign: 'center',
+  letterSpacing: '-0.3px',
 });
 
 const SpeedSelect = styled('select')({
-  backgroundColor: '#252525',
-  color: '#e1e1e1',
-  border: '1px solid #333',
-  borderRadius: 4,
-  padding: '4px 8px',
-  fontSize: '12px',
+  backgroundColor: '#1e1e1e',
+  color: '#cccccc',
+  border: '1px solid #303030',
+  borderRadius: 2,
+  padding: '3px 6px',
+  fontSize: '11px',
   cursor: 'pointer',
+  fontFamily: '"Inter", sans-serif',
   '&:hover': {
+    borderColor: '#19abb5',
+  },
+  '&:focus': {
+    outline: 'none',
     borderColor: '#19abb5',
   },
 });

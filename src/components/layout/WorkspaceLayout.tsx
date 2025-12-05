@@ -8,7 +8,7 @@ import { TransportControls } from '@/components/common';
 // Layout constants
 const EVIDENCE_PANEL_WIDTH = 280;
 const INSPECTOR_PANEL_WIDTH = 300;
-const COLLAPSED_WIDTH = 40;
+const COLLAPSED_WIDTH = 36;
 
 const LayoutContainer = styled(Box)({
   display: 'flex',
@@ -28,36 +28,35 @@ const Panel = styled(Box)<{ width: number }>(({ width }) => ({
   width,
   minWidth: width,
   maxWidth: width,
-  backgroundColor: '#161616',
-  borderColor: '#2b2b2b',
+  backgroundColor: '#181818',
   display: 'flex',
   flexDirection: 'column',
   overflow: 'hidden',
-  transition: 'width 0.2s ease, min-width 0.2s ease, max-width 0.2s ease',
+  transition: 'width 0.15s ease, min-width 0.15s ease, max-width 0.15s ease',
 }));
 
 const LeftPanel = styled(Panel)({
-  borderRight: '1px solid #2b2b2b',
+  borderRight: '1px solid #252525',
 });
 
 const RightPanel = styled(Panel)({
-  borderLeft: '1px solid #2b2b2b',
+  borderLeft: '1px solid #252525',
 });
 
 const PanelHeader = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  padding: '8px 12px',
+  padding: '6px 10px',
   backgroundColor: '#1a1a1a',
-  borderBottom: '1px solid #2b2b2b',
-  minHeight: 40,
+  borderBottom: '1px solid #252525',
+  minHeight: 32,
 });
 
 const PanelTitle = styled('span')({
-  fontSize: '12px',
+  fontSize: '10px',
   fontWeight: 600,
-  color: '#e1e1e1',
+  color: '#808080',
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
 });
@@ -92,22 +91,22 @@ const CenterContent = styled(Box)({
 });
 
 const CollapsedPanel = styled(Box)({
-  width: COLLAPSED_WIDTH,
-  minWidth: COLLAPSED_WIDTH,
-  maxWidth: COLLAPSED_WIDTH,
-  backgroundColor: '#161616',
+  width: 36,
+  minWidth: 36,
+  maxWidth: 36,
+  backgroundColor: '#181818',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  paddingTop: 8,
+  paddingTop: 6,
 });
 
 const CollapseButton = styled(IconButton)({
-  color: '#888',
+  color: '#666',
   padding: 4,
   '&:hover': {
     color: '#19abb5',
-    backgroundColor: 'rgba(25, 171, 181, 0.1)',
+    backgroundColor: 'rgba(25, 171, 181, 0.08)',
   },
 });
 
@@ -192,7 +191,7 @@ export const MetadataInspector: React.FC<{ item: SelectedEvidence | null }> = ({
         fontWeight: 600,
         textTransform: 'uppercase',
         marginBottom: 2,
-        backgroundColor: item.type === 'video' ? '#f44336' : item.type === 'audio' ? '#4caf50' : '#2196f3',
+        backgroundColor: item.type === 'video' ? '#c45c5c' : item.type === 'audio' ? '#5a9a6b' : '#5a7fbf',
         color: '#fff',
       }}>
         {item.type}
