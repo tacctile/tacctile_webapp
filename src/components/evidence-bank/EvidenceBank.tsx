@@ -33,27 +33,28 @@ const Container = styled(Box)({
   display: 'flex',
   flexDirection: 'column',
   height: '100%',
-  gap: 8,
-  padding: 8,
+  gap: 6,
+  padding: 6,
 });
 
 const SearchField = styled(TextField)({
   '& .MuiOutlinedInput-root': {
     backgroundColor: '#1a1a1a',
-    fontSize: '13px',
+    fontSize: '12px',
     '& fieldset': {
-      borderColor: '#333',
+      borderColor: '#2a2a2a',
     },
     '&:hover fieldset': {
-      borderColor: '#444',
+      borderColor: '#3a3a3a',
     },
     '&.Mui-focused fieldset': {
       borderColor: '#19abb5',
+      borderWidth: 1,
     },
   },
   '& .MuiInputBase-input': {
-    padding: '8px 12px',
-    color: '#e1e1e1',
+    padding: '6px 10px',
+    color: '#cccccc',
   },
 });
 
@@ -70,13 +71,14 @@ const MediaFilters = styled(Box)({
 });
 
 const FilterChip = styled(Chip)<{ selected?: boolean }>(({ selected }) => ({
-  height: 26,
-  fontSize: '11px',
-  backgroundColor: selected ? 'rgba(25, 171, 181, 0.2)' : '#252525',
-  color: selected ? '#19abb5' : '#888',
-  border: selected ? '1px solid #19abb5' : '1px solid transparent',
+  height: 22,
+  fontSize: '10px',
+  backgroundColor: selected ? 'rgba(25, 171, 181, 0.15)' : '#242424',
+  color: selected ? '#19abb5' : '#808080',
+  border: selected ? '1px solid rgba(25, 171, 181, 0.3)' : '1px solid transparent',
+  borderRadius: 2,
   '&:hover': {
-    backgroundColor: selected ? 'rgba(25, 171, 181, 0.3)' : '#333',
+    backgroundColor: selected ? 'rgba(25, 171, 181, 0.2)' : '#2a2a2a',
   },
 }));
 
@@ -126,14 +128,14 @@ const EvidenceGrid = styled(Box)({
 const ListItem = styled(Box)<{ selected?: boolean }>(({ selected }) => ({
   display: 'flex',
   alignItems: 'center',
-  gap: 10,
-  padding: '8px 10px',
-  backgroundColor: selected ? 'rgba(25, 171, 181, 0.15)' : '#1a1a1a',
-  borderRadius: 4,
+  gap: 8,
+  padding: '6px 8px',
+  backgroundColor: selected ? 'rgba(25, 171, 181, 0.1)' : 'transparent',
+  borderRadius: 2,
   cursor: 'pointer',
-  border: selected ? '1px solid #19abb5' : '1px solid transparent',
+  border: selected ? '1px solid rgba(25, 171, 181, 0.25)' : '1px solid transparent',
   '&:hover': {
-    backgroundColor: selected ? 'rgba(25, 171, 181, 0.2)' : '#222',
+    backgroundColor: selected ? 'rgba(25, 171, 181, 0.12)' : '#1e1e1e',
   },
 }));
 
@@ -174,14 +176,14 @@ const GridOverlay = styled(Box)({
 
 const TypeIcon = styled(Box)<{ type: 'video' | 'audio' | 'image' }>(({ type }) => {
   const colors = {
-    video: '#f44336',
-    audio: '#4caf50',
-    image: '#2196f3',
+    video: '#c45c5c',
+    audio: '#5a9a6b',
+    image: '#5a7fbf',
   };
   return {
-    width: 28,
-    height: 28,
-    borderRadius: 4,
+    width: 24,
+    height: 24,
+    borderRadius: 2,
     backgroundColor: colors[type],
     display: 'flex',
     alignItems: 'center',
@@ -200,8 +202,8 @@ const FlagBadge = styled(Box)({
 
 const Duration = styled(Typography)({
   fontSize: '10px',
-  color: '#888',
-  fontFamily: 'monospace',
+  color: '#666',
+  fontFamily: '"JetBrains Mono", monospace',
 });
 
 // Helper functions

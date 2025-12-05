@@ -1,8 +1,4 @@
 import React, { useState, useCallback, Suspense, lazy, useMemo } from 'react';
-import '@fontsource/manrope/400.css';
-import '@fontsource/manrope/500.css';
-import '@fontsource/manrope/600.css';
-import '@fontsource/manrope/700.css';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -28,108 +24,165 @@ const WorkspaceDemo = lazy(() => import('@/pages/WorkspaceDemo'));
 const TOOLS = ['session', 'video', 'audio', 'images', 'streaming', 'workspace-demo'] as const;
 type ToolId = typeof TOOLS[number];
 
-// Material 3 Dark Theme with Tacctile Brand Colors
+// Professional DaVinci-style Dark Theme
 const createAppTheme = (isMobile: boolean) => createTheme({
+  typography: {
+    fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
+    fontSize: 13,
+    h1: { fontSize: '1.5rem', fontWeight: 600 },
+    h2: { fontSize: '1.25rem', fontWeight: 600 },
+    h3: { fontSize: '1.1rem', fontWeight: 600 },
+    h4: { fontSize: '1rem', fontWeight: 600 },
+    h5: { fontSize: '0.9rem', fontWeight: 600 },
+    h6: { fontSize: '0.8rem', fontWeight: 600 },
+    body1: { fontSize: '0.8125rem', lineHeight: 1.5 },
+    body2: { fontSize: '0.75rem', lineHeight: 1.4 },
+    caption: { fontSize: '0.6875rem' },
+    button: { fontSize: '0.75rem', fontWeight: 500 },
+  },
+  shape: {
+    borderRadius: 2,
+  },
   palette: {
     mode: 'dark',
+    primary: {
+      main: '#19abb5',
+      dark: '#147a82',
+      light: '#4dc4cc',
+    },
+    secondary: {
+      main: '#808080',
+    },
     background: {
       default: '#121212',
       paper: '#1e1e1e',
     },
-    primary: {
-      main: '#19abb5',     // Primary brand color
-      light: '#36d1da',    // Lighter variant
-      dark: '#1992a1',     // Darker variant for hover
-      contrastText: '#ffffff',
-    },
-    secondary: {
-      main: '#75e7eb',     // Bright accent
-      light: '#aef2f3',    // Secondary highlight
-      dark: '#36d1da',     // Alternate primary
-    },
-    error: {
-      main: '#cf6679',
-    },
+    divider: '#252525',
     text: {
-      primary: '#e1e1e1',
-      secondary: '#aaaaaa',
+      primary: '#cccccc',
+      secondary: '#808080',
+      disabled: '#5a5a5a',
     },
-    action: {
-      active: '#19abb5',
-      hover: 'rgba(25, 171, 181, 0.08)',
-      selected: 'rgba(25, 171, 181, 0.16)',
-      disabled: 'rgba(255, 255, 255, 0.3)',
-      disabledBackground: 'rgba(255, 255, 255, 0.12)',
-    },
-  },
-  typography: {
-    fontFamily: '"Manrope", sans-serif',
-    fontSize: isMobile ? 14 : 13,
-    fontWeightRegular: 400,
-    fontWeightMedium: 500,
-    fontWeightBold: 700,
-    h1: { fontFamily: '"Manrope", sans-serif', fontWeight: 700 },
-    h2: { fontFamily: '"Manrope", sans-serif', fontWeight: 700 },
-    h3: { fontFamily: '"Manrope", sans-serif', fontWeight: 600 },
-    h4: { fontFamily: '"Manrope", sans-serif', fontWeight: 600 },
-    h5: { fontFamily: '"Manrope", sans-serif', fontWeight: 500 },
-    h6: { fontFamily: '"Manrope", sans-serif', fontWeight: 500 },
-    subtitle1: { fontFamily: '"Manrope", sans-serif', fontWeight: 500 },
-    subtitle2: { fontFamily: '"Manrope", sans-serif', fontWeight: 500 },
-    body1: { fontFamily: '"Manrope", sans-serif', fontWeight: 400 },
-    body2: { fontFamily: '"Manrope", sans-serif', fontWeight: 400 },
-    button: { fontFamily: '"Manrope", sans-serif', fontWeight: 500 },
-    caption: { fontFamily: '"Manrope", sans-serif', fontWeight: 400 },
-    overline: { fontFamily: '"Manrope", sans-serif', fontWeight: 400 },
-  },
-  shape: {
-    borderRadius: 4,
+    error: { main: '#c45c5c' },
+    warning: { main: '#c4995c' },
+    success: { main: '#5a9a6b' },
+    info: { main: '#5a7fbf' },
   },
   breakpoints: {
     values: {
       xs: 0,
       sm: 600,
-      md: 900,   // Tablet portrait
-      lg: 1200,  // Tablet landscape / small desktop
-      xl: 1536,  // Large desktop
+      md: 900,
+      lg: 1200,
+      xl: 1536,
     },
   },
   components: {
     MuiCssBaseline: {
       styleOverrides: {
         body: {
-          scrollbarColor: '#6b6b6b #2b2b2b',
-          '&::-webkit-scrollbar, & *::-webkit-scrollbar': {
-            width: isMobile ? 6 : 10,
-            height: isMobile ? 6 : 10,
+          backgroundColor: '#121212',
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#333 #1a1a1a',
+          '&::-webkit-scrollbar': {
+            width: 6,
+            height: 6,
           },
-          '&::-webkit-scrollbar-thumb, & *::-webkit-scrollbar-thumb': {
-            borderRadius: 5,
-            backgroundColor: '#6b6b6b',
-            minHeight: 24,
-            border: `${isMobile ? 1 : 2}px solid #2b2b2b`,
+          '&::-webkit-scrollbar-track': {
+            backgroundColor: '#1a1a1a',
           },
-          '&::-webkit-scrollbar-track, & *::-webkit-scrollbar-track': {
-            borderRadius: 5,
-            backgroundColor: '#2b2b2b',
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: '#333',
+            borderRadius: 3,
           },
-          // Touch scrolling improvements
-          WebkitOverflowScrolling: 'touch',
-        },
-      },
-    },
-    // Touch-friendly button sizes for mobile
-    MuiIconButton: {
-      styleOverrides: {
-        root: {
-          padding: isMobile ? 12 : 8,
         },
       },
     },
     MuiButton: {
       styleOverrides: {
         root: {
-          minHeight: isMobile ? 44 : 36,
+          textTransform: 'none',
+          fontWeight: 500,
+          padding: '4px 12px',
+          minHeight: 28,
+          borderRadius: 2,
+        },
+        contained: {
+          boxShadow: 'none',
+          '&:hover': {
+            boxShadow: 'none',
+          },
+        },
+      },
+    },
+    MuiIconButton: {
+      styleOverrides: {
+        root: {
+          padding: 6,
+          borderRadius: 2,
+        },
+        sizeSmall: {
+          padding: 4,
+        },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          height: 22,
+          fontSize: '0.6875rem',
+          borderRadius: 2,
+        },
+      },
+    },
+    MuiTooltip: {
+      styleOverrides: {
+        tooltip: {
+          fontSize: '0.6875rem',
+          backgroundColor: '#242424',
+          border: '1px solid #303030',
+          borderRadius: 2,
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          backgroundImage: 'none',
+          borderRadius: 2,
+        },
+      },
+    },
+    MuiDialog: {
+      styleOverrides: {
+        paper: {
+          backgroundColor: '#1e1e1e',
+          borderRadius: 4,
+        },
+      },
+    },
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-root': {
+            borderRadius: 2,
+            fontSize: '0.8125rem',
+          },
+        },
+      },
+    },
+    MuiSelect: {
+      styleOverrides: {
+        root: {
+          borderRadius: 2,
+        },
+      },
+    },
+    MuiToggleButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 2,
+          textTransform: 'none',
         },
       },
     },
