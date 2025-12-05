@@ -26,6 +26,10 @@ import {
   Tooltip,
   ToggleButtonGroup,
   ToggleButton,
+  Menu,
+  ListItemIcon,
+  ListItemText,
+  Slider,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -39,6 +43,15 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import DragHandleIcon from '@mui/icons-material/DragHandle';
+import FlagIcon from '@mui/icons-material/Flag';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import InfoIcon from '@mui/icons-material/Info';
+import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
+import AddIcon from '@mui/icons-material/Add';
+import RemoveIcon from '@mui/icons-material/Remove';
+import FitScreenIcon from '@mui/icons-material/FitScreen';
+import ZoomInIcon from '@mui/icons-material/ZoomIn';
+import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
@@ -93,6 +106,21 @@ const BASE_LANE_HEIGHT = 36;
 // LocalStorage keys
 const STORAGE_KEY_LANE_HEIGHT = 'sessionTimeline_laneHeight';
 const STORAGE_KEY_DIVIDER_POSITION = 'sessionTimeline_dividerPosition';
+const STORAGE_KEY_ZOOM_LEVEL = 'sessionTimeline_zoomLevel';
+const STORAGE_KEY_REMOVED_ITEMS = 'sessionTimeline_removedItems';
+
+// Zoom settings
+const MIN_ZOOM = 0.1;
+const MAX_ZOOM = 10;
+const DEFAULT_ZOOM = 1;
+const ZOOM_STEP = 0.1;
+
+// Context menu state interface
+interface ContextMenuState {
+  mouseX: number;
+  mouseY: number;
+  item: TimelineMediaItem | null;
+}
 
 interface SwimLane {
   id: string;
@@ -553,12 +581,21 @@ const LaneLabel = styled(Box)<{ laneHeight?: number }>(({ laneHeight = 36 }) => 
   overflow: 'hidden',
 }));
 
-const LaneContent = styled(Box)({
+const LaneContent = styled(Box)<{ isDragOver?: boolean; canDrop?: boolean }>(({ isDragOver, canDrop }) => ({
   flex: 1,
   height: '100%',
   position: 'relative',
   overflow: 'hidden',
-});
+  transition: 'background-color 0.15s, border-color 0.15s',
+  ...(isDragOver && canDrop && {
+    backgroundColor: 'rgba(25, 171, 181, 0.1)',
+    borderLeft: '3px solid #19abb5',
+  }),
+  ...(isDragOver && !canDrop && {
+    backgroundColor: 'rgba(229, 115, 115, 0.1)',
+    borderLeft: '3px solid #e57373',
+  }),
+}));
 
 const TimelineClip = styled(Box)<{
   clipType: 'video' | 'audio' | 'image';
@@ -661,17 +698,18 @@ const GlobalPlayhead = styled(Box)({
   backgroundColor: '#19abb5',
   boxShadow: '0 0 10px rgba(25, 171, 181, 0.7)',
   zIndex: 100,
-  cursor: 'ew-resize',
+  pointerEvents: 'none', // Let drag area handle events
+  // Pill-shaped grab handle at top (12px wide, 16px tall)
   '&::before': {
     content: '""',
     position: 'absolute',
     top: 0,
     left: -5,
     width: 12,
-    height: 12,
+    height: 16,
     backgroundColor: '#19abb5',
-    borderRadius: '50% 50% 50% 0',
-    transform: 'rotate(-45deg)',
+    borderRadius: 6,
+    boxShadow: '0 2px 8px rgba(25, 171, 181, 0.5)',
   },
 });
 
@@ -679,10 +717,44 @@ const PlayheadDragArea = styled(Box)({
   position: 'absolute',
   top: 0,
   bottom: 0,
-  width: 20,
-  marginLeft: -9,
-  cursor: 'ew-resize',
+  width: 24, // Expanded hit area to 24px
+  marginLeft: -11,
+  cursor: 'grab',
   zIndex: 99,
+  '&:hover': {
+    cursor: 'grab',
+  },
+  '&:active': {
+    cursor: 'grabbing',
+  },
+});
+
+// Playhead timecode badge that follows the playhead
+const PlayheadTimecode = styled(Box)({
+  position: 'absolute',
+  top: 18,
+  transform: 'translateX(-50%)',
+  backgroundColor: '#19abb5',
+  color: '#000',
+  fontSize: 9,
+  fontFamily: '"JetBrains Mono", monospace',
+  fontWeight: 600,
+  padding: '2px 6px',
+  borderRadius: 3,
+  whiteSpace: 'nowrap',
+  zIndex: 101,
+  pointerEvents: 'none',
+  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.3)',
+});
+
+// Zoom controls container at bottom of timeline
+const ZoomControlsContainer = styled(Box)({
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  padding: '6px 12px',
+  backgroundColor: '#161616',
+  borderTop: '1px solid #252525',
 });
 
 // Right Panel Components
@@ -784,6 +856,45 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   // Playhead dragging
   const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
 
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+
+  // Zoom level (1 = 100%, 0.5 = 50%, 2 = 200%)
+  const [zoomLevel, setZoomLevel] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEY_ZOOM_LEVEL);
+      if (saved) {
+        const val = parseFloat(saved);
+        if (!isNaN(val) && val >= MIN_ZOOM && val <= MAX_ZOOM) {
+          return val;
+        }
+      }
+    }
+    return DEFAULT_ZOOM;
+  });
+
+  // Items removed from timeline (stored by ID, can be re-added by dragging from Evidence Bank)
+  const [removedItemIds, setRemovedItemIds] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEY_REMOVED_ITEMS);
+      if (saved) {
+        try {
+          return new Set(JSON.parse(saved));
+        } catch {
+          return new Set();
+        }
+      }
+    }
+    return new Set();
+  });
+
+  // Selected item for metadata panel (from timeline click)
+  const [selectedTimelineItem, setSelectedTimelineItem] = useState<TimelineMediaItem | null>(null);
+
+  // Dragging from Evidence Bank
+  const [draggedEvidenceId, setDraggedEvidenceId] = useState<string | null>(null);
+  const [dragOverLane, setDragOverLane] = useState<{ user: string; type: string } | null>(null);
+
   // Loading state (for realistic UX)
   const [isLoading, setIsLoading] = useState(true);
 
@@ -850,6 +961,16 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     localStorage.setItem(STORAGE_KEY_DIVIDER_POSITION, dividerPosition.toString());
   }, [dividerPosition]);
 
+  // Persist zoom level to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_ZOOM_LEVEL, zoomLevel.toString());
+  }, [zoomLevel]);
+
+  // Persist removed items to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_REMOVED_ITEMS, JSON.stringify(Array.from(removedItemIds)));
+  }, [removedItemIds]);
+
   // Calculate the actual lane height in pixels
   const laneHeight = useMemo(() => {
     return Math.round(BASE_LANE_HEIGHT * LANE_HEIGHT_MULTIPLIERS[laneHeightSize]);
@@ -859,6 +980,11 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   const clipHeight = useMemo(() => {
     return Math.max(16, laneHeight - 8);
   }, [laneHeight]);
+
+  // Filter out removed items for timeline display (items remain in Evidence Bank)
+  const visibleItems = useMemo(() => {
+    return items.filter(item => !removedItemIds.has(item.id));
+  }, [items, removedItemIds]);
 
   // Determine which image is at current playhead position
   useEffect(() => {
@@ -893,16 +1019,16 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     }));
   }, [items]);
 
-  // Group items by type and user for swim lanes
+  // Group items by type and user for swim lanes (using visibleItems to exclude removed)
   const laneData = useMemo(() => {
-    // Get unique users from items + permanent users
+    // Get unique users from items + permanent users (use all items for user list)
     const userSet = new Set<string>(USERS);
     items.forEach((item) => {
       if (item.user) userSet.add(item.user);
     });
     const users = Array.from(userSet).filter(Boolean);
 
-    // Group by type and user
+    // Group by type and user (using visibleItems)
     const videoByUser: Record<string, TimelineMediaItem[]> = {};
     const audioByUser: Record<string, TimelineMediaItem[]> = {};
     const imagesByUser: Record<string, TimelineMediaItem[]> = {};
@@ -916,7 +1042,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       imagesByUser[u] = [];
     });
 
-    items.forEach((item) => {
+    visibleItems.forEach((item) => {
       const user = item.user;
       if (item.type === 'video') {
         if (user && videoByUser[user]) {
@@ -948,7 +1074,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       audioCatchAll,
       imagesCatchAll,
     };
-  }, [items]);
+  }, [items, visibleItems]);
 
   // Aggregate all flags at/near current playhead position
   const currentFlags = useMemo(() => {
@@ -1074,20 +1200,18 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     []
   );
 
-  // Handle item double click (open in tool)
+  // Handle item double click (focus file, jump playhead to start, load in preview)
+  // NO automatic navigation to other tools
   const handleItemDoubleClick = useCallback(
     (item: TimelineMediaItem) => {
-      const toolMap: Record<string, 'video' | 'audio' | 'images'> = {
-        video: 'video',
-        audio: 'audio',
-        photo: 'images',
-      };
-      const tool = toolMap[item.type];
-      if (tool) {
-        navigateToTool(tool, item.evidenceId);
-      }
+      // Make this the active file
+      setActiveFileId(item.id);
+      // Jump playhead to the start of this file
+      setGlobalTimestamp(item.capturedAt);
+      // Also select it for metadata display
+      handleItemClick(item);
     },
-    [navigateToTool]
+    [setGlobalTimestamp, handleItemClick]
   );
 
   // Handle flag click (jump to timestamp)
@@ -1102,6 +1226,228 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   const handleFileVisibilityToggle = useCallback((fileId: string) => {
     setActiveFileId((prev) => (prev === fileId ? null : fileId));
   }, []);
+
+  // Format timecode from timestamp
+  const formatTimecode = useCallback((timestamp: number): string => {
+    const date = new Date(timestamp);
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const seconds = date.getSeconds().toString().padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+  }, []);
+
+  // ============================================================================
+  // CONTEXT MENU HANDLERS
+  // ============================================================================
+
+  // Open context menu on right-click
+  const handleContextMenu = useCallback((event: React.MouseEvent, item: TimelineMediaItem) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setContextMenu({
+      mouseX: event.clientX,
+      mouseY: event.clientY,
+      item,
+    });
+  }, []);
+
+  // Close context menu
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
+  // Context menu: Add flag at current playhead position
+  const handleAddFlagAtPlayhead = useCallback(() => {
+    if (contextMenu?.item) {
+      console.log('Add flag at playhead:', formatTimecode(globalTimestamp), 'for item:', contextMenu.item.fileName);
+      // TODO: Integrate with flag creation system
+    }
+    handleCloseContextMenu();
+  }, [contextMenu, globalTimestamp, formatTimecode, handleCloseContextMenu]);
+
+  // Context menu: Open in respective tool
+  const handleOpenInTool = useCallback(() => {
+    if (contextMenu?.item) {
+      const toolMap: Record<string, 'video' | 'audio' | 'images'> = {
+        video: 'video',
+        audio: 'audio',
+        photo: 'images',
+      };
+      const tool = toolMap[contextMenu.item.type];
+      if (tool) {
+        navigateToTool(tool, contextMenu.item.evidenceId);
+      }
+    }
+    handleCloseContextMenu();
+  }, [contextMenu, navigateToTool, handleCloseContextMenu]);
+
+  // Context menu: View metadata (select the item)
+  const handleViewMetadata = useCallback(() => {
+    if (contextMenu?.item) {
+      handleItemClick(contextMenu.item);
+    }
+    handleCloseContextMenu();
+  }, [contextMenu, handleItemClick, handleCloseContextMenu]);
+
+  // Context menu: Remove from timeline
+  const handleRemoveFromTimeline = useCallback(() => {
+    if (contextMenu?.item) {
+      setRemovedItemIds(prev => new Set([...prev, contextMenu.item!.id]));
+      // Clear selection if this item was selected
+      if (selectedTimelineItem?.id === contextMenu.item.id) {
+        setSelectedTimelineItem(null);
+      }
+      if (activeFileId === contextMenu.item.id) {
+        setActiveFileId(null);
+      }
+    }
+    handleCloseContextMenu();
+  }, [contextMenu, selectedTimelineItem, activeFileId, handleCloseContextMenu]);
+
+  // Get tool name for context menu label
+  const getToolName = useCallback((type: string): string => {
+    const toolNames: Record<string, string> = {
+      video: 'Video Tool',
+      audio: 'Audio Tool',
+      photo: 'Image Tool',
+    };
+    return toolNames[type] || 'Tool';
+  }, []);
+
+  // ============================================================================
+  // ZOOM HANDLERS
+  // ============================================================================
+
+  // Zoom in
+  const handleZoomIn = useCallback(() => {
+    setZoomLevel(prev => Math.min(MAX_ZOOM, prev + ZOOM_STEP));
+  }, []);
+
+  // Zoom out
+  const handleZoomOut = useCallback(() => {
+    setZoomLevel(prev => Math.max(MIN_ZOOM, prev - ZOOM_STEP));
+  }, []);
+
+  // Fit all - reset to show entire session
+  const handleFitAll = useCallback(() => {
+    setZoomLevel(DEFAULT_ZOOM);
+  }, []);
+
+  // Handle zoom slider change
+  const handleZoomSliderChange = useCallback((_: Event, newValue: number | number[]) => {
+    setZoomLevel(newValue as number);
+  }, []);
+
+  // Handle mouse wheel zoom
+  const handleWheelZoom = useCallback((event: React.WheelEvent) => {
+    // Only zoom if hovering over timeline area
+    if (event.deltaY < 0) {
+      setZoomLevel(prev => Math.min(MAX_ZOOM, prev + ZOOM_STEP));
+    } else if (event.deltaY > 0) {
+      setZoomLevel(prev => Math.max(MIN_ZOOM, prev - ZOOM_STEP));
+    }
+  }, []);
+
+  // Handle keyboard zoom (+ and -)
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only handle if not focused on an input
+      if (document.activeElement?.tagName === 'INPUT' ||
+          document.activeElement?.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      if (event.key === '+' || event.key === '=') {
+        event.preventDefault();
+        setZoomLevel(prev => Math.min(MAX_ZOOM, prev + ZOOM_STEP));
+      } else if (event.key === '-' || event.key === '_') {
+        event.preventDefault();
+        setZoomLevel(prev => Math.max(MIN_ZOOM, prev - ZOOM_STEP));
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // ============================================================================
+  // DRAG AND DROP HANDLERS (Evidence Bank to Timeline)
+  // ============================================================================
+
+  // Handle drag start from Evidence Bank
+  const handleDragStart = useCallback((itemId: string) => {
+    setDraggedEvidenceId(itemId);
+  }, []);
+
+  // Handle drag over a lane
+  const handleDragOverLane = useCallback((event: React.DragEvent, user: string, type: string) => {
+    event.preventDefault();
+
+    // Find the dragged item
+    const draggedItem = items.find(i => i.id === draggedEvidenceId);
+    if (!draggedItem) return;
+
+    // Check if item can be dropped in this lane
+    // Items can only go to their owner's lane or catch-all (empty user)
+    const canDrop = !draggedItem.user || draggedItem.user === user || user === '';
+
+    if (canDrop) {
+      setDragOverLane({ user, type });
+    }
+  }, [draggedEvidenceId, items]);
+
+  // Handle drag leave
+  const handleDragLeaveLane = useCallback(() => {
+    setDragOverLane(null);
+  }, []);
+
+  // Handle drop on timeline
+  const handleDropOnTimeline = useCallback((event: React.DragEvent, targetUser: string, targetType: string) => {
+    event.preventDefault();
+    setDragOverLane(null);
+
+    if (!draggedEvidenceId) return;
+
+    const draggedItem = items.find(i => i.id === draggedEvidenceId);
+    if (!draggedItem) return;
+
+    // Check if item can be dropped in this lane
+    const itemOwner = draggedItem.user || '';
+    const canDrop = !itemOwner || itemOwner === targetUser || targetUser === '';
+
+    if (canDrop) {
+      // Remove from removed items set (re-add to timeline)
+      setRemovedItemIds(prev => {
+        const next = new Set(prev);
+        next.delete(draggedEvidenceId);
+        return next;
+      });
+    }
+
+    setDraggedEvidenceId(null);
+  }, [draggedEvidenceId, items]);
+
+  // Handle drag end
+  const handleDragEnd = useCallback(() => {
+    setDraggedEvidenceId(null);
+    setDragOverLane(null);
+  }, []);
+
+  // Check if dragged item can be dropped in a specific lane
+  const canDropInLane = useCallback((laneUser: string): boolean => {
+    if (!draggedEvidenceId) return false;
+    const draggedItem = items.find(i => i.id === draggedEvidenceId);
+    if (!draggedItem) return false;
+
+    // Items can only go to their owner's lane or catch-all (empty user)
+    const itemOwner = draggedItem.user || '';
+    return !itemOwner || itemOwner === laneUser || laneUser === '';
+  }, [draggedEvidenceId, items]);
+
+  // Check if a lane is currently being dragged over
+  const isLaneDragOver = useCallback((user: string, type: string): boolean => {
+    return dragOverLane?.user === user && dragOverLane?.type === type;
+  }, [dragOverLane]);
 
   // Handle lane height change
   const handleLaneHeightChange = useCallback(
@@ -1202,7 +1548,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
             }}
             onClick={(e) => { e.stopPropagation(); handleItemClick(item); }}
             onDoubleClick={(e) => { e.stopPropagation(); handleItemDoubleClick(item); }}
-            title={item.fileName}
+            onContextMenu={(e) => handleContextMenu(e, item)}
+            title={`${item.fileName}\nDouble-click to focus`}
           >
             <Tooltip title={isActive ? 'Active - click to deactivate' : 'Click to activate'} placement="top">
               <ClipVisibilityButton
@@ -1263,7 +1610,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
           }}
           onClick={(e) => { e.stopPropagation(); handleItemClick(item); }}
           onDoubleClick={(e) => { e.stopPropagation(); handleItemDoubleClick(item); }}
-          title={`${item.fileName}\nDouble-click to open in ${laneType} tool`}
+          onContextMenu={(e) => handleContextMenu(e, item)}
+          title={`${item.fileName}\nDouble-click to focus • Right-click for options`}
         >
           {/* Eyeball visibility toggle */}
           <Tooltip title={isActive ? 'Active - click to deactivate' : 'Click to activate'} placement="top">
@@ -1417,8 +1765,18 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
         <TimeRuler>{renderTimeRuler()}</TimeRuler>
 
         {/* Swim Lanes */}
-        <SwimLanesContainer ref={lanesContainerRef} onClick={handleTimelineClick}>
-          {/* Global Playhead */}
+        <SwimLanesContainer
+          ref={lanesContainerRef}
+          onClick={handleTimelineClick}
+          onWheel={handleWheelZoom}
+          sx={{
+            // Apply zoom scaling to content width
+            '& > *:not(:first-of-type)': {
+              minWidth: `${100 * zoomLevel}%`,
+            },
+          }}
+        >
+          {/* Global Playhead with timecode badge */}
           {timeRange && (
             <>
               <GlobalPlayhead
@@ -1426,6 +1784,14 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                   left: `calc(100px + ${playheadPosition}% * (100% - 100px) / 100)`,
                 }}
               />
+              {/* Timecode badge that follows playhead */}
+              <PlayheadTimecode
+                sx={{
+                  left: `calc(100px + ${playheadPosition}% * (100% - 100px) / 100 + 1px)`,
+                }}
+              >
+                {formatTimecode(globalTimestamp)}
+              </PlayheadTimecode>
               <PlayheadDragArea
                 sx={{
                   left: `calc(100px + ${playheadPosition}% * (100% - 100px) / 100)`,
@@ -1471,20 +1837,32 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                         {user}
                       </Typography>
                     </LaneLabel>
-                    <LaneContent>
+                    <LaneContent
+                      isDragOver={isLaneDragOver(user, 'video')}
+                      canDrop={canDropInLane(user)}
+                      onDragOver={(e) => handleDragOverLane(e, user, 'video')}
+                      onDragLeave={handleDragLeaveLane}
+                      onDrop={(e) => handleDropOnTimeline(e, user, 'video')}
+                    >
                       {renderLane(laneData.videoByUser[user] || [], 'video')}
                     </LaneContent>
                   </SwimLane>
                 ))}
-                {/* Catch-all lane (only if has items) */}
-                {laneData.videoCatchAll.length > 0 && (
+                {/* Catch-all lane (always show when dragging for drop target) */}
+                {(laneData.videoCatchAll.length > 0 || draggedEvidenceId) && (
                   <SwimLane laneHeight={laneHeight}>
                     <LaneLabel laneHeight={laneHeight}>
                       <Typography sx={{ fontSize: laneHeight < 24 ? 8 : 10, color: '#666', fontStyle: 'italic' }}>
                         Unassigned
                       </Typography>
                     </LaneLabel>
-                    <LaneContent>
+                    <LaneContent
+                      isDragOver={isLaneDragOver('', 'video')}
+                      canDrop={canDropInLane('')}
+                      onDragOver={(e) => handleDragOverLane(e, '', 'video')}
+                      onDragLeave={handleDragLeaveLane}
+                      onDrop={(e) => handleDropOnTimeline(e, '', 'video')}
+                    >
                       {renderLane(laneData.videoCatchAll, 'video')}
                     </LaneContent>
                   </SwimLane>
@@ -1528,19 +1906,31 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                         {user}
                       </Typography>
                     </LaneLabel>
-                    <LaneContent>
+                    <LaneContent
+                      isDragOver={isLaneDragOver(user, 'audio')}
+                      canDrop={canDropInLane(user)}
+                      onDragOver={(e) => handleDragOverLane(e, user, 'audio')}
+                      onDragLeave={handleDragLeaveLane}
+                      onDrop={(e) => handleDropOnTimeline(e, user, 'audio')}
+                    >
                       {renderLane(laneData.audioByUser[user] || [], 'audio')}
                     </LaneContent>
                   </SwimLane>
                 ))}
-                {laneData.audioCatchAll.length > 0 && (
+                {(laneData.audioCatchAll.length > 0 || draggedEvidenceId) && (
                   <SwimLane laneHeight={laneHeight}>
                     <LaneLabel laneHeight={laneHeight}>
                       <Typography sx={{ fontSize: laneHeight < 24 ? 8 : 10, color: '#666', fontStyle: 'italic' }}>
                         Unassigned
                       </Typography>
                     </LaneLabel>
-                    <LaneContent>
+                    <LaneContent
+                      isDragOver={isLaneDragOver('', 'audio')}
+                      canDrop={canDropInLane('')}
+                      onDragOver={(e) => handleDragOverLane(e, '', 'audio')}
+                      onDragLeave={handleDragLeaveLane}
+                      onDrop={(e) => handleDropOnTimeline(e, '', 'audio')}
+                    >
                       {renderLane(laneData.audioCatchAll, 'audio')}
                     </LaneContent>
                   </SwimLane>
@@ -1584,19 +1974,31 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                         {user}
                       </Typography>
                     </LaneLabel>
-                    <LaneContent>
+                    <LaneContent
+                      isDragOver={isLaneDragOver(user, 'image')}
+                      canDrop={canDropInLane(user)}
+                      onDragOver={(e) => handleDragOverLane(e, user, 'image')}
+                      onDragLeave={handleDragLeaveLane}
+                      onDrop={(e) => handleDropOnTimeline(e, user, 'image')}
+                    >
                       {renderLane(laneData.imagesByUser[user] || [], 'image')}
                     </LaneContent>
                   </SwimLane>
                 ))}
-                {laneData.imagesCatchAll.length > 0 && (
+                {(laneData.imagesCatchAll.length > 0 || draggedEvidenceId) && (
                   <SwimLane laneHeight={laneHeight}>
                     <LaneLabel laneHeight={laneHeight}>
                       <Typography sx={{ fontSize: laneHeight < 24 ? 8 : 10, color: '#666', fontStyle: 'italic' }}>
                         Unassigned
                       </Typography>
                     </LaneLabel>
-                    <LaneContent>
+                    <LaneContent
+                      isDragOver={isLaneDragOver('', 'image')}
+                      canDrop={canDropInLane('')}
+                      onDragOver={(e) => handleDragOverLane(e, '', 'image')}
+                      onDragLeave={handleDragLeaveLane}
+                      onDrop={(e) => handleDropOnTimeline(e, '', 'image')}
+                    >
                       {renderLane(laneData.imagesCatchAll, 'image')}
                     </LaneContent>
                   </SwimLane>
@@ -1605,6 +2007,68 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
             )}
           </SwimLaneSection>
         </SwimLanesContainer>
+
+        {/* Zoom Controls */}
+        <ZoomControlsContainer>
+          <Tooltip title="Zoom out (-)">
+            <IconButton
+              size="small"
+              onClick={handleZoomOut}
+              disabled={zoomLevel <= MIN_ZOOM}
+              sx={{ color: '#666', '&:hover': { color: '#19abb5' } }}
+            >
+              <RemoveIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          </Tooltip>
+          <Slider
+            value={zoomLevel}
+            onChange={handleZoomSliderChange}
+            min={MIN_ZOOM}
+            max={MAX_ZOOM}
+            step={ZOOM_STEP}
+            sx={{
+              width: 120,
+              color: '#19abb5',
+              '& .MuiSlider-thumb': {
+                width: 12,
+                height: 12,
+                backgroundColor: '#19abb5',
+                '&:hover, &.Mui-focusVisible': {
+                  boxShadow: '0 0 8px rgba(25, 171, 181, 0.5)',
+                },
+              },
+              '& .MuiSlider-track': {
+                height: 3,
+              },
+              '& .MuiSlider-rail': {
+                height: 3,
+                backgroundColor: '#333',
+              },
+            }}
+          />
+          <Tooltip title="Zoom in (+)">
+            <IconButton
+              size="small"
+              onClick={handleZoomIn}
+              disabled={zoomLevel >= MAX_ZOOM}
+              sx={{ color: '#666', '&:hover': { color: '#19abb5' } }}
+            >
+              <AddIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          </Tooltip>
+          <Typography sx={{ fontSize: 10, color: '#666', minWidth: 40, textAlign: 'center' }}>
+            {Math.round(zoomLevel * 100)}%
+          </Typography>
+          <Tooltip title="Fit all - show entire session">
+            <IconButton
+              size="small"
+              onClick={handleFitAll}
+              sx={{ color: '#666', '&:hover': { color: '#19abb5' }, ml: 1 }}
+            >
+              <FitScreenIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          </Tooltip>
+        </ZoomControlsContainer>
       </TimelineSection>
     </MainContainer>
   );
@@ -1740,48 +2204,115 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   );
 
   return (
-    <WorkspaceLayout
-      evidencePanel={
-        <EvidenceBank
-          items={evidenceItems}
-          selectedId={selectedEvidence?.id}
-          onSelect={(item) => setSelectedEvidence(item)}
-          onDoubleClick={(item) => {
-            const toolMap: Record<string, 'video' | 'audio' | 'images'> = {
-              video: 'video',
-              audio: 'audio',
-              image: 'images',
-            };
-            const tool = toolMap[item.type];
-            if (tool) {
-              navigateToTool(tool, item.id);
+    <>
+      <WorkspaceLayout
+        evidencePanel={
+          <EvidenceBank
+            items={evidenceItems}
+            selectedId={selectedEvidence?.id}
+            onSelect={(item) => setSelectedEvidence(item)}
+            onDoubleClick={(item) => {
+              const toolMap: Record<string, 'video' | 'audio' | 'images'> = {
+                video: 'video',
+                audio: 'audio',
+                image: 'images',
+              };
+              const tool = toolMap[item.type];
+              if (tool) {
+                navigateToTool(tool, item.id);
+              }
+            }}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          />
+        }
+        metadataPanel={
+          <MetadataPanel
+            data={
+              selectedEvidence
+                ? {
+                    fileName: selectedEvidence.fileName,
+                    capturedAt: selectedEvidence.capturedAt,
+                    duration: selectedEvidence.duration,
+                    user: selectedEvidence.user,
+                    device: selectedEvidence.deviceInfo,
+                    flagCount: selectedEvidence.flagCount,
+                  }
+                : null
             }
-          }}
-        />
-      }
-      metadataPanel={
-        <MetadataPanel
-          data={
-            selectedEvidence
-              ? {
-                  fileName: selectedEvidence.fileName,
-                  capturedAt: selectedEvidence.capturedAt,
-                  duration: selectedEvidence.duration,
-                  user: selectedEvidence.user,
-                  device: selectedEvidence.deviceInfo,
-                  flagCount: selectedEvidence.flagCount,
-                }
-              : null
-          }
-          type={selectedEvidence?.type || 'video'}
-        />
-      }
-      inspectorPanel={inspectorContent}
-      mainContent={mainContent}
-      evidenceTitle="Evidence"
-      inspectorTitle="Preview & Flags"
-      showTransport={true}
-    />
+            type={selectedEvidence?.type || 'video'}
+          />
+        }
+        inspectorPanel={inspectorContent}
+        mainContent={mainContent}
+        evidenceTitle="Evidence"
+        inspectorTitle="Preview & Flags"
+        showTransport={true}
+      />
+
+      {/* Context Menu for timeline clips */}
+      <Menu
+        open={contextMenu !== null}
+        onClose={handleCloseContextMenu}
+        anchorReference="anchorPosition"
+        anchorPosition={
+          contextMenu !== null
+            ? { top: contextMenu.mouseY, left: contextMenu.mouseX }
+            : undefined
+        }
+        PaperProps={{
+          sx: {
+            backgroundColor: '#1e1e1e',
+            border: '1px solid #333333',
+            minWidth: 200,
+            '& .MuiMenuItem-root': {
+              fontSize: 12,
+              py: 1,
+              '&:hover': {
+                backgroundColor: 'rgba(25, 171, 181, 0.1)',
+              },
+            },
+          },
+        }}
+      >
+        <MenuItem onClick={handleAddFlagAtPlayhead}>
+          <ListItemIcon>
+            <FlagIcon sx={{ fontSize: 18, color: '#19abb5' }} />
+          </ListItemIcon>
+          <ListItemText
+            primary={`Add flag at ${formatTimecode(globalTimestamp)}`}
+            primaryTypographyProps={{ fontSize: 12 }}
+          />
+        </MenuItem>
+        <MenuItem onClick={handleOpenInTool}>
+          <ListItemIcon>
+            <OpenInNewIcon sx={{ fontSize: 18, color: '#888' }} />
+          </ListItemIcon>
+          <ListItemText
+            primary={`Open in ${contextMenu?.item ? getToolName(contextMenu.item.type) : 'Tool'}`}
+            primaryTypographyProps={{ fontSize: 12 }}
+          />
+        </MenuItem>
+        <MenuItem onClick={handleViewMetadata}>
+          <ListItemIcon>
+            <InfoIcon sx={{ fontSize: 18, color: '#888' }} />
+          </ListItemIcon>
+          <ListItemText
+            primary="View metadata"
+            primaryTypographyProps={{ fontSize: 12 }}
+          />
+        </MenuItem>
+        <MenuItem onClick={handleRemoveFromTimeline} sx={{ color: '#e57373' }}>
+          <ListItemIcon>
+            <RemoveCircleOutlineIcon sx={{ fontSize: 18, color: '#e57373' }} />
+          </ListItemIcon>
+          <ListItemText
+            primary="Remove from timeline"
+            primaryTypographyProps={{ fontSize: 12, color: '#e57373' }}
+          />
+        </MenuItem>
+      </Menu>
+    </>
   );
 };
 

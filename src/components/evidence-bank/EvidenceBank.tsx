@@ -234,6 +234,8 @@ interface EvidenceBankProps {
   onSelect?: (item: EvidenceItem) => void;
   onDoubleClick?: (item: EvidenceItem) => void;
   filterByType?: MediaFilter; // Force filter to specific type (for tool-specific views)
+  onDragStart?: (itemId: string) => void; // Called when drag starts
+  onDragEnd?: () => void; // Called when drag ends
 }
 
 export const EvidenceBank: React.FC<EvidenceBankProps> = ({
@@ -242,6 +244,8 @@ export const EvidenceBank: React.FC<EvidenceBankProps> = ({
   onSelect,
   onDoubleClick,
   filterByType,
+  onDragStart,
+  onDragEnd,
 }) => {
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const stored = localStorage.getItem('tacctile-evidence-view');
@@ -288,6 +292,16 @@ export const EvidenceBank: React.FC<EvidenceBankProps> = ({
   const handleDoubleClick = useCallback((item: EvidenceItem) => {
     onDoubleClick?.(item);
   }, [onDoubleClick]);
+
+  const handleDragStart = useCallback((e: React.DragEvent, item: EvidenceItem) => {
+    e.dataTransfer.setData('text/plain', item.id);
+    e.dataTransfer.effectAllowed = 'move';
+    onDragStart?.(item.id);
+  }, [onDragStart]);
+
+  const handleDragEnd = useCallback(() => {
+    onDragEnd?.();
+  }, [onDragEnd]);
 
   const counts = useMemo(() => ({
     all: items.length,
@@ -383,6 +397,10 @@ export const EvidenceBank: React.FC<EvidenceBankProps> = ({
               selected={item.id === selectedId}
               onClick={() => handleClick(item)}
               onDoubleClick={() => handleDoubleClick(item)}
+              draggable={!!onDragStart}
+              onDragStart={(e) => handleDragStart(e, item)}
+              onDragEnd={handleDragEnd}
+              sx={{ cursor: onDragStart ? 'grab' : 'pointer', '&:active': { cursor: 'grabbing' } }}
             >
               <TypeIcon type={item.type}>
                 {getTypeIcon(item.type)}
@@ -435,6 +453,10 @@ export const EvidenceBank: React.FC<EvidenceBankProps> = ({
               hasFindings={item.hasFindings}
               onClick={() => handleClick(item)}
               onDoubleClick={() => handleDoubleClick(item)}
+              draggable={!!onDragStart}
+              onDragStart={(e) => handleDragStart(e, item)}
+              onDragEnd={handleDragEnd}
+              sx={{ cursor: onDragStart ? 'grab' : 'pointer', '&:active': { cursor: 'grabbing' } }}
             >
               <Thumbnail>
                 {item.thumbnailUrl ? (
