@@ -387,15 +387,15 @@ export function useFlagTypes() {
 
   // Get by category
   const getTypesByCategory = useCallback(
-    (category: 'paranormal' | 'technical' | 'review'): FlagTypeMetadata[] => {
+    (category: 'investigation' | 'technical' | 'review'): FlagTypeMetadata[] => {
       return evidenceFlaggingService.getFlagTypesByCategory(category);
     },
     []
   );
 
-  // Paranormal types
-  const paranormalTypes = useMemo(
-    () => getTypesByCategory('paranormal'),
+  // Investigation types
+  const investigationTypes = useMemo(
+    () => getTypesByCategory('investigation'),
     [getTypesByCategory]
   );
 
@@ -413,7 +413,7 @@ export function useFlagTypes() {
 
   return {
     flagTypes,
-    paranormalTypes,
+    investigationTypes,
     technicalTypes,
     reviewTypes,
     getTypeMetadata,

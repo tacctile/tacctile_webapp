@@ -87,11 +87,11 @@ const BottomPanel: React.FC<BottomPanelProps> = ({ height, onResize, onClose }) 
   const [logs, setLogs] = useState([
     { time: '22:15:30', level: 'info', message: 'Investigation session started' },
     { time: '22:15:31', level: 'success', message: 'All sensors connected successfully' },
-    { time: '22:15:35', level: 'info', message: 'EMF baseline reading: 0.3 mG' },
+    { time: '22:15:35', level: 'info', message: 'Sensor baseline reading: 0.3 mG' },
     { time: '22:16:02', level: 'warning', message: 'Temperature drop detected: -3.2°C in 5 seconds' },
     { time: '22:16:15', level: 'info', message: 'Audio recording started' },
-    { time: '22:16:45', level: 'error', message: 'Spirit Box connection lost - attempting reconnect...' },
-    { time: '22:16:48', level: 'success', message: 'Spirit Box reconnected' },
+    { time: '22:16:45', level: 'error', message: 'Radio Sweep device connection lost - attempting reconnect...' },
+    { time: '22:16:48', level: 'success', message: 'Radio Sweep device reconnected' },
   ]);
 
   useEffect(() => {
@@ -183,11 +183,11 @@ const BottomPanel: React.FC<BottomPanelProps> = ({ height, onResize, onClose }) 
         )}
       </Box>
       <Typography sx={{ color: '#19abb5', fontSize: 12, fontFamily: '"Manrope", sans-serif', fontWeight: 500 }}>
-        [EMF] Continuous monitoring active{'\n'}
+        [SENSOR] Continuous monitoring active{'\n'}
         [THERMAL] IR camera connected - 30 FPS{'\n'}
         [AUDIO] Recording at 48kHz 24-bit{'\n'}
         [MOTION] Grid sensors online - sensitivity: HIGH{'\n'}
-        [SPIRIT BOX] Sweeping 88.0-108.0 MHz @ 150ms intervals
+        [RADIO SWEEP] Sweeping 88.0-108.0 MHz @ 150ms intervals
       </Typography>
     </ContentArea>,
 
@@ -201,7 +201,7 @@ const BottomPanel: React.FC<BottomPanelProps> = ({ height, onResize, onClose }) 
         </Box>
         <Box sx={{ p: 1, backgroundColor: 'rgba(255, 183, 77, 0.1)', borderRadius: 1 }}>
           <Typography sx={{ fontSize: 12, color: '#ffb74d' }}>
-            📊 EMF spike: 5.2 mG detected near location marker #3
+            📊 Sensor spike: 5.2 mG detected near location marker #3
           </Typography>
         </Box>
       </Box>

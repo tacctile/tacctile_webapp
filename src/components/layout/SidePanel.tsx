@@ -74,7 +74,7 @@ const mockFileTree: FileNode[] = [
         children: [
           { id: '3', name: 'photo_001.jpg', type: 'file', extension: 'jpg' },
           { id: '4', name: 'audio_recording.wav', type: 'file', extension: 'wav' },
-          { id: '5', name: 'emf_data.csv', type: 'file', extension: 'csv' },
+          { id: '5', name: 'sensor_data.csv', type: 'file', extension: 'csv' },
         ],
       },
       {
@@ -232,12 +232,12 @@ const SidePanel: React.FC<SidePanelProps> = ({
     const titles: { [key: string]: string } = {
       photo: 'Photo Evidence',
       video: 'Video Recordings',
-      audio: 'EVP Sessions',
-      emf: 'EMF Readings',
+      audio: 'Audio Sessions',
+      sensor: 'Sensor Readings',
       analysis: 'Data Analysis',
       thermal: 'Thermal Images',
       motion: 'Motion Events',
-      spiritbox: 'Spirit Box Sessions',
+      radiosweep: 'Radio Sweep Sessions',
       settings: 'Settings',
     };
     return titles[selectedTool] || 'Explorer';

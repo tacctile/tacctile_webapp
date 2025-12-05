@@ -36,16 +36,15 @@ export function useAudioFindingsSync(evidenceId: string) {
     const notes = (finding.notes || '').toLowerCase();
     const combined = `${title} ${notes}`;
 
-    // EVP-related keywords
+    // Voice-related keywords
     if (
-      combined.includes('evp') ||
       combined.includes('voice') ||
       combined.includes('whisper') ||
       combined.includes('talking') ||
       combined.includes('speaking') ||
       combined.includes('word')
     ) {
-      return 'evp';
+      return 'audio_anomaly';
     }
 
     // Anomaly keywords
@@ -68,8 +67,8 @@ export function useAudioFindingsSync(evidenceId: string) {
       return 'audio_artifact';
     }
 
-    // Default to EVP for audio tool findings
-    return 'evp';
+    // Default to audio_anomaly for audio tool findings
+    return 'audio_anomaly';
   }, []);
 
   /**

@@ -30,7 +30,7 @@ const mockEvidence: EvidenceItem[] = [
   {
     id: '3',
     type: 'audio',
-    fileName: 'recorder_01_evp_session.wav',
+    fileName: 'recorder_01_audio_session.wav',
     duration: 1834,
     capturedAt: Date.now() - 6500000,
     user: 'Sarah',
@@ -41,7 +41,7 @@ const mockEvidence: EvidenceItem[] = [
   {
     id: '4',
     type: 'audio',
-    fileName: 'recorder_02_spirit_box.wav',
+    fileName: 'recorder_02_radio_sweep.wav',
     duration: 923,
     capturedAt: Date.now() - 5800000,
     user: 'Jen',

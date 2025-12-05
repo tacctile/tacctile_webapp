@@ -314,7 +314,7 @@ const imageEvidence: (EvidenceItem & { format?: string; gps?: string | null; dim
   { id: 'i2', type: 'image', fileName: 'full_spectrum_023.jpg', capturedAt: Date.now() - 5200000, user: 'Sarah', deviceInfo: 'Modified Canon', flagCount: 0, hasFindings: false, format: 'RAW / Adobe RGB', gps: '39.95°N, 75.16°W', dimensions: '6000 x 4000' },
   { id: 'i3', type: 'image', fileName: 'shadow_figure_frame.jpg', capturedAt: Date.now() - 4900000, user: 'Jen', deviceInfo: 'Sony A7IV', flagCount: 3, hasFindings: true, format: 'JPEG / sRGB', gps: '39.95°N, 75.16°W', dimensions: '4240 x 2832' },
   { id: 'i4', type: 'image', fileName: 'baseline_room_01.jpg', capturedAt: Date.now() - 7200000, user: 'Mike', deviceInfo: 'iPhone 15 Pro', flagCount: 0, hasFindings: false, format: 'HEIC / P3', gps: null, dimensions: '4032 x 3024' },
-  { id: 'i5', type: 'image', fileName: 'evp_session_still.png', capturedAt: Date.now() - 6000000, user: 'Sarah', deviceInfo: 'Screen Capture', flagCount: 2, hasFindings: true, format: 'PNG / sRGB', gps: null, dimensions: '1920 x 1080' },
+  { id: 'i5', type: 'image', fileName: 'audio_session_still.png', capturedAt: Date.now() - 6000000, user: 'Sarah', deviceInfo: 'Screen Capture', flagCount: 2, hasFindings: true, format: 'PNG / sRGB', gps: null, dimensions: '1920 x 1080' },
 ];
 
 const mockAnnotations: ImageAnnotation[] = [

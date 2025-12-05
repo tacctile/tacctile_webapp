@@ -1,6 +1,6 @@
 # Tacctile WebApp
 
-Professional ghost hunting evidence analysis and investigation management **web application**.
+Professional evidence analysis and investigation management **web application**.
 
 This is the web version of the Tacctile application, migrated from Electron desktop to a modern Vite + React + TypeScript webapp that can be deployed to Vercel or any static hosting platform.
 
@@ -472,7 +472,7 @@ const hasPermission = await audioService.checkMicrophoneAccess();
 
 If migrating from Electron desktop:
 
-- [ ] Replace `window.ghostHunterAPI.xxx` with new service calls
+- [ ] Replace `window.tacctileAPI.xxx` with new service calls
 - [ ] Convert all `ipcRenderer.invoke()` to direct service calls
 - [ ] Replace `electron-store` with `StorageService`
 - [ ] Update file I/O to use `FileSystemService`
