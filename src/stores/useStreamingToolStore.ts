@@ -6,6 +6,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
+import { createSelector } from 'reselect';
 import {
   StreamingToolState,
   StreamingToolActions,
@@ -606,19 +607,38 @@ export const useStreamingToolStore = create<StreamingToolState & StreamingToolAc
 export const selectScenes = (state: StreamingToolState) => state.scenes;
 export const selectActiveSceneId = (state: StreamingToolState) => state.activeSceneId;
 export const selectPreviewSceneId = (state: StreamingToolState) => state.previewSceneId;
-export const selectActiveScene = (state: StreamingToolState) => {
-  return state.scenes.find((s) => s.id === state.activeSceneId) || null;
-};
-export const selectPreviewScene = (state: StreamingToolState) => {
-  return state.scenes.find((s) => s.id === state.previewSceneId) || null;
-};
+
+// Memoized selector for active scene - prevents unnecessary re-renders
+export const selectActiveScene = createSelector(
+  [(state: StreamingToolState) => state.scenes, (state: StreamingToolState) => state.activeSceneId],
+  (scenes, activeSceneId) => {
+    return scenes.find((s) => s.id === activeSceneId) || null;
+  }
+);
+
+// Memoized selector for preview scene - prevents unnecessary re-renders
+export const selectPreviewScene = createSelector(
+  [(state: StreamingToolState) => state.scenes, (state: StreamingToolState) => state.previewSceneId],
+  (scenes, previewSceneId) => {
+    return scenes.find((s) => s.id === previewSceneId) || null;
+  }
+);
 
 // Source selectors
 export const selectSelectedSourceId = (state: StreamingToolState) => state.selectedSourceId;
-export const selectSelectedSource = (state: StreamingToolState) => {
-  const scene = state.scenes.find((s) => s.id === state.activeSceneId);
-  return scene?.sources.find((s) => s.id === state.selectedSourceId) || null;
-};
+
+// Memoized selector for selected source - prevents unnecessary re-renders
+export const selectSelectedSource = createSelector(
+  [
+    (state: StreamingToolState) => state.scenes,
+    (state: StreamingToolState) => state.activeSceneId,
+    (state: StreamingToolState) => state.selectedSourceId,
+  ],
+  (scenes, activeSceneId, selectedSourceId) => {
+    const scene = scenes.find((s) => s.id === activeSceneId);
+    return scene?.sources.find((s) => s.id === selectedSourceId) || null;
+  }
+);
 
 // Streaming selectors
 export const selectIsStreaming = (state: StreamingToolState) => state.isStreaming;

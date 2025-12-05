@@ -6,6 +6,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
+import { createSelector } from 'reselect';
 import type {
   SessionTimelineState,
   SessionTimelineActions,
@@ -675,30 +676,45 @@ export const useSessionTimelineStore = create<SessionTimelineState & SessionTime
 // ============================================================================
 
 export const selectTimelineItems = (state: SessionTimelineState) => state.items;
-export const selectVisibleItems = (state: SessionTimelineState) => {
-  const visibleLayerIds = state.dataLayers.filter((l) => l.visible).map((l) => l.id);
-  return state.items.filter((item) => {
-    const layerType = EVIDENCE_TYPE_TO_LAYER[item.type];
-    return visibleLayerIds.includes(layerType);
-  });
-};
 export const selectDataLayers = (state: SessionTimelineState) => state.dataLayers;
 export const selectZoomLevel = (state: SessionTimelineState) => state.zoomLevel;
 export const selectTimeRange = (state: SessionTimelineState) => state.fullTimeRange;
 export const selectVisibleTimeRange = (state: SessionTimelineState) => state.visibleTimeRange;
-export const selectSelectedItem = (state: SessionTimelineState) => {
-  if (!state.selectedItemId) return null;
-  return state.items.find((item) => item.id === state.selectedItemId) || null;
-};
-export const selectHoveredItem = (state: SessionTimelineState) => {
-  if (!state.hoveredItemId) return null;
-  return state.items.find((item) => item.id === state.hoveredItemId) || null;
-};
 export const selectPlayheadPosition = (state: SessionTimelineState) => state.playheadPosition;
 export const selectIsPlaying = (state: SessionTimelineState) => state.isPlaying;
 export const selectClockSyncPrompt = (state: SessionTimelineState) => state.clockSyncPrompt;
 export const selectTimelineLoading = (state: SessionTimelineState) => state.isLoading;
 export const selectTimelineError = (state: SessionTimelineState) => state.error;
 export const selectInvestigationTitle = (state: SessionTimelineState) => state.investigationTitle;
+
+// Memoized selector for visible items - prevents new array reference on every call
+export const selectVisibleItems = createSelector(
+  [(state: SessionTimelineState) => state.items, (state: SessionTimelineState) => state.dataLayers],
+  (items, dataLayers) => {
+    const visibleLayerIds = dataLayers.filter((l) => l.visible).map((l) => l.id);
+    return items.filter((item) => {
+      const layerType = EVIDENCE_TYPE_TO_LAYER[item.type];
+      return visibleLayerIds.includes(layerType);
+    });
+  }
+);
+
+// Memoized selector for selected item - prevents unnecessary re-renders
+export const selectSelectedItem = createSelector(
+  [(state: SessionTimelineState) => state.items, (state: SessionTimelineState) => state.selectedItemId],
+  (items, selectedItemId) => {
+    if (!selectedItemId) return null;
+    return items.find((item) => item.id === selectedItemId) || null;
+  }
+);
+
+// Memoized selector for hovered item - prevents unnecessary re-renders
+export const selectHoveredItem = createSelector(
+  [(state: SessionTimelineState) => state.items, (state: SessionTimelineState) => state.hoveredItemId],
+  (items, hoveredItemId) => {
+    if (!hoveredItemId) return null;
+    return items.find((item) => item.id === hoveredItemId) || null;
+  }
+);
 
 export default useSessionTimelineStore;
