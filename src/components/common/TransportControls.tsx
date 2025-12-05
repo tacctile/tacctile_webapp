@@ -15,8 +15,9 @@ const TransportContainer = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: 6,
-  padding: '6px 12px',
+  height: 48,
+  gap: 16,
+  padding: '0 16px',
   backgroundColor: '#161616',
   borderTop: '1px solid #252525',
 });
