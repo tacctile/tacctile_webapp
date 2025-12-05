@@ -699,35 +699,59 @@ const GlobalPlayhead = styled(Box)({
   boxShadow: '0 0 10px rgba(25, 171, 181, 0.7)',
   zIndex: 100,
   pointerEvents: 'none', // Let drag area handle events
-  // Pill-shaped grab handle at top (12px wide, 16px tall)
+  // Triangle grab handle at top (12px wide, 16px tall)
   '&::before': {
     content: '""',
     position: 'absolute',
     top: 0,
-    left: -5,
-    width: 12,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    width: 0,
+    height: 0,
+    borderLeft: '8px solid transparent',
+    borderRight: '8px solid transparent',
+    borderTop: '12px solid #19abb5',
+    filter: 'drop-shadow(0 2px 4px rgba(25, 171, 181, 0.6))',
+  },
+  // Glow effect behind the triangle
+  '&::after': {
+    content: '""',
+    position: 'absolute',
+    top: -2,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    width: 16,
     height: 16,
-    backgroundColor: '#19abb5',
-    borderRadius: 6,
-    boxShadow: '0 2px 8px rgba(25, 171, 181, 0.5)',
+    borderRadius: '50%',
+    backgroundColor: 'rgba(25, 171, 181, 0.3)',
+    filter: 'blur(4px)',
+    zIndex: -1,
   },
 });
 
-const PlayheadDragArea = styled(Box)({
+const PlayheadDragArea = styled(Box)<{ isDragging?: boolean }>(({ isDragging }) => ({
   position: 'absolute',
   top: 0,
   bottom: 0,
   width: 24, // Expanded hit area to 24px
   marginLeft: -11,
-  cursor: 'grab',
-  zIndex: 99,
+  cursor: isDragging ? 'grabbing' : 'grab',
+  zIndex: 102, // Above playhead and timecode
+  // Visual feedback on hover
   '&:hover': {
-    cursor: 'grab',
+    '&::before': {
+      content: '""',
+      position: 'absolute',
+      top: 0,
+      left: '50%',
+      transform: 'translateX(-50%)',
+      width: 16,
+      height: 16,
+      borderRadius: '50%',
+      backgroundColor: 'rgba(25, 171, 181, 0.2)',
+    },
   },
-  '&:active': {
-    cursor: 'grabbing',
-  },
-});
+}));
 
 // Playhead timecode badge that follows the playhead
 const PlayheadTimecode = styled(Box)({
@@ -747,14 +771,12 @@ const PlayheadTimecode = styled(Box)({
   boxShadow: '0 2px 6px rgba(0, 0, 0, 0.3)',
 });
 
-// Zoom controls container at bottom of timeline
+// Zoom controls container - positioned in toolbar near ruler
 const ZoomControlsContainer = styled(Box)({
   display: 'flex',
   alignItems: 'center',
-  gap: 8,
-  padding: '6px 12px',
-  backgroundColor: '#161616',
-  borderTop: '1px solid #252525',
+  gap: 4,
+  marginLeft: 'auto', // Push to right side
 });
 
 // Right Panel Components
@@ -1722,7 +1744,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
           userSelect: isDraggingDivider ? 'none' : 'auto',
         }}
       >
-        {/* Lane Height Controls Toolbar */}
+        {/* Lane Height Controls Toolbar + Zoom Controls */}
         <LaneHeightToolbar>
           <Typography sx={{ fontSize: 9, color: '#666', textTransform: 'uppercase' }}>
             Lane Height:
@@ -1759,6 +1781,69 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
           <Typography sx={{ fontSize: 9, color: '#555', ml: 1 }}>
             {laneHeightSize === 'small' ? '0.5x' : laneHeightSize === 'medium' ? '1x' : '1.5x'}
           </Typography>
+
+          {/* Zoom Controls - positioned at right of toolbar */}
+          <ZoomControlsContainer>
+            <Box sx={{ width: 1, height: 16, backgroundColor: '#333', mx: 1 }} />
+            <Tooltip title="Zoom out (-)">
+              <IconButton
+                size="small"
+                onClick={handleZoomOut}
+                disabled={zoomLevel <= MIN_ZOOM}
+                sx={{ color: '#666', padding: '2px', '&:hover': { color: '#19abb5' } }}
+              >
+                <ZoomOutIcon sx={{ fontSize: 14 }} />
+              </IconButton>
+            </Tooltip>
+            <Slider
+              value={zoomLevel}
+              onChange={handleZoomSliderChange}
+              min={MIN_ZOOM}
+              max={MAX_ZOOM}
+              step={ZOOM_STEP}
+              sx={{
+                width: 80,
+                color: '#19abb5',
+                '& .MuiSlider-thumb': {
+                  width: 10,
+                  height: 10,
+                  backgroundColor: '#19abb5',
+                  '&:hover, &.Mui-focusVisible': {
+                    boxShadow: '0 0 6px rgba(25, 171, 181, 0.5)',
+                  },
+                },
+                '& .MuiSlider-track': {
+                  height: 2,
+                },
+                '& .MuiSlider-rail': {
+                  height: 2,
+                  backgroundColor: '#333',
+                },
+              }}
+            />
+            <Tooltip title="Zoom in (+)">
+              <IconButton
+                size="small"
+                onClick={handleZoomIn}
+                disabled={zoomLevel >= MAX_ZOOM}
+                sx={{ color: '#666', padding: '2px', '&:hover': { color: '#19abb5' } }}
+              >
+                <ZoomInIcon sx={{ fontSize: 14 }} />
+              </IconButton>
+            </Tooltip>
+            <Typography sx={{ fontSize: 9, color: '#666', minWidth: 32, textAlign: 'center' }}>
+              {Math.round(zoomLevel * 100)}%
+            </Typography>
+            <Tooltip title="Fit all">
+              <IconButton
+                size="small"
+                onClick={handleFitAll}
+                sx={{ color: '#666', padding: '2px', '&:hover': { color: '#19abb5' } }}
+              >
+                <FitScreenIcon sx={{ fontSize: 14 }} />
+              </IconButton>
+            </Tooltip>
+          </ZoomControlsContainer>
         </LaneHeightToolbar>
 
         {/* Time Ruler */}
@@ -1793,6 +1878,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                 {formatTimecode(globalTimestamp)}
               </PlayheadTimecode>
               <PlayheadDragArea
+                isDragging={isDraggingPlayhead}
                 sx={{
                   left: `calc(100px + ${playheadPosition}% * (100% - 100px) / 100)`,
                 }}
@@ -2007,68 +2093,6 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
             )}
           </SwimLaneSection>
         </SwimLanesContainer>
-
-        {/* Zoom Controls */}
-        <ZoomControlsContainer>
-          <Tooltip title="Zoom out (-)">
-            <IconButton
-              size="small"
-              onClick={handleZoomOut}
-              disabled={zoomLevel <= MIN_ZOOM}
-              sx={{ color: '#666', '&:hover': { color: '#19abb5' } }}
-            >
-              <RemoveIcon sx={{ fontSize: 16 }} />
-            </IconButton>
-          </Tooltip>
-          <Slider
-            value={zoomLevel}
-            onChange={handleZoomSliderChange}
-            min={MIN_ZOOM}
-            max={MAX_ZOOM}
-            step={ZOOM_STEP}
-            sx={{
-              width: 120,
-              color: '#19abb5',
-              '& .MuiSlider-thumb': {
-                width: 12,
-                height: 12,
-                backgroundColor: '#19abb5',
-                '&:hover, &.Mui-focusVisible': {
-                  boxShadow: '0 0 8px rgba(25, 171, 181, 0.5)',
-                },
-              },
-              '& .MuiSlider-track': {
-                height: 3,
-              },
-              '& .MuiSlider-rail': {
-                height: 3,
-                backgroundColor: '#333',
-              },
-            }}
-          />
-          <Tooltip title="Zoom in (+)">
-            <IconButton
-              size="small"
-              onClick={handleZoomIn}
-              disabled={zoomLevel >= MAX_ZOOM}
-              sx={{ color: '#666', '&:hover': { color: '#19abb5' } }}
-            >
-              <AddIcon sx={{ fontSize: 16 }} />
-            </IconButton>
-          </Tooltip>
-          <Typography sx={{ fontSize: 10, color: '#666', minWidth: 40, textAlign: 'center' }}>
-            {Math.round(zoomLevel * 100)}%
-          </Typography>
-          <Tooltip title="Fit all - show entire session">
-            <IconButton
-              size="small"
-              onClick={handleFitAll}
-              sx={{ color: '#666', '&:hover': { color: '#19abb5' }, ml: 1 }}
-            >
-              <FitScreenIcon sx={{ fontSize: 16 }} />
-            </IconButton>
-          </Tooltip>
-        </ZoomControlsContainer>
       </TimelineSection>
     </MainContainer>
   );

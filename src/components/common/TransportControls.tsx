@@ -1,5 +1,5 @@
-import React, { useEffect, useCallback } from 'react';
-import { Box, IconButton, Typography, Slider, Tooltip, Button } from '@mui/material';
+import React, { useEffect } from 'react';
+import { Box, IconButton, Typography, Tooltip } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
 import FastRewindIcon from '@mui/icons-material/FastRewind';
@@ -7,7 +7,6 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import FastForwardIcon from '@mui/icons-material/FastForward';
 import SkipNextIcon from '@mui/icons-material/SkipNext';
-import ReplayIcon from '@mui/icons-material/Replay';
 import LoopIcon from '@mui/icons-material/Loop';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
 
@@ -15,9 +14,9 @@ const TransportContainer = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  height: 48,
-  gap: 16,
-  padding: '0 16px',
+  height: 56,
+  gap: 8,
+  padding: '0 24px',
   backgroundColor: '#161616',
   borderTop: '1px solid #252525',
 });
@@ -120,89 +119,82 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
 
   const speeds = [0.25, 0.5, 1, 1.5, 2];
 
+  // Common button styles for larger, easier-to-click buttons
+  const transportButtonStyle = {
+    color: '#888',
+    padding: '8px',
+    '&:hover': {
+      color: '#19abb5',
+      backgroundColor: 'rgba(25, 171, 181, 0.1)',
+    },
+  };
+
+  const iconSize = 24;
+
   return (
     <TransportContainer>
+      {/* Timecode Display */}
       {showTimecode && (
         <TimecodeDisplay>{formatTimecode(timestamp)}</TimecodeDisplay>
       )}
 
+      {/* Divider after timecode */}
+      <Box sx={{ width: 1, height: 24, backgroundColor: '#333', mx: 1 }} />
+
+      {/* Skip to Start */}
       <Tooltip title="Jump to start (Home)">
-        <IconButton size="small" onClick={jumpToStart} sx={{ color: '#888' }}>
-          <SkipPreviousIcon />
+        <IconButton onClick={jumpToStart} sx={transportButtonStyle}>
+          <SkipPreviousIcon sx={{ fontSize: iconSize }} />
         </IconButton>
       </Tooltip>
 
-      <Tooltip title="Step back (←, Shift+← for 1 sec)">
-        <IconButton size="small" onClick={() => stepBackward()} sx={{ color: '#888' }}>
-          <FastRewindIcon />
+      {/* Rewind / Step Back */}
+      <Tooltip title="Rewind (←, Shift+← for 1 sec)">
+        <IconButton onClick={() => stepBackward()} sx={transportButtonStyle}>
+          <FastRewindIcon sx={{ fontSize: iconSize }} />
         </IconButton>
       </Tooltip>
 
+      {/* Play/Pause - Highlighted */}
       <Tooltip title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}>
         <IconButton
           onClick={togglePlayback}
           sx={{
             color: '#19abb5',
-            backgroundColor: 'rgba(25, 171, 181, 0.1)',
-            '&:hover': { backgroundColor: 'rgba(25, 171, 181, 0.2)' },
+            backgroundColor: 'rgba(25, 171, 181, 0.15)',
+            padding: '10px',
+            '&:hover': { backgroundColor: 'rgba(25, 171, 181, 0.25)' },
           }}
         >
-          {isPlaying ? <PauseIcon /> : <PlayArrowIcon />}
+          {isPlaying ? <PauseIcon sx={{ fontSize: 28 }} /> : <PlayArrowIcon sx={{ fontSize: 28 }} />}
         </IconButton>
       </Tooltip>
 
-      <Tooltip title="Step forward (→, Shift+→ for 1 sec)">
-        <IconButton size="small" onClick={() => stepForward()} sx={{ color: '#888' }}>
-          <FastForwardIcon />
+      {/* Fast Forward / Step Forward */}
+      <Tooltip title="Fast forward (→, Shift+→ for 1 sec)">
+        <IconButton onClick={() => stepForward()} sx={transportButtonStyle}>
+          <FastForwardIcon sx={{ fontSize: iconSize }} />
         </IconButton>
       </Tooltip>
 
+      {/* Skip to End */}
       <Tooltip title="Jump to end (End)">
-        <IconButton size="small" onClick={jumpToEnd} sx={{ color: '#888' }}>
-          <SkipNextIcon />
+        <IconButton onClick={jumpToEnd} sx={transportButtonStyle}>
+          <SkipNextIcon sx={{ fontSize: iconSize }} />
         </IconButton>
       </Tooltip>
 
-      {/* Divider */}
-      <Box sx={{ width: 1, height: 20, backgroundColor: '#333', mx: 1 }} />
+      {/* Divider before loop/speed */}
+      <Box sx={{ width: 1, height: 24, backgroundColor: '#333', mx: 1 }} />
 
-      {/* Reverse and Loop buttons */}
-      <Tooltip title="Reverse playback">
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<ReplayIcon sx={{ fontSize: 14 }} />}
-          sx={{
-            fontSize: 9,
-            color: '#666',
-            borderColor: '#333',
-            minWidth: 'auto',
-            px: 1,
-            '&:hover': { borderColor: '#19abb5', color: '#19abb5' }
-          }}
-        >
-          Rev
-        </Button>
-      </Tooltip>
-
+      {/* Loop toggle */}
       <Tooltip title="Loop playback">
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<LoopIcon sx={{ fontSize: 14 }} />}
-          sx={{
-            fontSize: 9,
-            color: '#666',
-            borderColor: '#333',
-            minWidth: 'auto',
-            px: 1,
-            '&:hover': { borderColor: '#19abb5', color: '#19abb5' }
-          }}
-        >
-          Loop
-        </Button>
+        <IconButton sx={transportButtonStyle}>
+          <LoopIcon sx={{ fontSize: iconSize - 2 }} />
+        </IconButton>
       </Tooltip>
 
+      {/* Speed selector */}
       {showSpeed && (
         <SpeedSelect
           value={playbackSpeed}
