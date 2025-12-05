@@ -86,15 +86,15 @@ const CenterSection = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: 4,
+  gap: 16,
   flex: 1,
-  maxWidth: 600,
+  maxWidth: 800,
 });
 
 const NavButton = styled(IconButton)<{ active?: boolean }>(({ active }) => ({
-  width: 40,
-  height: 40,
-  borderRadius: 4,
+  width: 44,
+  height: 44,
+  borderRadius: 6,
   color: active ? '#19abb5' : '#808080',
   backgroundColor: active ? 'rgba(25, 171, 181, 0.12)' : 'transparent',
   transition: 'all 0.15s ease',
@@ -187,7 +187,7 @@ export const TopHeaderBar: React.FC<TopHeaderBarProps> = ({
               <MaterialSymbol
                 icon={tool.icon}
                 filled={selectedTool === tool.id}
-                size={22}
+                size={28}
               />
             </NavButton>
           </Tooltip>
