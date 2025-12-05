@@ -22,3 +22,4 @@ export {
   useAudioError,
   useFiltersBypassed,
 } from './useAudioToolStore';
+export * from './usePlayheadStore';
