@@ -639,7 +639,7 @@ export const useSessionTimelineStore = create<SessionTimelineState & SessionTime
       name: 'tacctile-session-timeline',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
-        // Only persist user preferences
+        // Only persist user preferences - never persist dynamic data
         zoomLevel: state.zoomLevel,
         autoRefreshEnabled: state.autoRefreshEnabled,
         autoRefreshIntervalMs: state.autoRefreshIntervalMs,
@@ -648,6 +648,24 @@ export const useSessionTimelineStore = create<SessionTimelineState & SessionTime
           acknowledgedAt: state.clockSyncPrompt.acknowledgedAt,
         },
       }),
+      // Merge function to safely handle hydration without overwriting runtime state
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<SessionTimelineState> | undefined;
+        if (!persisted) return currentState;
+
+        return {
+          ...currentState,
+          // Only restore preferences, not data
+          zoomLevel: persisted.zoomLevel ?? currentState.zoomLevel,
+          autoRefreshEnabled: persisted.autoRefreshEnabled ?? currentState.autoRefreshEnabled,
+          autoRefreshIntervalMs: persisted.autoRefreshIntervalMs ?? currentState.autoRefreshIntervalMs,
+          clockSyncPrompt: {
+            ...currentState.clockSyncPrompt,
+            acknowledged: (persisted.clockSyncPrompt as { acknowledged?: boolean } | undefined)?.acknowledged ?? currentState.clockSyncPrompt.acknowledged,
+            acknowledgedAt: (persisted.clockSyncPrompt as { acknowledgedAt?: Date } | undefined)?.acknowledgedAt ?? currentState.clockSyncPrompt.acknowledgedAt,
+          },
+        };
+      },
     }
   )
 );

@@ -702,13 +702,32 @@ export const useAudioToolStore = create<AudioToolState & AudioToolActions>()(
       name: 'tacctile-audio-tool',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
-        // Only persist settings, recipes, and preferences
+        // Only persist settings, recipes, and preferences - never persist dynamic data
         spectrogramSettings: state.spectrogramSettings,
         waveformSettings: state.waveformSettings,
         recipes: state.recipes.filter((r) => !r.isPreset), // Only user recipes
         viewMode: state.viewMode,
         zoom: state.zoom,
       }),
+      // Merge function to safely handle hydration without overwriting runtime state
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<AudioToolState> | undefined;
+        if (!persisted) return currentState;
+
+        return {
+          ...currentState,
+          // Only restore preferences, not data
+          spectrogramSettings: persisted.spectrogramSettings ?? currentState.spectrogramSettings,
+          waveformSettings: persisted.waveformSettings ?? currentState.waveformSettings,
+          viewMode: persisted.viewMode ?? currentState.viewMode,
+          zoom: persisted.zoom ?? currentState.zoom,
+          // Merge user recipes with preset recipes
+          recipes: [
+            ...currentState.recipes.filter((r) => r.isPreset),
+            ...(persisted.recipes ?? []).filter((r) => !r.isPreset),
+          ],
+        };
+      },
     }
   )
 );

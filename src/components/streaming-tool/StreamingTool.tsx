@@ -3,7 +3,8 @@
  * OBS Studio-inspired streaming and recording tool for live investigations
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, memo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import Box from '@mui/material/Box';
 import { styled } from '@mui/material/styles';
 
@@ -168,33 +169,64 @@ const StreamingTool: React.FC<StreamingToolProps> = ({
   const audioMixer = useStreamingToolStore(selectAudioMixer);
   const availableDevices = useStreamingToolStore(selectAvailableDevices);
 
-  // Store actions - extract stable references
-  const createScene = useStreamingToolStore((state) => state.createScene);
-  const deleteScene = useStreamingToolStore((state) => state.deleteScene);
-  const duplicateScene = useStreamingToolStore((state) => state.duplicateScene);
-  const renameScene = useStreamingToolStore((state) => state.renameScene);
-  const setActiveScene = useStreamingToolStore((state) => state.setActiveScene);
-  const setPreviewScene = useStreamingToolStore((state) => state.setPreviewScene);
-  const addSource = useStreamingToolStore((state) => state.addSource);
-  const removeSource = useStreamingToolStore((state) => state.removeSource);
-  const updateSource = useStreamingToolStore((state) => state.updateSource);
-  const updateSourceTransform = useStreamingToolStore((state) => state.updateSourceTransform);
-  const selectSource = useStreamingToolStore((state) => state.selectSource);
-  const executeTransition = useStreamingToolStore((state) => state.executeTransition);
-  const startStreaming = useStreamingToolStore((state) => state.startStreaming);
-  const stopStreaming = useStreamingToolStore((state) => state.stopStreaming);
-  const updateStreamSettings = useStreamingToolStore((state) => state.updateStreamSettings);
-  const addDestination = useStreamingToolStore((state) => state.addDestination);
-  const removeDestination = useStreamingToolStore((state) => state.removeDestination);
-  const updateDestination = useStreamingToolStore((state) => state.updateDestination);
-  const toggleDestination = useStreamingToolStore((state) => state.toggleDestination);
-  const testDestination = useStreamingToolStore((state) => state.testDestination);
-  const startRecording = useStreamingToolStore((state) => state.startRecording);
-  const stopRecording = useStreamingToolStore((state) => state.stopRecording);
-  const updateRecordingSettings = useStreamingToolStore((state) => state.updateRecordingSettings);
-  const setMode = useStreamingToolStore((state) => state.setMode);
-  const setViewMode = useStreamingToolStore((state) => state.setViewMode);
-  const refreshDevices = useStreamingToolStore((state) => state.refreshDevices);
+  // Store actions - use useShallow to get stable references
+  const {
+    createScene,
+    deleteScene,
+    duplicateScene,
+    renameScene,
+    setActiveScene,
+    setPreviewScene,
+    addSource,
+    removeSource,
+    updateSource,
+    updateSourceTransform,
+    selectSource,
+    executeTransition,
+    startStreaming,
+    stopStreaming,
+    updateStreamSettings,
+    addDestination,
+    removeDestination,
+    updateDestination,
+    toggleDestination,
+    testDestination,
+    startRecording,
+    stopRecording,
+    updateRecordingSettings,
+    setMode,
+    setViewMode,
+    refreshDevices,
+  } = useStreamingToolStore(
+    useShallow((state) => ({
+      createScene: state.createScene,
+      deleteScene: state.deleteScene,
+      duplicateScene: state.duplicateScene,
+      renameScene: state.renameScene,
+      setActiveScene: state.setActiveScene,
+      setPreviewScene: state.setPreviewScene,
+      addSource: state.addSource,
+      removeSource: state.removeSource,
+      updateSource: state.updateSource,
+      updateSourceTransform: state.updateSourceTransform,
+      selectSource: state.selectSource,
+      executeTransition: state.executeTransition,
+      startStreaming: state.startStreaming,
+      stopStreaming: state.stopStreaming,
+      updateStreamSettings: state.updateStreamSettings,
+      addDestination: state.addDestination,
+      removeDestination: state.removeDestination,
+      updateDestination: state.updateDestination,
+      toggleDestination: state.toggleDestination,
+      testDestination: state.testDestination,
+      startRecording: state.startRecording,
+      stopRecording: state.stopRecording,
+      updateRecordingSettings: state.updateRecordingSettings,
+      setMode: state.setMode,
+      setViewMode: state.setViewMode,
+      refreshDevices: state.refreshDevices,
+    }))
+  );
 
   // Initialize devices on mount
   useEffect(() => {

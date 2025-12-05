@@ -732,7 +732,7 @@ export const useImageToolStore = create<ImageToolState & ImageToolActions>()(
       name: 'tacctile-image-tool',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
-        // Only persist user preferences and custom recipes
+        // Only persist user preferences and custom recipes - never persist dynamic data
         recipes: state.recipes.filter((r) => !r.isPreset),
         annotationDefaults: state.annotationDefaults,
         showAdjustmentsPanel: state.showAdjustmentsPanel,
@@ -740,6 +740,26 @@ export const useImageToolStore = create<ImageToolState & ImageToolActions>()(
         showRecipesPanel: state.showRecipesPanel,
         showHistogramPanel: state.showHistogramPanel,
       }),
+      // Merge function to safely handle hydration without overwriting runtime state
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<ImageToolState> | undefined;
+        if (!persisted) return currentState;
+
+        return {
+          ...currentState,
+          // Only restore preferences, not data
+          annotationDefaults: persisted.annotationDefaults ?? currentState.annotationDefaults,
+          showAdjustmentsPanel: persisted.showAdjustmentsPanel ?? currentState.showAdjustmentsPanel,
+          showAnnotationsPanel: persisted.showAnnotationsPanel ?? currentState.showAnnotationsPanel,
+          showRecipesPanel: persisted.showRecipesPanel ?? currentState.showRecipesPanel,
+          showHistogramPanel: persisted.showHistogramPanel ?? currentState.showHistogramPanel,
+          // Merge user recipes with preset recipes
+          recipes: [
+            ...currentState.recipes.filter((r) => r.isPreset),
+            ...(persisted.recipes ?? []).filter((r) => !r.isPreset),
+          ],
+        };
+      },
     }
   )
 );
