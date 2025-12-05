@@ -6,6 +6,9 @@ import {
   Tooltip,
   Button,
   Slider,
+  Select,
+  MenuItem,
+  FormControl,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import MicIcon from '@mui/icons-material/Mic';
@@ -13,6 +16,11 @@ import VideocamIcon from '@mui/icons-material/Videocam';
 import CloseIcon from '@mui/icons-material/Close';
 import ReplayIcon from '@mui/icons-material/Replay';
 import LoopIcon from '@mui/icons-material/Loop';
+import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
+import SkipNextIcon from '@mui/icons-material/SkipNext';
+import FastRewindIcon from '@mui/icons-material/FastRewind';
+import FastForwardIcon from '@mui/icons-material/FastForward';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
@@ -115,27 +123,29 @@ const FilterBar = styled(Box)({
   borderBottom: '1px solid #252525',
   display: 'flex',
   alignItems: 'center',
-  padding: '0 12px',
-  gap: 16,
+  justifyContent: 'space-between',
+  padding: '0 16px',
 });
 
 const FilterItem = styled(Box)({
   display: 'flex',
   alignItems: 'center',
-  gap: 6,
+  gap: 8,
+  flex: 1,
+  maxWidth: 200,
 });
 
 const FilterItemLabel = styled(Typography)({
   fontSize: 10,
   color: '#666',
-  minWidth: 55,
+  minWidth: 50,
+  whiteSpace: 'nowrap',
 });
 
 const MiniSlider = styled(Slider)({
-  width: 70,
+  flex: 1,
   color: '#19abb5',
   height: 3,
-  padding: '6px 0',
   '& .MuiSlider-thumb': {
     width: 10,
     height: 10,
@@ -148,7 +158,7 @@ const MiniSlider = styled(Slider)({
 const FilterValue = styled(Typography)({
   fontSize: 10,
   color: '#888',
-  minWidth: 35,
+  minWidth: 40,
   textAlign: 'right',
   fontFamily: '"JetBrains Mono", monospace',
 });
@@ -499,13 +509,15 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [loadedAudio, setLoadedAudio] = useState<typeof audioEvidence[0] | null>(null);
   const [videoRefVisible, setVideoRefVisible] = useState(true);
   const [flags, setFlags] = useState<Flag[]>(mockFlags);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
 
   // Filter values
   const [filters, setFilters] = useState({
     deNoise: 0,
     deHum: 0,
-    gain: 0,
-    speed: 1,
+    lowCut: 20,      // 20Hz = off, up to 500Hz
+    highCut: 20000,  // 20kHz = off, down to 2kHz
+    clarity: 0,      // -12 to +12 dB
   });
 
   // EQ values (-12 to +12 dB for each band)
@@ -801,7 +813,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         </Box>
       </EQSection>
 
-      {/* Filter Bar - always visible */}
+      {/* Filter Bar - 5 filters evenly spaced */}
       <FilterBar>
         <FilterItem>
           <FilterItemLabel>De-noise</FilterItemLabel>
@@ -828,80 +840,165 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         </FilterItem>
 
         <FilterItem>
-          <FilterItemLabel>Gain</FilterItemLabel>
+          <FilterItemLabel>Low Cut</FilterItemLabel>
           <MiniSlider
-            value={filters.gain}
-            onChange={(_, v) => setFilters(prev => ({ ...prev, gain: v as number }))}
-            min={-24}
-            max={24}
+            value={filters.lowCut}
+            onChange={(_, v) => setFilters(prev => ({ ...prev, lowCut: v as number }))}
+            min={20}
+            max={500}
             disabled={!loadedAudio}
           />
-          <FilterValue>{filters.gain > 0 ? '+' : ''}{filters.gain}dB</FilterValue>
+          <FilterValue>{filters.lowCut}Hz</FilterValue>
         </FilterItem>
 
         <FilterItem>
-          <FilterItemLabel>Speed</FilterItemLabel>
+          <FilterItemLabel>High Cut</FilterItemLabel>
           <MiniSlider
-            value={filters.speed}
-            onChange={(_, v) => setFilters(prev => ({ ...prev, speed: v as number }))}
-            min={0.25}
-            max={2}
-            step={0.25}
+            value={filters.highCut}
+            onChange={(_, v) => setFilters(prev => ({ ...prev, highCut: v as number }))}
+            min={2000}
+            max={20000}
+            step={100}
             disabled={!loadedAudio}
           />
-          <FilterValue>{filters.speed}x</FilterValue>
+          <FilterValue>{filters.highCut >= 10000 ? `${(filters.highCut/1000).toFixed(0)}k` : `${(filters.highCut/1000).toFixed(1)}k`}</FilterValue>
         </FilterItem>
 
-        {/* Just a spacer - NO background color */}
-        <Box sx={{ flex: 1 }} />
+        <FilterItem>
+          <FilterItemLabel>Clarity</FilterItemLabel>
+          <MiniSlider
+            value={filters.clarity}
+            onChange={(_, v) => setFilters(prev => ({ ...prev, clarity: v as number }))}
+            min={-12}
+            max={12}
+            disabled={!loadedAudio}
+          />
+          <FilterValue>{filters.clarity > 0 ? '+' : ''}{filters.clarity}dB</FilterValue>
+        </FilterItem>
 
         <Button
           size="small"
-          onClick={() => setFilters({ deNoise: 0, deHum: 0, gain: 0, speed: 1 })}
+          onClick={() => setFilters({ deNoise: 0, deHum: 0, lowCut: 20, highCut: 20000, clarity: 0 })}
           disabled={!loadedAudio}
-          sx={{ fontSize: 9, color: '#555', '&:hover': { color: '#19abb5' } }}
+          sx={{ fontSize: 9, color: '#555', ml: 2, '&:hover': { color: '#19abb5' } }}
         >
-          Reset Filters
+          Reset
         </Button>
       </FilterBar>
 
-      {/* Bottom toolbar - clean and minimal */}
-      <ToolbarSection>
-        {loadedAudio?.hasVideo && !videoRefVisible && (
-          <Tooltip title="Show video reference">
-            <IconButton size="small" onClick={() => setVideoRefVisible(true)} sx={{ color: '#666' }}>
-              <VideocamIcon sx={{ fontSize: 16 }} />
-            </IconButton>
-          </Tooltip>
-        )}
-
-        <Box sx={{ flex: 1 }} />
-
-        {/* Level meters */}
-        {loadedAudio && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mr: 2 }}>
-            <Typography sx={{ fontSize: 9, color: '#555', mr: 1 }}>L</Typography>
-            <Box sx={{ width: 60, height: 6, backgroundColor: '#1a1a1a', borderRadius: 1, overflow: 'hidden' }}>
-              <Box sx={{ width: '65%', height: '100%', backgroundColor: '#5a9a6b' }} />
-            </Box>
-            <Typography sx={{ fontSize: 9, color: '#555', ml: 2, mr: 1 }}>R</Typography>
-            <Box sx={{ width: 60, height: 6, backgroundColor: '#1a1a1a', borderRadius: 1, overflow: 'hidden' }}>
-              <Box sx={{ width: '58%', height: '100%', backgroundColor: '#5a9a6b' }} />
-            </Box>
-          </Box>
-        )}
-
+      {/* Audio Transport - centered with Rev/Loop/Speed */}
+      <Box sx={{
+        height: 48,
+        backgroundColor: '#161616',
+        borderTop: '1px solid #252525',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 2,
+        px: 2,
+      }}>
         {/* Timecode */}
         <Typography sx={{
-          fontSize: 11,
+          fontSize: 12,
           color: '#19abb5',
           fontFamily: '"JetBrains Mono", monospace',
-          minWidth: 80,
-          textAlign: 'right',
+          minWidth: 90,
         }}>
-          {loadedAudio ? '00:10:32.450' : '--:--:--.---'}
+          {loadedAudio ? '00:00:00' : '--:--:--'}
         </Typography>
-      </ToolbarSection>
+
+        {/* Playback controls */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <IconButton size="small" disabled={!loadedAudio} sx={{ color: '#888' }}>
+            <SkipPreviousIcon sx={{ fontSize: 20 }} />
+          </IconButton>
+          <IconButton size="small" disabled={!loadedAudio} sx={{ color: '#888' }}>
+            <FastRewindIcon sx={{ fontSize: 20 }} />
+          </IconButton>
+          <IconButton
+            size="small"
+            disabled={!loadedAudio}
+            sx={{
+              color: '#19abb5',
+              backgroundColor: 'rgba(25, 171, 181, 0.1)',
+              mx: 0.5,
+              '&:hover': { backgroundColor: 'rgba(25, 171, 181, 0.2)' }
+            }}
+          >
+            <PlayArrowIcon sx={{ fontSize: 24 }} />
+          </IconButton>
+          <IconButton size="small" disabled={!loadedAudio} sx={{ color: '#888' }}>
+            <FastForwardIcon sx={{ fontSize: 20 }} />
+          </IconButton>
+          <IconButton size="small" disabled={!loadedAudio} sx={{ color: '#888' }}>
+            <SkipNextIcon sx={{ fontSize: 20 }} />
+          </IconButton>
+        </Box>
+
+        {/* Divider */}
+        <Box sx={{ width: 1, height: 24, backgroundColor: '#333', mx: 1 }} />
+
+        {/* Reverse button */}
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<ReplayIcon sx={{ fontSize: 14 }} />}
+          disabled={!loadedAudio}
+          sx={{
+            fontSize: 9,
+            color: '#666',
+            borderColor: '#333',
+            minWidth: 'auto',
+            px: 1.5,
+            '&:hover': { borderColor: '#19abb5', color: '#19abb5' }
+          }}
+        >
+          Rev
+        </Button>
+
+        {/* Loop button */}
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<LoopIcon sx={{ fontSize: 14 }} />}
+          disabled={!loadedAudio}
+          sx={{
+            fontSize: 9,
+            color: '#666',
+            borderColor: '#333',
+            minWidth: 'auto',
+            px: 1.5,
+            '&:hover': { borderColor: '#19abb5', color: '#19abb5' }
+          }}
+        >
+          Loop
+        </Button>
+
+        {/* Speed dropdown */}
+        <FormControl size="small" disabled={!loadedAudio}>
+          <Select
+            value={playbackSpeed}
+            onChange={(e) => setPlaybackSpeed(e.target.value as number)}
+            sx={{
+              fontSize: 10,
+              color: '#888',
+              height: 28,
+              minWidth: 65,
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#333' },
+              '& .MuiSvgIcon-root': { color: '#666', fontSize: 16 },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#19abb5' },
+            }}
+          >
+            <MenuItem value={0.25} sx={{ fontSize: 10 }}>0.25x</MenuItem>
+            <MenuItem value={0.5} sx={{ fontSize: 10 }}>0.5x</MenuItem>
+            <MenuItem value={0.75} sx={{ fontSize: 10 }}>0.75x</MenuItem>
+            <MenuItem value={1} sx={{ fontSize: 10 }}>1x</MenuItem>
+            <MenuItem value={1.25} sx={{ fontSize: 10 }}>1.25x</MenuItem>
+            <MenuItem value={1.5} sx={{ fontSize: 10 }}>1.5x</MenuItem>
+            <MenuItem value={2} sx={{ fontSize: 10 }}>2x</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
     </MainContainer>
   );
 
@@ -935,7 +1032,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       mainContent={mainContent}
       evidenceTitle="Audio Files"
       inspectorTitle=""
-      showTransport={true}
+      showTransport={false}
     />
   );
 };
