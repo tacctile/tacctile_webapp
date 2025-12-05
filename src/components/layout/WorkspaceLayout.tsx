@@ -242,6 +242,7 @@ export const MetadataInspector: React.FC<{ item: SelectedEvidence | null }> = ({
 interface WorkspaceLayoutProps {
   // Panel content
   evidencePanel?: ReactNode;
+  metadataPanel?: ReactNode;
   inspectorPanel?: ReactNode;
   mainContent: ReactNode;
   timelineContent?: ReactNode;
@@ -260,6 +261,7 @@ interface WorkspaceLayoutProps {
 
 export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
   evidencePanel,
+  metadataPanel,
   inspectorPanel,
   mainContent,
   timelineContent,
@@ -299,11 +301,11 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
   return (
     <LayoutContainer>
       <MainRow>
-        {/* Left Panel - Evidence Bank */}
-        {evidencePanel && (
+        {/* Left Panel - Evidence Bank + Metadata */}
+        {(evidencePanel || metadataPanel) && (
           evidenceCollapsed ? (
-            <CollapsedPanel sx={{ borderRight: '1px solid #2b2b2b' }}>
-              <Tooltip title={`Show ${evidenceTitle}`} placement="right">
+            <CollapsedPanel sx={{ borderRight: '1px solid #252525' }}>
+              <Tooltip title="Show panel" placement="right">
                 <CollapseButton onClick={toggleEvidence} size="small">
                   <ChevronRightIcon fontSize="small" />
                 </CollapseButton>
@@ -311,17 +313,49 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
             </CollapsedPanel>
           ) : (
             <LeftPanel width={EVIDENCE_PANEL_WIDTH}>
-              <PanelHeader>
-                <PanelTitle>{evidenceTitle}</PanelTitle>
-                <Tooltip title={`Hide ${evidenceTitle}`}>
-                  <CollapseButton onClick={toggleEvidence} size="small">
-                    <ChevronLeftIcon fontSize="small" />
-                  </CollapseButton>
-                </Tooltip>
-              </PanelHeader>
-              <PanelContent>
-                {evidencePanel}
-              </PanelContent>
+              {/* Evidence Bank - flexible top section */}
+              {evidencePanel && (
+                <Box sx={{
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  minHeight: 0,
+                  overflow: 'hidden',
+                }}>
+                  <PanelHeader>
+                    <PanelTitle>{evidenceTitle}</PanelTitle>
+                    <Tooltip title="Hide panel">
+                      <CollapseButton onClick={toggleEvidence} size="small">
+                        <ChevronLeftIcon fontSize="small" />
+                      </CollapseButton>
+                    </Tooltip>
+                  </PanelHeader>
+                  <PanelContent>
+                    {evidencePanel}
+                  </PanelContent>
+                </Box>
+              )}
+
+              {/* Metadata - fixed 200px bottom section */}
+              {metadataPanel && (
+                <Box sx={{
+                  height: 200,
+                  minHeight: 200,
+                  maxHeight: 200,
+                  borderTop: '1px solid #252525',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden',
+                  backgroundColor: '#161616',
+                }}>
+                  <PanelHeader sx={{ minHeight: 28, padding: '4px 10px' }}>
+                    <PanelTitle>Metadata</PanelTitle>
+                  </PanelHeader>
+                  <Box sx={{ flex: 1, overflow: 'hidden' }}>
+                    {metadataPanel}
+                  </Box>
+                </Box>
+              )}
             </LeftPanel>
           )
         )}

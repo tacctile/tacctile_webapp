@@ -6,3 +6,4 @@
 export { default as ErrorBoundary } from './ErrorBoundary';
 export { default as LoadingSkeleton, LoadingSkeleton as ToolLoadingSkeleton } from './LoadingSkeleton';
 export { TransportControls } from './TransportControls';
+export { MetadataPanel } from './MetadataPanel';
