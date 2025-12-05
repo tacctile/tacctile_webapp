@@ -990,63 +990,67 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
 
       {/* Audio Transport - centered with Rev/Loop toggle buttons */}
       <Box sx={{
-        height: 48,
+        height: 96,
         backgroundColor: '#161616',
         borderTop: '1px solid #252525',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 2,
-        px: 2,
+        gap: 4,
+        px: 3,
       }}>
         {/* Timecode */}
         <Typography sx={{
-          fontSize: 12,
+          fontSize: 24,
           color: '#19abb5',
           fontFamily: '"JetBrains Mono", monospace',
-          minWidth: 90,
+          minWidth: 160,
         }}>
           {loadedAudio ? '00:00:00' : '--:--:--'}
         </Typography>
 
         {/* Playback controls */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <IconButton size="small" disabled={!loadedAudio} sx={{ color: '#888' }}>
-            <SkipPreviousIcon sx={{ fontSize: 20 }} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <IconButton disabled={!loadedAudio} sx={{ color: '#888', p: 1.5 }}>
+            <SkipPreviousIcon sx={{ fontSize: 40 }} />
           </IconButton>
-          <IconButton size="small" disabled={!loadedAudio} sx={{ color: '#888' }}>
-            <FastRewindIcon sx={{ fontSize: 20 }} />
+          <IconButton disabled={!loadedAudio} sx={{ color: '#888', p: 1.5 }}>
+            <FastRewindIcon sx={{ fontSize: 40 }} />
           </IconButton>
           <IconButton
-            size="small"
             disabled={!loadedAudio}
             sx={{
               color: '#19abb5',
-              backgroundColor: 'rgba(25, 171, 181, 0.1)',
-              mx: 0.5,
-              '&:hover': { backgroundColor: 'rgba(25, 171, 181, 0.2)' }
+              backgroundColor: 'rgba(25, 171, 181, 0.15)',
+              mx: 1.5,
+              p: 2,
+              border: '2px solid rgba(25, 171, 181, 0.4)',
+              '&:hover': {
+                backgroundColor: 'rgba(25, 171, 181, 0.25)',
+                border: '2px solid rgba(25, 171, 181, 0.6)',
+              }
             }}
           >
-            <PlayArrowIcon sx={{ fontSize: 24 }} />
+            <PlayArrowIcon sx={{ fontSize: 56 }} />
           </IconButton>
-          <IconButton size="small" disabled={!loadedAudio} sx={{ color: '#888' }}>
-            <FastForwardIcon sx={{ fontSize: 20 }} />
+          <IconButton disabled={!loadedAudio} sx={{ color: '#888', p: 1.5 }}>
+            <FastForwardIcon sx={{ fontSize: 40 }} />
           </IconButton>
-          <IconButton size="small" disabled={!loadedAudio} sx={{ color: '#888' }}>
-            <SkipNextIcon sx={{ fontSize: 20 }} />
+          <IconButton disabled={!loadedAudio} sx={{ color: '#888', p: 1.5 }}>
+            <SkipNextIcon sx={{ fontSize: 40 }} />
           </IconButton>
 
           {/* Reverse toggle button */}
           <IconButton
-            size="small"
             disabled={!loadedAudio}
             onClick={() => setReverseEnabled(!reverseEnabled)}
             sx={{
               color: reverseEnabled ? '#19abb5' : '#666',
               backgroundColor: reverseEnabled ? 'rgba(25, 171, 181, 0.15)' : 'transparent',
-              border: '1px solid',
+              border: '2px solid',
               borderColor: reverseEnabled ? '#19abb5' : '#333',
-              ml: 1,
+              ml: 2,
+              p: 1.5,
               '&:hover': {
                 backgroundColor: reverseEnabled ? 'rgba(25, 171, 181, 0.25)' : 'rgba(25, 171, 181, 0.1)',
                 borderColor: '#19abb5',
@@ -1054,20 +1058,20 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             }}
           >
             <Tooltip title="Reverse">
-              <ReplayIcon sx={{ fontSize: 18 }} />
+              <ReplayIcon sx={{ fontSize: 36 }} />
             </Tooltip>
           </IconButton>
 
           {/* Loop toggle button */}
           <IconButton
-            size="small"
             disabled={!loadedAudio}
             onClick={() => setLoopEnabled(!loopEnabled)}
             sx={{
               color: loopEnabled ? '#19abb5' : '#666',
               backgroundColor: loopEnabled ? 'rgba(25, 171, 181, 0.15)' : 'transparent',
-              border: '1px solid',
+              border: '2px solid',
               borderColor: loopEnabled ? '#19abb5' : '#333',
+              p: 1.5,
               '&:hover': {
                 backgroundColor: loopEnabled ? 'rgba(25, 171, 181, 0.25)' : 'rgba(25, 171, 181, 0.1)',
                 borderColor: '#19abb5',
@@ -1075,7 +1079,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             }}
           >
             <Tooltip title="Loop">
-              <LoopIcon sx={{ fontSize: 18 }} />
+              <LoopIcon sx={{ fontSize: 36 }} />
             </Tooltip>
           </IconButton>
         </Box>
