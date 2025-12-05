@@ -89,44 +89,6 @@ const EQSection = styled(Box)({
   padding: '8px 12px',
 });
 
-const EQHeader = styled(Box)({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  marginBottom: 8,
-});
-
-const EQVisualizerContainer = styled(Box)({
-  flex: 1,
-  display: 'flex',
-  flexDirection: 'column',
-  position: 'relative',
-});
-
-const SpectrumBars = styled(Box)({
-  height: 50,
-  display: 'flex',
-  alignItems: 'flex-end',
-  justifyContent: 'space-between',
-  padding: '0 10px',
-  gap: 4,
-});
-
-const EQCurveContainer = styled(Box)({
-  height: 50,
-  position: 'relative',
-  margin: '4px 10px',
-});
-
-const EQLabels = styled(Box)({
-  display: 'flex',
-  justifyContent: 'space-between',
-  padding: '4px 10px 0',
-  fontSize: 9,
-  color: '#555',
-  fontFamily: '"JetBrains Mono", monospace',
-});
-
 const ToolbarSection = styled(Box)({
   height: 32,
   backgroundColor: '#161616',
@@ -154,35 +116,37 @@ const SectionTitle = styled(Typography)({
 // ============================================================================
 
 const EQ_BANDS = [
-  { freq: '60', label: '60' },
-  { freq: '125', label: '125' },
-  { freq: '250', label: '250' },
-  { freq: '500', label: '500' },
-  { freq: '1k', label: '1k' },
-  { freq: '2k', label: '2k' },
-  { freq: '4k', label: '4k' },
-  { freq: '6k', label: '6k' },
-  { freq: '8k', label: '8k' },
-  { freq: '16k', label: '16k' },
+  { freq: 60, label: '60' },
+  { freq: 125, label: '125' },
+  { freq: 250, label: '250' },
+  { freq: 500, label: '500' },
+  { freq: 1000, label: '1k' },
+  { freq: 2000, label: '2k' },
+  { freq: 4000, label: '4k' },
+  { freq: 6000, label: '6k' },
+  { freq: 8000, label: '8k' },
+  { freq: 16000, label: '16k' },
 ];
 
-interface EQVisualizerProps {
+interface IntegratedEQProps {
   values: number[];
   onChange: (index: number, value: number) => void;
-  meterLevels: number[];
+  analyzerData: number[];
   disabled?: boolean;
 }
 
-const EQVisualizer: React.FC<EQVisualizerProps> = ({ values, onChange, meterLevels, disabled }) => {
+const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerData, disabled }) => {
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Handle drag start
   const handleMouseDown = (index: number) => (e: React.MouseEvent) => {
     if (disabled) return;
     e.preventDefault();
     setDraggingIndex(index);
   };
 
+  // Handle dragging
   useEffect(() => {
     if (draggingIndex === null) return;
 
@@ -191,106 +155,92 @@ const EQVisualizer: React.FC<EQVisualizerProps> = ({ values, onChange, meterLeve
       const rect = containerRef.current.getBoundingClientRect();
       const y = e.clientY - rect.top;
       const height = rect.height;
-      // Map y position to -12 to +12 dB range
+      // Map y position to +12 to -12 dB range (top = +12, bottom = -12)
       const value = Math.round(((height / 2 - y) / (height / 2)) * 12);
       const clampedValue = Math.max(-12, Math.min(12, value));
       onChange(draggingIndex, clampedValue);
     };
 
-    const handleMouseUp = () => {
-      setDraggingIndex(null);
-    };
+    const handleMouseUp = () => setDraggingIndex(null);
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
   }, [draggingIndex, onChange]);
 
-  const getBarColor = (level: number) => {
-    if (level > 80) return '#c45c5c'; // Red - hot
-    if (level > 60) return '#c4995c'; // Yellow - medium
-    return '#5a9a6b'; // Green - normal
-  };
+  // Convert dB value to Y percentage (0-100, where 0 is top)
+  const dbToY = (db: number) => 50 - (db / 12) * 45;
 
-  const getNodeY = (value: number) => {
-    // Map -12 to +12 dB to 0-100% (inverted for CSS)
-    return 50 - (value / 12) * 50;
-  };
+  // Generate smooth bezier curve path for EQ line
+  const generateEQPath = () => {
+    if (values.length === 0) return '';
 
-  // Generate SVG path for the EQ curve
-  const generateCurvePath = () => {
-    const width = 100;
-    const segmentWidth = width / (values.length - 1);
+    const points = values.map((v, i) => ({
+      x: 5 + (i / (values.length - 1)) * 90, // 5% to 95% of width
+      y: dbToY(v),
+    }));
 
-    let path = `M 0 ${getNodeY(values[0])}`;
+    let path = `M ${points[0].x} ${points[0].y}`;
 
-    for (let i = 1; i < values.length; i++) {
-      const x = i * segmentWidth;
-      const y = getNodeY(values[i]);
-      const prevX = (i - 1) * segmentWidth;
-      const prevY = getNodeY(values[i - 1]);
-
-      // Bezier curve for smooth line
-      const cpX = (prevX + x) / 2;
-      path += ` C ${cpX} ${prevY}, ${cpX} ${y}, ${x} ${y}`;
+    for (let i = 1; i < points.length; i++) {
+      const cp = (points[i - 1].x + points[i].x) / 2;
+      path += ` C ${cp} ${points[i - 1].y}, ${cp} ${points[i].y}, ${points[i].x} ${points[i].y}`;
     }
 
     return path;
   };
 
+  // Generate analyzer wave path (jagged, organic)
+  const generateAnalyzerPath = () => {
+    if (analyzerData.length === 0) return '';
+
+    const points = analyzerData.map((level, i) => ({
+      x: 5 + (i / (analyzerData.length - 1)) * 90,
+      y: 50 - (level / 100) * 40, // Convert 0-100 level to Y position
+    }));
+
+    let path = `M ${points[0].x} ${points[0].y}`;
+
+    for (let i = 1; i < points.length; i++) {
+      // Slightly jagged line (not as smooth as EQ curve)
+      path += ` L ${points[i].x} ${points[i].y}`;
+    }
+
+    return path;
+  };
+
+  // Reset single band on double-click
+  const handleDoubleClick = (index: number) => {
+    if (!disabled) {
+      onChange(index, 0);
+    }
+  };
+
+  // Reset single band via button
+  const handleResetBand = (index: number) => {
+    if (!disabled) {
+      onChange(index, 0);
+    }
+  };
+
   return (
-    <EQVisualizerContainer>
-      {/* Spectrum analyzer bars */}
-      <SpectrumBars>
-        {meterLevels.map((level, i) => (
-          <Box
-            key={i}
-            sx={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '1px',
-            }}
-          >
-            {/* Stack of small bars to create gradient effect */}
-            {Array.from({ length: 10 }).map((_, j) => {
-              const barThreshold = (j + 1) * 10;
-              const isActive = level >= barThreshold;
-              return (
-                <Box
-                  key={j}
-                  sx={{
-                    width: '100%',
-                    height: 4,
-                    borderRadius: 0.5,
-                    backgroundColor: isActive ? getBarColor(barThreshold) : '#1a1a1a',
-                    transition: 'background-color 0.1s ease',
-                  }}
-                />
-              );
-            }).reverse()}
-          </Box>
-        ))}
-      </SpectrumBars>
-
-      {/* EQ Curve with draggable nodes */}
-      <EQCurveContainer ref={containerRef}>
-        {/* Zero line */}
-        <Box sx={{
-          position: 'absolute',
-          top: '50%',
-          left: 0,
-          right: 0,
-          height: 1,
-          backgroundColor: '#333',
-        }} />
-
-        {/* SVG Curve */}
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Main EQ Canvas */}
+      <Box
+        ref={containerRef}
+        sx={{
+          flex: 1,
+          position: 'relative',
+          backgroundColor: '#0a0a0a',
+          borderRadius: 1,
+          overflow: 'hidden',
+          cursor: disabled ? 'default' : 'crosshair',
+        }}
+      >
+        {/* Grid lines */}
         <svg
           style={{
             position: 'absolute',
@@ -298,13 +248,80 @@ const EQVisualizer: React.FC<EQVisualizerProps> = ({ values, onChange, meterLeve
             left: 0,
             width: '100%',
             height: '100%',
-            overflow: 'visible',
+          }}
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+        >
+          {/* Horizontal grid lines */}
+          <line x1="5" y1="5" x2="95" y2="5" stroke="#1a1a1a" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
+          <line x1="5" y1="50" x2="95" y2="50" stroke="#2a2a2a" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+          <line x1="5" y1="95" x2="95" y2="95" stroke="#1a1a1a" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
+
+          {/* Vertical grid lines for each frequency */}
+          {EQ_BANDS.map((_, i) => {
+            const x = 5 + (i / (EQ_BANDS.length - 1)) * 90;
+            return (
+              <line
+                key={i}
+                x1={x}
+                y1="5"
+                x2={x}
+                y2="95"
+                stroke="#1a1a1a"
+                strokeWidth="0.5"
+                vectorEffect="non-scaling-stroke"
+              />
+            );
+          })}
+        </svg>
+
+        {/* dB labels */}
+        <Box sx={{ position: 'absolute', left: 4, top: 2, fontSize: 8, color: '#444', fontFamily: '"JetBrains Mono", monospace' }}>
+          +12
+        </Box>
+        <Box sx={{ position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)', fontSize: 8, color: '#555', fontFamily: '"JetBrains Mono", monospace' }}>
+          0dB
+        </Box>
+        <Box sx={{ position: 'absolute', left: 4, bottom: 2, fontSize: 8, color: '#444', fontFamily: '"JetBrains Mono", monospace' }}>
+          -12
+        </Box>
+
+        {/* Analyzer wave (behind) */}
+        <svg
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
           }}
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
         >
           <path
-            d={generateCurvePath()}
+            d={generateAnalyzerPath()}
+            fill="none"
+            stroke="#3a4a3a"
+            strokeWidth="1.5"
+            vectorEffect="non-scaling-stroke"
+            opacity="0.6"
+          />
+        </svg>
+
+        {/* EQ Curve (on top) */}
+        <svg
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+          }}
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+        >
+          <path
+            d={generateEQPath()}
             fill="none"
             stroke="#19abb5"
             strokeWidth="2"
@@ -313,40 +330,84 @@ const EQVisualizer: React.FC<EQVisualizerProps> = ({ values, onChange, meterLeve
         </svg>
 
         {/* Draggable nodes */}
-        {values.map((value, i) => (
-          <Box
-            key={i}
-            onMouseDown={handleMouseDown(i)}
-            onDoubleClick={() => !disabled && onChange(i, 0)}
-            sx={{
-              position: 'absolute',
-              left: `${(i / (values.length - 1)) * 100}%`,
-              top: `${getNodeY(value)}%`,
-              transform: 'translate(-50%, -50%)',
-              width: 12,
-              height: 12,
-              borderRadius: '50%',
-              backgroundColor: disabled ? '#333' : '#19abb5',
-              border: '2px solid #0d0d0d',
-              cursor: disabled ? 'default' : 'ns-resize',
-              zIndex: draggingIndex === i ? 10 : 1,
-              transition: draggingIndex === i ? 'none' : 'top 0.1s ease',
-              '&:hover': {
-                backgroundColor: disabled ? '#333' : '#4dc4cc',
-                transform: 'translate(-50%, -50%) scale(1.2)',
-              },
-            }}
-          />
-        ))}
-      </EQCurveContainer>
+        {values.map((value, i) => {
+          const x = 5 + (i / (values.length - 1)) * 90;
+          const y = dbToY(value);
+          return (
+            <Box
+              key={i}
+              onMouseDown={handleMouseDown(i)}
+              onDoubleClick={() => handleDoubleClick(i)}
+              sx={{
+                position: 'absolute',
+                left: `${x}%`,
+                top: `${y}%`,
+                transform: 'translate(-50%, -50%)',
+                width: 14,
+                height: 14,
+                borderRadius: '50%',
+                backgroundColor: disabled ? '#333' : value === 0 ? '#19abb5' : '#4dd4df',
+                border: '2px solid #0a0a0a',
+                cursor: disabled ? 'default' : 'ns-resize',
+                zIndex: draggingIndex === i ? 10 : 1,
+                transition: draggingIndex === i ? 'none' : 'top 0.05s ease-out',
+                boxShadow: value !== 0 ? '0 0 8px rgba(25, 171, 181, 0.5)' : 'none',
+                '&:hover': {
+                  backgroundColor: disabled ? '#333' : '#6ee4ec',
+                  transform: 'translate(-50%, -50%) scale(1.15)',
+                },
+              }}
+            />
+          );
+        })}
+      </Box>
 
-      {/* Frequency labels */}
-      <EQLabels>
-        {EQ_BANDS.map((band) => (
-          <span key={band.freq}>{band.label}</span>
+      {/* Frequency labels + reset buttons */}
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        padding: '6px 5% 0',
+        alignItems: 'center',
+      }}>
+        {EQ_BANDS.map((band, i) => (
+          <Box
+            key={band.freq}
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 0.5,
+            }}
+          >
+            <Typography sx={{ fontSize: 8, color: '#555', fontFamily: '"JetBrains Mono", monospace' }}>
+              {band.label}
+            </Typography>
+            <Box
+              onClick={() => handleResetBand(i)}
+              sx={{
+                width: 12,
+                height: 12,
+                borderRadius: '50%',
+                border: '1px solid #333',
+                backgroundColor: values[i] === 0 ? 'transparent' : '#252525',
+                cursor: disabled ? 'default' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                '&:hover': {
+                  borderColor: disabled ? '#333' : '#19abb5',
+                  backgroundColor: disabled ? 'transparent' : 'rgba(25, 171, 181, 0.1)',
+                },
+              }}
+            >
+              {values[i] !== 0 && (
+                <Box sx={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: '#19abb5' }} />
+              )}
+            </Box>
+          </Box>
         ))}
-      </EQLabels>
-    </EQVisualizerContainer>
+      </Box>
+    </Box>
   );
 };
 
@@ -655,24 +716,24 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
 
       {/* EQ Section */}
       <EQSection>
-        <EQHeader>
-          <Typography sx={{ fontSize: 10, fontWeight: 600, color: '#888', textTransform: 'uppercase' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Typography sx={{ fontSize: 10, fontWeight: 600, color: '#666', textTransform: 'uppercase' }}>
             Parametric EQ
           </Typography>
           <Button
             size="small"
             onClick={resetEQ}
             disabled={!loadedAudio}
-            sx={{ fontSize: 9, color: '#666', minWidth: 'auto', py: 0 }}
+            sx={{ fontSize: 9, color: '#555', minWidth: 'auto', py: 0, px: 1, '&:hover': { color: '#19abb5' } }}
           >
-            Reset
+            Reset All
           </Button>
-        </EQHeader>
+        </Box>
 
-        <EQVisualizer
+        <IntegratedEQ
           values={eqValues}
           onChange={handleEQChange}
-          meterLevels={meterLevels}
+          analyzerData={meterLevels}
           disabled={!loadedAudio}
         />
       </EQSection>
