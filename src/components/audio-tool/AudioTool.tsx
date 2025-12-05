@@ -1,552 +1,613 @@
-/**
- * AudioTool Component
- * Main container for the iZotope RX 11-inspired audio analysis tool
- */
-
-import React, { useCallback, useEffect, useRef, useState, memo } from 'react';
-import { useShallow } from 'zustand/react/shallow';
-import Box from '@mui/material/Box';
-import IconButton from '@mui/material/IconButton';
-import Typography from '@mui/material/Typography';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import Slider from '@mui/material/Slider';
-import Tooltip from '@mui/material/Tooltip';
-import Divider from '@mui/material/Divider';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Box,
+  Typography,
+  IconButton,
+  Tooltip,
+  Slider,
+  Collapse,
+  Button,
+} from '@mui/material';
 import { styled } from '@mui/material/styles';
-
-// Icons
+import MicIcon from '@mui/icons-material/Mic';
+import VideocamIcon from '@mui/icons-material/Videocam';
+import CloseIcon from '@mui/icons-material/Close';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import PauseIcon from '@mui/icons-material/Pause';
+import ReplayIcon from '@mui/icons-material/Replay';
+import SpeedIcon from '@mui/icons-material/Speed';
+import FlagIcon from '@mui/icons-material/Flag';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
-import GraphicEqIcon from '@mui/icons-material/GraphicEq';
-import TimelineIcon from '@mui/icons-material/Timeline';
-import ViewStreamIcon from '@mui/icons-material/ViewStream';
-import SpeedIcon from '@mui/icons-material/Speed';
-import HighlightAltIcon from '@mui/icons-material/HighlightAlt';
-import LoopIcon from '@mui/icons-material/Loop';
-import SettingsIcon from '@mui/icons-material/Settings';
 
-// Components
-import WaveformView from './WaveformView';
-import SpectrogramView from './SpectrogramView';
-import FilterPanel from './FilterPanel';
-import RecipePanel from './RecipePanel';
-import FindingsPanel from './FindingsPanel';
 import { WorkspaceLayout } from '@/components/layout';
-import { EvidenceBank } from '@/components/evidence-bank';
+import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
+import { MetadataPanel } from '@/components/common';
+import { usePlayheadStore } from '@/stores/usePlayheadStore';
+import { useNavigationStore } from '@/stores/useNavigationStore';
 
-// Store
-import {
-  useAudioToolStore,
-  selectAudioUrl,
-  selectPlayback,
-  selectViewMode,
-  selectSelections,
-  selectCurrentSelection,
-  selectLoopRegions,
-  selectFilterSettings,
-  selectRecipes,
-  selectIterations,
-  selectFindings,
-  selectSpectrogramSettings,
-  selectWaveformSettings,
-  selectFiltersBypassed,
-} from '../../stores/useAudioToolStore';
-import { useNavigationStore } from '../../stores/useNavigationStore';
-import type { AudioViewMode, LoopRegion, AudioFinding } from '../../types/audio';
-
-// ============================================================================
-// STYLED COMPONENTS
-// ============================================================================
-
-const Toolbar = styled(Box)({
-  display: 'flex',
-  alignItems: 'center',
-  padding: '8px 12px',
-  backgroundColor: '#1a1a1a',
-  borderBottom: '1px solid #2b2b2b',
-  gap: 8,
-  flexWrap: 'wrap',
-});
-
-const ToolbarGroup = styled(Box)({
-  display: 'flex',
-  alignItems: 'center',
-  gap: 4,
-});
-
-const ToolbarDivider = styled(Divider)({
-  height: 24,
-  borderColor: '#2b2b2b',
-  margin: '0 8px',
-});
-
-const VisualizationArea = styled(Box)({
+// Styled components
+const SpectrogramContainer = styled(Box)({
   flex: 1,
+  backgroundColor: '#0a0a0a',
+  position: 'relative',
   display: 'flex',
   flexDirection: 'column',
-  overflow: 'hidden',
-  padding: 8,
+  minHeight: 0,
+  cursor: 'crosshair',
+});
+
+const FrequencyScale = styled(Box)({
+  position: 'absolute',
+  right: 0,
+  top: 0,
+  bottom: 0,
+  width: 40,
+  backgroundColor: 'rgba(0,0,0,0.7)',
+  display: 'flex',
+  flexDirection: 'column',
+  justifyContent: 'space-between',
+  padding: '8px 4px',
+  fontSize: 9,
+  color: '#666',
+  fontFamily: '"JetBrains Mono", monospace',
+});
+
+const TimeScale = styled(Box)({
+  height: 20,
+  backgroundColor: '#111',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: '0 48px 0 8px',
+  fontSize: 9,
+  color: '#666',
+  fontFamily: '"JetBrains Mono", monospace',
+  borderTop: '1px solid #252525',
+});
+
+const WaveformContainer = styled(Box)({
+  height: 80,
+  backgroundColor: '#0d0d0d',
+  borderTop: '1px solid #252525',
+  display: 'flex',
+  alignItems: 'center',
+  padding: '0 8px',
   gap: 8,
 });
 
-const StyledToggleButton = styled(ToggleButton)({
-  border: 'none',
-  padding: '4px 8px',
-  color: '#888888',
-  '&.Mui-selected': {
-    backgroundColor: 'rgba(25, 171, 181, 0.2)',
-    color: '#19abb5',
-    '&:hover': {
-      backgroundColor: 'rgba(25, 171, 181, 0.3)',
-    },
-  },
+const ToolbarRow = styled(Box)({
+  height: 36,
+  backgroundColor: '#161616',
+  borderTop: '1px solid #252525',
+  display: 'flex',
+  alignItems: 'center',
+  padding: '0 12px',
+  gap: 8,
+});
+
+const VideoRefPanel = styled(Box)({
+  position: 'absolute',
+  top: 8,
+  right: 56,
+  width: 200,
+  backgroundColor: '#1a1a1a',
+  border: '1px solid #252525',
+  borderRadius: 2,
+  overflow: 'hidden',
+  zIndex: 10,
+});
+
+const FilterSection = styled(Box)({
+  marginBottom: 8,
+});
+
+const FilterHeader = styled(Box)({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: '8px 12px',
+  backgroundColor: '#1a1a1a',
+  cursor: 'pointer',
   '&:hover': {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#1f1f1f',
   },
 });
 
-// ============================================================================
-// COMPONENT PROPS
-// ============================================================================
+const FilterContent = styled(Box)({
+  padding: '8px 12px',
+});
+
+const FilterRow = styled(Box)({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  marginBottom: 12,
+  '&:last-child': {
+    marginBottom: 0,
+  },
+});
+
+// Mock audio evidence with format and GPS
+const audioEvidence: (EvidenceItem & { format?: string; gps?: string | null; hasVideo?: boolean })[] = [
+  { id: 'a1', type: 'audio', fileName: 'ambient_baseline.wav', duration: 1080, capturedAt: Date.now() - 7200000, user: 'Mike', deviceInfo: 'Zoom H6', flagCount: 0, hasFindings: false, format: '48kHz / 24-bit', gps: null, hasVideo: false },
+  { id: 'a2', type: 'audio', fileName: 'recorder_01_evp_session.wav', duration: 1834, capturedAt: Date.now() - 6500000, user: 'Sarah', deviceInfo: 'Zoom H6', flagCount: 7, hasFindings: true, format: '48kHz / 24-bit', gps: '39.95°N, 75.16°W', hasVideo: false },
+  { id: 'a3', type: 'audio', fileName: 'camera_01_audio_extract.wav', duration: 3847, capturedAt: Date.now() - 7000000, user: 'Sarah', deviceInfo: 'Sony A7IV', flagCount: 2, hasFindings: true, format: '48kHz / 16-bit', gps: '39.95°N, 75.16°W', hasVideo: true },
+  { id: 'a4', type: 'audio', fileName: 'spirit_box_session.wav', duration: 923, capturedAt: Date.now() - 5800000, user: 'Jen', deviceInfo: 'Tascam DR-40X', flagCount: 2, hasFindings: true, format: '44.1kHz / 16-bit', gps: null, hasVideo: false },
+];
 
 interface AudioToolProps {
-  /** Evidence ID to load */
-  evidenceId?: string;
-  /** Investigation ID */
   investigationId?: string;
-  /** Audio file URL */
-  audioUrl?: string;
-  /** Audio buffer (alternative to URL) */
-  audioBuffer?: AudioBuffer;
-  /** Callback when audio is loaded */
-  onAudioLoaded?: (duration: number) => void;
-  /** Callback when a finding is synced to evidence flag */
-  onSyncFinding?: (finding: AudioFinding) => void;
 }
 
-// ============================================================================
-// COMPONENT
-// ============================================================================
+export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
+  const [selectedEvidence, setSelectedEvidence] = useState<typeof audioEvidence[0] | null>(null);
+  const [loadedAudio, setLoadedAudio] = useState<typeof audioEvidence[0] | null>(null);
+  const [videoRefVisible, setVideoRefVisible] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
 
-const AudioTool: React.FC<AudioToolProps> = ({
-  evidenceId,
-  investigationId,
-  audioUrl,
-  audioBuffer: externalAudioBuffer,
-  onAudioLoaded,
-  onSyncFinding,
-}) => {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
-  const gainNodeRef = useRef<GainNode | null>(null);
+  // Selection state for spectral selection
+  const [selection, setSelection] = useState<{
+    startTime: number;
+    endTime: number;
+    lowFreq: number;
+    highFreq: number;
+  } | null>(null);
 
-  const [showSettings, setShowSettings] = useState(false);
-  const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
-  const [selectedEvidence, setSelectedEvidence] = useState<any>(null);
+  // Filter sections collapsed state
+  const [repairOpen, setRepairOpen] = useState(true);
+  const [enhanceOpen, setEnhanceOpen] = useState(true);
+  const [analyzeOpen, setAnalyzeOpen] = useState(false);
 
-  // Watch for navigation to this tool with a file
+  // Filter values
+  const [filters, setFilters] = useState({
+    deNoise: 0,
+    deHum: 0,
+    deClick: 0,
+    eq: { low: 0, mid: 0, high: 0 },
+    gain: 0,
+    speed: 1,
+  });
+
+  const navigateToTool = useNavigationStore((state) => state.navigateToTool);
   const loadedFileId = useNavigationStore((state) => state.loadedFiles.audio);
 
-  // Mock audio evidence data
-  const audioEvidence = [
-    {
-      id: 'a1',
-      type: 'audio' as const,
-      fileName: 'recorder_01_evp_session.wav',
-      duration: 1834,
-      capturedAt: Date.now() - 6500000,
-      user: 'Sarah',
-      deviceInfo: 'Zoom H6',
-      flagCount: 7,
-      hasFindings: true,
-    },
-    {
-      id: 'a2',
-      type: 'audio' as const,
-      fileName: 'spirit_box_session.wav',
-      duration: 923,
-      capturedAt: Date.now() - 5800000,
-      user: 'Jen',
-      deviceInfo: 'Tascam DR-40X',
-      flagCount: 2,
-      hasFindings: true,
-    },
-    {
-      id: 'a3',
-      type: 'audio' as const,
-      fileName: 'ambient_baseline.wav',
-      duration: 600,
-      capturedAt: Date.now() - 7000000,
-      user: 'Mike',
-      deviceInfo: 'Zoom H6',
-      flagCount: 0,
-      hasFindings: false,
-    },
-  ];
-
-  // Store state - use selectors for stable references
-  const audioBuffer = useAudioToolStore((state) => state.audioBuffer);
-  const viewMode = useAudioToolStore(selectViewMode);
-  const playback = useAudioToolStore(selectPlayback);
-  const currentSelection = useAudioToolStore(selectCurrentSelection);
-  const selections = useAudioToolStore(selectSelections);
-  const loopRegions = useAudioToolStore(selectLoopRegions);
-  const activeLoopId = useAudioToolStore((state) => state.activeLoopId);
-  const filterSettings = useAudioToolStore(selectFilterSettings);
-  const filtersBypassed = useAudioToolStore(selectFiltersBypassed);
-  const recipes = useAudioToolStore(selectRecipes);
-  const iterations = useAudioToolStore(selectIterations);
-  const activeIterationId = useAudioToolStore((state) => state.activeIterationId);
-  const findings = useAudioToolStore(selectFindings);
-  const spectrogramSettings = useAudioToolStore(selectSpectrogramSettings);
-  const waveformSettings = useAudioToolStore(selectWaveformSettings);
-  const zoom = useAudioToolStore((state) => state.zoom);
-  const scrollPosition = useAudioToolStore((state) => state.scrollPosition);
-
-  // Store actions - use useShallow to get stable references
-  const {
-    loadAudio,
-    setAudioBuffer,
-    setViewMode,
-    play,
-    pause,
-    stop,
-    seek,
-    setPlaybackRate,
-    setVolume,
-    toggleMute,
-    toggleLooping,
-    updatePlaybackTime,
-    setDuration,
-    startSelection,
-    updateSelection,
-    finishSelection,
-    cancelSelection,
-    addLoopRegion,
-    removeLoopRegion,
-    setActiveLoop,
-    updateLoopRegion,
-    createLoopFromSelection,
-    setFilterSettings,
-    setEQBand,
-    setNoiseReduction,
-    setGain,
-    resetFilters,
-    toggleFiltersBypass,
-    applyRecipe,
-    saveRecipe,
-    deleteRecipe,
-    createIteration,
-    deleteIteration,
-    setActiveIteration,
-    createFindingFromSelection,
-    updateFinding,
-    deleteFinding,
-    setFindingVisibility,
-    setZoom,
-  } = useAudioToolStore(
-    useShallow((state) => ({
-      loadAudio: state.loadAudio,
-      setAudioBuffer: state.setAudioBuffer,
-      setViewMode: state.setViewMode,
-      play: state.play,
-      pause: state.pause,
-      stop: state.stop,
-      seek: state.seek,
-      setPlaybackRate: state.setPlaybackRate,
-      setVolume: state.setVolume,
-      toggleMute: state.toggleMute,
-      toggleLooping: state.toggleLooping,
-      updatePlaybackTime: state.updatePlaybackTime,
-      setDuration: state.setDuration,
-      startSelection: state.startSelection,
-      updateSelection: state.updateSelection,
-      finishSelection: state.finishSelection,
-      cancelSelection: state.cancelSelection,
-      addLoopRegion: state.addLoopRegion,
-      removeLoopRegion: state.removeLoopRegion,
-      setActiveLoop: state.setActiveLoop,
-      updateLoopRegion: state.updateLoopRegion,
-      createLoopFromSelection: state.createLoopFromSelection,
-      setFilterSettings: state.setFilterSettings,
-      setEQBand: state.setEQBand,
-      setNoiseReduction: state.setNoiseReduction,
-      setGain: state.setGain,
-      resetFilters: state.resetFilters,
-      toggleFiltersBypass: state.toggleFiltersBypass,
-      applyRecipe: state.applyRecipe,
-      saveRecipe: state.saveRecipe,
-      deleteRecipe: state.deleteRecipe,
-      createIteration: state.createIteration,
-      deleteIteration: state.deleteIteration,
-      setActiveIteration: state.setActiveIteration,
-      createFindingFromSelection: state.createFindingFromSelection,
-      updateFinding: state.updateFinding,
-      deleteFinding: state.deleteFinding,
-      setFindingVisibility: state.setFindingVisibility,
-      setZoom: state.setZoom,
-    }))
-  );
-
-  // Load audio when navigated to from another tool
+  // Load file when navigated to
   useEffect(() => {
     if (loadedFileId) {
-      // Find the file in evidence and load it
-      const file = audioEvidence.find((e) => e.id === loadedFileId);
+      const file = audioEvidence.find(f => f.id === loadedFileId);
       if (file) {
+        setLoadedAudio(file);
         setSelectedEvidence(file);
-        // TODO: Actually load the audio file into the player
-        // This would typically involve calling loadAudio with the file's URL
-        console.log('Load audio file from navigation:', file.fileName);
       }
     }
   }, [loadedFileId]);
 
-  // Initialize audio element and Web Audio API
-  useEffect(() => {
-    const audio = new Audio();
-    audio.crossOrigin = 'anonymous';
-    audioRef.current = audio;
-
-    const audioContext = new AudioContext();
-    audioContextRef.current = audioContext;
-
-    const gainNode = audioContext.createGain();
-    gainNode.connect(audioContext.destination);
-    gainNodeRef.current = gainNode;
-
-    return () => {
-      audio.pause();
-      audio.src = '';
-      if (sourceNodeRef.current) {
-        sourceNodeRef.current.disconnect();
-      }
-      audioContext.close();
-    };
+  const handleDoubleClick = useCallback((item: typeof audioEvidence[0]) => {
+    setLoadedAudio(item);
+    setSelectedEvidence(item);
   }, []);
 
-  // Setup audio event listeners with proper dependencies
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    const handleTimeUpdate = () => {
-      updatePlaybackTime(audio.currentTime);
-    };
-
-    const handleLoadedMetadata = () => {
-      setDuration(audio.duration);
-      onAudioLoaded?.(audio.duration);
-    };
-
-    const handleEnded = () => {
-      if (playback.looping && !activeLoopId) {
-        audio.currentTime = 0;
-        audio.play();
-      } else {
-        pause();
-      }
-    };
-
-    audio.addEventListener('timeupdate', handleTimeUpdate);
-    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
-    audio.addEventListener('ended', handleEnded);
-
-    return () => {
-      audio.removeEventListener('timeupdate', handleTimeUpdate);
-      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      audio.removeEventListener('ended', handleEnded);
-    };
-  }, [updatePlaybackTime, setDuration, onAudioLoaded, playback.looping, activeLoopId, pause]);
-
-  // Load audio from URL
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio || !audioUrl) return;
-
-    if (evidenceId && investigationId) {
-      loadAudio(evidenceId, investigationId, audioUrl);
-    }
-
-    audio.src = audioUrl;
-    audio.load();
-
-    // Connect to Web Audio API for processing
-    const audioContext = audioContextRef.current;
-    const gainNode = gainNodeRef.current;
-    if (audioContext && gainNode && !sourceNodeRef.current) {
-      const source = audioContext.createMediaElementSource(audio);
-      source.connect(gainNode);
-      sourceNodeRef.current = source;
-    }
-
-    // Decode audio for spectrogram
-    fetch(audioUrl)
-      .then((res) => res.arrayBuffer())
-      .then((buffer) => audioContext?.decodeAudioData(buffer))
-      .then((decodedBuffer) => {
-        if (decodedBuffer) {
-          setAudioBuffer(decodedBuffer);
-        }
-      })
-      .catch(console.error);
-  }, [audioUrl, evidenceId, investigationId, loadAudio, setAudioBuffer]);
-
-  // Use external audio buffer if provided
-  useEffect(() => {
-    if (externalAudioBuffer) {
-      setAudioBuffer(externalAudioBuffer);
-    }
-  }, [externalAudioBuffer, setAudioBuffer]);
-
-  // Sync playback state
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    if (playback.isPlaying && audio.paused) {
-      audioContextRef.current?.resume();
-      audio.play().catch(console.error);
-    } else if (!playback.isPlaying && !audio.paused) {
-      audio.pause();
-    }
-  }, [playback.isPlaying]);
-
-  // Sync volume
-  useEffect(() => {
-    const gainNode = gainNodeRef.current;
-    if (gainNode) {
-      gainNode.gain.value = playback.muted ? 0 : playback.volume;
-    }
-  }, [playback.volume, playback.muted]);
-
-  // Sync playback rate
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (audio) {
-      audio.playbackRate = playback.playbackRate;
-    }
-  }, [playback.playbackRate]);
-
-  // Handle loop regions
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio || !activeLoopId) return;
-
-    const activeLoop = loopRegions.find((r) => r.id === activeLoopId);
-    if (!activeLoop) return;
-
-    const handleTimeUpdate = () => {
-      if (audio.currentTime >= activeLoop.endTime) {
-        audio.currentTime = activeLoop.startTime;
-      }
-    };
-
-    audio.addEventListener('timeupdate', handleTimeUpdate);
-    return () => audio.removeEventListener('timeupdate', handleTimeUpdate);
-  }, [activeLoopId, loopRegions]);
-
-  // Handlers
-  const handlePlayPause = useCallback(() => {
-    if (playback.isPlaying) {
-      pause();
-    } else {
-      play();
-    }
-  }, [playback.isPlaying, play, pause]);
-
-  const handleStop = useCallback(() => {
-    stop();
-    const audio = audioRef.current;
-    if (audio) {
-      audio.currentTime = 0;
-    }
-  }, [stop]);
-
-  const handleSeek = useCallback(
-    (time: number) => {
-      seek(time);
-      const audio = audioRef.current;
-      if (audio) {
-        audio.currentTime = time;
-      }
-    },
-    [seek]
-  );
-
-  const handleSkip = useCallback(
-    (seconds: number) => {
-      const newTime = Math.max(0, Math.min(playback.currentTime + seconds, playback.duration));
-      handleSeek(newTime);
-    },
-    [playback.currentTime, playback.duration, handleSeek]
-  );
-
-  const handleViewModeChange = useCallback(
-    (_: React.MouseEvent<HTMLElement>, newMode: AudioViewMode | null) => {
-      if (newMode) {
-        setViewMode(newMode);
-      }
-    },
-    [setViewMode]
-  );
-
-  const handleZoomIn = useCallback(() => {
-    setZoom(Math.min(zoom * 1.2, 1000));
-  }, [zoom, setZoom]);
-
-  const handleZoomOut = useCallback(() => {
-    setZoom(Math.max(zoom / 1.2, 10));
-  }, [zoom, setZoom]);
-
-  const handleSelectionStart = useCallback(
-    (startTime: number, lowFreq: number) => {
-      startSelection(0, 0, startTime, lowFreq);
-    },
-    [startSelection]
-  );
-
-  const handleCreateFinding = useCallback(
-    (title: string, notes?: string, confidence?: AudioFinding['confidence']) => {
-      createFindingFromSelection(title, notes, confidence);
-    },
-    [createFindingFromSelection]
-  );
-
-  const handleSeekToFinding = useCallback(
-    (finding: AudioFinding) => {
-      handleSeek(finding.selection.startTime);
-    },
-    [handleSeek]
-  );
-
-  const handleSyncFinding = useCallback(
-    (findingId: string) => {
-      // Ensure findings is an array
-      const safeFindings = Array.isArray(findings) ? findings : [];
-      const finding = safeFindings.find((f) => f.id === findingId);
-      if (finding && onSyncFinding) {
-        onSyncFinding(finding);
-      }
-    },
-    [findings, onSyncFinding]
-  );
-
-  const handleRegionCreate = useCallback(
-    (region: Omit<LoopRegion, 'id'>) => {
-      addLoopRegion(region);
-    },
-    [addLoopRegion]
-  );
-
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    const ms = Math.floor((seconds % 1) * 100);
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
+  const handleFilterChange = (key: string, value: number) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
   };
+
+  // Generate fake spectrogram data for visual placeholder
+  const renderSpectrogramPlaceholder = () => {
+    if (!loadedAudio) return null;
+    return (
+      <Box sx={{
+        width: '100%',
+        height: '100%',
+        background: 'linear-gradient(180deg, #0a0612 0%, #0d1a2e 30%, #1a2a1a 60%, #1a1a0a 100%)',
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
+        {/* Fake spectrogram lines */}
+        {Array.from({ length: 50 }).map((_, i) => (
+          <Box
+            key={i}
+            sx={{
+              position: 'absolute',
+              left: `${(i / 50) * 100}%`,
+              top: 0,
+              bottom: 0,
+              width: '2%',
+              background: `linear-gradient(180deg,
+                rgba(255,100,0,${Math.random() * 0.3}) 0%,
+                rgba(255,150,0,${Math.random() * 0.5 + 0.2}) 30%,
+                rgba(200,200,0,${Math.random() * 0.4}) 50%,
+                rgba(0,150,100,${Math.random() * 0.3}) 70%,
+                rgba(0,50,100,${Math.random() * 0.2}) 100%
+              )`,
+              opacity: 0.7 + Math.random() * 0.3,
+            }}
+          />
+        ))}
+
+        {/* Selection overlay */}
+        {selection && (
+          <Box sx={{
+            position: 'absolute',
+            left: `${selection.startTime}%`,
+            right: `${100 - selection.endTime}%`,
+            top: `${100 - selection.highFreq}%`,
+            bottom: `${selection.lowFreq}%`,
+            border: '2px solid #19abb5',
+            backgroundColor: 'rgba(25, 171, 181, 0.2)',
+            pointerEvents: 'none',
+          }} />
+        )}
+
+        {/* Playhead */}
+        <Box sx={{
+          position: 'absolute',
+          left: '30%',
+          top: 0,
+          bottom: 0,
+          width: 2,
+          backgroundColor: '#19abb5',
+          boxShadow: '0 0 8px rgba(25, 171, 181, 0.5)',
+        }} />
+      </Box>
+    );
+  };
+
+  // Render fake waveform
+  const renderWaveform = () => {
+    if (!loadedAudio) {
+      return (
+        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Typography sx={{ color: '#444', fontSize: 11 }}>No waveform</Typography>
+        </Box>
+      );
+    }
+    return (
+      <Box sx={{ flex: 1, height: '100%', display: 'flex', alignItems: 'center', gap: '1px', px: 1 }}>
+        {Array.from({ length: 200 }).map((_, i) => (
+          <Box
+            key={i}
+            sx={{
+              flex: 1,
+              height: `${15 + Math.sin(i * 0.08) * 25 + Math.random() * 35}%`,
+              backgroundColor: '#5a9a6b',
+              borderRadius: 0.5,
+              opacity: 0.8,
+            }}
+          />
+        ))}
+      </Box>
+    );
+  };
+
+  // Inspector panel - categorized filters
+  const inspectorContent = (
+    <Box sx={{ height: '100%', overflowY: 'auto' }}>
+      {/* Repair Section */}
+      <FilterSection>
+        <FilterHeader onClick={() => setRepairOpen(!repairOpen)}>
+          <Typography sx={{ fontSize: 11, fontWeight: 600, color: '#ccc', textTransform: 'uppercase' }}>
+            Repair
+          </Typography>
+          {repairOpen ? <ExpandLessIcon sx={{ fontSize: 16, color: '#666' }} /> : <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} />}
+        </FilterHeader>
+        <Collapse in={repairOpen}>
+          <FilterContent>
+            <FilterRow>
+              <Typography sx={{ fontSize: 11, color: '#888' }}>De-noise</Typography>
+              <Slider
+                size="small"
+                value={filters.deNoise}
+                onChange={(_, v) => handleFilterChange('deNoise', v as number)}
+                min={0}
+                max={100}
+                sx={{ width: 100, color: '#19abb5' }}
+                disabled={!loadedAudio}
+              />
+            </FilterRow>
+            <FilterRow>
+              <Typography sx={{ fontSize: 11, color: '#888' }}>De-hum (60Hz)</Typography>
+              <Slider
+                size="small"
+                value={filters.deHum}
+                onChange={(_, v) => handleFilterChange('deHum', v as number)}
+                min={0}
+                max={100}
+                sx={{ width: 100, color: '#19abb5' }}
+                disabled={!loadedAudio}
+              />
+            </FilterRow>
+            <FilterRow>
+              <Typography sx={{ fontSize: 11, color: '#888' }}>De-click</Typography>
+              <Slider
+                size="small"
+                value={filters.deClick}
+                onChange={(_, v) => handleFilterChange('deClick', v as number)}
+                min={0}
+                max={100}
+                sx={{ width: 100, color: '#19abb5' }}
+                disabled={!loadedAudio}
+              />
+            </FilterRow>
+          </FilterContent>
+        </Collapse>
+      </FilterSection>
+
+      {/* Enhance Section */}
+      <FilterSection>
+        <FilterHeader onClick={() => setEnhanceOpen(!enhanceOpen)}>
+          <Typography sx={{ fontSize: 11, fontWeight: 600, color: '#ccc', textTransform: 'uppercase' }}>
+            Enhance
+          </Typography>
+          {enhanceOpen ? <ExpandLessIcon sx={{ fontSize: 16, color: '#666' }} /> : <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} />}
+        </FilterHeader>
+        <Collapse in={enhanceOpen}>
+          <FilterContent>
+            <Typography sx={{ fontSize: 10, color: '#666', mb: 1 }}>EQ</Typography>
+            <FilterRow>
+              <Typography sx={{ fontSize: 10, color: '#666' }}>Low</Typography>
+              <Slider
+                size="small"
+                value={filters.eq.low}
+                onChange={(_, v) => setFilters(prev => ({ ...prev, eq: { ...prev.eq, low: v as number } }))}
+                min={-12}
+                max={12}
+                sx={{ width: 80, color: '#19abb5' }}
+                disabled={!loadedAudio}
+              />
+            </FilterRow>
+            <FilterRow>
+              <Typography sx={{ fontSize: 10, color: '#666' }}>Mid</Typography>
+              <Slider
+                size="small"
+                value={filters.eq.mid}
+                onChange={(_, v) => setFilters(prev => ({ ...prev, eq: { ...prev.eq, mid: v as number } }))}
+                min={-12}
+                max={12}
+                sx={{ width: 80, color: '#19abb5' }}
+                disabled={!loadedAudio}
+              />
+            </FilterRow>
+            <FilterRow>
+              <Typography sx={{ fontSize: 10, color: '#666' }}>High</Typography>
+              <Slider
+                size="small"
+                value={filters.eq.high}
+                onChange={(_, v) => setFilters(prev => ({ ...prev, eq: { ...prev.eq, high: v as number } }))}
+                min={-12}
+                max={12}
+                sx={{ width: 80, color: '#19abb5' }}
+                disabled={!loadedAudio}
+              />
+            </FilterRow>
+            <FilterRow>
+              <Typography sx={{ fontSize: 11, color: '#888' }}>Gain</Typography>
+              <Slider
+                size="small"
+                value={filters.gain}
+                onChange={(_, v) => handleFilterChange('gain', v as number)}
+                min={-24}
+                max={24}
+                sx={{ width: 100, color: '#19abb5' }}
+                disabled={!loadedAudio}
+              />
+            </FilterRow>
+          </FilterContent>
+        </Collapse>
+      </FilterSection>
+
+      {/* Analyze Section */}
+      <FilterSection>
+        <FilterHeader onClick={() => setAnalyzeOpen(!analyzeOpen)}>
+          <Typography sx={{ fontSize: 11, fontWeight: 600, color: '#ccc', textTransform: 'uppercase' }}>
+            Analyze
+          </Typography>
+          {analyzeOpen ? <ExpandLessIcon sx={{ fontSize: 16, color: '#666' }} /> : <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} />}
+        </FilterHeader>
+        <Collapse in={analyzeOpen}>
+          <FilterContent>
+            <FilterRow>
+              <Typography sx={{ fontSize: 11, color: '#888' }}>Speed</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Slider
+                  size="small"
+                  value={filters.speed}
+                  onChange={(_, v) => handleFilterChange('speed', v as number)}
+                  min={0.25}
+                  max={2}
+                  step={0.25}
+                  sx={{ width: 60, color: '#19abb5' }}
+                  disabled={!loadedAudio}
+                />
+                <Typography sx={{ fontSize: 10, color: '#666', minWidth: 30 }}>
+                  {filters.speed}x
+                </Typography>
+              </Box>
+            </FilterRow>
+            <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+              <Button size="small" variant="outlined" sx={{ fontSize: 10, flex: 1, color: '#888', borderColor: '#333' }} disabled={!loadedAudio}>
+                Reverse
+              </Button>
+              <Button size="small" variant="outlined" sx={{ fontSize: 10, flex: 1, color: '#888', borderColor: '#333' }} disabled={!loadedAudio}>
+                Loop
+              </Button>
+            </Box>
+          </FilterContent>
+        </Collapse>
+      </FilterSection>
+
+      {/* Reset button */}
+      <Box sx={{ padding: '12px' }}>
+        <Button
+          fullWidth
+          size="small"
+          variant="outlined"
+          sx={{ fontSize: 10, color: '#666', borderColor: '#333' }}
+          disabled={!loadedAudio}
+          onClick={() => setFilters({
+            deNoise: 0,
+            deHum: 0,
+            deClick: 0,
+            eq: { low: 0, mid: 0, high: 0 },
+            gain: 0,
+            speed: 1,
+          })}
+        >
+          Reset All
+        </Button>
+      </Box>
+    </Box>
+  );
+
+  // Main content - spectrogram focused
+  const mainContent = (
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#0d0d0d' }}>
+      {/* Spectrogram area */}
+      <SpectrogramContainer>
+        {loadedAudio ? (
+          <>
+            {renderSpectrogramPlaceholder()}
+
+            {/* Frequency scale */}
+            <FrequencyScale>
+              <span>20k</span>
+              <span>10k</span>
+              <span>5k</span>
+              <span>2k</span>
+              <span>1k</span>
+              <span>500</span>
+              <span>200</span>
+              <span>100</span>
+              <span>Hz</span>
+            </FrequencyScale>
+
+            {/* Video reference panel - only if audio is from video */}
+            {loadedAudio.hasVideo && videoRefVisible && (
+              <VideoRefPanel>
+                <Box sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '4px 8px',
+                  borderBottom: '1px solid #252525',
+                }}>
+                  <Typography sx={{ fontSize: 9, color: '#888', textTransform: 'uppercase' }}>
+                    Video Reference
+                  </Typography>
+                  <IconButton size="small" onClick={() => setVideoRefVisible(false)} sx={{ padding: '2px' }}>
+                    <CloseIcon sx={{ fontSize: 12, color: '#666' }} />
+                  </IconButton>
+                </Box>
+                <Box sx={{ height: 112, backgroundColor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Typography sx={{ color: '#333', fontSize: 10 }}>Synced video</Typography>
+                </Box>
+                <Button
+                  fullWidth
+                  size="small"
+                  onClick={() => navigateToTool('video', loadedAudio.id)}
+                  sx={{ fontSize: 9, color: '#19abb5', borderRadius: 0 }}
+                >
+                  Open in Video Tool
+                </Button>
+              </VideoRefPanel>
+            )}
+          </>
+        ) : (
+          <Box sx={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#444',
+          }}>
+            <MicIcon sx={{ fontSize: 64, mb: 2, opacity: 0.3 }} />
+            <Typography sx={{ fontSize: 14, color: '#555' }}>No audio loaded</Typography>
+            <Typography sx={{ fontSize: 12, color: '#444', mt: 0.5 }}>
+              Double-click an audio file in the Evidence panel
+            </Typography>
+          </Box>
+        )}
+      </SpectrogramContainer>
+
+      {/* Time scale */}
+      {loadedAudio && (
+        <TimeScale>
+          <span>0:00</span>
+          <span>0:30</span>
+          <span>1:00</span>
+          <span>1:30</span>
+          <span>2:00</span>
+        </TimeScale>
+      )}
+
+      {/* Waveform */}
+      <WaveformContainer>
+        <Typography sx={{ fontSize: 10, color: '#666', width: 60 }}>WAVE</Typography>
+        {renderWaveform()}
+      </WaveformContainer>
+
+      {/* Toolbar with zoom, selection tools, meters */}
+      <ToolbarRow>
+        <Tooltip title="Zoom in">
+          <IconButton size="small" sx={{ color: '#666' }} disabled={!loadedAudio}>
+            <ZoomInIcon sx={{ fontSize: 16 }} />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Zoom out">
+          <IconButton size="small" sx={{ color: '#666' }} disabled={!loadedAudio}>
+            <ZoomOutIcon sx={{ fontSize: 16 }} />
+          </IconButton>
+        </Tooltip>
+
+        <Box sx={{ width: 1, height: 20, backgroundColor: '#333', mx: 1 }} />
+
+        {loadedAudio?.hasVideo && !videoRefVisible && (
+          <Tooltip title="Show video reference">
+            <IconButton size="small" onClick={() => setVideoRefVisible(true)} sx={{ color: '#666' }}>
+              <VideocamIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          </Tooltip>
+        )}
+
+        <Tooltip title="Add flag">
+          <IconButton size="small" sx={{ color: '#666' }} disabled={!loadedAudio}>
+            <FlagIcon sx={{ fontSize: 16 }} />
+          </IconButton>
+        </Tooltip>
+
+        <Box sx={{ flex: 1 }} />
+
+        {/* Level meters placeholder */}
+        {loadedAudio && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mr: 2 }}>
+            <Typography sx={{ fontSize: 9, color: '#666', mr: 1 }}>L</Typography>
+            <Box sx={{ width: 80, height: 8, backgroundColor: '#1a1a1a', borderRadius: 1, overflow: 'hidden' }}>
+              <Box sx={{ width: '60%', height: '100%', backgroundColor: '#5a9a6b' }} />
+            </Box>
+            <Typography sx={{ fontSize: 9, color: '#666', ml: 2, mr: 1 }}>R</Typography>
+            <Box sx={{ width: 80, height: 8, backgroundColor: '#1a1a1a', borderRadius: 1, overflow: 'hidden' }}>
+              <Box sx={{ width: '55%', height: '100%', backgroundColor: '#5a9a6b' }} />
+            </Box>
+          </Box>
+        )}
+
+        {/* Timecode */}
+        <Typography sx={{
+          fontSize: 12,
+          color: '#19abb5',
+          fontFamily: '"JetBrains Mono", monospace',
+          minWidth: 90,
+          textAlign: 'right',
+        }}>
+          {loadedAudio ? '00:00:00.000' : '--:--:--.---'}
+        </Typography>
+      </ToolbarRow>
+    </Box>
+  );
 
   return (
     <WorkspaceLayout
@@ -554,204 +615,28 @@ const AudioTool: React.FC<AudioToolProps> = ({
         <EvidenceBank
           items={audioEvidence}
           selectedId={selectedEvidence?.id}
-          onSelect={(item) => setSelectedEvidence(item)}
-          onDoubleClick={(item) => {
-            console.log('Load audio file:', item.fileName);
-            // TODO: Load the audio file into the viewer
-          }}
+          onSelect={(item) => setSelectedEvidence(item as typeof audioEvidence[0])}
+          onDoubleClick={(item) => handleDoubleClick(item as typeof audioEvidence[0])}
           filterByType="audio"
         />
       }
-      inspectorPanel={
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0, height: '100%' }}>
-          <Box sx={{ flex: '0 0 auto', maxHeight: '50%', overflow: 'auto', padding: 1 }}>
-            <FilterPanel
-              settings={filterSettings}
-              bypassed={filtersBypassed}
-              onSettingsChange={setFilterSettings}
-              onEQBandChange={setEQBand}
-              onNoiseReductionChange={setNoiseReduction}
-              onGainChange={setGain}
-              onReset={resetFilters}
-              onBypassToggle={toggleFiltersBypass}
-            />
-          </Box>
-          <Box sx={{ flex: '0 0 auto', maxHeight: '25%', overflow: 'auto', padding: 1, borderTop: '1px solid #2b2b2b' }}>
-            <RecipePanel
-              recipes={recipes}
-              iterations={iterations}
-              activeIterationId={activeIterationId}
-              onApplyRecipe={applyRecipe}
-              onSaveRecipe={saveRecipe}
-              onDeleteRecipe={deleteRecipe}
-              onCreateIteration={createIteration}
-              onDeleteIteration={deleteIteration}
-              onActivateIteration={setActiveIteration}
-            />
-          </Box>
-          <Box sx={{ flex: 1, overflow: 'auto', padding: 1, borderTop: '1px solid #2b2b2b' }}>
-            <FindingsPanel
-              findings={Array.isArray(findings) ? findings : []}
-              currentSelection={currentSelection}
-              selectedFindingId={selectedFindingId}
-              onCreateFinding={handleCreateFinding}
-              onUpdateFinding={updateFinding}
-              onDeleteFinding={deleteFinding}
-              onToggleVisibility={setFindingVisibility}
-              onFindingSelect={setSelectedFindingId}
-              onSeekToFinding={handleSeekToFinding}
-              onSyncToFlag={onSyncFinding ? handleSyncFinding : undefined}
-            />
-          </Box>
-        </Box>
+      metadataPanel={
+        <MetadataPanel
+          data={selectedEvidence ? {
+            fileName: selectedEvidence.fileName,
+            capturedAt: selectedEvidence.capturedAt,
+            duration: selectedEvidence.duration,
+            user: selectedEvidence.user,
+            device: selectedEvidence.deviceInfo,
+            format: selectedEvidence.format,
+            gps: selectedEvidence.gps || undefined,
+            flagCount: selectedEvidence.flagCount,
+          } : null}
+          type="audio"
+        />
       }
-      mainContent={
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#121212' }}>
-          {/* Toolbar */}
-          <Toolbar>
-            {/* View Mode */}
-            <ToolbarGroup>
-              <Typography variant="caption" sx={{ color: '#888888', mr: 1 }}>
-                View:
-              </Typography>
-              <ToggleButtonGroup value={viewMode} exclusive onChange={handleViewModeChange} size="small">
-                <StyledToggleButton value="waveform">
-                  <Tooltip title="Waveform">
-                    <TimelineIcon sx={{ fontSize: 18 }} />
-                  </Tooltip>
-                </StyledToggleButton>
-                <StyledToggleButton value="spectrogram">
-                  <Tooltip title="Spectrogram">
-                    <GraphicEqIcon sx={{ fontSize: 18 }} />
-                  </Tooltip>
-                </StyledToggleButton>
-                <StyledToggleButton value="split">
-                  <Tooltip title="Split View">
-                    <ViewStreamIcon sx={{ fontSize: 18 }} />
-                  </Tooltip>
-                </StyledToggleButton>
-              </ToggleButtonGroup>
-            </ToolbarGroup>
-
-            <ToolbarDivider orientation="vertical" flexItem />
-
-            {/* Zoom */}
-            <ToolbarGroup>
-              <Tooltip title="Zoom Out">
-                <IconButton size="small" onClick={handleZoomOut}>
-                  <ZoomOutIcon sx={{ fontSize: 18, color: '#888888' }} />
-                </IconButton>
-              </Tooltip>
-              <Typography variant="caption" sx={{ color: '#888888', minWidth: 40, textAlign: 'center' }}>
-                {Math.round(zoom)}%
-              </Typography>
-              <Tooltip title="Zoom In">
-                <IconButton size="small" onClick={handleZoomIn}>
-                  <ZoomInIcon sx={{ fontSize: 18, color: '#888888' }} />
-                </IconButton>
-              </Tooltip>
-            </ToolbarGroup>
-
-            <ToolbarDivider orientation="vertical" flexItem />
-
-            {/* Selection Tools */}
-            <ToolbarGroup>
-              <Tooltip title="Spectral Selection Tool">
-                <IconButton size="small" sx={{ color: '#19abb5' }}>
-                  <HighlightAltIcon sx={{ fontSize: 18 }} />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Create Loop from Selection">
-                <IconButton size="small" onClick={createLoopFromSelection} disabled={!currentSelection}>
-                  <LoopIcon sx={{ fontSize: 18, color: currentSelection ? '#ffc107' : '#555555' }} />
-                </IconButton>
-              </Tooltip>
-            </ToolbarGroup>
-
-            <ToolbarDivider orientation="vertical" flexItem />
-
-            {/* Playback Rate */}
-            <ToolbarGroup>
-              <Tooltip title="Playback Speed">
-                <SpeedIcon sx={{ fontSize: 18, color: '#888888' }} />
-              </Tooltip>
-              <Slider
-                value={playback.playbackRate}
-                min={0.25}
-                max={2}
-                step={0.25}
-                onChange={(_, v) => setPlaybackRate(v as number)}
-                sx={{ width: 80, mx: 1 }}
-                valueLabelDisplay="auto"
-                valueLabelFormat={(v) => `${v}x`}
-              />
-            </ToolbarGroup>
-
-            <Box sx={{ flex: 1 }} />
-
-            {/* Settings */}
-            <Tooltip title="Settings">
-              <IconButton size="small" onClick={() => setShowSettings(!showSettings)}>
-                <SettingsIcon sx={{ fontSize: 18, color: showSettings ? '#19abb5' : '#888888' }} />
-              </IconButton>
-            </Tooltip>
-          </Toolbar>
-
-          {/* Visualization Area */}
-          <VisualizationArea>
-            {(viewMode === 'waveform' || viewMode === 'split') && (
-              <Box sx={{ flex: viewMode === 'split' ? '0 0 30%' : 1, minHeight: 100 }}>
-                <WaveformView
-                  audioUrl={audioUrl || null}
-                  audioBuffer={audioBuffer}
-                  isPlaying={playback.isPlaying}
-                  currentTime={playback.currentTime}
-                  playbackRate={playback.playbackRate}
-                  volume={playback.volume}
-                  muted={playback.muted}
-                  loopRegions={Array.isArray(loopRegions) ? loopRegions : []}
-                  activeLoopId={activeLoopId}
-                  settings={waveformSettings}
-                  zoom={zoom}
-                  onPlayPause={(isPlaying) => (isPlaying ? play() : pause())}
-                  onSeek={handleSeek}
-                  onTimeUpdate={updatePlaybackTime}
-                  onReady={setDuration}
-                  onRegionCreate={handleRegionCreate}
-                  onRegionUpdate={updateLoopRegion}
-                  onRegionRemove={removeLoopRegion}
-                  onRegionClick={setActiveLoop}
-                />
-              </Box>
-            )}
-            {(viewMode === 'spectrogram' || viewMode === 'split') && (
-              <Box sx={{ flex: 1, minHeight: 200 }}>
-                <SpectrogramView
-                  audioBuffer={audioBuffer}
-                  settings={spectrogramSettings}
-                  currentTime={playback.currentTime}
-                  duration={playback.duration}
-                  zoom={zoom}
-                  scrollPosition={scrollPosition}
-                  currentSelection={currentSelection}
-                  selections={Array.isArray(selections) ? selections : []}
-                  loopRegions={Array.isArray(loopRegions) ? loopRegions : []}
-                  activeLoopId={activeLoopId}
-                  findings={Array.isArray(findings) ? findings : []}
-                  selectionEnabled={true}
-                  onSelectionStart={handleSelectionStart}
-                  onSelectionUpdate={updateSelection}
-                  onSelectionEnd={finishSelection}
-                  onSelectionCancel={cancelSelection}
-                  onSeek={handleSeek}
-                  onFindingClick={setSelectedFindingId}
-                  onZoomChange={setZoom}
-                />
-              </Box>
-            )}
-          </VisualizationArea>
-        </Box>
-      }
+      inspectorPanel={inspectorContent}
+      mainContent={mainContent}
       evidenceTitle="Audio Files"
       inspectorTitle="Filters"
       showTransport={true}
