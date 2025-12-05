@@ -58,6 +58,7 @@ import {
   selectTimelineError,
   selectInvestigationTitle,
 } from '../../stores/useSessionTimelineStore';
+import { usePlayheadStore } from '../../stores/usePlayheadStore';
 
 import { ZOOM_LEVELS, EVIDENCE_TYPE_TO_LAYER, formatTimelineTimestamp, formatDuration } from '../../types/session';
 import type { TimelineItem, TimelineItemFlag, DataLayerType } from '../../types/session';
@@ -195,6 +196,17 @@ const StatusBadge = styled(Box)<{ type: 'info' | 'warning' | 'success' }>(({ typ
   };
 });
 
+const FullHeightPlayhead = styled(Box)({
+  position: 'absolute',
+  top: 0,
+  bottom: 0,
+  width: 2,
+  backgroundColor: '#19abb5',
+  pointerEvents: 'none',
+  zIndex: 100,
+  boxShadow: '0 0 8px rgba(25, 171, 181, 0.5)',
+});
+
 // ============================================================================
 // COMPONENT
 // ============================================================================
@@ -211,6 +223,9 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   const [containerWidth, setContainerWidth] = useState(800);
   const [sidePanelCollapsed, setSidePanelCollapsed] = useState(false);
   const [layerPanelCollapsed, setLayerPanelCollapsed] = useState(false);
+
+  // Global playhead store
+  const globalTimestamp = usePlayheadStore((state) => state.timestamp);
 
   // Store state
   const items = useSessionTimelineStore(selectTimelineItems);
@@ -335,6 +350,12 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     });
     return flags.sort((a, b) => a.absoluteTimestamp - b.absoluteTimestamp);
   }, [items]);
+
+  // Calculate playhead pixel position from global timestamp
+  const playheadPixelPosition = useMemo(() => {
+    if (!timeRange || globalTimestamp === null) return null;
+    return ((globalTimestamp - timeRange.start) / 1000) * zoomLevel.pixelsPerSecond;
+  }, [timeRange, globalTimestamp, zoomLevel]);
 
   // Handle item double-click (open in tool)
   const handleItemDoubleClick = useCallback((itemId: string) => {
@@ -556,6 +577,15 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
 
           {/* Tracks */}
           <TracksContainer ref={tracksRef} onScroll={handleScroll}>
+            {/* Full-height playhead overlay */}
+            {playheadPixelPosition !== null && (
+              <FullHeightPlayhead
+                sx={{
+                  left: `${140 + playheadPixelPosition - scrollPosition}px`,
+                }}
+              />
+            )}
+
             {safeItems.length === 0 ? (
               <EmptyState>
                 <InfoOutlinedIcon sx={{ fontSize: 48, color: '#333', mb: 2 }} />

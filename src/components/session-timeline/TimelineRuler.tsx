@@ -3,11 +3,12 @@
  * Displays the time axis with tick marks and labels
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback, useRef } from 'react';
 import { Box, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import type { TimeRange, ZoomLevel } from '../../types/session';
 import { formatTimelineTimestamp } from '../../types/session';
+import { usePlayheadStore } from '../../stores/usePlayheadStore';
 
 // ============================================================================
 // STYLED COMPONENTS
@@ -174,6 +175,10 @@ export const TimelineRuler: React.FC<TimelineRulerProps> = ({
   playheadPosition,
   onRulerClick,
 }) => {
+  const [isDragging, setIsDragging] = useState(false);
+  const rulerRef = useRef<HTMLDivElement>(null);
+  const setTimestamp = usePlayheadStore((state) => state.setTimestamp);
+
   const ticks = useMemo(() => {
     if (!timeRange) return [];
     return generateTicks(timeRange, zoomLevel, containerWidth);
@@ -190,14 +195,39 @@ export const TimelineRuler: React.FC<TimelineRulerProps> = ({
     return ((playheadPosition - timeRange.start) / 1000) * zoomLevel.pixelsPerSecond;
   }, [timeRange, playheadPosition, zoomLevel]);
 
-  const handleClick = (e: React.MouseEvent) => {
-    if (!timeRange || !onRulerClick) return;
+  const updatePlayheadFromMouse = useCallback((e: React.MouseEvent) => {
+    if (!timeRange || !rulerRef.current) return;
 
-    const rect = e.currentTarget.getBoundingClientRect();
+    const rect = rulerRef.current.getBoundingClientRect();
     const clickX = e.clientX - rect.left + scrollPosition;
     const timestamp = timeRange.start + (clickX / zoomLevel.pixelsPerSecond) * 1000;
-    onRulerClick(timestamp);
-  };
+
+    // Use global playhead store for smooth updates
+    setTimestamp(timestamp);
+
+    // Also call the legacy callback if provided
+    if (onRulerClick) {
+      onRulerClick(timestamp);
+    }
+  }, [timeRange, scrollPosition, zoomLevel, setTimestamp, onRulerClick]);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    setIsDragging(true);
+    updatePlayheadFromMouse(e);
+  }, [updatePlayheadFromMouse]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDragging) return;
+    updatePlayheadFromMouse(e);
+  }, [isDragging, updatePlayheadFromMouse]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setIsDragging(false);
+  }, []);
 
   if (!timeRange) {
     return (
@@ -219,7 +249,14 @@ export const TimelineRuler: React.FC<TimelineRulerProps> = ({
   }
 
   return (
-    <RulerContainer onClick={handleClick} sx={{ cursor: 'pointer' }}>
+    <RulerContainer
+      ref={rulerRef}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseLeave}
+      sx={{ cursor: isDragging ? 'grabbing' : 'pointer' }}
+    >
       <RulerContent
         sx={{
           width: totalWidth,
