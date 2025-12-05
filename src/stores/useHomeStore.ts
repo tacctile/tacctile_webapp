@@ -95,8 +95,8 @@ interface HomeState {
 const dummySessions: Session[] = [
   {
     id: 'session-1',
-    name: 'Haunted_Manor_2024',
-    path: '/local/sessions/haunted_manor_2024',
+    name: 'Warehouse_Site_2024',
+    path: '/local/sessions/warehouse_site_2024',
     storageId: 'local',
     thumbnail: undefined,
     evidenceCount: 12,
@@ -106,8 +106,8 @@ const dummySessions: Session[] = [
   },
   {
     id: 'session-2',
-    name: 'EVP_Session_Oct',
-    path: '/local/sessions/evp_session_oct',
+    name: 'Audio_Session_Oct',
+    path: '/local/sessions/audio_session_oct',
     storageId: 'local',
     thumbnail: undefined,
     evidenceCount: 5,
@@ -117,8 +117,8 @@ const dummySessions: Session[] = [
   },
   {
     id: 'session-3',
-    name: 'Shadow_Figure_Analysis',
-    path: '/local/sessions/shadow_figure_analysis',
+    name: 'Shadow_Analysis_Review',
+    path: '/local/sessions/shadow_analysis_review',
     storageId: 'local',
     thumbnail: undefined,
     evidenceCount: 2,
@@ -128,8 +128,8 @@ const dummySessions: Session[] = [
   },
   {
     id: 'session-4',
-    name: 'Cemetery_Investigation',
-    path: '/dropbox/sessions/cemetery_investigation',
+    name: 'Historic_Site_Survey',
+    path: '/dropbox/sessions/historic_site_survey',
     storageId: 'dropbox',
     thumbnail: undefined,
     evidenceCount: 8,

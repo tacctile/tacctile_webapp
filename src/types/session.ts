@@ -68,10 +68,10 @@ export type DataLayerType =
   | 'video'
   | 'audio'
   | 'photo'
-  | 'emf'
+  | 'sensor'
   | 'thermal'
   | 'motion'
-  | 'spirit_box'
+  | 'radio_sweep'
   | 'flags'
   | 'user_markers';
 
@@ -88,10 +88,10 @@ export const DEFAULT_DATA_LAYERS: DataLayer[] = [
   { id: 'video', label: 'Video', icon: 'videocam', color: '#ff6b6b', visible: true, itemCount: 0 },
   { id: 'audio', label: 'Audio', icon: 'mic', color: '#4ecdc4', visible: true, itemCount: 0 },
   { id: 'photo', label: 'Photos', icon: 'photo_camera', color: '#ffe66d', visible: true, itemCount: 0 },
-  { id: 'emf', label: 'EMF Readings', icon: 'sensors', color: '#a855f7', visible: true, itemCount: 0 },
+  { id: 'sensor', label: 'Sensor Readings', icon: 'sensors', color: '#a855f7', visible: true, itemCount: 0 },
   { id: 'thermal', label: 'Thermal', icon: 'thermostat', color: '#f97316', visible: true, itemCount: 0 },
   { id: 'motion', label: 'Motion', icon: 'motion_photos_on', color: '#06b6d4', visible: true, itemCount: 0 },
-  { id: 'spirit_box', label: 'Spirit Box', icon: 'radio', color: '#ec4899', visible: true, itemCount: 0 },
+  { id: 'radio_sweep', label: 'Radio Sweep', icon: 'radio', color: '#ec4899', visible: true, itemCount: 0 },
   { id: 'flags', label: 'All Flags', icon: 'flag', color: '#19abb5', visible: true, itemCount: 0 },
   { id: 'user_markers', label: 'User Markers', icon: 'person_pin', color: '#84cc16', visible: true, itemCount: 0 },
 ];
@@ -236,10 +236,10 @@ export const EVIDENCE_TYPE_TO_LAYER: Record<EvidenceType, DataLayerType> = {
   video: 'video',
   audio: 'audio',
   photo: 'photo',
-  emf_reading: 'emf',
+  sensor_reading: 'sensor',
   thermal: 'thermal',
   motion: 'motion',
-  spirit_box: 'spirit_box',
+  radio_sweep: 'radio_sweep',
   document: 'photo', // Documents shown in photo layer
   other: 'photo',    // Other shown in photo layer
 };
@@ -251,10 +251,10 @@ export const EVIDENCE_TYPE_COLORS: Record<EvidenceType, string> = {
   video: '#ff6b6b',
   audio: '#4ecdc4',
   photo: '#ffe66d',
-  emf_reading: '#a855f7',
+  sensor_reading: '#a855f7',
   thermal: '#f97316',
   motion: '#06b6d4',
-  spirit_box: '#ec4899',
+  radio_sweep: '#ec4899',
   document: '#9ca3af',
   other: '#6b7280',
 };

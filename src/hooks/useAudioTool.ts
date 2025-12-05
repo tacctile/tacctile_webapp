@@ -32,7 +32,7 @@ interface UseAudioToolOptions {
 }
 
 interface CreateFlagData {
-  type: 'evp' | 'audio_artifact' | 'anomaly';
+  type: 'audio_anomaly' | 'audio_artifact' | 'anomaly';
   timestamp: number;
   endTimestamp: number;
   title: string;
@@ -296,7 +296,7 @@ export function useAudioTool(options: UseAudioToolOptions = {}) {
       if (!finding || !onSyncFinding) return;
 
       const flagData: CreateFlagData = {
-        type: 'evp', // Default to EVP for audio findings
+        type: 'audio_anomaly', // Default to Audio Anomaly for audio findings
         timestamp: finding.selection.startTime,
         endTimestamp: finding.selection.endTime,
         title: finding.title,

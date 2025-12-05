@@ -17,9 +17,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'robots.txt', 'apple-touch-icon.svg'],
       manifest: {
-        name: 'Tacctile - Ghost Hunting App',
+        name: 'Tacctile - Evidence Analysis',
         short_name: 'Tacctile',
-        description: 'Professional ghost hunting evidence analysis and investigation management',
+        description: 'Professional evidence analysis and investigation management',
         theme_color: '#19abb5',
         background_color: '#121212',
         display: 'standalone',

@@ -28,7 +28,7 @@ export interface FlagTypeMetadata {
   description: string;
   icon: string; // MUI icon name
   color: string; // Hex color
-  category: 'paranormal' | 'technical' | 'review';
+  category: 'investigation' | 'technical' | 'review';
 }
 
 export const FLAG_TYPES: FlagTypeMetadata[] = [
@@ -38,31 +38,31 @@ export const FLAG_TYPES: FlagTypeMetadata[] = [
     description: 'Unusual occurrence or unexplained phenomenon',
     icon: 'Help',
     color: '#9C27B0',
-    category: 'paranormal',
+    category: 'investigation',
   },
   {
-    type: 'evp',
-    label: 'EVP',
-    description: 'Electronic Voice Phenomenon - unexplained audio',
+    type: 'audio_anomaly',
+    label: 'Audio Anomaly',
+    description: 'Unexplained or notable audio',
     icon: 'RecordVoiceOver',
     color: '#2196F3',
-    category: 'paranormal',
+    category: 'investigation',
   },
   {
-    type: 'apparition',
-    label: 'Apparition',
-    description: 'Visual anomaly or ghostly figure',
+    type: 'visual_anomaly',
+    label: 'Visual Anomaly',
+    description: 'Visual irregularity or notable figure',
     icon: 'Visibility',
     color: '#E91E63',
-    category: 'paranormal',
+    category: 'investigation',
   },
   {
-    type: 'emf_spike',
-    label: 'EMF Spike',
-    description: 'Electromagnetic field reading spike',
+    type: 'sensor_spike',
+    label: 'Sensor Spike',
+    description: 'Sensor reading spike or environmental change',
     icon: 'BoltOutlined',
     color: '#FF9800',
-    category: 'paranormal',
+    category: 'investigation',
   },
   {
     type: 'temperature_change',
@@ -70,39 +70,39 @@ export const FLAG_TYPES: FlagTypeMetadata[] = [
     description: 'Unusual temperature fluctuation',
     icon: 'Thermostat',
     color: '#00BCD4',
-    category: 'paranormal',
+    category: 'investigation',
   },
   {
     type: 'motion_detected',
     label: 'Motion Detected',
-    description: 'Unexplained movement captured',
+    description: 'Movement captured on recording',
     icon: 'DirectionsRun',
     color: '#4CAF50',
-    category: 'paranormal',
+    category: 'investigation',
   },
   {
     type: 'audio_artifact',
     label: 'Audio Artifact',
-    description: 'Unusual sound or audio anomaly',
+    description: 'Unusual sound or audio irregularity',
     icon: 'GraphicEq',
     color: '#673AB7',
-    category: 'paranormal',
+    category: 'investigation',
   },
   {
     type: 'light_anomaly',
     label: 'Light Anomaly',
-    description: 'Unexplained light, orb, or illumination',
+    description: 'Unexplained light or illumination',
     icon: 'LightMode',
     color: '#FFEB3B',
-    category: 'paranormal',
+    category: 'investigation',
   },
   {
     type: 'shadow_figure',
     label: 'Shadow Figure',
-    description: 'Shadow person or dark mass',
+    description: 'Shadow or dark mass in frame',
     icon: 'PersonOutline',
     color: '#37474F',
-    category: 'paranormal',
+    category: 'investigation',
   },
   {
     type: 'equipment_malfunction',
@@ -115,7 +115,7 @@ export const FLAG_TYPES: FlagTypeMetadata[] = [
   {
     type: 'debunked',
     label: 'Debunked',
-    description: 'Explained occurrence with natural cause',
+    description: 'Explained occurrence with identifiable cause',
     icon: 'Cancel',
     color: '#9E9E9E',
     category: 'review',
@@ -205,7 +205,7 @@ class EvidenceFlaggingService {
   /**
    * Get flag types by category
    */
-  getFlagTypesByCategory(category: 'paranormal' | 'technical' | 'review'): FlagTypeMetadata[] {
+  getFlagTypesByCategory(category: 'investigation' | 'technical' | 'review'): FlagTypeMetadata[] {
     return FLAG_TYPES.filter((ft) => ft.category === category);
   }
 
@@ -467,7 +467,7 @@ class EvidenceFlaggingService {
 
     const typeMetadata = this.getFlagTypeMetadata(flag.type);
 
-    const prompt = `You are an expert paranormal investigator and evidence analyst. Analyze this flagged evidence marker:
+    const prompt = `You are an expert field investigator and evidence analyst. Analyze this flagged evidence marker:
 
 Type: ${typeMetadata?.label || flag.type}
 Title: ${flag.title}
@@ -479,13 +479,13 @@ ${additionalContext ? `Additional Context: ${additionalContext}` : ''}
 Provide analysis in the following JSON format:
 {
   "summary": "Brief 1-2 sentence summary of the flagged occurrence",
-  "possibleExplanations": ["Natural explanation 1", "Natural explanation 2", "Paranormal explanation if applicable"],
+  "possibleExplanations": ["Possible explanation 1", "Possible explanation 2", "Alternative explanation if applicable"],
   "similarCases": ["Brief reference to similar documented cases"],
   "confidence": 0.0-1.0 (your confidence in the validity of this flag),
   "suggestedActions": ["Recommended action 1", "Recommended action 2"]
 }
 
-Be objective and scientific. Consider both natural and paranormal explanations. Focus on actionable insights.`;
+Be objective and thorough. Consider multiple possible explanations. Focus on actionable insights.`;
 
     try {
       const result = await this.model.generateContent(prompt);
@@ -542,7 +542,7 @@ Be objective and scientific. Consider both natural and paranormal explanations. 
       `- ${e.title} (${e.type}): ${e.flagCount} flags`
     ).join('\n');
 
-    const prompt = `You are an expert paranormal investigator creating a comprehensive investigation summary.
+    const prompt = `You are an expert field investigator creating a comprehensive investigation summary.
 
 EVIDENCE COLLECTED:
 ${evidenceOverview}
@@ -554,7 +554,7 @@ Generate a ${request.options.detailLevel} investigation summary in the following
 {
   "summary": "Comprehensive narrative summary of all findings (${request.options.detailLevel === 'brief' ? '2-3 sentences' : request.options.detailLevel === 'standard' ? '1-2 paragraphs' : '3-4 paragraphs'})",
   "keyFindings": ["Key finding 1", "Key finding 2", "Key finding 3"],
-  "anomalyCounts": {${FLAG_TYPES.filter(t => t.category === 'paranormal').map(t => `"${t.type}": 0`).join(', ')}},
+  "anomalyCounts": {${FLAG_TYPES.filter(t => t.category === 'investigation').map(t => `"${t.type}": 0`).join(', ')}},
   "timeline": [
     {"timestamp": "ISO date string", "description": "What happened", "evidenceIds": [], "flagIds": []}
   ],

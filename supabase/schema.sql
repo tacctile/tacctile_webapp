@@ -161,7 +161,7 @@ CREATE TABLE IF NOT EXISTS public.evidence (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   investigation_id UUID NOT NULL REFERENCES public.investigations(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES public.users(id),
-  type TEXT NOT NULL CHECK (type IN ('photo', 'video', 'audio', 'emf_reading', 'thermal', 'motion', 'spirit_box', 'document', 'other')),
+  type TEXT NOT NULL CHECK (type IN ('photo', 'video', 'audio', 'sensor_reading', 'thermal', 'motion', 'radio_sweep', 'document', 'other')),
   title TEXT NOT NULL,
   description TEXT,
   file_name TEXT NOT NULL,
@@ -215,7 +215,7 @@ CREATE TABLE IF NOT EXISTS public.evidence_flags (
   user_id UUID NOT NULL REFERENCES public.users(id),
   user_display_name TEXT NOT NULL,
   user_photo_url TEXT,
-  type TEXT NOT NULL CHECK (type IN ('anomaly', 'evp', 'apparition', 'emf_spike', 'temperature_change', 'motion_detected', 'audio_artifact', 'light_anomaly', 'shadow_figure', 'equipment_malfunction', 'debunked', 'review_needed', 'highlight', 'custom')),
+  type TEXT NOT NULL CHECK (type IN ('anomaly', 'audio_anomaly', 'visual_anomaly', 'sensor_spike', 'temperature_change', 'motion_detected', 'audio_artifact', 'light_anomaly', 'shadow_figure', 'equipment_malfunction', 'debunked', 'review_needed', 'highlight', 'custom')),
   custom_type TEXT,
   timestamp REAL NOT NULL DEFAULT 0, -- Position in media (seconds)
   end_timestamp REAL, -- For range markers

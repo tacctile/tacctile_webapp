@@ -2,7 +2,7 @@
   "name": "tacctile-webapp",
   "productName": "Tacctile",
   "version": "1.0.0",
-  "description": "Professional ghost hunting evidence analysis and investigation management web application",
+  "description": "Professional evidence analysis and investigation management web application",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -16,12 +16,11 @@
     "test:unit:coverage": "vitest --coverage"
   },
   "keywords": [
-    "ghost",
-    "hunting",
-    "paranormal",
+    "field",
     "investigation",
     "evidence",
     "analysis",
+    "documentation",
     "web",
     "pwa"
   ],

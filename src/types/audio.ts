@@ -443,8 +443,8 @@ export const DEFAULT_PLAYBACK_STATE: PlaybackState = {
 
 export const PRESET_RECIPES: Omit<FilterRecipe, 'id' | 'createdAt' | 'updatedAt'>[] = [
   {
-    name: 'EVP Enhancement',
-    description: 'Optimized for Electronic Voice Phenomena analysis - boosts mid frequencies and reduces background noise',
+    name: 'Voice Enhancement',
+    description: 'Optimized for voice analysis - boosts mid frequencies and reduces background noise',
     settings: {
       ...DEFAULT_FILTER_SETTINGS,
       eq: [
@@ -459,7 +459,7 @@ export const PRESET_RECIPES: Omit<FilterRecipe, 'id' | 'createdAt' | 'updatedAt'
       lowPassCutoff: 8000,
     },
     userId: 'system',
-    tags: ['evp', 'voice', 'enhancement'],
+    tags: ['voice', 'enhancement', 'clarity'],
     isPreset: true,
   },
   {

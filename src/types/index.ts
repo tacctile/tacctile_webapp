@@ -226,10 +226,10 @@ export type EvidenceType =
   | 'photo'
   | 'video'
   | 'audio'
-  | 'emf_reading'
+  | 'sensor_reading'
   | 'thermal'
   | 'motion'
-  | 'spirit_box'
+  | 'radio_sweep'
   | 'document'
   | 'other';
 
@@ -270,9 +270,9 @@ export interface EvidenceMetadata {
   channels?: number;
   bitrate?: number;
 
-  // EMF metadata
-  emfReading?: number;
-  emfUnit?: 'mG' | 'μT';
+  // Sensor metadata
+  sensorReading?: number;
+  sensorUnit?: 'mG' | 'μT';
 
   // Thermal metadata
   minTemp?: number;
@@ -296,13 +296,13 @@ export interface EvidenceMetadata {
 
 export type FlagType =
   | 'anomaly'           // Unusual occurrence
-  | 'evp'               // Electronic Voice Phenomenon
-  | 'apparition'        // Visual anomaly
-  | 'emf_spike'         // EMF reading spike
+  | 'audio_anomaly'     // Unexplained audio
+  | 'visual_anomaly'    // Visual anomaly
+  | 'sensor_spike'      // Sensor reading spike
   | 'temperature_change'// Temperature anomaly
   | 'motion_detected'   // Motion detection
   | 'audio_artifact'    // Audio artifact
-  | 'light_anomaly'     // Light/orb anomaly
+  | 'light_anomaly'     // Light anomaly
   | 'shadow_figure'     // Shadow figure
   | 'equipment_malfunction' // Equipment issue
   | 'debunked'          // Explained/debunked

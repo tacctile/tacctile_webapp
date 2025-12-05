@@ -187,13 +187,13 @@ const getTypeIcon = (type: EvidenceType): React.ReactNode => {
       return <MaterialSymbol icon="mic" {...iconProps} />;
     case 'photo':
       return <MaterialSymbol icon="photo_camera" {...iconProps} />;
-    case 'emf_reading':
+    case 'sensor_reading':
       return <MaterialSymbol icon="sensors" {...iconProps} />;
     case 'thermal':
       return <MaterialSymbol icon="thermostat" {...iconProps} />;
     case 'motion':
       return <MaterialSymbol icon="motion_sensor_active" {...iconProps} />;
-    case 'spirit_box':
+    case 'radio_sweep':
       return <MaterialSymbol icon="radio" {...iconProps} />;
     default:
       return <MaterialSymbol icon="photo_camera" {...iconProps} />;
@@ -205,10 +205,10 @@ const getTypeName = (type: EvidenceType): string => {
     video: 'Video',
     audio: 'Audio',
     photo: 'Photos',
-    emf_reading: 'EMF',
+    sensor_reading: 'Sensor',
     thermal: 'Thermal',
     motion: 'Motion',
-    spirit_box: 'Spirit Box',
+    radio_sweep: 'Radio Sweep',
     document: 'Documents',
     other: 'Other',
   };

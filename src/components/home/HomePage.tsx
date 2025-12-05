@@ -801,7 +801,7 @@ export const HomePage: React.FC = () => {
                 Create your first session
               </Typography>
               <Typography sx={{ fontSize: 12, color: '#555', mb: 3, maxWidth: 300 }}>
-                Sessions help you organize your paranormal investigation evidence - videos, audio recordings, and images.
+                Sessions help you organize your field investigation evidence - videos, audio recordings, and images.
               </Typography>
               <PrimaryButton onClick={handleNewSession} startIcon={<AddIcon />}>
                 New Session

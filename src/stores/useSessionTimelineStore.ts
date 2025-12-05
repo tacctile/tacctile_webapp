@@ -76,8 +76,8 @@ const generateMockData = (): { items: TimelineItem[]; timeRange: TimeRange } => 
       id: 'timeline-audio-1',
       evidenceId: 'audio-1',
       type: 'audio',
-      title: 'EVP Session - Master Bedroom',
-      fileName: 'master_bedroom_evp.wav',
+      title: 'Audio Recording - Master Bedroom',
+      fileName: 'master_bedroom_audio.wav',
       thumbnailUrl: undefined,
       capturedAt: baseTime + 15 * 60 * 1000, // 15 min after start
       duration: 2400, // 40 minutes
@@ -85,17 +85,17 @@ const generateMockData = (): { items: TimelineItem[]; timeRange: TimeRange } => 
       flags: [
         {
           id: 'flag-a1-1',
-          type: 'evp',
+          type: 'audio_anomaly',
           timestamp: 482,
           absoluteTimestamp: baseTime + 15 * 60 * 1000 + 482 * 1000,
-          title: 'Class A EVP - "Hello"',
+          title: 'Class A Audio Anomaly - Voice',
           confidence: 'high',
           userId: 'user-1',
           userDisplayName: 'John Doe',
         },
         {
           id: 'flag-a1-2',
-          type: 'evp',
+          type: 'audio_anomaly',
           timestamp: 1256,
           absoluteTimestamp: baseTime + 15 * 60 * 1000 + 1256 * 1000,
           title: 'Whisper detected',
@@ -124,8 +124,8 @@ const generateMockData = (): { items: TimelineItem[]; timeRange: TimeRange } => 
       id: 'timeline-photo-1',
       evidenceId: 'photo-1',
       type: 'photo',
-      title: 'EMF Spike Location',
-      fileName: 'emf_spike_corner.jpg',
+      title: 'Sensor Spike Location',
+      fileName: 'sensor_spike_corner.jpg',
       thumbnailUrl: undefined,
       capturedAt: baseTime + 25 * 60 * 1000,
       duration: undefined,
@@ -138,19 +138,19 @@ const generateMockData = (): { items: TimelineItem[]; timeRange: TimeRange } => 
       trackIndex: 2,
     },
     {
-      id: 'timeline-emf-1',
-      evidenceId: 'emf-1',
-      type: 'emf_reading',
-      title: 'EMF Log - Full Session',
-      fileName: 'emf_log_session.csv',
+      id: 'timeline-sensor-1',
+      evidenceId: 'sensor-1',
+      type: 'sensor_reading',
+      title: 'Sensor Log - Full Session',
+      fileName: 'sensor_log_session.csv',
       thumbnailUrl: undefined,
       capturedAt: baseTime,
       duration: 7200, // 2 hours
       endAt: baseTime + 7200 * 1000,
       flags: [
         {
-          id: 'flag-emf1-1',
-          type: 'emf_spike',
+          id: 'flag-sensor1-1',
+          type: 'sensor_spike',
           timestamp: 1500,
           absoluteTimestamp: baseTime + 1500 * 1000,
           title: 'Spike to 8.5 mG',
@@ -206,10 +206,10 @@ const generateMockData = (): { items: TimelineItem[]; timeRange: TimeRange } => 
       flags: [
         {
           id: 'flag-p2-1',
-          type: 'apparition',
+          type: 'visual_anomaly',
           timestamp: 0,
           absoluteTimestamp: baseTime + 52 * 60 * 1000,
-          title: 'Face in window reflection',
+          title: 'Figure in window reflection',
           confidence: 'low',
           userId: 'user-1',
           userDisplayName: 'John Doe',
@@ -224,17 +224,17 @@ const generateMockData = (): { items: TimelineItem[]; timeRange: TimeRange } => 
     {
       id: 'timeline-audio-2',
       evidenceId: 'audio-2',
-      type: 'spirit_box',
-      title: 'Spirit Box Session',
-      fileName: 'spirit_box_session.wav',
+      type: 'radio_sweep',
+      title: 'Radio Sweep Session',
+      fileName: 'radio_sweep_session.wav',
       thumbnailUrl: undefined,
       capturedAt: baseTime + 60 * 60 * 1000, // 1 hour in
       duration: 900, // 15 minutes
       endAt: baseTime + 60 * 60 * 1000 + 900 * 1000,
       flags: [
         {
-          id: 'flag-sb1-1',
-          type: 'evp',
+          id: 'flag-rs1-1',
+          type: 'audio_anomaly',
           timestamp: 156,
           absoluteTimestamp: baseTime + 60 * 60 * 1000 + 156 * 1000,
           title: 'Response to question',
@@ -246,7 +246,7 @@ const generateMockData = (): { items: TimelineItem[]; timeRange: TimeRange } => 
       flagCount: 1,
       hasEdits: false,
       capturedBy: 'user-1',
-      deviceInfo: 'SB7 Spirit Box',
+      deviceInfo: 'SB7 Radio Scanner',
       trackIndex: 5,
     },
   ];
@@ -326,10 +326,10 @@ const updateLayerCounts = (items: TimelineItem[], layers: DataLayer[]): DataLaye
     video: 0,
     audio: 0,
     photo: 0,
-    emf: 0,
+    sensor: 0,
     thermal: 0,
     motion: 0,
-    spirit_box: 0,
+    radio_sweep: 0,
     flags: 0,
     user_markers: 0,
   };
