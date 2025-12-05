@@ -118,6 +118,22 @@ const SplitDivider = styled(Box)({
   '&:hover': {
     backgroundColor: '#4dd4df',
   },
+  // Centered drag handle pill
+  '&::after': {
+    content: '""',
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: 8,
+    height: 48,
+    backgroundColor: '#2bc4cf',
+    borderRadius: 4,
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)',
+  },
+  '&:hover::after': {
+    backgroundColor: '#5ee0ea',
+  },
 });
 
 const BottomBar = styled(Box)({
