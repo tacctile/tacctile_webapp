@@ -21,6 +21,7 @@ const StreamingTool = lazy(() => import('@/components/streaming-tool/StreamingTo
 const SessionTimeline = lazy(() => import('@/components/session-timeline/SessionTimeline'));
 const AudioTool = lazy(() => import('@/components/audio-tool/AudioTool'));
 const ImageTool = lazy(() => import('@/components/image-tool/ImageTool'));
+const VideoTool = lazy(() => import('@/components/video-tool/VideoTool'));
 
 // Tool IDs for navigation
 const TOOLS = ['session', 'video', 'audio', 'images', 'streaming'] as const;
@@ -141,6 +142,7 @@ const ToolLoadingFallback: React.FC<{ tool: ToolId }> = ({ tool }) => {
   const variant = useMemo(() => {
     switch (tool) {
       case 'audio': return 'audio';
+      case 'video': return 'generic';
       case 'images': return 'image';
       case 'streaming': return 'streaming';
       case 'session': return 'timeline';
@@ -319,6 +321,14 @@ const App: React.FC = () => {
           <ErrorBoundary toolName="Image Tool">
             <Suspense fallback={toolFallback}>
               <ImageTool investigationId="current-investigation" />
+            </Suspense>
+          </ErrorBoundary>
+        );
+      case 'video':
+        return (
+          <ErrorBoundary toolName="Video Tool">
+            <Suspense fallback={toolFallback}>
+              <VideoTool investigationId="current-investigation" />
             </Suspense>
           </ErrorBoundary>
         );
