@@ -1,135 +1,83 @@
-/**
- * ImageTool Component
- * Main container for the Adobe Lightroom-inspired image editing tool
- */
-
-import React, { useCallback, useEffect, useState, useRef, memo } from 'react';
-import { useShallow } from 'zustand/react/shallow';
-import Box from '@mui/material/Box';
-import IconButton from '@mui/material/IconButton';
-import Typography from '@mui/material/Typography';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import Tooltip from '@mui/material/Tooltip';
-import Divider from '@mui/material/Divider';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  Box,
+  Typography,
+  IconButton,
+  Tooltip,
+  Button,
+  ToggleButton,
+  ToggleButtonGroup,
+} from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { WorkspaceLayout } from '@/components/layout';
-import { EvidenceBank } from '@/components/evidence-bank';
-
-// Icons
+import ImageIcon from '@mui/icons-material/Image';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import FitScreenIcon from '@mui/icons-material/FitScreen';
-import Crop169Icon from '@mui/icons-material/Crop169';
-import UndoIcon from '@mui/icons-material/Undo';
-import RedoIcon from '@mui/icons-material/Redo';
-import CompareIcon from '@mui/icons-material/Compare';
-import ViewColumnIcon from '@mui/icons-material/ViewColumn';
-import ViewStreamIcon from '@mui/icons-material/ViewStream';
-import ImageIcon from '@mui/icons-material/Image';
-import PanToolIcon from '@mui/icons-material/PanTool';
-import TuneIcon from '@mui/icons-material/Tune';
-import GestureIcon from '@mui/icons-material/Gesture';
-import AutoStoriesIcon from '@mui/icons-material/AutoStories';
+import CropIcon from '@mui/icons-material/Crop';
+import RotateRightIcon from '@mui/icons-material/RotateRight';
 import FlipIcon from '@mui/icons-material/Flip';
-import Rotate90DegreesCcwIcon from '@mui/icons-material/Rotate90DegreesCcw';
-import SettingsIcon from '@mui/icons-material/Settings';
+import RectangleOutlinedIcon from '@mui/icons-material/RectangleOutlined';
+import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import GestureIcon from '@mui/icons-material/Gesture';
+import ViewColumnIcon from '@mui/icons-material/ViewColumn';
+import CompareIcon from '@mui/icons-material/Compare';
+import VerticalSplitIcon from '@mui/icons-material/VerticalSplit';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import AddIcon from '@mui/icons-material/Add';
+import PersonIcon from '@mui/icons-material/Person';
 
-// Components
-import ImageCanvasComponent from './ImageCanvas';
-import AdjustmentsPanel from './AdjustmentsPanel';
-import AnnotationsPanel from './AnnotationsPanel';
-import RecipePanel from './RecipePanel';
-import CompareView from './CompareView';
-
-// Store
-import {
-  useImageToolStore,
-  selectImageUrl,
-  selectImageViewMode,
-  selectImageAdjustments,
-  selectImageCrop,
-  selectImageAnnotations,
-  selectImageRecipes,
-  selectUserEdits,
-  selectActiveUserEdit,
-  selectImageZoom,
-  selectImageActiveTool,
-  selectSelectedAnnotation,
-} from '../../stores/useImageToolStore';
-import { useNavigationStore } from '../../stores/useNavigationStore';
-import type { ImageViewMode, CompareMode, ImageToolType, ImageAnnotation } from '../../types/image';
+import { WorkspaceLayout } from '@/components/layout';
+import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
+import { MetadataPanel, PrecisionSlider } from '@/components/common';
+import { useNavigationStore } from '@/stores/useNavigationStore';
 
 // ============================================================================
 // STYLED COMPONENTS
 // ============================================================================
 
-const ToolContainer = styled(Box)({
+const MainContainer = styled(Box)({
   display: 'flex',
   flexDirection: 'column',
   height: '100%',
-  backgroundColor: '#121212',
-  color: '#e1e1e1',
-  overflow: 'hidden',
+  backgroundColor: '#0d0d0d',
 });
 
 const Toolbar = styled(Box)({
+  height: 40,
+  backgroundColor: '#161616',
+  borderBottom: '1px solid #252525',
   display: 'flex',
   alignItems: 'center',
-  padding: '8px 12px',
-  backgroundColor: '#1a1a1a',
-  borderBottom: '1px solid #2b2b2b',
+  padding: '0 12px',
   gap: 8,
-  flexWrap: 'wrap',
 });
 
-const ToolbarGroup = styled(Box)({
-  display: 'flex',
-  alignItems: 'center',
-  gap: 4,
-});
-
-const ToolbarDivider = styled(Divider)({
+const ToolbarDivider = styled(Box)({
+  width: 1,
   height: 24,
-  borderColor: '#2b2b2b',
-  margin: '0 8px',
-});
-
-const MainContent = styled(Box)({
-  display: 'flex',
-  flex: 1,
-  overflow: 'hidden',
+  backgroundColor: '#2b2b2b',
+  margin: '0 4px',
 });
 
 const CanvasArea = styled(Box)({
   flex: 1,
   display: 'flex',
-  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: '#0a0a0a',
+  position: 'relative',
   overflow: 'hidden',
-});
-
-const SidePanel = styled(Box)({
-  width: 280,
-  display: 'flex',
-  flexDirection: 'column',
-  backgroundColor: '#141414',
-  borderLeft: '1px solid #2b2b2b',
-  overflow: 'hidden',
-});
-
-const SidePanelSection = styled(Box)({
-  flex: 1,
-  overflow: 'hidden',
-  borderBottom: '1px solid #2b2b2b',
-  '&:last-child': {
-    borderBottom: 'none',
-  },
+  minHeight: 0,
 });
 
 const StyledToggleButton = styled(ToggleButton)({
   border: 'none',
   padding: '4px 8px',
-  color: '#888888',
+  color: '#888',
   '&.Mui-selected': {
     backgroundColor: 'rgba(25, 171, 181, 0.2)',
     color: '#19abb5',
@@ -138,260 +86,824 @@ const StyledToggleButton = styled(ToggleButton)({
     },
   },
   '&:hover': {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
 });
 
 const ToolButton = styled(IconButton)<{ active?: boolean }>(({ active }) => ({
-  backgroundColor: active ? 'rgba(25, 171, 181, 0.2)' : 'transparent',
-  color: active ? '#19abb5' : '#888888',
+  padding: 6,
+  color: active ? '#19abb5' : '#888',
+  backgroundColor: active ? 'rgba(25, 171, 181, 0.15)' : 'transparent',
   '&:hover': {
-    backgroundColor: active ? 'rgba(25, 171, 181, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: active ? 'rgba(25, 171, 181, 0.25)' : 'rgba(255, 255, 255, 0.05)',
   },
 }));
 
-const StatusBar = styled(Box)({
+const ZoomDisplay = styled(Typography)({
+  fontSize: 11,
+  color: '#888',
+  fontFamily: '"JetBrains Mono", monospace',
+  minWidth: 45,
+  textAlign: 'center',
+});
+
+const SplitDivider = styled(Box)({
+  position: 'absolute',
+  top: 0,
+  bottom: 0,
+  width: 4,
+  backgroundColor: '#19abb5',
+  cursor: 'ew-resize',
+  zIndex: 10,
+  '&:hover': {
+    backgroundColor: '#4dd4df',
+  },
+});
+
+const BottomBar = styled(Box)({
+  height: 32,
+  backgroundColor: '#161616',
+  borderTop: '1px solid #252525',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  padding: '4px 12px',
+  padding: '0 12px',
+});
+
+// Right Panel Styled Components
+const InspectorSection = styled(Box)({
+  borderBottom: '1px solid #252525',
+});
+
+const SectionHeader = styled(Box)({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: '8px 12px',
+  cursor: 'pointer',
   backgroundColor: '#1a1a1a',
-  borderTop: '1px solid #2b2b2b',
-  fontSize: 11,
-  color: '#888888',
+  '&:hover': {
+    backgroundColor: '#1e1e1e',
+  },
+});
+
+const SectionTitle = styled(Typography)({
+  fontSize: 10,
+  fontWeight: 600,
+  color: '#666',
+  textTransform: 'uppercase',
+});
+
+const SectionContent = styled(Box)({
+  padding: '8px 12px',
+});
+
+const FilterGroup = styled(Box)({
+  marginBottom: 12,
+});
+
+const FilterGroupTitle = styled(Typography)({
+  fontSize: 9,
+  fontWeight: 600,
+  color: '#555',
+  textTransform: 'uppercase',
+  marginBottom: 8,
+  paddingLeft: 2,
+});
+
+// Histogram styled components
+const HistogramContainer = styled(Box)({
+  height: 80,
+  backgroundColor: '#0a0a0a',
+  borderRadius: 4,
+  position: 'relative',
+  overflow: 'hidden',
+});
+
+const HistogramChannel = styled('div')<{ channel: 'r' | 'g' | 'b' }>(({ channel }) => ({
+  position: 'absolute',
+  bottom: 0,
+  left: 0,
+  right: 0,
+  opacity: 0.6,
+  mixBlendMode: 'screen',
+}));
+
+const ClippingIndicator = styled(Box)<{ side: 'left' | 'right'; active: boolean }>(({ side, active }) => ({
+  position: 'absolute',
+  top: 0,
+  bottom: 0,
+  width: 4,
+  [side]: 0,
+  backgroundColor: active ? '#c45c5c' : 'transparent',
+}));
+
+// Annotation List styled components
+const AnnotationItem = styled(Box)({
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  padding: '6px 8px',
+  borderRadius: 4,
+  cursor: 'pointer',
+  '&:hover': {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+  },
+});
+
+const AnnotationIcon = styled(Box)<{ type: string }>(({ type }) => {
+  const colors: Record<string, string> = {
+    rectangle: '#c45c5c',
+    circle: '#5a9a6b',
+    arrow: '#5a7fbf',
+    freehand: '#b5a319',
+  };
+  return {
+    width: 20,
+    height: 20,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 4,
+    backgroundColor: colors[type] || '#666',
+    color: '#fff',
+    fontSize: 12,
+  };
 });
 
 // ============================================================================
-// COMPONENT PROPS
+// TYPES
+// ============================================================================
+
+type ViewMode = 'single' | 'side-by-side' | 'split';
+type AnnotationTool = 'rectangle' | 'circle' | 'arrow' | 'freehand' | null;
+
+interface ImageAnnotation {
+  id: string;
+  type: 'rectangle' | 'circle' | 'arrow' | 'freehand';
+  label: string;
+  user: string;
+  visible: boolean;
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  points?: { x: number; y: number }[];
+}
+
+interface ImageFilters {
+  // Basic
+  exposure: number;
+  contrast: number;
+  highlights: number;
+  shadows: number;
+  whites: number;
+  blacks: number;
+  // Color
+  temperature: number;
+  tint: number;
+  vibrance: number;
+  saturation: number;
+  // Detail
+  clarity: number;
+  sharpness: number;
+  noiseReduction: number;
+  // Vignette
+  vignette: number;
+}
+
+const defaultFilters: ImageFilters = {
+  exposure: 0,
+  contrast: 0,
+  highlights: 0,
+  shadows: 0,
+  whites: 0,
+  blacks: 0,
+  temperature: 0,
+  tint: 0,
+  vibrance: 0,
+  saturation: 0,
+  clarity: 0,
+  sharpness: 0,
+  noiseReduction: 0,
+  vignette: 0,
+};
+
+// ============================================================================
+// MOCK DATA
+// ============================================================================
+
+const imageEvidence: (EvidenceItem & { format?: string; gps?: string | null; dimensions?: string })[] = [
+  { id: 'i1', type: 'image', fileName: 'thermal_anomaly_001.jpg', capturedAt: Date.now() - 5400000, user: 'Mike', deviceInfo: 'FLIR E8', flagCount: 1, hasFindings: true, format: 'JPEG / sRGB', gps: '39.95°N, 75.16°W', dimensions: '640 x 480' },
+  { id: 'i2', type: 'image', fileName: 'full_spectrum_023.jpg', capturedAt: Date.now() - 5200000, user: 'Sarah', deviceInfo: 'Modified Canon', flagCount: 0, hasFindings: false, format: 'RAW / Adobe RGB', gps: '39.95°N, 75.16°W', dimensions: '6000 x 4000' },
+  { id: 'i3', type: 'image', fileName: 'shadow_figure_frame.jpg', capturedAt: Date.now() - 4900000, user: 'Jen', deviceInfo: 'Sony A7IV', flagCount: 3, hasFindings: true, format: 'JPEG / sRGB', gps: '39.95°N, 75.16°W', dimensions: '4240 x 2832' },
+  { id: 'i4', type: 'image', fileName: 'baseline_room_01.jpg', capturedAt: Date.now() - 7200000, user: 'Mike', deviceInfo: 'iPhone 15 Pro', flagCount: 0, hasFindings: false, format: 'HEIC / P3', gps: null, dimensions: '4032 x 3024' },
+  { id: 'i5', type: 'image', fileName: 'evp_session_still.png', capturedAt: Date.now() - 6000000, user: 'Sarah', deviceInfo: 'Screen Capture', flagCount: 2, hasFindings: true, format: 'PNG / sRGB', gps: null, dimensions: '1920 x 1080' },
+];
+
+const mockAnnotations: ImageAnnotation[] = [
+  { id: 'a1', type: 'rectangle', label: 'Shadow anomaly', user: 'Sarah', visible: true, x: 120, y: 80, width: 60, height: 100 },
+  { id: 'a2', type: 'circle', label: 'Orb location', user: 'Mike', visible: true, x: 300, y: 150, width: 40, height: 40 },
+  { id: 'a3', type: 'arrow', label: 'Movement direction', user: 'Jen', visible: false, x: 200, y: 200, width: 80, height: 0 },
+];
+
+// ============================================================================
+// HISTOGRAM COMPONENT
+// ============================================================================
+
+interface HistogramProps {
+  disabled?: boolean;
+}
+
+const Histogram: React.FC<HistogramProps> = ({ disabled }) => {
+  // Generate fake histogram data
+  const generateChannelData = (seed: number) => {
+    const data: number[] = [];
+    for (let i = 0; i < 256; i++) {
+      const base = Math.sin((i + seed) * 0.02) * 30 + 40;
+      const noise = Math.random() * 20;
+      data.push(Math.max(0, Math.min(100, base + noise)));
+    }
+    return data;
+  };
+
+  const rData = generateChannelData(0);
+  const gData = generateChannelData(50);
+  const bData = generateChannelData(100);
+
+  const generatePath = (data: number[]) => {
+    const points = data.map((v, i) => `${(i / 255) * 100}% ${100 - v}%`);
+    return `polygon(0% 100%, ${points.join(', ')}, 100% 100%)`;
+  };
+
+  const hasLeftClipping = !disabled && Math.random() > 0.7;
+  const hasRightClipping = !disabled && Math.random() > 0.8;
+
+  return (
+    <HistogramContainer>
+      {disabled ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+          <Typography sx={{ fontSize: 10, color: '#444' }}>No image loaded</Typography>
+        </Box>
+      ) : (
+        <>
+          <HistogramChannel channel="r" sx={{ clipPath: generatePath(rData), backgroundColor: '#c45c5c' }} />
+          <HistogramChannel channel="g" sx={{ clipPath: generatePath(gData), backgroundColor: '#5a9a6b' }} />
+          <HistogramChannel channel="b" sx={{ clipPath: generatePath(bData), backgroundColor: '#5a7fbf' }} />
+          <ClippingIndicator side="left" active={hasLeftClipping} />
+          <ClippingIndicator side="right" active={hasRightClipping} />
+        </>
+      )}
+    </HistogramContainer>
+  );
+};
+
+// ============================================================================
+// MAIN COMPONENT
 // ============================================================================
 
 interface ImageToolProps {
-  evidenceId?: string;
   investigationId?: string;
-  imageUrl?: string;
-  onImageLoaded?: (dimensions: { width: number; height: number }) => void;
 }
 
-// ============================================================================
-// COMPONENT
-// ============================================================================
+export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
+  const [selectedEvidence, setSelectedEvidence] = useState<typeof imageEvidence[0] | null>(null);
+  const [loadedImage, setLoadedImage] = useState<typeof imageEvidence[0] | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('single');
+  const [zoom, setZoom] = useState(100);
+  const [activeTool, setActiveTool] = useState<AnnotationTool>(null);
+  const [filters, setFilters] = useState<ImageFilters>(defaultFilters);
+  const [annotations, setAnnotations] = useState<ImageAnnotation[]>(mockAnnotations);
+  const [splitPosition, setSplitPosition] = useState(50);
 
-const ImageTool: React.FC<ImageToolProps> = ({
-  evidenceId,
-  investigationId,
-  imageUrl,
-  onImageLoaded,
-}) => {
-  const [showSettings, setShowSettings] = useState(false);
-  const [selectedEvidence, setSelectedEvidence] = useState<any>(null);
+  // Section collapse states
+  const [histogramCollapsed, setHistogramCollapsed] = useState(false);
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+  const [annotationsCollapsed, setAnnotationsCollapsed] = useState(false);
 
-  // Watch for navigation to this tool with a file
-  const loadedFileId = useNavigationStore((state) => state.loadedFiles.images);
+  // Filter visibility by user
+  const [userVisibility, setUserVisibility] = useState<Record<string, boolean>>({
+    'Sarah': true,
+    'Mike': true,
+    'Jen': true,
+  });
 
-  // Mock image evidence data
-  const imageEvidence = [
-    { id: 'i1', type: 'image' as const, fileName: 'thermal_anomaly_001.jpg', capturedAt: Date.now() - 5400000, user: 'Mike', deviceInfo: 'FLIR E8', flagCount: 1, hasFindings: true },
-    { id: 'i2', type: 'image' as const, fileName: 'full_spectrum_023.jpg', capturedAt: Date.now() - 5200000, user: 'Sarah', deviceInfo: 'Modified Canon', flagCount: 0, hasFindings: false },
-    { id: 'i3', type: 'image' as const, fileName: 'shadow_figure_frame.jpg', capturedAt: Date.now() - 4900000, user: 'Jen', deviceInfo: 'Sony A7IV', flagCount: 3, hasFindings: true },
-    { id: 'i4', type: 'image' as const, fileName: 'baseline_room_01.jpg', capturedAt: Date.now() - 7200000, user: 'Mike', deviceInfo: 'iPhone 15 Pro', flagCount: 0, hasFindings: false },
-  ];
+  const loadedFileId = useNavigationStore((state) => state.loadedFiles.image);
 
-  // Store state - use selectors for stable references
-  const imageElement = useImageToolStore((state) => state.imageElement);
-  const originalDimensions = useImageToolStore((state) => state.originalDimensions);
-  const viewMode = useImageToolStore(selectImageViewMode);
-  const compareMode = useImageToolStore((state) => state.compareMode);
-  const compareEditIds = useImageToolStore((state) => state.compareEditIds);
-  const zoom = useImageToolStore(selectImageZoom);
-  const panX = useImageToolStore((state) => state.panX);
-  const panY = useImageToolStore((state) => state.panY);
-  const fitToView = useImageToolStore((state) => state.fitToView);
-  const activeTool = useImageToolStore(selectImageActiveTool);
-  const adjustments = useImageToolStore(selectImageAdjustments);
-  const crop = useImageToolStore(selectImageCrop);
-  const activeFilterId = useImageToolStore((state) => state.activeFilterId);
-  const annotations = useImageToolStore(selectImageAnnotations);
-  const selectedAnnotationId = useImageToolStore(selectSelectedAnnotation);
-  const annotationDefaults = useImageToolStore((state) => state.annotationDefaults);
-  const recipes = useImageToolStore(selectImageRecipes);
-  const userEdits = useImageToolStore(selectUserEdits);
-  const activeUserEditId = useImageToolStore(selectActiveUserEdit);
-  const showAdjustmentsPanel = useImageToolStore((state) => state.showAdjustmentsPanel);
-  const showAnnotationsPanel = useImageToolStore((state) => state.showAnnotationsPanel);
-  const showRecipesPanel = useImageToolStore((state) => state.showRecipesPanel);
-  const currentImageUrl = useImageToolStore(selectImageUrl);
-
-  // Store actions - use useShallow to get stable references
-  const {
-    loadImage,
-    setImageElement,
-    setViewMode,
-    setCompareMode,
-    setCompareEdits,
-    zoomIn,
-    zoomOut,
-    setPan,
-    doFitToView,
-    setActiveTool,
-    setAdjustment,
-    resetAdjustments,
-    resetAdjustment,
-    setCrop,
-    addAnnotation,
-    updateAnnotation,
-    deleteAnnotation,
-    selectAnnotation,
-    setAnnotationVisibility,
-    setAnnotationDefaults,
-    clearAnnotations,
-    bringAnnotationToFront,
-    sendAnnotationToBack,
-    undo,
-    redo,
-    canUndo,
-    canRedo,
-    saveRecipe,
-    applyRecipe,
-    deleteRecipe,
-    saveUserEdit,
-    loadUserEdit,
-    deleteUserEdit,
-    togglePanel,
-  } = useImageToolStore(
-    useShallow((state) => ({
-      loadImage: state.loadImage,
-      setImageElement: state.setImageElement,
-      setViewMode: state.setViewMode,
-      setCompareMode: state.setCompareMode,
-      setCompareEdits: state.setCompareEdits,
-      zoomIn: state.zoomIn,
-      zoomOut: state.zoomOut,
-      setPan: state.setPan,
-      doFitToView: state.doFitToView,
-      setActiveTool: state.setActiveTool,
-      setAdjustment: state.setAdjustment,
-      resetAdjustments: state.resetAdjustments,
-      resetAdjustment: state.resetAdjustment,
-      setCrop: state.setCrop,
-      addAnnotation: state.addAnnotation,
-      updateAnnotation: state.updateAnnotation,
-      deleteAnnotation: state.deleteAnnotation,
-      selectAnnotation: state.selectAnnotation,
-      setAnnotationVisibility: state.setAnnotationVisibility,
-      setAnnotationDefaults: state.setAnnotationDefaults,
-      clearAnnotations: state.clearAnnotations,
-      bringAnnotationToFront: state.bringAnnotationToFront,
-      sendAnnotationToBack: state.sendAnnotationToBack,
-      undo: state.undo,
-      redo: state.redo,
-      canUndo: state.canUndo,
-      canRedo: state.canRedo,
-      saveRecipe: state.saveRecipe,
-      applyRecipe: state.applyRecipe,
-      deleteRecipe: state.deleteRecipe,
-      saveUserEdit: state.saveUserEdit,
-      loadUserEdit: state.loadUserEdit,
-      deleteUserEdit: state.deleteUserEdit,
-      togglePanel: state.togglePanel,
-    }))
-  );
-
-  // Load image when navigated to from another tool
+  // Load image when navigated to
   useEffect(() => {
     if (loadedFileId) {
-      // Find the file in evidence and load it
-      const file = imageEvidence.find((e) => e.id === loadedFileId);
+      const file = imageEvidence.find(f => f.id === loadedFileId);
       if (file) {
+        setLoadedImage(file);
         setSelectedEvidence(file);
-        // TODO: Actually load the image file into the viewer
-        // This would typically involve calling loadImage with the file's URL
-        console.log('Load image file from navigation:', file.fileName);
+        setFilters(defaultFilters);
       }
     }
   }, [loadedFileId]);
 
-  // Load image - only if URL changed to prevent redundant calls
-  useEffect(() => {
-    if (imageUrl && evidenceId && investigationId && imageUrl !== currentImageUrl) {
-      loadImage(evidenceId, investigationId, imageUrl);
+  const handleDoubleClick = useCallback((item: typeof imageEvidence[0]) => {
+    setLoadedImage(item);
+    setSelectedEvidence(item);
+    setFilters(defaultFilters);
+  }, []);
+
+  const handleViewModeChange = (_: React.MouseEvent<HTMLElement>, newMode: ViewMode | null) => {
+    if (newMode) setViewMode(newMode);
+  };
+
+  const handleZoomIn = () => setZoom(prev => Math.min(400, prev + 25));
+  const handleZoomOut = () => setZoom(prev => Math.max(25, prev - 25));
+  const handleFitToView = () => setZoom(100);
+  const handleZoom100 = () => setZoom(100);
+
+  const handleFilterChange = (key: keyof ImageFilters) => (value: number) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleResetFilters = () => {
+    setFilters(defaultFilters);
+  };
+
+  const toggleAnnotationVisibility = (id: string) => {
+    setAnnotations(prev => prev.map(a => a.id === id ? { ...a, visible: !a.visible } : a));
+  };
+
+  const toggleUserVisibility = (user: string) => {
+    setUserVisibility(prev => ({ ...prev, [user]: !prev[user] }));
+  };
+
+  const getUniqueUsers = () => {
+    const users = new Set(annotations.map(a => a.user));
+    return Array.from(users);
+  };
+
+  // Render placeholder or image
+  const renderCanvas = () => {
+    if (!loadedImage) {
+      return (
+        <Box sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          color: '#444',
+        }}>
+          <ImageIcon sx={{ fontSize: 64, mb: 2, opacity: 0.3 }} />
+          <Typography sx={{ fontSize: 14, color: '#555' }}>No image loaded</Typography>
+          <Typography sx={{ fontSize: 12, color: '#444', mt: 0.5 }}>
+            Double-click an image in the Evidence panel
+          </Typography>
+        </Box>
+      );
     }
-  }, [imageUrl, evidenceId, investigationId, currentImageUrl, loadImage]);
 
-  // Notify parent when image loads
-  useEffect(() => {
-    if (originalDimensions && onImageLoaded) {
-      onImageLoaded(originalDimensions);
+    // Fake image placeholder with gradient
+    const imageStyle = {
+      width: `${zoom}%`,
+      maxWidth: '100%',
+      aspectRatio: loadedImage.dimensions?.replace(' x ', ' / ') || '4 / 3',
+      background: 'linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 50%, #1a1a1a 100%)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative' as const,
+      borderRadius: 2,
+      overflow: 'hidden',
+    };
+
+    if (viewMode === 'side-by-side') {
+      return (
+        <Box sx={{ display: 'flex', width: '100%', height: '100%', gap: 2, p: 2 }}>
+          {/* Original */}
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <Typography sx={{ fontSize: 10, color: '#666', mb: 1, textTransform: 'uppercase' }}>Original</Typography>
+            <Box sx={{ ...imageStyle, filter: 'none' }}>
+              <Typography sx={{ color: '#333', fontSize: 11 }}>{loadedImage.fileName}</Typography>
+            </Box>
+          </Box>
+          {/* Edited */}
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <Typography sx={{ fontSize: 10, color: '#666', mb: 1, textTransform: 'uppercase' }}>Edited</Typography>
+            <Box sx={{ ...imageStyle }}>
+              <Typography sx={{ color: '#333', fontSize: 11 }}>{loadedImage.fileName}</Typography>
+            </Box>
+          </Box>
+        </Box>
+      );
     }
-  }, [originalDimensions, onImageLoaded]);
 
-  // Handlers
-  const handleViewModeChange = useCallback(
-    (_: React.MouseEvent<HTMLElement>, newMode: ImageViewMode | null) => {
-      if (newMode) {
-        setViewMode(newMode);
-      }
-    },
-    [setViewMode]
+    if (viewMode === 'split') {
+      return (
+        <Box sx={{ width: '100%', height: '100%', position: 'relative', p: 2 }}>
+          <Box sx={{ ...imageStyle, width: '100%', height: '100%', position: 'relative' }}>
+            {/* Original side */}
+            <Box sx={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              width: `${splitPosition}%`,
+              height: '100%',
+              overflow: 'hidden',
+              borderRight: '2px solid #19abb5',
+            }}>
+              <Typography sx={{
+                position: 'absolute',
+                left: 8,
+                top: 8,
+                fontSize: 9,
+                color: '#666',
+                textTransform: 'uppercase',
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                padding: '2px 6px',
+                borderRadius: 2,
+              }}>Original</Typography>
+            </Box>
+            {/* Edited label */}
+            <Typography sx={{
+              position: 'absolute',
+              right: 8,
+              top: 8,
+              fontSize: 9,
+              color: '#666',
+              textTransform: 'uppercase',
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              padding: '2px 6px',
+              borderRadius: 2,
+            }}>Edited</Typography>
+            {/* Draggable divider */}
+            <SplitDivider
+              sx={{ left: `${splitPosition}%`, transform: 'translateX(-50%)' }}
+              onMouseDown={(e) => {
+                const startX = e.clientX;
+                const startPos = splitPosition;
+                const handleMouseMove = (moveE: MouseEvent) => {
+                  const container = (e.target as HTMLElement).parentElement;
+                  if (container) {
+                    const rect = container.getBoundingClientRect();
+                    const newPos = startPos + ((moveE.clientX - startX) / rect.width) * 100;
+                    setSplitPosition(Math.max(10, Math.min(90, newPos)));
+                  }
+                };
+                const handleMouseUp = () => {
+                  document.removeEventListener('mousemove', handleMouseMove);
+                  document.removeEventListener('mouseup', handleMouseUp);
+                };
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+              }}
+            />
+            <Typography sx={{ color: '#333', fontSize: 11 }}>{loadedImage.fileName}</Typography>
+          </Box>
+        </Box>
+      );
+    }
+
+    // Single view
+    return (
+      <Box sx={{ ...imageStyle }}>
+        <Typography sx={{ color: '#333', fontSize: 11 }}>{loadedImage.fileName}</Typography>
+      </Box>
+    );
+  };
+
+  // Main content
+  const mainContent = (
+    <MainContainer>
+      {/* Toolbar */}
+      <Toolbar>
+        {/* View Mode Toggle */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography sx={{ fontSize: 10, color: '#666', textTransform: 'uppercase' }}>View:</Typography>
+          <ToggleButtonGroup
+            value={viewMode}
+            exclusive
+            onChange={handleViewModeChange}
+            size="small"
+          >
+            <StyledToggleButton value="single">
+              <Tooltip title="Single View">
+                <ImageIcon sx={{ fontSize: 16 }} />
+              </Tooltip>
+            </StyledToggleButton>
+            <StyledToggleButton value="side-by-side">
+              <Tooltip title="Side by Side">
+                <CompareIcon sx={{ fontSize: 16 }} />
+              </Tooltip>
+            </StyledToggleButton>
+            <StyledToggleButton value="split">
+              <Tooltip title="Split View">
+                <VerticalSplitIcon sx={{ fontSize: 16 }} />
+              </Tooltip>
+            </StyledToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+
+        <ToolbarDivider />
+
+        {/* Zoom Controls */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Tooltip title="Zoom Out">
+            <IconButton size="small" onClick={handleZoomOut} disabled={!loadedImage} sx={{ color: '#888', p: 0.5 }}>
+              <ZoomOutIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+          <ZoomDisplay>{zoom}%</ZoomDisplay>
+          <Tooltip title="Zoom In">
+            <IconButton size="small" onClick={handleZoomIn} disabled={!loadedImage} sx={{ color: '#888', p: 0.5 }}>
+              <ZoomInIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Fit to View">
+            <IconButton size="small" onClick={handleFitToView} disabled={!loadedImage} sx={{ color: '#888', p: 0.5 }}>
+              <FitScreenIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="100%">
+            <Button
+              size="small"
+              onClick={handleZoom100}
+              disabled={!loadedImage}
+              sx={{ fontSize: 9, color: '#888', minWidth: 32, p: 0.5 }}
+            >
+              1:1
+            </Button>
+          </Tooltip>
+        </Box>
+
+        <ToolbarDivider />
+
+        {/* Crop/Rotate Tools */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Tooltip title="Crop">
+            <ToolButton size="small" disabled={!loadedImage}>
+              <CropIcon sx={{ fontSize: 18 }} />
+            </ToolButton>
+          </Tooltip>
+          <Tooltip title="Rotate 90°">
+            <ToolButton size="small" disabled={!loadedImage}>
+              <RotateRightIcon sx={{ fontSize: 18 }} />
+            </ToolButton>
+          </Tooltip>
+          <Tooltip title="Flip Horizontal">
+            <ToolButton size="small" disabled={!loadedImage}>
+              <FlipIcon sx={{ fontSize: 18 }} />
+            </ToolButton>
+          </Tooltip>
+        </Box>
+
+        <ToolbarDivider />
+
+        {/* Annotation Draw Tools */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Typography sx={{ fontSize: 10, color: '#666', mr: 0.5 }}>Draw:</Typography>
+          <Tooltip title="Rectangle">
+            <ToolButton
+              size="small"
+              active={activeTool === 'rectangle'}
+              onClick={() => setActiveTool(activeTool === 'rectangle' ? null : 'rectangle')}
+              disabled={!loadedImage}
+            >
+              <RectangleOutlinedIcon sx={{ fontSize: 18 }} />
+            </ToolButton>
+          </Tooltip>
+          <Tooltip title="Circle">
+            <ToolButton
+              size="small"
+              active={activeTool === 'circle'}
+              onClick={() => setActiveTool(activeTool === 'circle' ? null : 'circle')}
+              disabled={!loadedImage}
+            >
+              <CircleOutlinedIcon sx={{ fontSize: 18 }} />
+            </ToolButton>
+          </Tooltip>
+          <Tooltip title="Arrow">
+            <ToolButton
+              size="small"
+              active={activeTool === 'arrow'}
+              onClick={() => setActiveTool(activeTool === 'arrow' ? null : 'arrow')}
+              disabled={!loadedImage}
+            >
+              <ArrowForwardIcon sx={{ fontSize: 18 }} />
+            </ToolButton>
+          </Tooltip>
+          <Tooltip title="Freehand">
+            <ToolButton
+              size="small"
+              active={activeTool === 'freehand'}
+              onClick={() => setActiveTool(activeTool === 'freehand' ? null : 'freehand')}
+              disabled={!loadedImage}
+            >
+              <GestureIcon sx={{ fontSize: 18 }} />
+            </ToolButton>
+          </Tooltip>
+        </Box>
+      </Toolbar>
+
+      {/* Canvas Area */}
+      <CanvasArea>
+        {renderCanvas()}
+      </CanvasArea>
+
+      {/* Bottom Bar (minimal - no transport controls for images) */}
+      <BottomBar>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          {loadedImage && (
+            <>
+              <Typography sx={{ fontSize: 10, color: '#666' }}>
+                {loadedImage.dimensions}
+              </Typography>
+              <Typography sx={{ fontSize: 10, color: '#666' }}>
+                {loadedImage.format}
+              </Typography>
+            </>
+          )}
+        </Box>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          {loadedImage && annotations.length > 0 && (
+            <Typography sx={{ fontSize: 10, color: '#666' }}>
+              {annotations.filter(a => a.visible).length} / {annotations.length} annotations visible
+            </Typography>
+          )}
+        </Box>
+      </BottomBar>
+    </MainContainer>
   );
 
-  const handleCompareModeChange = useCallback(
-    (_: React.MouseEvent<HTMLElement>, newMode: CompareMode | null) => {
-      if (newMode) {
-        setCompareMode(newMode);
-      }
-    },
-    [setCompareMode]
+  // Inspector Panel (Right Panel)
+  const inspectorContent = (
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      {/* Histogram Section */}
+      <InspectorSection>
+        <SectionHeader onClick={() => setHistogramCollapsed(!histogramCollapsed)}>
+          <SectionTitle>Histogram</SectionTitle>
+          {histogramCollapsed ? <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} /> : <ExpandLessIcon sx={{ fontSize: 16, color: '#666' }} />}
+        </SectionHeader>
+        {!histogramCollapsed && (
+          <SectionContent>
+            <Histogram disabled={!loadedImage} />
+          </SectionContent>
+        )}
+      </InspectorSection>
+
+      {/* Filters Section */}
+      <InspectorSection sx={{ flex: 1, overflow: 'auto' }}>
+        <SectionHeader onClick={() => setFiltersCollapsed(!filtersCollapsed)}>
+          <SectionTitle>Filters</SectionTitle>
+          {filtersCollapsed ? <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} /> : <ExpandLessIcon sx={{ fontSize: 16, color: '#666' }} />}
+        </SectionHeader>
+        {!filtersCollapsed && (
+          <SectionContent sx={{ pb: 2 }}>
+            {/* Basic */}
+            <FilterGroup>
+              <FilterGroupTitle>Basic</FilterGroupTitle>
+              <PrecisionSlider label="Exposure" value={filters.exposure} min={-5} max={5} step={0.1} onChange={handleFilterChange('exposure')} disabled={!loadedImage} />
+              <PrecisionSlider label="Contrast" value={filters.contrast} min={-100} max={100} onChange={handleFilterChange('contrast')} disabled={!loadedImage} />
+              <PrecisionSlider label="Highlights" value={filters.highlights} min={-100} max={100} onChange={handleFilterChange('highlights')} disabled={!loadedImage} />
+              <PrecisionSlider label="Shadows" value={filters.shadows} min={-100} max={100} onChange={handleFilterChange('shadows')} disabled={!loadedImage} />
+              <PrecisionSlider label="Whites" value={filters.whites} min={-100} max={100} onChange={handleFilterChange('whites')} disabled={!loadedImage} />
+              <PrecisionSlider label="Blacks" value={filters.blacks} min={-100} max={100} onChange={handleFilterChange('blacks')} disabled={!loadedImage} />
+            </FilterGroup>
+
+            {/* Color */}
+            <FilterGroup>
+              <FilterGroupTitle>Color</FilterGroupTitle>
+              <PrecisionSlider label="Temperature" value={filters.temperature} min={-100} max={100} onChange={handleFilterChange('temperature')} disabled={!loadedImage} />
+              <PrecisionSlider label="Tint" value={filters.tint} min={-100} max={100} onChange={handleFilterChange('tint')} disabled={!loadedImage} />
+              <PrecisionSlider label="Vibrance" value={filters.vibrance} min={-100} max={100} onChange={handleFilterChange('vibrance')} disabled={!loadedImage} />
+              <PrecisionSlider label="Saturation" value={filters.saturation} min={-100} max={100} onChange={handleFilterChange('saturation')} disabled={!loadedImage} />
+            </FilterGroup>
+
+            {/* Detail */}
+            <FilterGroup>
+              <FilterGroupTitle>Detail</FilterGroupTitle>
+              <PrecisionSlider label="Clarity" value={filters.clarity} min={-100} max={100} onChange={handleFilterChange('clarity')} disabled={!loadedImage} />
+              <PrecisionSlider label="Sharpness" value={filters.sharpness} min={0} max={100} onChange={handleFilterChange('sharpness')} disabled={!loadedImage} />
+              <PrecisionSlider label="Noise Red." value={filters.noiseReduction} min={0} max={100} onChange={handleFilterChange('noiseReduction')} disabled={!loadedImage} />
+            </FilterGroup>
+
+            {/* Vignette */}
+            <FilterGroup>
+              <FilterGroupTitle>Effects</FilterGroupTitle>
+              <PrecisionSlider label="Vignette" value={filters.vignette} min={-100} max={100} onChange={handleFilterChange('vignette')} disabled={!loadedImage} />
+            </FilterGroup>
+
+            {/* Reset Button */}
+            <Button
+              fullWidth
+              size="small"
+              variant="outlined"
+              onClick={handleResetFilters}
+              disabled={!loadedImage}
+              sx={{
+                mt: 1,
+                fontSize: 10,
+                color: '#666',
+                borderColor: '#333',
+                py: 0.5,
+                '&:hover': { borderColor: '#19abb5', color: '#19abb5' },
+              }}
+            >
+              Reset All
+            </Button>
+          </SectionContent>
+        )}
+      </InspectorSection>
+
+      {/* Annotations Section */}
+      <InspectorSection sx={{ flexShrink: 0, maxHeight: 280, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <SectionHeader onClick={() => setAnnotationsCollapsed(!annotationsCollapsed)}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <SectionTitle>Annotations</SectionTitle>
+            <Typography sx={{ fontSize: 10, color: '#555' }}>({annotations.length})</Typography>
+          </Box>
+          {annotationsCollapsed ? <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} /> : <ExpandLessIcon sx={{ fontSize: 16, color: '#666' }} />}
+        </SectionHeader>
+        {!annotationsCollapsed && (
+          <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            {/* User visibility toggles */}
+            <Box sx={{ padding: '8px 12px', borderBottom: '1px solid #1f1f1f' }}>
+              <Typography sx={{ fontSize: 9, color: '#555', mb: 0.5, textTransform: 'uppercase' }}>Show by user</Typography>
+              <Box sx={{ display: 'flex', gap: 0.5 }}>
+                {getUniqueUsers().map(user => (
+                  <Tooltip key={user} title={`Toggle ${user}'s annotations`}>
+                    <IconButton
+                      size="small"
+                      onClick={() => toggleUserVisibility(user)}
+                      sx={{
+                        padding: '2px 6px',
+                        borderRadius: 2,
+                        backgroundColor: userVisibility[user] ? 'rgba(25, 171, 181, 0.15)' : '#252525',
+                        border: '1px solid',
+                        borderColor: userVisibility[user] ? '#19abb5' : '#333',
+                      }}
+                    >
+                      <PersonIcon sx={{ fontSize: 12, color: userVisibility[user] ? '#19abb5' : '#555', mr: 0.5 }} />
+                      <Typography sx={{ fontSize: 9, color: userVisibility[user] ? '#19abb5' : '#555' }}>{user}</Typography>
+                    </IconButton>
+                  </Tooltip>
+                ))}
+              </Box>
+            </Box>
+
+            {/* Annotation list */}
+            <Box sx={{ flex: 1, overflow: 'auto', padding: '4px 8px' }}>
+              {annotations.filter(a => userVisibility[a.user]).length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 2 }}>
+                  <Typography sx={{ fontSize: 10, color: '#444' }}>No annotations to display</Typography>
+                </Box>
+              ) : (
+                annotations.filter(a => userVisibility[a.user]).map(annotation => (
+                  <AnnotationItem key={annotation.id}>
+                    <AnnotationIcon type={annotation.type}>
+                      {annotation.type === 'rectangle' && <RectangleOutlinedIcon sx={{ fontSize: 12 }} />}
+                      {annotation.type === 'circle' && <CircleOutlinedIcon sx={{ fontSize: 12 }} />}
+                      {annotation.type === 'arrow' && <ArrowForwardIcon sx={{ fontSize: 12 }} />}
+                      {annotation.type === 'freehand' && <GestureIcon sx={{ fontSize: 12 }} />}
+                    </AnnotationIcon>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography sx={{ fontSize: 11, color: '#ccc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {annotation.label}
+                      </Typography>
+                      <Typography sx={{ fontSize: 9, color: '#555' }}>{annotation.user}</Typography>
+                    </Box>
+                    <Tooltip title={annotation.visible ? 'Hide' : 'Show'}>
+                      <IconButton
+                        size="small"
+                        onClick={() => toggleAnnotationVisibility(annotation.id)}
+                        sx={{ padding: 2, color: annotation.visible ? '#19abb5' : '#444' }}
+                      >
+                        {annotation.visible ? <VisibilityIcon sx={{ fontSize: 14 }} /> : <VisibilityOffIcon sx={{ fontSize: 14 }} />}
+                      </IconButton>
+                    </Tooltip>
+                  </AnnotationItem>
+                ))
+              )}
+            </Box>
+
+            {/* Add Annotation Button */}
+            <Box sx={{ padding: '8px 12px', borderTop: '1px solid #252525' }}>
+              <Button
+                fullWidth
+                size="small"
+                variant="outlined"
+                startIcon={<AddIcon sx={{ fontSize: 14 }} />}
+                disabled={!loadedImage}
+                sx={{
+                  fontSize: 10,
+                  color: '#666',
+                  borderColor: '#333',
+                  py: 0.5,
+                  '&:hover': { borderColor: '#19abb5', color: '#19abb5' },
+                }}
+              >
+                Add Annotation
+              </Button>
+            </Box>
+          </Box>
+        )}
+      </InspectorSection>
+    </Box>
   );
-
-  const handleToolChange = useCallback(
-    (tool: ImageToolType) => {
-      setActiveTool(tool);
-    },
-    [setActiveTool]
-  );
-
-  const handleImageLoad = useCallback(
-    (element: HTMLImageElement) => {
-      setImageElement(element);
-    },
-    [setImageElement]
-  );
-
-  const handleAnnotationAdd = useCallback(
-    (annotation: Omit<ImageAnnotation, 'id' | 'createdAt' | 'updatedAt'>) => {
-      addAnnotation({
-        ...annotation,
-        color: annotationDefaults.color,
-        strokeWidth: annotationDefaults.strokeWidth,
-        opacity: annotationDefaults.opacity,
-      });
-    },
-    [addAnnotation, annotationDefaults]
-  );
-
-  const handleCompareSelect = useCallback(
-    (editId: string, slot: 0 | 1) => {
-      const newIds: [string | null, string | null] = [...compareEditIds];
-      newIds[slot] = editId;
-      setCompareEdits(newIds);
-      if (viewMode !== 'compare') {
-        setViewMode('compare');
-      }
-    },
-    [compareEditIds, setCompareEdits, viewMode, setViewMode]
-  );
-
-  const handleFlipHorizontal = useCallback(() => {
-    setCrop({ flipHorizontal: !crop.flipHorizontal });
-  }, [crop.flipHorizontal, setCrop]);
-
-  const handleFlipVertical = useCallback(() => {
-    setCrop({ flipVertical: !crop.flipVertical });
-  }, [crop.flipVertical, setCrop]);
-
-  const handleRotate = useCallback(() => {
-    setCrop({ rotation: (crop.rotation + 90) % 360 });
-  }, [crop.rotation, setCrop]);
 
   return (
     <WorkspaceLayout
@@ -399,269 +911,31 @@ const ImageTool: React.FC<ImageToolProps> = ({
         <EvidenceBank
           items={imageEvidence}
           selectedId={selectedEvidence?.id}
-          onSelect={(item) => setSelectedEvidence(item)}
-          onDoubleClick={(item) => {
-            console.log('Load image file:', item.fileName);
-            // TODO: Load the image into the viewer
-          }}
+          onSelect={(item) => setSelectedEvidence(item as typeof imageEvidence[0])}
+          onDoubleClick={(item) => handleDoubleClick(item as typeof imageEvidence[0])}
           filterByType="image"
         />
       }
-      inspectorPanel={
-        <Box sx={{ height: '100%', overflow: 'auto' }}>
-          {showAdjustmentsPanel && (
-            <AdjustmentsPanel
-              adjustments={adjustments}
-              onAdjustmentChange={setAdjustment}
-              onReset={resetAdjustments}
-              onResetSingle={resetAdjustment}
-            />
-          )}
-          {!showAdjustmentsPanel && (
-            <Box sx={{ padding: 2 }}>
-              <Typography sx={{ fontSize: 11, fontWeight: 600, color: '#808080', textTransform: 'uppercase', mb: 2 }}>
-                Adjustments
-              </Typography>
-              <Typography sx={{ fontSize: 12, color: '#666' }}>
-                Select an image to enable adjustments
-              </Typography>
-            </Box>
-          )}
-        </Box>
+      metadataPanel={
+        <MetadataPanel
+          data={selectedEvidence ? {
+            fileName: selectedEvidence.fileName,
+            capturedAt: selectedEvidence.capturedAt,
+            resolution: selectedEvidence.dimensions,
+            user: selectedEvidence.user,
+            device: selectedEvidence.deviceInfo,
+            format: selectedEvidence.format,
+            gps: selectedEvidence.gps || undefined,
+            flagCount: selectedEvidence.flagCount,
+          } : null}
+          type="image"
+        />
       }
-      mainContent={
-        <ToolContainer>
-          {/* Toolbar */}
-          <Toolbar>
-        {/* View Mode */}
-        <ToolbarGroup>
-          <Typography variant="caption" sx={{ color: '#888888', mr: 1 }}>
-            View:
-          </Typography>
-          <ToggleButtonGroup value={viewMode} exclusive onChange={handleViewModeChange} size="small">
-            <StyledToggleButton value="single">
-              <Tooltip title="Single View">
-                <ImageIcon sx={{ fontSize: 18 }} />
-              </Tooltip>
-            </StyledToggleButton>
-            <StyledToggleButton value="compare">
-              <Tooltip title="Compare View">
-                <CompareIcon sx={{ fontSize: 18 }} />
-              </Tooltip>
-            </StyledToggleButton>
-          </ToggleButtonGroup>
-        </ToolbarGroup>
-
-        {/* Compare Mode (shown when in compare view) */}
-        {viewMode === 'compare' && (
-          <>
-            <ToolbarDivider orientation="vertical" flexItem />
-            <ToolbarGroup>
-              <ToggleButtonGroup value={compareMode} exclusive onChange={handleCompareModeChange} size="small">
-                <StyledToggleButton value="before-after">
-                  <Tooltip title="Before/After">
-                    <ViewColumnIcon sx={{ fontSize: 18 }} />
-                  </Tooltip>
-                </StyledToggleButton>
-                <StyledToggleButton value="side-by-side">
-                  <Tooltip title="Side by Side">
-                    <ViewStreamIcon sx={{ fontSize: 18, transform: 'rotate(90deg)' }} />
-                  </Tooltip>
-                </StyledToggleButton>
-                <StyledToggleButton value="split-vertical">
-                  <Tooltip title="Split Vertical">
-                    <ViewColumnIcon sx={{ fontSize: 18 }} />
-                  </Tooltip>
-                </StyledToggleButton>
-                <StyledToggleButton value="split-horizontal">
-                  <Tooltip title="Split Horizontal">
-                    <ViewStreamIcon sx={{ fontSize: 18 }} />
-                  </Tooltip>
-                </StyledToggleButton>
-              </ToggleButtonGroup>
-            </ToolbarGroup>
-          </>
-        )}
-
-        <ToolbarDivider orientation="vertical" flexItem />
-
-        {/* Tools */}
-        <ToolbarGroup>
-          <Tooltip title="Pan Tool (P)">
-            <ToolButton size="small" active={activeTool === 'pan'} onClick={() => handleToolChange('pan')}>
-              <PanToolIcon sx={{ fontSize: 18 }} />
-            </ToolButton>
-          </Tooltip>
-          <Tooltip title="Crop Tool (C)">
-            <ToolButton size="small" active={activeTool === 'crop'} onClick={() => handleToolChange('crop')}>
-              <Crop169Icon sx={{ fontSize: 18 }} />
-            </ToolButton>
-          </Tooltip>
-        </ToolbarGroup>
-
-        <ToolbarDivider orientation="vertical" flexItem />
-
-        {/* Zoom */}
-        <ToolbarGroup>
-          <Tooltip title="Zoom Out">
-            <IconButton size="small" onClick={zoomOut}>
-              <ZoomOutIcon sx={{ fontSize: 18, color: '#888888' }} />
-            </IconButton>
-          </Tooltip>
-          <Typography variant="caption" sx={{ color: '#888888', minWidth: 45, textAlign: 'center' }}>
-            {Math.round(fitToView ? zoom : zoom)}%
-          </Typography>
-          <Tooltip title="Zoom In">
-            <IconButton size="small" onClick={zoomIn}>
-              <ZoomInIcon sx={{ fontSize: 18, color: '#888888' }} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Fit to View">
-            <IconButton size="small" onClick={doFitToView}>
-              <FitScreenIcon sx={{ fontSize: 18, color: fitToView ? '#19abb5' : '#888888' }} />
-            </IconButton>
-          </Tooltip>
-        </ToolbarGroup>
-
-        <ToolbarDivider orientation="vertical" flexItem />
-
-        {/* Transform */}
-        <ToolbarGroup>
-          <Tooltip title="Flip Horizontal">
-            <IconButton size="small" onClick={handleFlipHorizontal}>
-              <FlipIcon sx={{ fontSize: 18, color: crop.flipHorizontal ? '#19abb5' : '#888888' }} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Flip Vertical">
-            <IconButton size="small" onClick={handleFlipVertical}>
-              <FlipIcon sx={{ fontSize: 18, color: crop.flipVertical ? '#19abb5' : '#888888', transform: 'rotate(90deg)' }} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Rotate 90">
-            <IconButton size="small" onClick={handleRotate}>
-              <Rotate90DegreesCcwIcon sx={{ fontSize: 18, color: crop.rotation !== 0 ? '#19abb5' : '#888888' }} />
-            </IconButton>
-          </Tooltip>
-        </ToolbarGroup>
-
-        <ToolbarDivider orientation="vertical" flexItem />
-
-        {/* Undo/Redo */}
-        <ToolbarGroup>
-          <Tooltip title="Undo (Ctrl+Z)">
-            <span>
-              <IconButton size="small" onClick={undo} disabled={!canUndo()}>
-                <UndoIcon sx={{ fontSize: 18, color: canUndo() ? '#888888' : '#444444' }} />
-              </IconButton>
-            </span>
-          </Tooltip>
-          <Tooltip title="Redo (Ctrl+Shift+Z)">
-            <span>
-              <IconButton size="small" onClick={redo} disabled={!canRedo()}>
-                <RedoIcon sx={{ fontSize: 18, color: canRedo() ? '#888888' : '#444444' }} />
-              </IconButton>
-            </span>
-          </Tooltip>
-        </ToolbarGroup>
-
-        <Box sx={{ flex: 1 }} />
-
-        {/* Panel Toggles */}
-        <ToolbarGroup>
-          <Tooltip title="Adjustments Panel">
-            <ToolButton size="small" active={showAdjustmentsPanel} onClick={() => togglePanel('adjustments')}>
-              <TuneIcon sx={{ fontSize: 18 }} />
-            </ToolButton>
-          </Tooltip>
-          <Tooltip title="Annotations Panel">
-            <ToolButton size="small" active={showAnnotationsPanel} onClick={() => togglePanel('annotations')}>
-              <GestureIcon sx={{ fontSize: 18 }} />
-            </ToolButton>
-          </Tooltip>
-          <Tooltip title="Recipes Panel">
-            <ToolButton size="small" active={showRecipesPanel} onClick={() => togglePanel('recipes')}>
-              <AutoStoriesIcon sx={{ fontSize: 18 }} />
-            </ToolButton>
-          </Tooltip>
-        </ToolbarGroup>
-
-        <ToolbarDivider orientation="vertical" flexItem />
-
-        {/* Settings */}
-        <Tooltip title="Settings">
-          <IconButton size="small" onClick={() => setShowSettings(!showSettings)}>
-            <SettingsIcon sx={{ fontSize: 18, color: showSettings ? '#19abb5' : '#888888' }} />
-          </IconButton>
-        </Tooltip>
-      </Toolbar>
-
-      {/* Main Content */}
-      <MainContent>
-        {/* Canvas Area */}
-        <CanvasArea>
-          {viewMode === 'compare' ? (
-            <CompareView
-              imageUrl={imageUrl || null}
-              imageElement={imageElement}
-              compareMode={compareMode}
-              currentAdjustments={adjustments}
-              userEdits={Array.isArray(userEdits) ? userEdits : []}
-              compareEditIds={compareEditIds}
-            />
-          ) : (
-            <ImageCanvasComponent
-              imageUrl={imageUrl || null}
-              imageElement={imageElement}
-              adjustments={adjustments}
-              crop={crop}
-              annotations={Array.isArray(annotations) ? annotations : []}
-              selectedAnnotationId={selectedAnnotationId}
-              activeTool={activeTool}
-              zoom={zoom}
-              panX={panX}
-              panY={panY}
-              fitToView={fitToView}
-              onImageLoad={handleImageLoad}
-              onPan={setPan}
-              onAnnotationAdd={handleAnnotationAdd}
-              onAnnotationSelect={selectAnnotation}
-              onCropChange={setCrop}
-            />
-          )}
-        </CanvasArea>
-
-      </MainContent>
-
-          {/* Status Bar */}
-          <StatusBar>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              {originalDimensions && (
-                <Typography variant="caption">
-                  {originalDimensions.width} x {originalDimensions.height}
-                </Typography>
-              )}
-              {activeFilterId && (
-                <Typography variant="caption" sx={{ color: '#19abb5' }}>
-                  Filter: {Array.isArray(recipes) ? recipes.find((r) => r.id === activeFilterId)?.name : ''}
-                </Typography>
-              )}
-              {Array.isArray(annotations) && annotations.length > 0 && (
-                <Typography variant="caption">
-                  {annotations.length} annotation{annotations.length !== 1 ? 's' : ''}
-                </Typography>
-              )}
-            </Box>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              {crop.flipHorizontal && <Typography variant="caption">Flipped H</Typography>}
-              {crop.flipVertical && <Typography variant="caption">Flipped V</Typography>}
-              {crop.rotation !== 0 && <Typography variant="caption">Rotated {crop.rotation}</Typography>}
-            </Box>
-          </StatusBar>
-        </ToolContainer>
-      }
-      evidenceTitle="Images"
-      inspectorTitle="Adjustments"
-      showTransport={true}
+      inspectorPanel={inspectorContent}
+      mainContent={mainContent}
+      evidenceTitle="Image Files"
+      inspectorTitle=""
+      showTransport={false}
     />
   );
 };
