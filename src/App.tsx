@@ -4,7 +4,6 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
 import ActivityBar from '@/components/layout/ActivityBar';
-import SidePanel from '@/components/layout/SidePanel';
 import EditorArea from '@/components/layout/EditorArea';
 import BottomPanel from '@/components/layout/BottomPanel';
 import StatusBar from '@/components/layout/StatusBar';
@@ -223,8 +222,6 @@ const App: React.FC = () => {
     if (isMobile || isTablet) return false;
     return saved === 'true';
   });
-  const [sidePanelVisible, setSidePanelVisible] = useState(!isMobile);
-  const [sidePanelWidth, setSidePanelWidth] = useState(isTablet ? 200 : 250);
   const [bottomPanelVisible, setBottomPanelVisible] = useState(!isMobile && !isTablet);
   const [bottomPanelHeight, setBottomPanelHeight] = useState(200);
   const [openTabs, setOpenTabs] = useState<Array<{id: string, title: string, pinned: boolean}>>([]);
@@ -244,13 +241,7 @@ const App: React.FC = () => {
 
   const handleToolSelect = useCallback((toolId: string) => {
     setActiveTool(toolId as ToolId);
-    // On mobile, close side panel when selecting tool
-    if (isMobile) {
-      setSidePanelVisible(false);
-    } else {
-      setSidePanelVisible(true);
-    }
-  }, [isMobile, setActiveTool]);
+  }, [setActiveTool]);
 
   const handleOpenFile = useCallback((file: { id: string; name: string }) => {
     const existingTab = openTabs.find(tab => tab.id === file.id);
@@ -312,7 +303,6 @@ const App: React.FC = () => {
     }),
     ...createViewShortcuts({
       toggleFullscreen,
-      toggleSidePanel: () => setSidePanelVisible(v => !v),
       toggleBottomPanel: () => setBottomPanelVisible(v => !v),
     }),
     ...createEditingShortcuts({}),
@@ -323,19 +313,7 @@ const App: React.FC = () => {
       handler: toggleFullscreen,
       category: 'view' as const,
     },
-    // Escape to close panels on mobile
-    {
-      key: 'Escape',
-      description: 'Close panels',
-      handler: () => {
-        if (isMobile) {
-          setSidePanelVisible(false);
-        }
-      },
-      category: 'view' as const,
-      enabled: isMobile,
-    },
-  ], [setActiveTool, prevTool, nextTool, toggleFullscreen, isMobile]);
+  ], [setActiveTool, prevTool, nextTool, toggleFullscreen]);
 
   useKeyboardShortcuts(shortcuts);
 
@@ -477,48 +455,6 @@ const App: React.FC = () => {
                 compact={isMobile || isTablet}
               />
             </Box>
-
-            {/* Side Panel - slide over on mobile */}
-            {sidePanelVisible && (
-              <Box
-                sx={{
-                  // On mobile, overlay the content
-                  position: { xs: 'fixed', sm: 'relative' },
-                  top: { xs: 0, sm: 'auto' },
-                  left: { xs: 0, sm: 'auto' },
-                  bottom: { xs: 56, sm: 'auto' }, // Leave room for bottom nav
-                  zIndex: { xs: 1100, sm: 'auto' },
-                  width: { xs: '85vw', sm: 'auto' },
-                  maxWidth: { xs: 320, sm: 'none' },
-                  height: { xs: 'auto', sm: '100%' },
-                  boxShadow: { xs: '4px 0 20px rgba(0,0,0,0.5)', sm: 'none' },
-                }}
-              >
-                <SidePanel
-                  width={isMobile ? 280 : sidePanelWidth}
-                  selectedTool={selectedTool}
-                  onResize={isMobile ? undefined : setSidePanelWidth}
-                  onClose={() => setSidePanelVisible(false)}
-                  onFileOpen={handleOpenFile}
-                />
-              </Box>
-            )}
-
-            {/* Backdrop for mobile side panel */}
-            {sidePanelVisible && isMobile && (
-              <Box
-                onClick={() => setSidePanelVisible(false)}
-                sx={{
-                  position: 'fixed',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 56,
-                  backgroundColor: 'rgba(0,0,0,0.5)',
-                  zIndex: 1050,
-                }}
-              />
-            )}
 
             {/* Main Content Area */}
             <Box sx={{
