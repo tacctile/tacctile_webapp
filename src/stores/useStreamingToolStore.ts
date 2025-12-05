@@ -562,6 +562,7 @@ export const useStreamingToolStore = create<StreamingToolState & StreamingToolAc
       name: 'streaming-tool-store',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
+        // Persist user configuration - reset connection states
         scenes: state.scenes,
         destinations: state.destinations.map((d) => ({ ...d, status: 'disconnected' as const })),
         streamSettings: state.streamSettings,
@@ -569,6 +570,30 @@ export const useStreamingToolStore = create<StreamingToolState & StreamingToolAc
         transition: state.transition,
         viewMode: state.viewMode,
       }),
+      // Merge function to safely handle hydration without overwriting runtime state
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<StreamingToolState> | undefined;
+        if (!persisted) return currentState;
+
+        return {
+          ...currentState,
+          // Only restore configuration, not runtime state
+          scenes: persisted.scenes ?? currentState.scenes,
+          destinations: (persisted.destinations ?? []).map((d) => ({
+            ...d,
+            status: 'disconnected' as const, // Always reset connection status
+          })),
+          streamSettings: persisted.streamSettings ?? currentState.streamSettings,
+          recordingSettings: persisted.recordingSettings ?? currentState.recordingSettings,
+          transition: persisted.transition ?? currentState.transition,
+          viewMode: persisted.viewMode ?? currentState.viewMode,
+          // Always reset streaming/recording state on load
+          isStreaming: false,
+          isRecording: false,
+          streamStartTime: null,
+          recordingStartTime: null,
+        };
+      },
     }
   )
 );

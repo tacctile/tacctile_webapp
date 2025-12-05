@@ -11,7 +11,8 @@
  * - Toggle data layers on/off
  */
 
-import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useCallback, useState, useMemo, memo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import {
   Box,
   Typography,
@@ -226,30 +227,57 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   const selectedItemId = useSessionTimelineStore((state) => state.selectedItemId);
   const hoveredItemId = useSessionTimelineStore((state) => state.hoveredItemId);
 
-  // Store actions - extract stable references
-  const loadTimeline = useSessionTimelineStore((state) => state.loadTimeline);
-  const refreshTimeline = useSessionTimelineStore((state) => state.refreshTimeline);
-  const importFromHub = useSessionTimelineStore((state) => state.importFromHub);
-  const setZoomLevel = useSessionTimelineStore((state) => state.setZoomLevel);
-  const zoomIn = useSessionTimelineStore((state) => state.zoomIn);
-  const zoomOut = useSessionTimelineStore((state) => state.zoomOut);
-  const fitToView = useSessionTimelineStore((state) => state.fitToView);
-  const toggleDataLayer = useSessionTimelineStore((state) => state.toggleDataLayer);
-  const showAllLayers = useSessionTimelineStore((state) => state.showAllLayers);
-  const hideAllLayers = useSessionTimelineStore((state) => state.hideAllLayers);
-  const selectItem = useSessionTimelineStore((state) => state.selectItem);
-  const setHoveredItem = useSessionTimelineStore((state) => state.setHoveredItem);
-  const setPlayheadPosition = useSessionTimelineStore((state) => state.setPlayheadPosition);
-  const acknowledgeClockSync = useSessionTimelineStore((state) => state.acknowledgeClockSync);
-  const verifyDeviceClock = useSessionTimelineStore((state) => state.verifyDeviceClock);
+  // Store actions - use useShallow to get stable references
+  const {
+    loadTimeline,
+    refreshTimeline,
+    importFromHub,
+    setZoomLevel,
+    zoomIn,
+    zoomOut,
+    fitToView,
+    toggleDataLayer,
+    showAllLayers,
+    hideAllLayers,
+    selectItem,
+    setHoveredItem,
+    setPlayheadPosition,
+    acknowledgeClockSync,
+    verifyDeviceClock,
+  } = useSessionTimelineStore(
+    useShallow((state) => ({
+      loadTimeline: state.loadTimeline,
+      refreshTimeline: state.refreshTimeline,
+      importFromHub: state.importFromHub,
+      setZoomLevel: state.setZoomLevel,
+      zoomIn: state.zoomIn,
+      zoomOut: state.zoomOut,
+      fitToView: state.fitToView,
+      toggleDataLayer: state.toggleDataLayer,
+      showAllLayers: state.showAllLayers,
+      hideAllLayers: state.hideAllLayers,
+      selectItem: state.selectItem,
+      setHoveredItem: state.setHoveredItem,
+      setPlayheadPosition: state.setPlayheadPosition,
+      acknowledgeClockSync: state.acknowledgeClockSync,
+      verifyDeviceClock: state.verifyDeviceClock,
+    }))
+  );
 
   // Scroll state
   const [scrollPosition, setScrollPosition] = useState(0);
 
-  // Load timeline on mount
+  // Ref to track if we've already initiated loading for current investigationId
+  const loadedInvestigationRef = useRef<string | null>(null);
+
+  // Load timeline on mount - with guard to prevent duplicate calls
   useEffect(() => {
+    // Skip if we've already loaded this investigation
+    if (loadedInvestigationRef.current === investigationId) return;
+
+    loadedInvestigationRef.current = investigationId;
     loadTimeline(investigationId);
-  }, [investigationId, loadTimeline]);
+  }, [investigationId, loadTimeline]); // loadTimeline is now stable via useShallow
 
   // Update container width on resize
   useEffect(() => {

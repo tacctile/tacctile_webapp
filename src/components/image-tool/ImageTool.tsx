@@ -3,7 +3,8 @@
  * Main container for the Adobe Lightroom-inspired image editing tool
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef, memo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
@@ -205,41 +206,80 @@ const ImageTool: React.FC<ImageToolProps> = ({
   const showRecipesPanel = useImageToolStore((state) => state.showRecipesPanel);
   const currentImageUrl = useImageToolStore(selectImageUrl);
 
-  // Store actions - extract stable references
-  const loadImage = useImageToolStore((state) => state.loadImage);
-  const setImageElement = useImageToolStore((state) => state.setImageElement);
-  const setViewMode = useImageToolStore((state) => state.setViewMode);
-  const setCompareMode = useImageToolStore((state) => state.setCompareMode);
-  const setCompareEdits = useImageToolStore((state) => state.setCompareEdits);
-  const zoomIn = useImageToolStore((state) => state.zoomIn);
-  const zoomOut = useImageToolStore((state) => state.zoomOut);
-  const setPan = useImageToolStore((state) => state.setPan);
-  const doFitToView = useImageToolStore((state) => state.doFitToView);
-  const setActiveTool = useImageToolStore((state) => state.setActiveTool);
-  const setAdjustment = useImageToolStore((state) => state.setAdjustment);
-  const resetAdjustments = useImageToolStore((state) => state.resetAdjustments);
-  const resetAdjustment = useImageToolStore((state) => state.resetAdjustment);
-  const setCrop = useImageToolStore((state) => state.setCrop);
-  const addAnnotation = useImageToolStore((state) => state.addAnnotation);
-  const updateAnnotation = useImageToolStore((state) => state.updateAnnotation);
-  const deleteAnnotation = useImageToolStore((state) => state.deleteAnnotation);
-  const selectAnnotation = useImageToolStore((state) => state.selectAnnotation);
-  const setAnnotationVisibility = useImageToolStore((state) => state.setAnnotationVisibility);
-  const setAnnotationDefaults = useImageToolStore((state) => state.setAnnotationDefaults);
-  const clearAnnotations = useImageToolStore((state) => state.clearAnnotations);
-  const bringAnnotationToFront = useImageToolStore((state) => state.bringAnnotationToFront);
-  const sendAnnotationToBack = useImageToolStore((state) => state.sendAnnotationToBack);
-  const undo = useImageToolStore((state) => state.undo);
-  const redo = useImageToolStore((state) => state.redo);
-  const canUndo = useImageToolStore((state) => state.canUndo);
-  const canRedo = useImageToolStore((state) => state.canRedo);
-  const saveRecipe = useImageToolStore((state) => state.saveRecipe);
-  const applyRecipe = useImageToolStore((state) => state.applyRecipe);
-  const deleteRecipe = useImageToolStore((state) => state.deleteRecipe);
-  const saveUserEdit = useImageToolStore((state) => state.saveUserEdit);
-  const loadUserEdit = useImageToolStore((state) => state.loadUserEdit);
-  const deleteUserEdit = useImageToolStore((state) => state.deleteUserEdit);
-  const togglePanel = useImageToolStore((state) => state.togglePanel);
+  // Store actions - use useShallow to get stable references
+  const {
+    loadImage,
+    setImageElement,
+    setViewMode,
+    setCompareMode,
+    setCompareEdits,
+    zoomIn,
+    zoomOut,
+    setPan,
+    doFitToView,
+    setActiveTool,
+    setAdjustment,
+    resetAdjustments,
+    resetAdjustment,
+    setCrop,
+    addAnnotation,
+    updateAnnotation,
+    deleteAnnotation,
+    selectAnnotation,
+    setAnnotationVisibility,
+    setAnnotationDefaults,
+    clearAnnotations,
+    bringAnnotationToFront,
+    sendAnnotationToBack,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    saveRecipe,
+    applyRecipe,
+    deleteRecipe,
+    saveUserEdit,
+    loadUserEdit,
+    deleteUserEdit,
+    togglePanel,
+  } = useImageToolStore(
+    useShallow((state) => ({
+      loadImage: state.loadImage,
+      setImageElement: state.setImageElement,
+      setViewMode: state.setViewMode,
+      setCompareMode: state.setCompareMode,
+      setCompareEdits: state.setCompareEdits,
+      zoomIn: state.zoomIn,
+      zoomOut: state.zoomOut,
+      setPan: state.setPan,
+      doFitToView: state.doFitToView,
+      setActiveTool: state.setActiveTool,
+      setAdjustment: state.setAdjustment,
+      resetAdjustments: state.resetAdjustments,
+      resetAdjustment: state.resetAdjustment,
+      setCrop: state.setCrop,
+      addAnnotation: state.addAnnotation,
+      updateAnnotation: state.updateAnnotation,
+      deleteAnnotation: state.deleteAnnotation,
+      selectAnnotation: state.selectAnnotation,
+      setAnnotationVisibility: state.setAnnotationVisibility,
+      setAnnotationDefaults: state.setAnnotationDefaults,
+      clearAnnotations: state.clearAnnotations,
+      bringAnnotationToFront: state.bringAnnotationToFront,
+      sendAnnotationToBack: state.sendAnnotationToBack,
+      undo: state.undo,
+      redo: state.redo,
+      canUndo: state.canUndo,
+      canRedo: state.canRedo,
+      saveRecipe: state.saveRecipe,
+      applyRecipe: state.applyRecipe,
+      deleteRecipe: state.deleteRecipe,
+      saveUserEdit: state.saveUserEdit,
+      loadUserEdit: state.loadUserEdit,
+      deleteUserEdit: state.deleteUserEdit,
+      togglePanel: state.togglePanel,
+    }))
+  );
 
   // Load image - only if URL changed to prevent redundant calls
   useEffect(() => {
