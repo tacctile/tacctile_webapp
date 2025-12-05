@@ -91,12 +91,13 @@ const EQSection = styled(Box)({
 });
 
 const ToolbarSection = styled(Box)({
-  height: 32,
+  height: 28,
   backgroundColor: '#161616',
   display: 'flex',
   alignItems: 'center',
   padding: '0 12px',
   gap: 8,
+  borderTop: '1px solid #252525',
 });
 
 const FilterSection = styled(Box)({
@@ -113,13 +114,13 @@ const SectionTitle = styled(Typography)({
 });
 
 const FilterBar = styled(Box)({
-  height: 48,
-  backgroundColor: '#161616',
+  height: 44,
+  backgroundColor: '#1a1a1a',
   borderBottom: '1px solid #252525',
   display: 'flex',
   alignItems: 'center',
-  padding: '0 16px',
-  gap: 20,
+  padding: '0 12px',
+  gap: 16,
 });
 
 const FilterItem = styled(Box)({
@@ -135,10 +136,10 @@ const FilterItemLabel = styled(Typography)({
 });
 
 const MiniSlider = styled(Slider)({
-  width: 80,
+  width: 70,
   color: '#19abb5',
-  height: 4,
-  padding: '8px 0',
+  height: 3,
+  padding: '6px 0',
   '& .MuiSlider-thumb': {
     width: 10,
     height: 10,
@@ -876,21 +877,8 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         </Button>
       </FilterBar>
 
-      {/* Bottom toolbar */}
+      {/* Bottom toolbar - clean and minimal */}
       <ToolbarSection>
-        <Tooltip title="Zoom in">
-          <IconButton size="small" sx={{ color: '#666' }} disabled={!loadedAudio}>
-            <ZoomInIcon sx={{ fontSize: 16 }} />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Zoom out">
-          <IconButton size="small" sx={{ color: '#666' }} disabled={!loadedAudio}>
-            <ZoomOutIcon sx={{ fontSize: 16 }} />
-          </IconButton>
-        </Tooltip>
-
-        <Box sx={{ width: 1, height: 20, backgroundColor: '#333', mx: 1 }} />
-
         {loadedAudio?.hasVideo && !videoRefVisible && (
           <Tooltip title="Show video reference">
             <IconButton size="small" onClick={() => setVideoRefVisible(true)} sx={{ color: '#666' }}>
