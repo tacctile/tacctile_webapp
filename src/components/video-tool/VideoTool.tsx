@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Box, Typography, Slider, IconButton, Tooltip } from '@mui/material';
+import { Box, Typography, Slider, IconButton, Tooltip, Button } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
@@ -535,33 +535,60 @@ export const VideoTool: React.FC<VideoToolProps> = ({ investigationId }) => {
   );
 
   const inspectorContent = (
-    <ResizablePanelSplit
-      top={filtersContent}
-      bottom={
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      {/* Filters - shrinks to content, scrollable if needed */}
+      <Box sx={{
+        flexShrink: 0,
+        overflowY: 'auto',
+        maxHeight: '55%',
+        borderBottom: '1px solid #252525',
+      }}>
+        <Box sx={{ padding: '8px 12px' }}>
+          <Typography sx={{ fontSize: 10, fontWeight: 600, color: '#666', textTransform: 'uppercase', mb: 1 }}>
+            Video Filters
+          </Typography>
+
+          <PrecisionSlider label="Brightness" value={filters.brightness} min={0} max={200} unit="%" onChange={(v) => setFilters(prev => ({ ...prev, brightness: v }))} disabled={!loadedVideo} />
+          <PrecisionSlider label="Contrast" value={filters.contrast} min={0} max={200} unit="%" onChange={(v) => setFilters(prev => ({ ...prev, contrast: v }))} disabled={!loadedVideo} />
+          <PrecisionSlider label="Saturation" value={filters.saturation} min={0} max={200} unit="%" onChange={(v) => setFilters(prev => ({ ...prev, saturation: v }))} disabled={!loadedVideo} />
+          <PrecisionSlider label="Gamma" value={filters.gamma} min={0} max={200} unit="%" onChange={(v) => setFilters(prev => ({ ...prev, gamma: v }))} disabled={!loadedVideo} />
+
+          <Box sx={{ height: 1, backgroundColor: '#252525', my: 1.5 }} />
+
+          <Typography sx={{ fontSize: 10, fontWeight: 600, color: '#666', textTransform: 'uppercase', mb: 1 }}>
+            Enhancement
+          </Typography>
+
+          <PrecisionSlider label="Night Vision" value={filters.nightVision || 0} min={0} max={100} unit="%" onChange={(v) => setFilters(prev => ({ ...prev, nightVision: v }))} disabled={!loadedVideo} />
+          <PrecisionSlider label="Sharpen" value={filters.sharpen || 0} min={0} max={100} unit="%" onChange={(v) => setFilters(prev => ({ ...prev, sharpen: v }))} disabled={!loadedVideo} />
+
+          <Box sx={{ mt: 1.5 }}>
+            <Button
+              fullWidth
+              size="small"
+              variant="outlined"
+              onClick={() => setFilters({ brightness: 100, contrast: 100, saturation: 100, gamma: 100, nightVision: 0, sharpen: 0 })}
+              sx={{ fontSize: 10, color: '#666', borderColor: '#333', py: 0.5 }}
+              disabled={!loadedVideo}
+            >
+              Reset All
+            </Button>
+          </Box>
+        </Box>
+      </Box>
+
+      {/* Flags - takes remaining space */}
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <FlagsPanel
           flags={flags}
-          onFlagClick={(flag) => {
-            // Jump to timestamp
-            console.log('Jump to:', flag.timestamp);
-          }}
-          onFlagAdd={() => {
-            // Add flag at current position
-            console.log('Add flag');
-          }}
-          onFlagEdit={(flag) => {
-            console.log('Edit flag:', flag.id);
-          }}
-          onFlagDelete={(flagId) => {
-            setFlags(prev => prev.filter(f => f.id !== flagId));
-          }}
+          onFlagClick={(flag) => console.log('Jump to:', flag.timestamp)}
+          onFlagAdd={() => console.log('Add flag')}
+          onFlagEdit={(flag) => console.log('Edit flag:', flag.id)}
+          onFlagDelete={(flagId) => setFlags(prev => prev.filter(f => f.id !== flagId))}
           disabled={!loadedVideo}
         />
-      }
-      defaultSplit={55}
-      minTopHeight={150}
-      minBottomHeight={150}
-      storageKey="tacctile_video_inspector_split"
-    />
+      </Box>
+    </Box>
   );
 
   return (
