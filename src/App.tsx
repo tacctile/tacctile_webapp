@@ -13,6 +13,7 @@ import { useKeyboardShortcuts, createNavigationShortcuts, createViewShortcuts, c
 import { useNavigationStore } from '@/stores/useNavigationStore';
 
 // Lazy load heavy tool components - only load when user opens that tool
+const HomePage = lazy(() => import('@/components/home/HomePage'));
 const StreamingTool = lazy(() => import('@/components/streaming-tool/StreamingTool'));
 const SessionTimeline = lazy(() => import('@/components/session-timeline/SessionTimeline'));
 const AudioTool = lazy(() => import('@/components/audio-tool/AudioTool'));
@@ -21,7 +22,7 @@ const VideoTool = lazy(() => import('@/components/video-tool/VideoTool'));
 const WorkspaceDemo = lazy(() => import('@/pages/WorkspaceDemo'));
 
 // Tool IDs for navigation
-const TOOLS = ['session', 'video', 'audio', 'images', 'streaming', 'workspace-demo'] as const;
+const TOOLS = ['home', 'session', 'video', 'audio', 'images', 'streaming', 'workspace-demo'] as const;
 type ToolId = typeof TOOLS[number];
 
 // Professional DaVinci-style Dark Theme
@@ -195,6 +196,7 @@ const ACTIVITY_BAR_EXPANDED_KEY = 'tacctile_activity_bar_expanded';
 const ToolLoadingFallback: React.FC<{ tool: ToolId }> = ({ tool }) => {
   const variant = useMemo(() => {
     switch (tool) {
+      case 'home': return 'generic';
       case 'audio': return 'audio';
       case 'video': return 'generic';
       case 'images': return 'image';
@@ -293,6 +295,7 @@ const App: React.FC = () => {
   // Keyboard shortcuts
   const shortcuts = useMemo(() => [
     ...createNavigationShortcuts({
+      goToHome: () => setActiveTool('home'),
       goToSession: () => setActiveTool('session'),
       goToVideo: () => setActiveTool('video'),
       goToAudio: () => setActiveTool('audio'),
@@ -322,6 +325,14 @@ const App: React.FC = () => {
     const toolFallback = <ToolLoadingFallback tool={selectedTool} />;
 
     switch (selectedTool) {
+      case 'home':
+        return (
+          <ErrorBoundary toolName="Home">
+            <Suspense fallback={toolFallback}>
+              <HomePage />
+            </Suspense>
+          </ErrorBoundary>
+        );
       case 'session':
         return (
           <ErrorBoundary toolName="Session Timeline">

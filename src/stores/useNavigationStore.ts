@@ -1,10 +1,20 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
-export type ToolType = 'session' | 'video' | 'audio' | 'images' | 'streaming' | 'workspace-demo';
+export type ToolType = 'home' | 'session' | 'video' | 'audio' | 'images' | 'streaming' | 'workspace-demo';
 
 interface NavigationState {
   activeTool: ToolType;
   setActiveTool: (tool: ToolType) => void;
+
+  // Active session ID (for session-based navigation)
+  activeSessionId: string | null;
+  setActiveSessionId: (id: string | null) => void;
+
+  // Quick analyze mode (no session overhead)
+  isQuickAnalyzeMode: boolean;
+  quickAnalyzeFile: { name: string; type: 'video' | 'audio' | 'image'; url: string } | null;
+  setQuickAnalyzeMode: (enabled: boolean, file?: { name: string; type: 'video' | 'audio' | 'image'; url: string } | null) => void;
 
   // Track which file is loaded in each tool
   loadedFiles: {
@@ -18,30 +28,55 @@ interface NavigationState {
   navigateToTool: (tool: ToolType, fileId?: string) => void;
 }
 
-export const useNavigationStore = create<NavigationState>((set, get) => ({
-  activeTool: 'session',
+export const useNavigationStore = create<NavigationState>()(
+  persist(
+    (set, get) => ({
+      activeTool: 'home',
 
-  loadedFiles: {
-    video: null,
-    audio: null,
-    images: null,
-  },
+      activeSessionId: null,
+      isQuickAnalyzeMode: false,
+      quickAnalyzeFile: null,
 
-  setActiveTool: (tool) => set({ activeTool: tool }),
+      loadedFiles: {
+        video: null,
+        audio: null,
+        images: null,
+      },
 
-  setLoadedFile: (tool, fileId) => set((state) => ({
-    loadedFiles: { ...state.loadedFiles, [tool]: fileId },
-  })),
+      setActiveTool: (tool) => set({ activeTool: tool }),
 
-  navigateToTool: (tool, fileId) => {
-    set({ activeTool: tool });
-    if (fileId && (tool === 'video' || tool === 'audio' || tool === 'images')) {
-      set((state) => ({
+      setActiveSessionId: (id) => set({ activeSessionId: id }),
+
+      setQuickAnalyzeMode: (enabled, file) => set({
+        isQuickAnalyzeMode: enabled,
+        quickAnalyzeFile: file || null,
+      }),
+
+      setLoadedFile: (tool, fileId) => set((state) => ({
         loadedFiles: { ...state.loadedFiles, [tool]: fileId },
-      }));
+      })),
+
+      navigateToTool: (tool, fileId) => {
+        set({ activeTool: tool });
+        if (fileId && (tool === 'video' || tool === 'audio' || tool === 'images')) {
+          set((state) => ({
+            loadedFiles: { ...state.loadedFiles, [tool]: fileId },
+          }));
+        }
+      },
+    }),
+    {
+      name: 'tacctile-navigation',
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        activeTool: state.activeTool,
+        activeSessionId: state.activeSessionId,
+        isQuickAnalyzeMode: state.isQuickAnalyzeMode,
+        // Don't persist quickAnalyzeFile URL as it's a blob URL
+      }),
     }
-  },
-}));
+  )
+);
 
 // Helper hook for components
 export const useNavigateToEvidence = () => {
