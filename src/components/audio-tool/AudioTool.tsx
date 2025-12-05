@@ -6,9 +6,6 @@ import {
   Tooltip,
   Button,
   Slider,
-  Select,
-  MenuItem,
-  FormControl,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import MicIcon from '@mui/icons-material/Mic';
@@ -118,32 +115,33 @@ const SectionTitle = styled(Typography)({
 });
 
 const FilterBar = styled(Box)({
-  height: 44,
+  height: 64,
   backgroundColor: '#1a1a1a',
   borderBottom: '1px solid #252525',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  padding: '0 16px',
+  padding: '8px 16px',
+  gap: 16,
 });
 
 const FilterItem = styled(Box)({
   display: 'flex',
-  alignItems: 'center',
-  gap: 8,
+  flexDirection: 'column',
+  gap: 4,
   flex: 1,
   maxWidth: 200,
 });
 
 const FilterItemLabel = styled(Typography)({
-  fontSize: 10,
+  fontSize: 9,
   color: '#666',
-  minWidth: 50,
   whiteSpace: 'nowrap',
+  textTransform: 'uppercase',
+  fontWeight: 600,
 });
 
 const MiniSlider = styled(Slider)({
-  flex: 1,
   color: '#19abb5',
   height: 3,
   '& .MuiSlider-thumb': {
@@ -156,10 +154,9 @@ const MiniSlider = styled(Slider)({
 });
 
 const FilterValue = styled(Typography)({
-  fontSize: 10,
+  fontSize: 9,
   color: '#888',
-  minWidth: 40,
-  textAlign: 'right',
+  textAlign: 'center',
   fontFamily: '"JetBrains Mono", monospace',
 });
 
@@ -172,6 +169,17 @@ const FilterButton = styled(Button)({
   '&:hover': {
     borderColor: '#19abb5',
     color: '#19abb5',
+  },
+});
+
+const FilterResetButton = styled(IconButton)({
+  padding: 2,
+  width: 16,
+  height: 16,
+  color: '#666',
+  '&:hover': {
+    color: '#19abb5',
+    backgroundColor: 'rgba(25, 171, 181, 0.1)',
   },
 });
 
@@ -509,7 +517,9 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [loadedAudio, setLoadedAudio] = useState<typeof audioEvidence[0] | null>(null);
   const [videoRefVisible, setVideoRefVisible] = useState(true);
   const [flags, setFlags] = useState<Flag[]>(mockFlags);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [reverseEnabled, setReverseEnabled] = useState(false);
+  const [loopEnabled, setLoopEnabled] = useState(false);
+  const [hoveredFilter, setHoveredFilter] = useState<string | null>(null);
 
   // Filter values
   const [filters, setFilters] = useState({
@@ -575,6 +585,48 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const resetEQ = useCallback(() => {
     setEqValues([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
   }, []);
+
+  const resetFilter = useCallback((filterName: keyof typeof filters) => {
+    const defaults = {
+      deNoise: 0,
+      deHum: 0,
+      lowCut: 20,
+      highCut: 20000,
+      clarity: 0,
+    };
+    setFilters(prev => ({ ...prev, [filterName]: defaults[filterName] }));
+  }, []);
+
+  const resetAllFilters = useCallback(() => {
+    setFilters({ deNoise: 0, deHum: 0, lowCut: 20, highCut: 20000, clarity: 0 });
+  }, []);
+
+  const formatFilterValue = (filterName: keyof typeof filters, value: number) => {
+    switch (filterName) {
+      case 'deNoise':
+      case 'deHum':
+        return `${value}%`;
+      case 'lowCut':
+        return value === 20 ? 'Off' : `${value}Hz`;
+      case 'highCut':
+        return value === 20000 ? 'Off' : value >= 10000 ? `${(value/1000).toFixed(0)}k` : `${(value/1000).toFixed(1)}k`;
+      case 'clarity':
+        return value === 0 ? '0' : `${value > 0 ? '+' : ''}${value}dB`;
+      default:
+        return String(value);
+    }
+  };
+
+  const isFilterAtDefault = (filterName: keyof typeof filters) => {
+    const defaults = {
+      deNoise: 0,
+      deHum: 0,
+      lowCut: 20,
+      highCut: 20000,
+      clarity: 0,
+    };
+    return filters[filterName] === defaults[filterName];
+  };
 
   // Render spectrogram placeholder
   const renderSpectrogram = () => {
@@ -815,8 +867,18 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
 
       {/* Filter Bar - 5 filters evenly spaced */}
       <FilterBar>
-        <FilterItem>
-          <FilterItemLabel>De-noise</FilterItemLabel>
+        <FilterItem
+          onMouseEnter={() => setHoveredFilter('deNoise')}
+          onMouseLeave={() => setHoveredFilter(null)}
+        >
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 16 }}>
+            <FilterItemLabel>De-noise</FilterItemLabel>
+            {hoveredFilter === 'deNoise' && !isFilterAtDefault('deNoise') && (
+              <FilterResetButton onClick={() => resetFilter('deNoise')} disabled={!loadedAudio}>
+                <CloseIcon sx={{ fontSize: 10 }} />
+              </FilterResetButton>
+            )}
+          </Box>
           <MiniSlider
             value={filters.deNoise}
             onChange={(_, v) => setFilters(prev => ({ ...prev, deNoise: v as number }))}
@@ -824,11 +886,21 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             max={100}
             disabled={!loadedAudio}
           />
-          <FilterValue>{filters.deNoise}%</FilterValue>
+          <FilterValue>{formatFilterValue('deNoise', filters.deNoise)}</FilterValue>
         </FilterItem>
 
-        <FilterItem>
-          <FilterItemLabel>De-hum</FilterItemLabel>
+        <FilterItem
+          onMouseEnter={() => setHoveredFilter('deHum')}
+          onMouseLeave={() => setHoveredFilter(null)}
+        >
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 16 }}>
+            <FilterItemLabel>De-hum</FilterItemLabel>
+            {hoveredFilter === 'deHum' && !isFilterAtDefault('deHum') && (
+              <FilterResetButton onClick={() => resetFilter('deHum')} disabled={!loadedAudio}>
+                <CloseIcon sx={{ fontSize: 10 }} />
+              </FilterResetButton>
+            )}
+          </Box>
           <MiniSlider
             value={filters.deHum}
             onChange={(_, v) => setFilters(prev => ({ ...prev, deHum: v as number }))}
@@ -836,11 +908,21 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             max={100}
             disabled={!loadedAudio}
           />
-          <FilterValue>{filters.deHum}%</FilterValue>
+          <FilterValue>{formatFilterValue('deHum', filters.deHum)}</FilterValue>
         </FilterItem>
 
-        <FilterItem>
-          <FilterItemLabel>Low Cut</FilterItemLabel>
+        <FilterItem
+          onMouseEnter={() => setHoveredFilter('lowCut')}
+          onMouseLeave={() => setHoveredFilter(null)}
+        >
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 16 }}>
+            <FilterItemLabel>Low Cut</FilterItemLabel>
+            {hoveredFilter === 'lowCut' && !isFilterAtDefault('lowCut') && (
+              <FilterResetButton onClick={() => resetFilter('lowCut')} disabled={!loadedAudio}>
+                <CloseIcon sx={{ fontSize: 10 }} />
+              </FilterResetButton>
+            )}
+          </Box>
           <MiniSlider
             value={filters.lowCut}
             onChange={(_, v) => setFilters(prev => ({ ...prev, lowCut: v as number }))}
@@ -848,11 +930,21 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             max={500}
             disabled={!loadedAudio}
           />
-          <FilterValue>{filters.lowCut}Hz</FilterValue>
+          <FilterValue>{formatFilterValue('lowCut', filters.lowCut)}</FilterValue>
         </FilterItem>
 
-        <FilterItem>
-          <FilterItemLabel>High Cut</FilterItemLabel>
+        <FilterItem
+          onMouseEnter={() => setHoveredFilter('highCut')}
+          onMouseLeave={() => setHoveredFilter(null)}
+        >
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 16 }}>
+            <FilterItemLabel>High Cut</FilterItemLabel>
+            {hoveredFilter === 'highCut' && !isFilterAtDefault('highCut') && (
+              <FilterResetButton onClick={() => resetFilter('highCut')} disabled={!loadedAudio}>
+                <CloseIcon sx={{ fontSize: 10 }} />
+              </FilterResetButton>
+            )}
+          </Box>
           <MiniSlider
             value={filters.highCut}
             onChange={(_, v) => setFilters(prev => ({ ...prev, highCut: v as number }))}
@@ -861,11 +953,21 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             step={100}
             disabled={!loadedAudio}
           />
-          <FilterValue>{filters.highCut >= 10000 ? `${(filters.highCut/1000).toFixed(0)}k` : `${(filters.highCut/1000).toFixed(1)}k`}</FilterValue>
+          <FilterValue>{formatFilterValue('highCut', filters.highCut)}</FilterValue>
         </FilterItem>
 
-        <FilterItem>
-          <FilterItemLabel>Clarity</FilterItemLabel>
+        <FilterItem
+          onMouseEnter={() => setHoveredFilter('clarity')}
+          onMouseLeave={() => setHoveredFilter(null)}
+        >
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 16 }}>
+            <FilterItemLabel>Clarity</FilterItemLabel>
+            {hoveredFilter === 'clarity' && !isFilterAtDefault('clarity') && (
+              <FilterResetButton onClick={() => resetFilter('clarity')} disabled={!loadedAudio}>
+                <CloseIcon sx={{ fontSize: 10 }} />
+              </FilterResetButton>
+            )}
+          </Box>
           <MiniSlider
             value={filters.clarity}
             onChange={(_, v) => setFilters(prev => ({ ...prev, clarity: v as number }))}
@@ -873,20 +975,20 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             max={12}
             disabled={!loadedAudio}
           />
-          <FilterValue>{filters.clarity > 0 ? '+' : ''}{filters.clarity}dB</FilterValue>
+          <FilterValue>{formatFilterValue('clarity', filters.clarity)}</FilterValue>
         </FilterItem>
 
         <Button
           size="small"
-          onClick={() => setFilters({ deNoise: 0, deHum: 0, lowCut: 20, highCut: 20000, clarity: 0 })}
+          onClick={resetAllFilters}
           disabled={!loadedAudio}
-          sx={{ fontSize: 9, color: '#555', ml: 2, '&:hover': { color: '#19abb5' } }}
+          sx={{ fontSize: 9, color: '#555', alignSelf: 'center', '&:hover': { color: '#19abb5' } }}
         >
-          Reset
+          Reset All
         </Button>
       </FilterBar>
 
-      {/* Audio Transport - centered with Rev/Loop/Speed */}
+      {/* Audio Transport - centered with Rev/Loop toggle buttons */}
       <Box sx={{
         height: 48,
         backgroundColor: '#161616',
@@ -933,71 +1035,50 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
           <IconButton size="small" disabled={!loadedAudio} sx={{ color: '#888' }}>
             <SkipNextIcon sx={{ fontSize: 20 }} />
           </IconButton>
-        </Box>
 
-        {/* Divider */}
-        <Box sx={{ width: 1, height: 24, backgroundColor: '#333', mx: 1 }} />
-
-        {/* Reverse button */}
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<ReplayIcon sx={{ fontSize: 14 }} />}
-          disabled={!loadedAudio}
-          sx={{
-            fontSize: 9,
-            color: '#666',
-            borderColor: '#333',
-            minWidth: 'auto',
-            px: 1.5,
-            '&:hover': { borderColor: '#19abb5', color: '#19abb5' }
-          }}
-        >
-          Rev
-        </Button>
-
-        {/* Loop button */}
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<LoopIcon sx={{ fontSize: 14 }} />}
-          disabled={!loadedAudio}
-          sx={{
-            fontSize: 9,
-            color: '#666',
-            borderColor: '#333',
-            minWidth: 'auto',
-            px: 1.5,
-            '&:hover': { borderColor: '#19abb5', color: '#19abb5' }
-          }}
-        >
-          Loop
-        </Button>
-
-        {/* Speed dropdown */}
-        <FormControl size="small" disabled={!loadedAudio}>
-          <Select
-            value={playbackSpeed}
-            onChange={(e) => setPlaybackSpeed(e.target.value as number)}
+          {/* Reverse toggle button */}
+          <IconButton
+            size="small"
+            disabled={!loadedAudio}
+            onClick={() => setReverseEnabled(!reverseEnabled)}
             sx={{
-              fontSize: 10,
-              color: '#888',
-              height: 28,
-              minWidth: 65,
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#333' },
-              '& .MuiSvgIcon-root': { color: '#666', fontSize: 16 },
-              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#19abb5' },
+              color: reverseEnabled ? '#19abb5' : '#666',
+              backgroundColor: reverseEnabled ? 'rgba(25, 171, 181, 0.15)' : 'transparent',
+              border: '1px solid',
+              borderColor: reverseEnabled ? '#19abb5' : '#333',
+              ml: 1,
+              '&:hover': {
+                backgroundColor: reverseEnabled ? 'rgba(25, 171, 181, 0.25)' : 'rgba(25, 171, 181, 0.1)',
+                borderColor: '#19abb5',
+              }
             }}
           >
-            <MenuItem value={0.25} sx={{ fontSize: 10 }}>0.25x</MenuItem>
-            <MenuItem value={0.5} sx={{ fontSize: 10 }}>0.5x</MenuItem>
-            <MenuItem value={0.75} sx={{ fontSize: 10 }}>0.75x</MenuItem>
-            <MenuItem value={1} sx={{ fontSize: 10 }}>1x</MenuItem>
-            <MenuItem value={1.25} sx={{ fontSize: 10 }}>1.25x</MenuItem>
-            <MenuItem value={1.5} sx={{ fontSize: 10 }}>1.5x</MenuItem>
-            <MenuItem value={2} sx={{ fontSize: 10 }}>2x</MenuItem>
-          </Select>
-        </FormControl>
+            <Tooltip title="Reverse">
+              <ReplayIcon sx={{ fontSize: 18 }} />
+            </Tooltip>
+          </IconButton>
+
+          {/* Loop toggle button */}
+          <IconButton
+            size="small"
+            disabled={!loadedAudio}
+            onClick={() => setLoopEnabled(!loopEnabled)}
+            sx={{
+              color: loopEnabled ? '#19abb5' : '#666',
+              backgroundColor: loopEnabled ? 'rgba(25, 171, 181, 0.15)' : 'transparent',
+              border: '1px solid',
+              borderColor: loopEnabled ? '#19abb5' : '#333',
+              '&:hover': {
+                backgroundColor: loopEnabled ? 'rgba(25, 171, 181, 0.25)' : 'rgba(25, 171, 181, 0.1)',
+                borderColor: '#19abb5',
+              }
+            }}
+          >
+            <Tooltip title="Loop">
+              <LoopIcon sx={{ fontSize: 18 }} />
+            </Tooltip>
+          </IconButton>
+        </Box>
       </Box>
     </MainContainer>
   );
