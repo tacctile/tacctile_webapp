@@ -7,7 +7,7 @@ import { TransportControls } from '@/components/common';
 
 // Layout constants
 const EVIDENCE_PANEL_WIDTH = 280;
-const INSPECTOR_PANEL_WIDTH = 300;
+const INSPECTOR_PANEL_WIDTH = 280; // Was 300, now matches left column
 const COLLAPSED_WIDTH = 36;
 
 const LayoutContainer = styled(Box)({
