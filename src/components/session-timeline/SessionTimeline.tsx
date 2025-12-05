@@ -60,6 +60,7 @@ import {
   selectInvestigationTitle,
 } from '../../stores/useSessionTimelineStore';
 import { usePlayheadStore } from '../../stores/usePlayheadStore';
+import { useNavigationStore } from '../../stores/useNavigationStore';
 
 import { ZOOM_LEVELS, EVIDENCE_TYPE_TO_LAYER, formatTimelineTimestamp, formatDuration } from '../../types/session';
 import type { TimelineItem, TimelineItemFlag, DataLayerType } from '../../types/session';
@@ -191,6 +192,9 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
 
   // Global playhead store
   const globalTimestamp = usePlayheadStore((state) => state.timestamp);
+
+  // Navigation store
+  const navigateToTool = useNavigationStore((state) => state.navigateToTool);
 
   // Store state
   const items = useSessionTimelineStore(selectTimelineItems);
@@ -459,8 +463,15 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
           selectedId={selectedEvidence?.id}
           onSelect={(item) => setSelectedEvidence(item)}
           onDoubleClick={(item) => {
-            // TODO: Navigate to appropriate tool
-            console.log('Open in tool:', item.type, item.fileName);
+            const toolMap: Record<string, 'video' | 'audio' | 'images'> = {
+              video: 'video',
+              audio: 'audio',
+              image: 'images',
+            };
+            const tool = toolMap[item.type];
+            if (tool) {
+              navigateToTool(tool, item.id);
+            }
           }}
         />
       }

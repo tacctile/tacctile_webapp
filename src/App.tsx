@@ -11,6 +11,7 @@ import StatusBar from '@/components/layout/StatusBar';
 import { LayoutProvider } from '@/contexts/LayoutContext';
 import { ErrorBoundary, LoadingSkeleton } from '@/components/common';
 import { useKeyboardShortcuts, createNavigationShortcuts, createViewShortcuts, createEditingShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { useNavigationStore } from '@/stores/useNavigationStore';
 
 // Lazy load heavy tool components - only load when user opens that tool
 const StreamingTool = lazy(() => import('@/components/streaming-tool/StreamingTool'));
@@ -226,9 +227,12 @@ const App: React.FC = () => {
   const [sidePanelWidth, setSidePanelWidth] = useState(isTablet ? 200 : 250);
   const [bottomPanelVisible, setBottomPanelVisible] = useState(!isMobile && !isTablet);
   const [bottomPanelHeight, setBottomPanelHeight] = useState(200);
-  const [selectedTool, setSelectedTool] = useState<ToolId>('session');
   const [openTabs, setOpenTabs] = useState<Array<{id: string, title: string, pinned: boolean}>>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
+
+  // Use navigation store for tool selection
+  const selectedTool = useNavigationStore((state) => state.activeTool);
+  const setActiveTool = useNavigationStore((state) => state.setActiveTool);
 
   const handleActivityBarToggle = useCallback(() => {
     setActivityBarExpanded(prev => {
@@ -239,14 +243,14 @@ const App: React.FC = () => {
   }, []);
 
   const handleToolSelect = useCallback((toolId: string) => {
-    setSelectedTool(toolId as ToolId);
+    setActiveTool(toolId as ToolId);
     // On mobile, close side panel when selecting tool
     if (isMobile) {
       setSidePanelVisible(false);
     } else {
       setSidePanelVisible(true);
     }
-  }, [isMobile]);
+  }, [isMobile, setActiveTool]);
 
   const handleOpenFile = useCallback((file: { id: string; name: string }) => {
     const existingTab = openTabs.find(tab => tab.id === file.id);
@@ -272,9 +276,9 @@ const App: React.FC = () => {
   // Navigation shortcuts
   const navigateTool = useCallback((index: number) => {
     if (index >= 0 && index < TOOLS.length) {
-      setSelectedTool(TOOLS[index]);
+      setActiveTool(TOOLS[index]);
     }
-  }, []);
+  }, [setActiveTool]);
 
   const prevTool = useCallback(() => {
     const currentIndex = TOOLS.indexOf(selectedTool);
@@ -298,11 +302,11 @@ const App: React.FC = () => {
   // Keyboard shortcuts
   const shortcuts = useMemo(() => [
     ...createNavigationShortcuts({
-      goToSession: () => setSelectedTool('session'),
-      goToVideo: () => setSelectedTool('video'),
-      goToAudio: () => setSelectedTool('audio'),
-      goToImages: () => setSelectedTool('images'),
-      goToStreaming: () => setSelectedTool('streaming'),
+      goToSession: () => setActiveTool('session'),
+      goToVideo: () => setActiveTool('video'),
+      goToAudio: () => setActiveTool('audio'),
+      goToImages: () => setActiveTool('images'),
+      goToStreaming: () => setActiveTool('streaming'),
       prevTool,
       nextTool,
     }),
@@ -331,7 +335,7 @@ const App: React.FC = () => {
       category: 'view' as const,
       enabled: isMobile,
     },
-  ], [prevTool, nextTool, toggleFullscreen, isMobile]);
+  ], [setActiveTool, prevTool, nextTool, toggleFullscreen, isMobile]);
 
   useKeyboardShortcuts(shortcuts);
 

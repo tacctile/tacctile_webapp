@@ -52,6 +52,7 @@ import {
   selectWaveformSettings,
   selectFiltersBypassed,
 } from '../../stores/useAudioToolStore';
+import { useNavigationStore } from '../../stores/useNavigationStore';
 import type { AudioViewMode, LoopRegion, AudioFinding } from '../../types/audio';
 
 // ============================================================================
@@ -144,6 +145,9 @@ const AudioTool: React.FC<AudioToolProps> = ({
   const [showSettings, setShowSettings] = useState(false);
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
   const [selectedEvidence, setSelectedEvidence] = useState<any>(null);
+
+  // Watch for navigation to this tool with a file
+  const loadedFileId = useNavigationStore((state) => state.loadedFiles.audio);
 
   // Mock audio evidence data
   const audioEvidence = [
@@ -285,6 +289,20 @@ const AudioTool: React.FC<AudioToolProps> = ({
       setZoom: state.setZoom,
     }))
   );
+
+  // Load audio when navigated to from another tool
+  useEffect(() => {
+    if (loadedFileId) {
+      // Find the file in evidence and load it
+      const file = audioEvidence.find((e) => e.id === loadedFileId);
+      if (file) {
+        setSelectedEvidence(file);
+        // TODO: Actually load the audio file into the player
+        // This would typically involve calling loadAudio with the file's URL
+        console.log('Load audio file from navigation:', file.fileName);
+      }
+    }
+  }, [loadedFileId]);
 
   // Initialize audio element and Web Audio API
   useEffect(() => {

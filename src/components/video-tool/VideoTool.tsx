@@ -10,6 +10,7 @@ import FlagIcon from '@mui/icons-material/Flag';
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank } from '@/components/evidence-bank';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
+import { useNavigationStore } from '@/stores/useNavigationStore';
 
 // Styled components
 const ViewerContainer = styled(Box)({
@@ -139,6 +140,23 @@ export const VideoTool: React.FC<VideoToolProps> = ({ investigationId }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const timestamp = usePlayheadStore((state) => state.timestamp);
   const setTimestamp = usePlayheadStore((state) => state.setTimestamp);
+
+  // Watch for navigation to this tool with a file
+  const loadedFileId = useNavigationStore((state) => state.loadedFiles.video);
+
+  // Load video when navigated to from another tool
+  useEffect(() => {
+    if (loadedFileId) {
+      // Find the file in evidence and load it
+      const file = videoEvidence.find((e) => e.id === loadedFileId);
+      if (file) {
+        setLoadedVideo(file);
+        setSelectedEvidence(file);
+        // Reset filters when loading new video
+        setFilters(defaultFilters);
+      }
+    }
+  }, [loadedFileId]);
 
   // Sync video with global playhead
   useEffect(() => {

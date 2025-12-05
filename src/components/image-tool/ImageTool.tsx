@@ -57,6 +57,7 @@ import {
   selectImageActiveTool,
   selectSelectedAnnotation,
 } from '../../stores/useImageToolStore';
+import { useNavigationStore } from '../../stores/useNavigationStore';
 import type { ImageViewMode, CompareMode, ImageToolType, ImageAnnotation } from '../../types/image';
 
 // ============================================================================
@@ -184,6 +185,9 @@ const ImageTool: React.FC<ImageToolProps> = ({
   const [showSettings, setShowSettings] = useState(false);
   const [selectedEvidence, setSelectedEvidence] = useState<any>(null);
 
+  // Watch for navigation to this tool with a file
+  const loadedFileId = useNavigationStore((state) => state.loadedFiles.images);
+
   // Mock image evidence data
   const imageEvidence = [
     { id: 'i1', type: 'image' as const, fileName: 'thermal_anomaly_001.jpg', capturedAt: Date.now() - 5400000, user: 'Mike', deviceInfo: 'FLIR E8', flagCount: 1, hasFindings: true },
@@ -291,6 +295,20 @@ const ImageTool: React.FC<ImageToolProps> = ({
       togglePanel: state.togglePanel,
     }))
   );
+
+  // Load image when navigated to from another tool
+  useEffect(() => {
+    if (loadedFileId) {
+      // Find the file in evidence and load it
+      const file = imageEvidence.find((e) => e.id === loadedFileId);
+      if (file) {
+        setSelectedEvidence(file);
+        // TODO: Actually load the image file into the viewer
+        // This would typically involve calling loadImage with the file's URL
+        console.log('Load image file from navigation:', file.fileName);
+      }
+    }
+  }, [loadedFileId]);
 
   // Load image - only if URL changed to prevent redundant calls
   useEffect(() => {
