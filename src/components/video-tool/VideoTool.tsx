@@ -8,6 +8,11 @@ import VolumeOffIcon from '@mui/icons-material/VolumeOff';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FlagIcon from '@mui/icons-material/Flag';
 import VideocamIcon from '@mui/icons-material/Videocam';
+import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
+import SkipNextIcon from '@mui/icons-material/SkipNext';
+import FastRewindIcon from '@mui/icons-material/FastRewind';
+import FastForwardIcon from '@mui/icons-material/FastForward';
+import LoopIcon from '@mui/icons-material/Loop';
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank } from '@/components/evidence-bank';
 import { MetadataPanel, PrecisionSlider, FlagsPanel, ResizablePanelSplit, type Flag } from '@/components/common';
@@ -154,6 +159,7 @@ export const VideoTool: React.FC<VideoToolProps> = ({ investigationId }) => {
   const [volume, setVolume] = useState(100);
   const [filters, setFilters] = useState(defaultFilters);
   const [flags, setFlags] = useState<Flag[]>(mockFlags);
+  const [loopEnabled, setLoopEnabled] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const timestamp = usePlayheadStore((state) => state.timestamp);
@@ -418,41 +424,93 @@ export const VideoTool: React.FC<VideoToolProps> = ({ investigationId }) => {
         )}
       </Box>
 
-      {/* Mini transport - integrated with timeline */}
+      {/* Video Transport - centered, full width bar */}
       <Box sx={{
-        height: 32,
+        height: 48,
         backgroundColor: '#161616',
         borderTop: '1px solid #252525',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 1,
+        gap: 2,
         px: 2,
       }}>
-        <Tooltip title={isMuted ? 'Unmute' : 'Mute'}>
-          <IconButton size="small" onClick={() => setIsMuted(!isMuted)} sx={{ color: '#666' }}>
-            {isMuted ? <VolumeOffIcon sx={{ fontSize: 16 }} /> : <VolumeUpIcon sx={{ fontSize: 16 }} />}
-          </IconButton>
-        </Tooltip>
-
-        <Slider
-          size="small"
-          value={volume}
-          onChange={(_, v) => setVolume(v as number)}
-          sx={{ width: 60, color: '#19abb5' }}
-          disabled={isMuted}
-        />
-
-        <Box sx={{ width: 16 }} />
-
+        {/* Timecode */}
         <Typography sx={{
-          fontSize: 11,
+          fontSize: 12,
           color: '#19abb5',
           fontFamily: '"JetBrains Mono", monospace',
-          minWidth: 70,
+          minWidth: 90,
         }}>
-          {loadedVideo ? '00:00:00:00' : '--:--:--:--'}
+          {loadedVideo ? '00:00:00' : '--:--:--'}
         </Typography>
+
+        {/* Playback controls */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <IconButton size="small" disabled={!loadedVideo} sx={{ color: '#888' }}>
+            <SkipPreviousIcon sx={{ fontSize: 20 }} />
+          </IconButton>
+          <IconButton size="small" disabled={!loadedVideo} sx={{ color: '#888' }}>
+            <FastRewindIcon sx={{ fontSize: 20 }} />
+          </IconButton>
+          <IconButton
+            size="small"
+            disabled={!loadedVideo}
+            onClick={() => setIsPlaying(!isPlaying)}
+            sx={{
+              color: '#19abb5',
+              backgroundColor: 'rgba(25, 171, 181, 0.1)',
+              mx: 0.5,
+              '&:hover': { backgroundColor: 'rgba(25, 171, 181, 0.2)' }
+            }}
+          >
+            {isPlaying ? <PauseIcon sx={{ fontSize: 24 }} /> : <PlayArrowIcon sx={{ fontSize: 24 }} />}
+          </IconButton>
+          <IconButton size="small" disabled={!loadedVideo} sx={{ color: '#888' }}>
+            <FastForwardIcon sx={{ fontSize: 20 }} />
+          </IconButton>
+          <IconButton size="small" disabled={!loadedVideo} sx={{ color: '#888' }}>
+            <SkipNextIcon sx={{ fontSize: 20 }} />
+          </IconButton>
+
+          {/* Loop toggle button */}
+          <IconButton
+            size="small"
+            disabled={!loadedVideo}
+            onClick={() => setLoopEnabled(!loopEnabled)}
+            sx={{
+              color: loopEnabled ? '#19abb5' : '#666',
+              backgroundColor: loopEnabled ? 'rgba(25, 171, 181, 0.15)' : 'transparent',
+              border: '1px solid',
+              borderColor: loopEnabled ? '#19abb5' : '#333',
+              ml: 1,
+              '&:hover': {
+                backgroundColor: loopEnabled ? 'rgba(25, 171, 181, 0.25)' : 'rgba(25, 171, 181, 0.1)',
+                borderColor: '#19abb5',
+              }
+            }}
+          >
+            <Tooltip title="Loop">
+              <LoopIcon sx={{ fontSize: 18 }} />
+            </Tooltip>
+          </IconButton>
+        </Box>
+
+        {/* Volume controls */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 2 }}>
+          <Tooltip title={isMuted ? 'Unmute' : 'Mute'}>
+            <IconButton size="small" onClick={() => setIsMuted(!isMuted)} sx={{ color: '#666' }}>
+              {isMuted ? <VolumeOffIcon sx={{ fontSize: 18 }} /> : <VolumeUpIcon sx={{ fontSize: 18 }} />}
+            </IconButton>
+          </Tooltip>
+          <Slider
+            size="small"
+            value={volume}
+            onChange={(_, v) => setVolume(v as number)}
+            sx={{ width: 60, color: '#19abb5' }}
+            disabled={isMuted}
+          />
+        </Box>
       </Box>
     </Box>
   );
