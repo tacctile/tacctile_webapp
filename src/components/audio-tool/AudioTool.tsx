@@ -11,9 +11,6 @@ import { styled } from '@mui/material/styles';
 import MicIcon from '@mui/icons-material/Mic';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import CloseIcon from '@mui/icons-material/Close';
-import ZoomInIcon from '@mui/icons-material/ZoomIn';
-import ZoomOutIcon from '@mui/icons-material/ZoomOut';
-import FlagIcon from '@mui/icons-material/Flag';
 import ReplayIcon from '@mui/icons-material/Replay';
 import LoopIcon from '@mui/icons-material/Loop';
 
@@ -886,12 +883,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             </IconButton>
           </Tooltip>
         )}
-
-        <Tooltip title="Add flag (M)">
-          <IconButton size="small" sx={{ color: '#666' }} disabled={!loadedAudio}>
-            <FlagIcon sx={{ fontSize: 16 }} />
-          </IconButton>
-        </Tooltip>
 
         <Box sx={{ flex: 1 }} />
 
