@@ -537,3 +537,22 @@ export class CollaborationError extends TacctileError {
     this.name = 'CollaborationError';
   }
 }
+
+// ============================================================================
+// AI SIDEKICK TYPES
+// ============================================================================
+
+export type {
+  ChatMessage,
+  ChatMessageRole,
+  ChatHistory,
+  AISidekickContext,
+  ChatSearchResult,
+  ActionType,
+  ActionButton,
+  GeminiOptions,
+  GeminiResponse,
+  AISidekickState,
+  AISidekickActions,
+  SendToAISidekickFn,
+} from './ai-sidekick';

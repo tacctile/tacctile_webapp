@@ -19,6 +19,7 @@ const AudioTool = lazy(() => import('@/components/audio-tool/AudioTool'));
 const ImageTool = lazy(() => import('@/components/image-tool/ImageTool'));
 const VideoTool = lazy(() => import('@/components/video-tool/VideoTool'));
 const WorkspaceDemo = lazy(() => import('@/pages/WorkspaceDemo'));
+const AISidekickPanel = lazy(() => import('@/components/ai-sidekick/AISidekickPanel'));
 
 // Tool IDs for navigation
 const TOOLS = ['home', 'session', 'video', 'audio', 'images', 'streaming', 'export', 'notes', 'team', 'settings', 'workspace-demo'] as const;
@@ -416,12 +417,28 @@ const App: React.FC = () => {
           {/* Main Content Area */}
           <Box sx={{
             display: 'flex',
-            flexDirection: 'column',
+            flexDirection: 'row',
             flex: 1,
             minWidth: 0,
             overflow: 'hidden',
           }}>
-            {renderTool()}
+            {/* Tool Content */}
+            <Box sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              flex: 1,
+              minWidth: 0,
+              overflow: 'hidden',
+            }}>
+              {renderTool()}
+            </Box>
+
+            {/* AI Sidekick Panel - shown for all tools except 'home' */}
+            {selectedTool !== 'home' && (
+              <Suspense fallback={null}>
+                <AISidekickPanel />
+              </Suspense>
+            )}
           </Box>
 
           {/* Status Bar */}
