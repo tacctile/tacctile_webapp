@@ -5,6 +5,7 @@ import {
   IconButton,
   Tooltip,
   Button,
+  Slider,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import MicIcon from '@mui/icons-material/Mic';
@@ -109,6 +110,62 @@ const SectionTitle = styled(Typography)({
   color: '#666',
   textTransform: 'uppercase',
   marginBottom: 8,
+});
+
+const FilterBar = styled(Box)({
+  height: 48,
+  backgroundColor: '#161616',
+  borderBottom: '1px solid #252525',
+  display: 'flex',
+  alignItems: 'center',
+  padding: '0 16px',
+  gap: 20,
+});
+
+const FilterItem = styled(Box)({
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+});
+
+const FilterItemLabel = styled(Typography)({
+  fontSize: 10,
+  color: '#666',
+  minWidth: 55,
+});
+
+const MiniSlider = styled(Slider)({
+  width: 80,
+  color: '#19abb5',
+  height: 4,
+  padding: '8px 0',
+  '& .MuiSlider-thumb': {
+    width: 10,
+    height: 10,
+  },
+  '& .MuiSlider-rail': {
+    backgroundColor: '#333',
+  },
+});
+
+const FilterValue = styled(Typography)({
+  fontSize: 10,
+  color: '#888',
+  minWidth: 35,
+  textAlign: 'right',
+  fontFamily: '"JetBrains Mono", monospace',
+});
+
+const FilterButton = styled(Button)({
+  fontSize: 9,
+  color: '#666',
+  borderColor: '#333',
+  padding: '4px 10px',
+  minWidth: 'auto',
+  '&:hover': {
+    borderColor: '#19abb5',
+    color: '#19abb5',
+  },
 });
 
 // ============================================================================
@@ -737,6 +794,87 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
           disabled={!loadedAudio}
         />
       </EQSection>
+
+      {/* Filter Bar - always visible */}
+      <FilterBar>
+        <FilterItem>
+          <FilterItemLabel>De-noise</FilterItemLabel>
+          <MiniSlider
+            value={filters.deNoise}
+            onChange={(_, v) => setFilters(prev => ({ ...prev, deNoise: v as number }))}
+            min={0}
+            max={100}
+            disabled={!loadedAudio}
+          />
+          <FilterValue>{filters.deNoise}%</FilterValue>
+        </FilterItem>
+
+        <FilterItem>
+          <FilterItemLabel>De-hum</FilterItemLabel>
+          <MiniSlider
+            value={filters.deHum}
+            onChange={(_, v) => setFilters(prev => ({ ...prev, deHum: v as number }))}
+            min={0}
+            max={100}
+            disabled={!loadedAudio}
+          />
+          <FilterValue>{filters.deHum}%</FilterValue>
+        </FilterItem>
+
+        <FilterItem>
+          <FilterItemLabel>Gain</FilterItemLabel>
+          <MiniSlider
+            value={filters.gain}
+            onChange={(_, v) => setFilters(prev => ({ ...prev, gain: v as number }))}
+            min={-24}
+            max={24}
+            disabled={!loadedAudio}
+          />
+          <FilterValue>{filters.gain > 0 ? '+' : ''}{filters.gain}dB</FilterValue>
+        </FilterItem>
+
+        <FilterItem>
+          <FilterItemLabel>Speed</FilterItemLabel>
+          <MiniSlider
+            value={filters.speed}
+            onChange={(_, v) => setFilters(prev => ({ ...prev, speed: v as number }))}
+            min={0.25}
+            max={2}
+            step={0.25}
+            disabled={!loadedAudio}
+          />
+          <FilterValue>{filters.speed}x</FilterValue>
+        </FilterItem>
+
+        <Box sx={{ width: 1, height: 24, backgroundColor: '#333', mx: 1 }} />
+
+        <FilterButton
+          variant="outlined"
+          startIcon={<ReplayIcon sx={{ fontSize: 12 }} />}
+          disabled={!loadedAudio}
+        >
+          Reverse
+        </FilterButton>
+
+        <FilterButton
+          variant="outlined"
+          startIcon={<LoopIcon sx={{ fontSize: 12 }} />}
+          disabled={!loadedAudio}
+        >
+          Loop
+        </FilterButton>
+
+        <Box sx={{ flex: 1 }} />
+
+        <Button
+          size="small"
+          onClick={() => setFilters({ deNoise: 0, deHum: 0, gain: 0, speed: 1 })}
+          disabled={!loadedAudio}
+          sx={{ fontSize: 9, color: '#555', '&:hover': { color: '#19abb5' } }}
+        >
+          Reset Filters
+        </Button>
+      </FilterBar>
 
       {/* Bottom toolbar */}
       <ToolbarSection>
