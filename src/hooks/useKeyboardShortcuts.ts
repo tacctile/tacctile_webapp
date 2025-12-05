@@ -400,6 +400,7 @@ export const createViewShortcuts = (handlers: {
 ];
 
 export const createNavigationShortcuts = (handlers: {
+  goToHome?: () => void;
   goToSession?: () => void;
   goToVideo?: () => void;
   goToAudio?: () => void;
@@ -410,6 +411,14 @@ export const createNavigationShortcuts = (handlers: {
   openSearch?: () => void;
   openSettings?: () => void;
 }): KeyboardShortcut[] => [
+  {
+    key: '`',
+    alt: true,
+    description: 'Go to Home',
+    handler: () => handlers.goToHome?.(),
+    category: 'navigation',
+    enabled: !!handlers.goToHome,
+  },
   {
     key: '1',
     alt: true,
