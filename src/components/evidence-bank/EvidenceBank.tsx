@@ -113,9 +113,9 @@ const EvidenceGrid = styled(Box)({
   flex: 1,
   overflow: 'auto',
   display: 'grid',
-  gridTemplateColumns: 'repeat(2, 1fr)',
-  gap: 8,
-  padding: 4,
+  gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+  gap: 1,
+  padding: 1,
   '&::-webkit-scrollbar': {
     width: 6,
   },
