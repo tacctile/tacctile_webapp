@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, IconButton, Tooltip, Button } from '@mui/material';
+import { Box, Typography, IconButton, Tooltip, Button, TextField, InputAdornment } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
 import FlagIcon from '@mui/icons-material/Flag';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import UndoIcon from '@mui/icons-material/Undo';
+import SearchIcon from '@mui/icons-material/Search';
 
 const Container = styled(Box)({
   display: 'flex',
@@ -183,6 +184,7 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
   const [expandedFlags, setExpandedFlags] = useState<string[]>([]);
   const [deletedFlag, setDeletedFlag] = useState<Flag | null>(null);
   const [undoTimeout, setUndoTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Clear undo toast after 5 seconds
   useEffect(() => {
@@ -218,8 +220,16 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
     }
   };
 
-  // Filter out the deleted flag from display (it's in undo state)
-  const visibleFlags = flags;
+  // Filter flags based on search query
+  const filteredFlags = flags.filter(flag => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      flag.label.toLowerCase().includes(q) ||
+      flag.note?.toLowerCase().includes(q) ||
+      flag.createdBy?.toLowerCase().includes(q)
+    );
+  });
 
   return (
     <Container>
@@ -230,7 +240,7 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
             Flags
           </Typography>
           <Typography sx={{ fontSize: 10, color: '#666' }}>
-            ({flags.length})
+            ({searchQuery.trim() ? `${filteredFlags.length}/${flags.length}` : flags.length})
           </Typography>
         </Box>
         <Tooltip title="Add flag (M)">
@@ -245,8 +255,36 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
         </Tooltip>
       </Header>
 
+      {/* Search - only show if there are flags */}
+      {flags.length > 0 && (
+        <Box sx={{ padding: '8px 12px', borderBottom: '1px solid #252525' }}>
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="Search flags..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ fontSize: 16, color: '#555' }} />
+                </InputAdornment>
+              ),
+              sx: {
+                fontSize: 11,
+                height: 28,
+                backgroundColor: '#252525',
+                '& fieldset': { border: 'none' },
+                '& input': { padding: '4px 8px' },
+                '& input::placeholder': { color: '#555', opacity: 1 },
+              },
+            }}
+          />
+        </Box>
+      )}
+
       <FlagsList>
-        {visibleFlags.length === 0 ? (
+        {flags.length === 0 ? (
           <EmptyState>
             <FlagIcon sx={{ fontSize: 32, mb: 1, opacity: 0.3 }} />
             <Typography sx={{ fontSize: 11 }}>No flags yet</Typography>
@@ -255,8 +293,13 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
               or click <span style={{ color: '#19abb5' }}>+</span> above
             </Typography>
           </EmptyState>
+        ) : filteredFlags.length === 0 ? (
+          <EmptyState>
+            <SearchIcon sx={{ fontSize: 32, mb: 1, opacity: 0.3 }} />
+            <Typography sx={{ fontSize: 11 }}>No flags match "{searchQuery}"</Typography>
+          </EmptyState>
         ) : (
-          visibleFlags.map((flag) => {
+          filteredFlags.map((flag) => {
             const isExpanded = expandedFlags.includes(flag.id);
             const hasNote = flag.note && flag.note.length > 0;
 
@@ -321,7 +364,7 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
       </FlagsList>
 
       {/* Add flag button at bottom when list has items */}
-      {visibleFlags.length > 0 && (
+      {filteredFlags.length > 0 && (
         <Footer>
           <Button
             fullWidth
