@@ -82,6 +82,14 @@ import {
   formatGPSCoordinates,
   isDevelopmentMode,
 } from '@/utils/testMetadataGenerator';
+import {
+  isTimeRangeOccupied,
+  findNearestValidRow,
+  canPlaceItem,
+  clampToTimelineBounds,
+  IMAGE_MIN_DURATION,
+  type TimelineItem as CollisionItem,
+} from '@/utils/timelineCollisionEngine';
 
 // ============================================================================
 // TYPES
@@ -1607,69 +1615,148 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   }, []);
 
   // ============================================================================
-  // MOVEMENT LOGIC (Arrow Key Controls) - Row-based System
+  // NLE-STYLE COLLISION ENGINE INTEGRATION
   // ============================================================================
 
-  // Get all items in a specific row for overlap checking
-  const getItemsInRow = useCallback((rowIndex: number, itemType: 'video' | 'audio' | 'photo'): TimelineMediaItem[] => {
-    if (itemType === 'video') {
-      return packedRowData.videoRows[rowIndex] || [];
-    } else if (itemType === 'audio') {
-      return packedRowData.audioRows[rowIndex] || [];
-    } else {
-      return packedRowData.imageRows[rowIndex] || [];
-    }
-  }, [packedRowData]);
+  // Convert TimelineMediaItem to CollisionItem format
+  const toCollisionItem = useCallback((item: TimelineMediaItem, rowIndex: number): CollisionItem => {
+    const offset = itemTimeOffsets[item.id] || 0;
+    const baseTime = hasRealTimestamp(item) ? item.capturedAt : (timeRange?.start || 0);
+    const startTime = baseTime + offset;
+    const duration = item.type === 'photo'
+      ? IMAGE_MIN_DURATION
+      : Math.max((item.duration || 0) * 1000, IMAGE_MIN_DURATION);
 
-  // Check if a time position would cause overlap with other items in the same row
-  // Returns the nearest valid position if overlap would occur, or null if position is valid
-  const checkRowOverlap = useCallback((
-    movingItem: TimelineMediaItem,
-    newStartTime: number,
-    targetRowIndex: number
-  ): { valid: boolean; snappedTime?: number } => {
-    const otherItems = getItemsInRow(targetRowIndex, movingItem.type).filter(i => i.id !== movingItem.id);
-    const movingDuration = movingItem.type === 'photo'
-      ? IMAGE_MIN_DURATION_MS
-      : (movingItem.duration || 0) * 1000;
-    const newEndTime = newStartTime + movingDuration;
+    return {
+      id: item.id,
+      type: item.type,
+      startTime,
+      duration,
+      rowIndex,
+      isLocked: isItemLocked(item),
+      hasRealTimestamp: hasRealTimestamp(item),
+    };
+  }, [itemTimeOffsets, timeRange, hasRealTimestamp, isItemLocked]);
 
-    for (const item of otherItems) {
-      const itemStart = computeEffectiveStartTime(item);
-      const itemDuration = item.type === 'photo'
-        ? IMAGE_MIN_DURATION_MS
-        : (item.duration || 0) * 1000;
-      const itemEnd = itemStart + itemDuration;
+  // Get all collision items for a specific type
+  const getCollisionItems = useCallback((type: 'video' | 'audio' | 'photo'): CollisionItem[] => {
+    const typeItems = visibleItems.filter(i => i.type === type);
+    return typeItems.map(item => {
+      const rowIndex = type === 'video'
+        ? (packedRowData.videoRowAssignments.get(item.id) ?? 0)
+        : type === 'audio'
+          ? (packedRowData.audioRowAssignments.get(item.id) ?? 0)
+          : (packedRowData.imageRowAssignments.get(item.id) ?? 0);
+      return toCollisionItem(item, rowIndex);
+    });
+  }, [visibleItems, packedRowData, toCollisionItem]);
 
-      // Check for overlap: new item overlaps with existing item
-      if (newStartTime < itemEnd && newEndTime > itemStart) {
-        // Try snapping to just before or after the blocking item
-        const snapBefore = itemStart - movingDuration;
-        const snapAfter = itemEnd;
-
-        // Choose the snap position closest to the intended position
-        const distBefore = Math.abs(newStartTime - snapBefore);
-        const distAfter = Math.abs(newStartTime - snapAfter);
-
-        if (distBefore <= distAfter && snapBefore >= (timeRange?.start || 0)) {
-          return { valid: false, snappedTime: snapBefore };
-        } else if (snapAfter + movingDuration <= (timeRange?.end || Infinity)) {
-          return { valid: false, snappedTime: snapAfter };
-        }
-        // Can't fit anywhere - prevent movement
-        return { valid: false };
-      }
-    }
-
-    return { valid: true };
-  }, [getItemsInRow, computeEffectiveStartTime, timeRange]);
-
-  // Move item horizontally (shift time position)
-  // Only allowed when file is unlocked (locked files cannot move)
-  const moveItemHorizontal = useCallback((item: TimelineMediaItem, shiftMs: number) => {
-    // Check if item is locked - locked files cannot move horizontally
+  // Unified move handler - single source of truth
+  const moveItem = useCallback((
+    item: TimelineMediaItem,
+    targetRowIndex: number,
+    targetTimeOffset?: number  // If undefined, keep current time position
+  ): boolean => {
+    // Check lock state first
     if (isItemLocked(item)) {
       setLockedMoveToast({ visible: true, message: 'File is locked - unlock to move' });
+      return false;
+    }
+
+    const collisionItems = getCollisionItems(item.type);
+    const currentOffset = itemTimeOffsets[item.id] || 0;
+    const baseTime = hasRealTimestamp(item) ? item.capturedAt : (timeRange?.start || 0);
+    const newOffset = targetTimeOffset ?? currentOffset;
+    const newStartTime = baseTime + newOffset;
+    const duration = item.type === 'photo'
+      ? IMAGE_MIN_DURATION
+      : Math.max((item.duration || 0) * 1000, IMAGE_MIN_DURATION);
+
+    // Check bounds
+    if (!timeRange) return false;
+    const bounds = { start: timeRange.start, end: timeRange.end };
+
+    const { startTime: clampedStart, clamped } = clampToTimelineBounds(newStartTime, duration, bounds);
+    if (clamped && targetTimeOffset !== undefined) {
+      // Time was out of bounds
+      setLockedMoveToast({ visible: true, message: 'Cannot move past timeline bounds' });
+      return false;
+    }
+
+    // Check if placement is valid
+    const result = canPlaceItem(
+      collisionItems,
+      { id: item.id, type: item.type, startTime: clampedStart, duration, rowIndex: targetRowIndex, isLocked: false, hasRealTimestamp: hasRealTimestamp(item) },
+      targetRowIndex,
+      clampedStart,
+      bounds
+    );
+
+    if (!result.valid) {
+      setLockedMoveToast({ visible: true, message: result.reason || 'Cannot move: position blocked' });
+      return false;
+    }
+
+    // Apply the move
+    const currentRowIndex = getItemRowIndex(item);
+
+    // Update row if changed
+    if (targetRowIndex !== currentRowIndex) {
+      setItemRowAssignments(prev => ({
+        ...prev,
+        [item.id]: targetRowIndex,
+      }));
+    }
+
+    // Update time offset if changed
+    if (targetTimeOffset !== undefined && targetTimeOffset !== currentOffset) {
+      setItemTimeOffsets(prev => ({
+        ...prev,
+        [item.id]: targetTimeOffset,
+      }));
+    }
+
+    return true;
+  }, [isItemLocked, getCollisionItems, itemTimeOffsets, hasRealTimestamp, timeRange, getItemRowIndex]);
+
+  // Move item vertically with lane skipping
+  const moveItemVertical = useCallback((item: TimelineMediaItem, direction: 'up' | 'down'): boolean => {
+    if (isItemLocked(item)) {
+      setLockedMoveToast({ visible: true, message: 'File is locked - unlock to move' });
+      return false;
+    }
+
+    const collisionItems = getCollisionItems(item.type);
+    const currentRowIndex = getItemRowIndex(item);
+    const rowCount = getRowCount(item.type);
+
+    const movingItem = toCollisionItem(item, currentRowIndex);
+
+    const targetRow = findNearestValidRow(collisionItems, movingItem, direction, rowCount);
+
+    if (targetRow === null) {
+      setLockedMoveToast({ visible: true, message: 'No available lane in that direction' });
+      return false;
+    }
+
+    setItemRowAssignments(prev => ({
+      ...prev,
+      [item.id]: targetRow,
+    }));
+
+    return true;
+  }, [isItemLocked, getCollisionItems, getItemRowIndex, getRowCount, toCollisionItem]);
+
+  // Move item horizontally
+  const moveItemHorizontal = useCallback((item: TimelineMediaItem, shiftMs: number): boolean => {
+    if (isItemLocked(item)) {
+      setLockedMoveToast({ visible: true, message: 'File is locked - unlock to move' });
+      return false;
+    }
+
+    // Items with real timestamps cannot move horizontally (time is sacred)
+    if (hasRealTimestamp(item)) {
+      setLockedMoveToast({ visible: true, message: 'Timestamped file - time position locked' });
       return false;
     }
 
@@ -1677,118 +1764,16 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     const newOffset = currentOffset + shiftMs;
     const currentRowIndex = getItemRowIndex(item);
 
-    // Calculate new absolute time
-    const baseTime = timeRange?.start || 0;
-    const newStartTime = baseTime + newOffset;
+    return moveItem(item, currentRowIndex, newOffset);
+  }, [isItemLocked, hasRealTimestamp, itemTimeOffsets, getItemRowIndex, moveItem]);
 
-    // Check bounds
-    if (newStartTime < (timeRange?.start || 0)) {
-      return false;
-    }
-    const itemDuration = item.type === 'photo'
-      ? IMAGE_MIN_DURATION_MS
-      : (item.duration || 0) * 1000;
-    if (newStartTime + itemDuration > (timeRange?.end || Infinity)) {
-      return false;
-    }
-
-    // Check for overlaps in the current row
-    const overlapCheck = checkRowOverlap(item, newStartTime, currentRowIndex);
-    if (!overlapCheck.valid && !overlapCheck.snappedTime) {
-      setLockedMoveToast({ visible: true, message: 'Cannot move: would overlap' });
-      return false;
-    }
-
-    const finalOffset = overlapCheck.snappedTime
-      ? overlapCheck.snappedTime - baseTime
-      : newOffset;
-
-    setItemTimeOffsets(prev => ({
-      ...prev,
-      [item.id]: finalOffset,
-    }));
-    return true;
-  }, [isItemLocked, itemTimeOffsets, getItemRowIndex, timeRange, checkRowOverlap]);
-
-  // Check if moving to a target row would cause overlap (stricter - no time snapping)
-  const checkTargetRowOverlap = useCallback((
-    movingItem: TimelineMediaItem,
-    targetRowIndex: number
-  ): boolean => {
-    const itemStart = computeEffectiveStartTime(movingItem);
-    const itemEnd = computeEffectiveEndTime(movingItem);
-
-    const otherItems = getItemsInRow(targetRowIndex, movingItem.type).filter(i => i.id !== movingItem.id);
-
-    for (const item of otherItems) {
-      const otherStart = computeEffectiveStartTime(item);
-      const otherEnd = computeEffectiveEndTime(item);
-
-      // Check for overlap
-      if (itemStart < otherEnd && itemEnd > otherStart) {
-        return true; // Has overlap
-      }
-    }
-
-    return false; // No overlap
-  }, [getItemsInRow, computeEffectiveStartTime, computeEffectiveEndTime]);
-
-  // Move item vertically (change rows)
-  // Snaps to first available row in the requested direction, skipping occupied rows
-  const moveItemVertical = useCallback((item: TimelineMediaItem, direction: 'up' | 'down') => {
-    // Check if item is locked
-    if (isItemLocked(item)) {
-      setLockedMoveToast({ visible: true, message: 'File is locked' });
-      return false;
-    }
-
-    const currentRowIndex = getItemRowIndex(item);
-    const totalRows = getRowCount(item.type);
-
-    // Search for the first available row in the requested direction
-    const step = direction === 'up' ? -1 : 1;
-    let targetRowIndex = currentRowIndex + step;
-
-    // For "down" movement, allow creating a new row beyond current rows
-    const maxRowIndex = direction === 'down' ? totalRows : totalRows - 1;
-
-    // Keep searching in the requested direction until we find a free row or hit bounds
-    while (targetRowIndex >= 0 && targetRowIndex <= maxRowIndex) {
-      // Check for overlap in the target row
-      const hasOverlap = checkTargetRowOverlap(item, targetRowIndex);
-
-      if (!hasOverlap) {
-        // Found a free row - move to it
-        setItemRowAssignments(prev => ({
-          ...prev,
-          [item.id]: targetRowIndex,
-        }));
-        return true;
-      }
-
-      // Row is occupied, try the next one in the same direction
-      targetRowIndex += step;
-    }
-
-    // No free row found in that direction
-    setLockedMoveToast({ visible: true, message: 'Cannot move: no open row in that direction' });
-    return false;
-  }, [isItemLocked, getItemRowIndex, getRowCount, checkTargetRowOverlap]);
-
-  // Handle arrow key movement for the active/selected item
+  // Arrow key handler
   const handleArrowKeyMovement = useCallback((e: KeyboardEvent) => {
-    // Only handle arrow keys
-    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-      return;
-    }
+    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
 
-    // Need an active file to move
     const activeItem = activeFileId ? items.find(i => i.id === activeFileId) : null;
-    if (!activeItem) {
-      return;
-    }
+    if (!activeItem) return;
 
-    // Prevent default scrolling behavior
     e.preventDefault();
 
     switch (e.key) {
@@ -1799,25 +1784,17 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
         moveItemVertical(activeItem, 'down');
         break;
       case 'ArrowLeft': {
-        // Shift time earlier (only for non-timestamped files)
-        let shiftAmount = SHIFT_1_SECOND;
-        if (e.shiftKey) {
-          shiftAmount = SHIFT_10_SECONDS;
-        } else if (e.ctrlKey || e.metaKey) {
-          shiftAmount = SHIFT_1_FRAME;
-        }
-        moveItemHorizontal(activeItem, -shiftAmount);
+        let shift = SHIFT_1_SECOND;
+        if (e.shiftKey) shift = SHIFT_10_SECONDS;
+        else if (e.ctrlKey || e.metaKey) shift = SHIFT_1_FRAME;
+        moveItemHorizontal(activeItem, -shift);
         break;
       }
       case 'ArrowRight': {
-        // Shift time later (only for non-timestamped files)
-        let shiftAmount = SHIFT_1_SECOND;
-        if (e.shiftKey) {
-          shiftAmount = SHIFT_10_SECONDS;
-        } else if (e.ctrlKey || e.metaKey) {
-          shiftAmount = SHIFT_1_FRAME;
-        }
-        moveItemHorizontal(activeItem, shiftAmount);
+        let shift = SHIFT_1_SECOND;
+        if (e.shiftKey) shift = SHIFT_10_SECONDS;
+        else if (e.ctrlKey || e.metaKey) shift = SHIFT_1_FRAME;
+        moveItemHorizontal(activeItem, shift);
         break;
       }
     }
