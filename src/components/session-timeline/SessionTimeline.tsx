@@ -75,6 +75,11 @@ import {
   generateImportId,
   type MediaFileType,
 } from '@/utils/fileTypes';
+import {
+  generateTestMetadataIfDev,
+  formatGPSCoordinates,
+  isDevelopmentMode,
+} from '@/utils/testMetadataGenerator';
 
 // ============================================================================
 // TYPES
@@ -1936,11 +1941,20 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
 
     // Process each file type
     const processFile = (file: File, type: MediaFileType) => {
-      const id = generateImportId();
-      const user = extractUserFromFile(file) || ''; // Empty = Unassigned lane
+      // Try to generate test metadata in development mode
+      const testMetadata = generateTestMetadataIfDev(file);
 
-      // Calculate timestamp - files without metadata go to beginning
-      const capturedAt = sessionStart;
+      // Use test metadata if available (dev mode), otherwise use defaults
+      const id = testMetadata?.id || generateImportId();
+      const user = testMetadata?.user || extractUserFromFile(file) || ''; // Empty = Unassigned lane
+
+      // Calculate timestamp - use test metadata timestamp or session start
+      const capturedAt = testMetadata?.timestamp.getTime() || sessionStart;
+
+      // Duration in seconds (test metadata is in ms, so divide by 1000)
+      const durationSeconds = testMetadata?.duration
+        ? Math.floor(testMetadata.duration / 1000)
+        : type !== 'image' ? 60 : undefined;
 
       const newItem: TimelineMediaItem = {
         id,
@@ -1948,12 +1962,14 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
         type: type === 'image' ? 'photo' : type,
         fileName: file.name,
         capturedAt,
-        duration: type !== 'image' ? 60 : undefined, // Default 60s for audio/video
-        endAt: type !== 'image' ? capturedAt + 60000 : undefined,
+        duration: durationSeconds,
+        endAt: durationSeconds ? capturedAt + durationSeconds * 1000 : undefined,
         user,
-        deviceInfo: 'Imported File',
+        deviceInfo: testMetadata?.deviceId || 'Imported File',
         format: file.type || 'Unknown',
-        gps: undefined,
+        gps: testMetadata?.gpsCoordinates
+          ? formatGPSCoordinates(testMetadata.gpsCoordinates)
+          : undefined,
         flagCount: 0,
         hasEdits: false,
         flags: [],
