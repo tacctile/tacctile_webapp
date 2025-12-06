@@ -139,25 +139,39 @@ function getDeviceIdForUser(user: string): string {
  * Also returns true if URL contains ?testmode=true or ?dev=true query parameter
  */
 export function isDevelopmentMode(): boolean {
-  // Check Vite's development mode flag
+  console.log('[TestMode] Checking development mode...');
+
   if (import.meta.env.DEV) {
+    console.log('[TestMode] Vite DEV mode = true');
     return true;
   }
 
-  // Check if running on localhost
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
+    console.log('[TestMode] hostname:', hostname);
+
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      console.log('[TestMode] localhost detected');
       return true;
     }
 
-    // Check for URL parameters to enable test mode in production
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('testmode') === 'true' || urlParams.get('dev') === 'true') {
+    const testmode = urlParams.get('testmode');
+    console.log('[TestMode] testmode param:', testmode);
+
+    if (testmode === 'true') {
+      console.log('[TestMode] testmode=true found!');
+      return true;
+    }
+
+    const dev = urlParams.get('dev');
+    if (dev === 'true') {
+      console.log('[TestMode] dev=true found!');
       return true;
     }
   }
 
+  console.log('[TestMode] No dev mode detected');
   return false;
 }
 
