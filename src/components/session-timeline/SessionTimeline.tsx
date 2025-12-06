@@ -1231,8 +1231,18 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       });
       return result;
     }
-    return [...USERS];
-  }, [laneOrder]);
+
+    // Fall back to users extracted from actual items
+    const typeItems = items.filter((item) => item.type === type);
+    const userSet = new Set<string>();
+    typeItems.forEach((item) => {
+      if (item.user) userSet.add(item.user);
+    });
+    const users = Array.from(userSet).filter(Boolean);
+
+    // If still no users, return array with empty string for "Unassigned" lane
+    return users.length > 0 ? users : [''];
+  }, [laneOrder, items]);
 
   // Get effective lane/user assignment for an item (respects manual lane assignments)
   const getEffectiveLane = useCallback((item: TimelineMediaItem): string => {
