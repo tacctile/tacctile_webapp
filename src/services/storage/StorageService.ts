@@ -361,6 +361,32 @@ class StorageService {
       }
     }
   }
+
+  /**
+   * Clear all localStorage data
+   * Removes all tacctile-prefixed keys and other app-related storage
+   */
+  clearLocalStorage(): void {
+    localStorage.clear();
+    console.log('[StorageService] localStorage cleared');
+  }
+
+  /**
+   * Clear all app data (localStorage + IndexedDB)
+   * Use this for a complete reset of the application state
+   */
+  async clearAllData(): Promise<void> {
+    // Clear localStorage
+    this.clearLocalStorage();
+
+    // Clear all IndexedDB stores
+    await this.init();
+    await this.db!.clear('investigations');
+    await this.db!.clear('evidence');
+    await this.db!.clear('settings');
+    await this.db!.clear('cache');
+    console.log('[StorageService] All app data cleared (localStorage + IndexedDB)');
+  }
 }
 
 // Export singleton instance
