@@ -1480,16 +1480,29 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   );
 
   const getClipPosition = useCallback(
-    (startTime: number, duration?: number) => {
-      if (!timeRange) return { left: 0, width: 0 };
+    (item: TimelineMediaItem) => {
+      if (!timeRange) return { left: '0%', width: '0%' };
+
+      const offset = itemTimeOffsets[item.id] || 0;
+      const baseTime = item.capturedAt > 0 ? item.capturedAt : timeRange.start;
+      const startTime = baseTime + offset;
+
+      // Use same duration logic as collision engine
+      const IMAGE_MIN_DURATION = 1000;
+      const durationMs = item.type === 'photo'
+        ? IMAGE_MIN_DURATION
+        : Math.max((item.duration || 0) * 1000, IMAGE_MIN_DURATION);
+
       const totalDuration = timeRange.end - timeRange.start;
       const left = ((startTime - timeRange.start) / totalDuration) * 100;
-      const width = duration
-        ? ((duration * 1000) / totalDuration) * 100
-        : 0.5; // Min width for images
-      return { left: `${Math.max(0, Math.min(100, left))}%`, width: `${Math.max(0.5, Math.min(100 - left, width))}%` };
+      const width = (durationMs / totalDuration) * 100;
+
+      return {
+        left: `${Math.max(0, Math.min(100, left))}%`,
+        width: `${Math.max(0.3, Math.min(100 - left, width))}%`
+      };
     },
-    [timeRange]
+    [timeRange, itemTimeOffsets]
   );
 
   // Handle item single click (show metadata)
@@ -2226,7 +2239,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     return laneItems.map((item) => {
       // Use effective start time (accounts for time offsets)
       const effectiveStartTime = getEffectiveStartTime(item);
-      const pos = getClipPosition(effectiveStartTime, item.duration);
+      const pos = getClipPosition(item);
       const effectiveEndTime = effectiveStartTime + (item.duration || 0) * 1000;
       const isHighlighted =
         effectiveStartTime <= globalTimestamp &&
