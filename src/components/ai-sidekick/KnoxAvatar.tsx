@@ -71,8 +71,8 @@ const LottieWrapper = styled(Box, {
   shouldForwardProp: (prop) => prop !== 'size',
 })<{ size: number }>(({ size }) => ({
   position: 'absolute',
-  width: size * 1.4, // Slightly larger to allow glow bleed (4-8px)
-  height: size * 1.4,
+  width: size * 2.1, // 1.5x larger to show animation details (pulsing bleeds outside)
+  height: size * 2.1,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
