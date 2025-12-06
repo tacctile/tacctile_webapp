@@ -1988,6 +1988,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
 
   // Process imported files and add to timeline
   const processImportedFiles = useCallback((files: File[]) => {
+    console.log('[DROP] processImportedFiles called with', files.length, 'files');
     const sortedFiles = sortFilesByType(files);
     const newItems: TimelineMediaItem[] = [];
     let importedCount = 0;
@@ -1997,6 +1998,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
 
     // Process each file type
     const processFile = (file: File, type: MediaFileType) => {
+      console.log('[DROP] processFile called for:', file.name, 'type:', type);
       // Try to generate test metadata in development mode
       const testMetadata = generateTestMetadataIfDev(file);
 
@@ -2043,6 +2045,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       newItems.push(newItem);
       importedCount++;
     };
+
+    console.log('[DROP] Sorted files:', { video: sortedFiles.video.length, audio: sortedFiles.audio.length, image: sortedFiles.image.length });
 
     // Process video files
     sortedFiles.video.forEach(file => processFile(file, 'video'));
@@ -2136,6 +2140,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
 
   // Handle file drop on timeline
   const handleFileDrop = useCallback((e: React.DragEvent) => {
+    console.log('[DROP] handleFileDrop triggered, files:', e.dataTransfer.files.length);
     e.preventDefault();
     e.stopPropagation();
     setIsFileDragOver(false);
