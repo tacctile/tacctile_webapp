@@ -1,6 +1,7 @@
 /**
  * SessionTimeline Component
  * Rebuilt to match the exact layout structure and styling of Video, Audio, and Image Tools
+ * @refresh Force Vercel cache refresh - Dec 2024
  *
  * Layout:
  * - LEFT PANEL (280px): EvidenceBank + MetadataPanel
