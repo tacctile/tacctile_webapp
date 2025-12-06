@@ -68,6 +68,8 @@ import { MetadataPanel, FlagsPanel, type Flag } from '@/components/common';
 
 import { usePlayheadStore } from '../../stores/usePlayheadStore';
 import { useNavigationStore } from '../../stores/useNavigationStore';
+import { useAppPersistence } from '../../stores/useAppPersistence';
+import { useHomeStore, type SessionEvidence } from '../../stores/useHomeStore';
 import {
   detectFileType,
   sortFilesByType,
@@ -155,11 +157,13 @@ interface SwimLane {
 }
 
 // ============================================================================
-// DUMMY DATA - Multiple users with comprehensive media files
+// DEFAULT USERS - Empty by default, populated from session evidence
 // ============================================================================
 
-const USERS = ['Sarah', 'Mike', 'Jen'];
+const USERS: string[] = [];
 
+// NOTE: generateDummyData is kept for reference but no longer used
+// Session evidence is now loaded from the active session via useHomeStore
 const generateDummyData = (): TimelineMediaItem[] => {
   // Session starts 2 hours ago, spans 90 minutes
   const sessionStart = Date.now() - 2 * 60 * 60 * 1000;
@@ -839,8 +843,19 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   // Image preview modal state (for when active file is an image)
   const [imageModalOpen, setImageModalOpen] = useState(false);
 
-  // Timeline items (includes dummy data + imported files)
-  const [items, setItems] = useState<TimelineMediaItem[]>(() => generateDummyData());
+  // Active session state from stores
+  const activeSessionId = useAppPersistence((state) => state.activeSessionId);
+  const sessions = useHomeStore((state) => state.sessions);
+  const addSessionEvidence = useHomeStore((state) => state.addSessionEvidence);
+
+  // Get the active session
+  const activeSession = useMemo(() => {
+    if (!activeSessionId) return null;
+    return sessions.find((s) => s.id === activeSessionId) || null;
+  }, [activeSessionId, sessions]);
+
+  // Timeline items - loaded from active session
+  const [items, setItems] = useState<TimelineMediaItem[]>([]);
 
   // Section collapse state
   const [videoSectionCollapsed, setVideoSectionCollapsed] = useState(false);
@@ -1049,6 +1064,47 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     }, 500);
     return () => clearTimeout(timer);
   }, []);
+
+  // Load session evidence when active session changes
+  useEffect(() => {
+    if (activeSession && activeSession.evidence) {
+      // Convert SessionEvidence to TimelineMediaItem
+      const sessionItems: TimelineMediaItem[] = activeSession.evidence.map((ev: SessionEvidence) => ({
+        id: ev.id,
+        evidenceId: ev.evidenceId,
+        type: ev.type,
+        fileName: ev.fileName,
+        thumbnailUrl: ev.thumbnailUrl,
+        capturedAt: ev.capturedAt,
+        duration: ev.duration,
+        endAt: ev.endAt,
+        user: ev.user,
+        deviceInfo: ev.deviceInfo,
+        format: ev.format,
+        gps: ev.gps,
+        flagCount: ev.flagCount,
+        hasEdits: ev.hasEdits,
+        flags: ev.flags.map((f) => ({
+          id: f.id,
+          timestamp: f.timestamp,
+          absoluteTimestamp: f.absoluteTimestamp,
+          title: f.title,
+          note: f.note,
+          confidence: f.confidence,
+          userId: f.userId,
+          userDisplayName: f.userDisplayName,
+          color: f.color,
+        })),
+      }));
+      setItems(sessionItems);
+    } else {
+      // No active session or empty evidence - start with empty timeline
+      setItems([]);
+    }
+    // Reset removed items when session changes
+    setRemovedItemIds(new Set());
+    setActiveFileId(null);
+  }, [activeSessionId, activeSession]);
 
   // Set session bounds when time range changes
   useEffect(() => {
@@ -1994,6 +2050,29 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     if (newItems.length > 0) {
       setItems(prev => [...prev, ...newItems]);
 
+      // Persist to session store if we have an active session
+      if (activeSessionId) {
+        // Convert TimelineMediaItem to SessionEvidence format
+        const sessionEvidence: SessionEvidence[] = newItems.map((item) => ({
+          id: item.id,
+          evidenceId: item.evidenceId,
+          type: item.type,
+          fileName: item.fileName,
+          thumbnailUrl: item.thumbnailUrl,
+          capturedAt: item.capturedAt,
+          duration: item.duration,
+          endAt: item.endAt,
+          user: item.user,
+          deviceInfo: item.deviceInfo,
+          format: item.format,
+          gps: item.gps,
+          flagCount: item.flagCount,
+          hasEdits: item.hasEdits,
+          flags: item.flags,
+        }));
+        addSessionEvidence(activeSessionId, sessionEvidence);
+      }
+
       // Show success toast
       let message = `Imported ${importedCount} file${importedCount !== 1 ? 's' : ''}`;
       if (skippedCount > 0) {
@@ -2003,7 +2082,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     } else if (skippedCount > 0) {
       showToast(`No supported files found. ${skippedCount} file${skippedCount !== 1 ? 's were' : ' was'} skipped.`, 'warning');
     }
-  }, [timeRange, showToast]);
+  }, [timeRange, showToast, activeSessionId, addSessionEvidence]);
 
   // Handle file drag enter on timeline
   const handleFileDragEnter = useCallback((e: React.DragEvent) => {
