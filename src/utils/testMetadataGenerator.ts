@@ -155,12 +155,24 @@ function getDeviceIdForUser(user: string): string {
 export function isDevelopmentMode(): boolean {
   // Check for Vite's import.meta.env (works in browser)
   if (typeof import.meta !== 'undefined' && import.meta.env) {
-    return import.meta.env.DEV === true || import.meta.env.MODE === 'development';
+    // Use truthy check instead of strict equality for broader compatibility
+    const isDev = !!import.meta.env.DEV || import.meta.env.MODE === 'development';
+    if (isDev) {
+      return true;
+    }
   }
-  // Fallback: check if running on localhost
+  // Fallback: check if running on localhost or development URLs
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
-    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('.local');
+    return (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname.includes('.local') ||
+      hostname.includes('dev.') ||
+      hostname.includes('-dev') ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('10.')
+    );
   }
   return false;
 }
@@ -219,13 +231,23 @@ export function generateTestMetadata(file: File): TestFileMetadata {
  * @returns TestFileMetadata in development mode, null in production
  */
 export function generateTestMetadataIfDev(file: File): TestFileMetadata | null {
-  if (!isDevelopmentMode()) {
+  const isDevMode = isDevelopmentMode();
+
+  if (!isDevMode) {
+    console.log('[TestMetadata] Not in development mode, skipping metadata generation');
     return null;
   }
 
   try {
-    return generateTestMetadata(file);
-  } catch {
+    const metadata = generateTestMetadata(file);
+    console.log('[TestMetadata] Generated metadata for', file.name, ':', {
+      user: metadata.user,
+      timestamp: metadata.timestamp.toISOString(),
+      deviceId: metadata.deviceId,
+    });
+    return metadata;
+  } catch (error) {
+    console.error('[TestMetadata] Failed to generate metadata for', file.name, ':', error);
     return null;
   }
 }
