@@ -2012,6 +2012,15 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
         ? Math.floor(testMetadata.duration / 1000)
         : type !== 'image' ? 60 : undefined;
 
+      // Debug: Log the metadata being applied
+      console.log('[SessionTimeline] Processing file:', {
+        fileName: file.name,
+        hasTestMetadata: !!testMetadata,
+        user,
+        capturedAt: new Date(capturedAt).toISOString(),
+        deviceInfo: testMetadata?.deviceId || 'Imported File',
+      });
+
       const newItem: TimelineMediaItem = {
         id,
         evidenceId: `ev-${id}`,
@@ -2048,6 +2057,14 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
 
     // Add new items to state
     if (newItems.length > 0) {
+      // Debug: Log user distribution summary
+      const userCounts = newItems.reduce((acc, item) => {
+        const userKey = item.user || 'Unassigned';
+        acc[userKey] = (acc[userKey] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      console.log('[SessionTimeline] Import summary - User distribution:', userCounts);
+
       setItems(prev => [...prev, ...newItems]);
 
       // Persist to session store if we have an active session
