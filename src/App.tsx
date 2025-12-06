@@ -1,5 +1,5 @@
-import React, { useState, useCallback, Suspense, lazy, useMemo } from 'react';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
+import React, { useState, useCallback, Suspense, lazy, useMemo, useEffect, useRef } from 'react';
+import { ThemeProvider, createTheme, keyframes } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
@@ -10,6 +10,19 @@ import { ErrorBoundary, LoadingSkeleton } from '@/components/common';
 import { useKeyboardShortcuts, createNavigationShortcuts, createViewShortcuts, createEditingShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useNavigationStore } from '@/stores/useNavigationStore';
 import { useAppPersistence } from '@/stores/useAppPersistence';
+
+// Crossfade animation keyframes
+const fadeIn = keyframes`
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+`;
+
+// Transition duration constant (in ms)
+const TOOL_TRANSITION_DURATION = 175;
 
 // Lazy load heavy tool components - only load when user opens that tool
 const HomePage = lazy(() => import('@/components/home/HomePage'));
@@ -221,6 +234,28 @@ const App: React.FC = () => {
   const setActiveTool = useNavigationStore((state) => state.setActiveTool);
   const activeSessionId = useAppPersistence((state) => state.activeSessionId);
 
+  // Track tool transitions for crossfade animation
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [displayedTool, setDisplayedTool] = useState(selectedTool);
+  const previousToolRef = useRef(selectedTool);
+
+  // Handle tool change with crossfade transition
+  useEffect(() => {
+    if (selectedTool !== previousToolRef.current) {
+      // Start fade out
+      setIsTransitioning(true);
+
+      // After fade out, switch tool and fade in
+      const timer = setTimeout(() => {
+        setDisplayedTool(selectedTool);
+        setIsTransitioning(false);
+        previousToolRef.current = selectedTool;
+      }, TOOL_TRANSITION_DURATION / 2);
+
+      return () => clearTimeout(timer);
+    }
+  }, [selectedTool]);
+
   const handleToolSelect = useCallback((toolId: string) => {
     setActiveTool(toolId as ToolId);
   }, [setActiveTool]);
@@ -281,9 +316,9 @@ const App: React.FC = () => {
 
   // Render the currently selected tool with lazy loading
   const renderTool = useCallback(() => {
-    const toolFallback = <ToolLoadingFallback tool={selectedTool} />;
+    const toolFallback = <ToolLoadingFallback tool={displayedTool} />;
 
-    switch (selectedTool) {
+    switch (displayedTool) {
       case 'home':
         return (
           <ErrorBoundary toolName="Home">
@@ -383,7 +418,7 @@ const App: React.FC = () => {
           </ErrorBoundary>
         );
     }
-  }, [selectedTool]);
+  }, [displayedTool]);
 
   return (
     <ThemeProvider theme={theme}>
@@ -422,7 +457,7 @@ const App: React.FC = () => {
             minWidth: 0,
             overflow: 'hidden',
           }}>
-            {/* Tool Content */}
+            {/* Tool Content with crossfade transition */}
             <Box sx={{
               display: 'flex',
               flexDirection: 'column',
@@ -430,7 +465,20 @@ const App: React.FC = () => {
               minWidth: 0,
               overflow: 'hidden',
             }}>
-              {renderTool()}
+              <Box
+                key={displayedTool}
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  flex: 1,
+                  minWidth: 0,
+                  overflow: 'hidden',
+                  opacity: isTransitioning ? 0 : 1,
+                  transition: `opacity ${TOOL_TRANSITION_DURATION}ms ease-in-out`,
+                }}
+              >
+                {renderTool()}
+              </Box>
             </Box>
 
             {/* AI Sidekick Panel - shown for all tools except 'home' */}

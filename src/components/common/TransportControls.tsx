@@ -19,6 +19,24 @@ const TransportContainer = styled(Box)({
   padding: '0 24px',
   backgroundColor: '#161616',
   borderTop: '1px solid #252525',
+  position: 'relative',
+});
+
+// Real-world timestamp display positioned on the left
+const RealWorldTimestamp = styled(Box)({
+  position: 'absolute',
+  left: 24,
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+});
+
+const TimestampLabel = styled('span')({
+  fontFamily: '"JetBrains Mono", "Consolas", monospace',
+  fontSize: '13px',
+  fontWeight: 500,
+  color: '#e1e1e1',
+  letterSpacing: '-0.3px',
 });
 
 const TimecodeDisplay = styled(Typography)({
@@ -58,6 +76,25 @@ const formatTimecode = (ms: number): string => {
   const frames = Math.floor((ms % 1000) / 33.33); // ~30fps
 
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:${frames.toString().padStart(2, '0')}`;
+};
+
+// Format real-world timestamp as "Dec 5, 2024 • 09:47:32 PM"
+const formatRealWorldTimestamp = (ms: number): string => {
+  const date = new Date(ms);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const month = months[date.getMonth()];
+  const day = date.getDate();
+  const year = date.getFullYear();
+
+  let hours = date.getHours();
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  const seconds = date.getSeconds().toString().padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // the hour '0' should be '12'
+  const hoursStr = hours.toString().padStart(2, '0');
+
+  return `${month} ${day}, ${year} • ${hoursStr}:${minutes}:${seconds} ${ampm}`;
 };
 
 interface TransportControlsProps {
@@ -133,6 +170,14 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
 
   return (
     <TransportContainer>
+      {/* Real-world timestamp display - LEFT side (Investigation clock) */}
+      <RealWorldTimestamp>
+        <Tooltip title="Investigation timeline - real-world date/time at playhead">
+          <TimestampLabel>{formatRealWorldTimestamp(timestamp)}</TimestampLabel>
+        </Tooltip>
+      </RealWorldTimestamp>
+
+      {/* Center group: Timecode + Transport controls */}
       {/* Timecode Display */}
       {showTimecode && (
         <TimecodeDisplay>{formatTimecode(timestamp)}</TimecodeDisplay>

@@ -29,7 +29,10 @@ import {
   Menu,
   ListItemIcon,
   ListItemText,
+  Dialog,
+  Button,
 } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import { styled } from '@mui/material/styles';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -38,8 +41,6 @@ import MicIcon from '@mui/icons-material/Mic';
 import PhotoIcon from '@mui/icons-material/Photo';
 import ImageIcon from '@mui/icons-material/Image';
 import PersonIcon from '@mui/icons-material/Person';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import DragHandleIcon from '@mui/icons-material/DragHandle';
 import FlagIcon from '@mui/icons-material/Flag';
@@ -644,38 +645,22 @@ const TimelineImage = styled(Box)<{ highlighted?: boolean; imageHeight?: number 
   },
 }));
 
-// Eyeball visibility button on clips
-const ClipVisibilityButton = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  cursor: 'pointer',
-  padding: 2,
-  borderRadius: 2,
-  transition: 'all 0.15s',
-  flexShrink: 0,
-  '&:hover': {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-  },
-  '& svg': {
-    color: isActive ? '#19abb5' : 'rgba(255, 255, 255, 0.4)',
-    fontSize: 14,
-    transition: 'color 0.15s',
-  },
-}));
 
-const FlagDot = styled(Box)<{ color?: string }>(({ color }) => ({
+// Flag markers - vertical lines spanning the height of the clip
+const FlagLine = styled(Box)<{ color?: string; clipHeight?: number }>(({ color, clipHeight = 28 }) => ({
   position: 'absolute',
-  top: 2,
-  width: 6,
-  height: 6,
+  top: 0,
+  width: 2,
+  height: '100%',
   backgroundColor: color || '#19abb5',
-  borderRadius: '50%',
   cursor: 'pointer',
   zIndex: 10,
+  opacity: 0.9,
+  transition: 'all 0.15s',
   '&:hover': {
-    transform: 'scale(1.5)',
-    boxShadow: `0 0 6px ${color || '#19abb5'}`,
+    width: 3,
+    opacity: 1,
+    boxShadow: `0 0 8px ${color || '#19abb5'}`,
   },
 }));
 
@@ -733,6 +718,9 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   const lanesContainerRef = useRef<HTMLDivElement>(null);
   const [selectedEvidence, setSelectedEvidence] = useState<EvidenceItem | null>(null);
   const [currentImage, setCurrentImage] = useState<TimelineMediaItem | null>(null);
+
+  // Image preview modal state
+  const [imageModalOpen, setImageModalOpen] = useState(false);
 
   // Dummy data
   const [items] = useState<TimelineMediaItem[]>(() => generateDummyData());
@@ -855,6 +843,17 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       }
     }
   }, [items, activeFileId]);
+
+  // Handle Esc key to close image modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && imageModalOpen) {
+        setImageModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [imageModalOpen]);
 
   // Persist lane height to localStorage
   useEffect(() => {
@@ -1072,6 +1071,14 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     },
     [setGlobalTimestamp]
   );
+
+  // Handle opening current image in Image Tool
+  const handleOpenInImageTool = useCallback(() => {
+    if (currentImage) {
+      setImageModalOpen(false);
+      navigateToTool('images', currentImage.evidenceId);
+    }
+  }, [currentImage, navigateToTool]);
 
   // Toggle file visibility (only one can be active at a time)
   const handleFileVisibilityToggle = useCallback((fileId: string) => {
@@ -1332,113 +1339,92 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       if (laneType === 'image') {
         const iconSize = clipHeight < 20 ? 8 : clipHeight < 24 ? 10 : 12;
         return (
-          <TimelineImage
-            key={item.id}
-            highlighted={isHighlighted}
-            imageHeight={clipHeight}
-            sx={{
-              left: pos.left,
-              opacity: isDimmed ? 0.5 : 1,
-              transition: 'opacity 0.15s',
-            }}
-            onClick={(e) => { e.stopPropagation(); handleItemClick(item); }}
-            onDoubleClick={(e) => { e.stopPropagation(); handleItemDoubleClick(item); }}
-            onContextMenu={(e) => handleContextMenu(e, item)}
-            title={`${item.fileName}\nDouble-click to focus`}
-          >
-            <Tooltip title={isActive ? 'Active - click to deactivate' : 'Click to activate'} placement="top">
-              <ClipVisibilityButton
-                isActive={isActive}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleFileVisibilityToggle(item.id);
-                }}
-              >
-                {isActive ? (
-                  <VisibilityIcon sx={{ fontSize: `${iconSize}px !important` }} />
-                ) : (
-                  <VisibilityOffIcon sx={{ fontSize: `${iconSize}px !important` }} />
-                )}
-              </ClipVisibilityButton>
-            </Tooltip>
-            {clipHeight >= 24 && (
+          <Tooltip key={item.id} title={item.fileName} placement="top">
+            <TimelineImage
+              highlighted={isActive}
+              imageHeight={clipHeight}
+              sx={{
+                left: pos.left,
+                opacity: isDimmed ? 0.55 : 1,
+                transition: 'opacity 0.15s',
+                border: isActive ? '2px solid #19abb5' : '2px solid transparent',
+                boxShadow: isActive ? '0 0 10px rgba(25, 171, 181, 0.6)' : 'none',
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleFileVisibilityToggle(item.id);
+                handleItemClick(item);
+              }}
+              onDoubleClick={(e) => { e.stopPropagation(); handleItemDoubleClick(item); }}
+              onContextMenu={(e) => handleContextMenu(e, item)}
+            >
               <PhotoIcon sx={{ fontSize: iconSize, color: '#fff' }} />
-            )}
-          </TimelineImage>
+            </TimelineImage>
+          </Tooltip>
         );
       }
 
-      // Render flags on clip
+      // Render flags on clip as vertical lines
       const clipFlags = item.flags.map((flag) => {
         const flagOffset =
           item.duration && item.duration > 0
             ? (flag.timestamp / item.duration) * 100
             : 50;
+        const tooltipContent = flag.note ? `${flag.title}: ${flag.note}` : flag.title;
         return (
-          <FlagDot
-            key={flag.id}
-            color={flag.color}
-            sx={{ left: `${Math.min(95, Math.max(5, flagOffset))}%` }}
-            title={flag.title}
-            onClick={(e) => {
-              e.stopPropagation();
-              setGlobalTimestamp(flag.absoluteTimestamp);
-            }}
-          />
+          <Tooltip key={flag.id} title={tooltipContent} placement="top" arrow>
+            <FlagLine
+              color={flag.color}
+              clipHeight={clipHeight}
+              sx={{ left: `${Math.min(95, Math.max(5, flagOffset))}%` }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setGlobalTimestamp(flag.absoluteTimestamp);
+              }}
+            />
+          </Tooltip>
         );
       });
 
-      const eyeIconSize = clipHeight < 20 ? 10 : clipHeight < 24 ? 12 : 14;
-
       return (
-        <TimelineClip
-          key={item.id}
-          clipType={laneType}
-          highlighted={isHighlighted}
-          clipHeight={clipHeight}
-          sx={{
-            left: pos.left,
-            width: pos.width,
-            minWidth: clipHeight < 20 ? 30 : 40,
-            opacity: isDimmed ? 0.5 : 1,
-            transition: 'opacity 0.15s',
-          }}
-          onClick={(e) => { e.stopPropagation(); handleItemClick(item); }}
-          onDoubleClick={(e) => { e.stopPropagation(); handleItemDoubleClick(item); }}
-          onContextMenu={(e) => handleContextMenu(e, item)}
-          title={`${item.fileName}\nDouble-click to focus • Right-click for options`}
-        >
-          {/* Eyeball visibility toggle */}
-          <Tooltip title={isActive ? 'Active - click to deactivate' : 'Click to activate'} placement="top">
-            <ClipVisibilityButton
-              isActive={isActive}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleFileVisibilityToggle(item.id);
+        <Tooltip key={item.id} title={`${item.fileName}\nClick to select • Double-click to focus`} placement="top">
+          <TimelineClip
+            clipType={laneType}
+            highlighted={isActive}
+            clipHeight={clipHeight}
+            sx={{
+              left: pos.left,
+              width: pos.width,
+              minWidth: clipHeight < 20 ? 30 : 40,
+              opacity: isDimmed ? 0.55 : 1,
+              transition: 'opacity 0.15s, border-color 0.15s, box-shadow 0.15s',
+              border: isActive ? '2px solid #19abb5' : '2px solid transparent',
+              boxShadow: isActive ? '0 0 10px rgba(25, 171, 181, 0.6)' : 'none',
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleFileVisibilityToggle(item.id);
+              handleItemClick(item);
+            }}
+            onDoubleClick={(e) => { e.stopPropagation(); handleItemDoubleClick(item); }}
+            onContextMenu={(e) => handleContextMenu(e, item)}
+          >
+            <Typography
+              sx={{
+                fontSize: clipHeight < 20 ? 8 : 10,
+                color: '#fff',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                flex: 1,
+                minWidth: 0,
               }}
             >
-              {isActive ? (
-                <VisibilityIcon sx={{ fontSize: `${eyeIconSize}px !important` }} />
-              ) : (
-                <VisibilityOffIcon sx={{ fontSize: `${eyeIconSize}px !important` }} />
-              )}
-            </ClipVisibilityButton>
-          </Tooltip>
-          <Typography
-            sx={{
-              fontSize: clipHeight < 20 ? 8 : 10,
-              color: '#fff',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              flex: 1,
-              minWidth: 0,
-            }}
-          >
-            {item.fileName.length > maxChars ? item.fileName.substring(0, maxChars - 3) + '...' : item.fileName}
-          </Typography>
-          {clipFlags}
-        </TimelineClip>
+              {item.fileName.length > maxChars ? item.fileName.substring(0, maxChars - 3) + '...' : item.fileName}
+            </Typography>
+            {clipFlags}
+          </TimelineClip>
+        </Tooltip>
       );
     });
   };
@@ -1791,48 +1777,54 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
         </ImagePreviewHeader>
         <ImagePreviewContent>
           {currentImage ? (
-            <Box
-              sx={{
-                width: '100%',
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background:
-                  'linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 50%, #1a1a1a 100%)',
-                cursor: 'pointer',
-                padding: 2,
-              }}
-              onDoubleClick={() => handleItemDoubleClick(currentImage)}
-            >
-              <ImageIcon sx={{ fontSize: 40, color: '#5a7fbf', mb: 1 }} />
-              <Typography
+            <Tooltip title="Click to enlarge" placement="top">
+              <Box
                 sx={{
-                  fontSize: 11,
-                  color: '#ccc',
-                  textAlign: 'center',
-                  px: 1,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  maxWidth: '100%',
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background:
+                    'linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 50%, #1a1a1a 100%)',
+                  cursor: 'pointer',
+                  padding: 2,
+                  transition: 'filter 0.15s',
+                  '&:hover': {
+                    filter: 'brightness(1.1)',
+                  },
                 }}
+                onClick={() => setImageModalOpen(true)}
               >
-                {currentImage.fileName}
-              </Typography>
-              <Typography sx={{ fontSize: 10, color: '#666', mt: 0.5 }}>
-                {currentImage.user || 'Unknown'}
-              </Typography>
-              {currentImage.flagCount > 0 && (
-                <Typography sx={{ fontSize: 9, color: '#19abb5', mt: 0.5 }}>
-                  {currentImage.flagCount} flag{currentImage.flagCount !== 1 ? 's' : ''}
+                <ImageIcon sx={{ fontSize: 40, color: '#5a7fbf', mb: 1 }} />
+                <Typography
+                  sx={{
+                    fontSize: 11,
+                    color: '#ccc',
+                    textAlign: 'center',
+                    px: 1,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    maxWidth: '100%',
+                  }}
+                >
+                  {currentImage.fileName}
                 </Typography>
-              )}
-              <Typography sx={{ fontSize: 9, color: '#555', mt: 1 }}>
-                Double-click to open
-              </Typography>
-            </Box>
+                <Typography sx={{ fontSize: 10, color: '#666', mt: 0.5 }}>
+                  {currentImage.user || 'Unknown'}
+                </Typography>
+                {currentImage.flagCount > 0 && (
+                  <Typography sx={{ fontSize: 9, color: '#19abb5', mt: 0.5 }}>
+                    {currentImage.flagCount} flag{currentImage.flagCount !== 1 ? 's' : ''}
+                  </Typography>
+                )}
+                <Typography sx={{ fontSize: 9, color: '#555', mt: 1 }}>
+                  Click to enlarge
+                </Typography>
+              </Box>
+            </Tooltip>
           ) : (
             <Box
               sx={{
@@ -2011,6 +2003,150 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
           />
         </MenuItem>
       </Menu>
+
+      {/* Image Preview Modal */}
+      <Dialog
+        open={imageModalOpen && currentImage !== null}
+        onClose={(_, reason) => {
+          // Only close on X button or Esc, not on backdrop click
+          if (reason !== 'backdropClick') {
+            setImageModalOpen(false);
+          }
+        }}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: {
+            backgroundColor: '#1a1a1a',
+            border: '1px solid #333',
+            borderRadius: 2,
+            maxHeight: '90vh',
+            overflow: 'hidden',
+          },
+        }}
+      >
+        {currentImage && (
+          <>
+            {/* Modal Header */}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 16px',
+                borderBottom: '1px solid #333',
+                backgroundColor: '#1e1e1e',
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <ImageIcon sx={{ fontSize: 24, color: '#5a7fbf' }} />
+                <Box>
+                  <Typography sx={{ fontSize: 14, fontWeight: 600, color: '#e1e1e1' }}>
+                    {currentImage.fileName}
+                  </Typography>
+                  <Typography sx={{ fontSize: 11, color: '#888' }}>
+                    {currentImage.user || 'Unknown'} • {currentImage.deviceInfo || 'Unknown device'}
+                  </Typography>
+                </Box>
+              </Box>
+              <IconButton
+                onClick={() => setImageModalOpen(false)}
+                sx={{
+                  color: '#888',
+                  '&:hover': {
+                    color: '#e1e1e1',
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  },
+                }}
+              >
+                <CloseIcon />
+              </IconButton>
+            </Box>
+
+            {/* Modal Content - Image Display */}
+            <Box
+              sx={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#0d0d0d',
+                minHeight: 400,
+                maxHeight: 'calc(90vh - 150px)',
+                padding: 4,
+              }}
+            >
+              {/* Placeholder for actual image - would normally use <img> with real URL */}
+              <Box
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  minHeight: 300,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background:
+                    'linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 50%, #1a1a1a 100%)',
+                  borderRadius: 1,
+                }}
+              >
+                <ImageIcon sx={{ fontSize: 80, color: '#5a7fbf', mb: 2 }} />
+                <Typography sx={{ fontSize: 16, color: '#888', mb: 1 }}>
+                  {currentImage.fileName}
+                </Typography>
+                <Typography sx={{ fontSize: 12, color: '#555' }}>
+                  {currentImage.format || 'Image format unknown'}
+                </Typography>
+                {currentImage.gps && (
+                  <Typography sx={{ fontSize: 11, color: '#19abb5', mt: 1 }}>
+                    📍 {currentImage.gps}
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+
+            {/* Modal Footer */}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 16px',
+                borderTop: '1px solid #333',
+                backgroundColor: '#1e1e1e',
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                {currentImage.flagCount > 0 && (
+                  <Typography sx={{ fontSize: 12, color: '#19abb5' }}>
+                    {currentImage.flagCount} flag{currentImage.flagCount !== 1 ? 's' : ''}
+                  </Typography>
+                )}
+                <Typography sx={{ fontSize: 11, color: '#555' }}>
+                  Press Esc to close
+                </Typography>
+              </Box>
+              <Button
+                variant="contained"
+                onClick={handleOpenInImageTool}
+                startIcon={<OpenInNewIcon sx={{ fontSize: 16 }} />}
+                sx={{
+                  backgroundColor: '#19abb5',
+                  color: '#fff',
+                  fontSize: 12,
+                  textTransform: 'none',
+                  '&:hover': {
+                    backgroundColor: '#147a82',
+                  },
+                }}
+              >
+                Open in Image Tool
+              </Button>
+            </Box>
+          </>
+        )}
+      </Dialog>
     </>
   );
 };
