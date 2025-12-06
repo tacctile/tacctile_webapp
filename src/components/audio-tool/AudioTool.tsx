@@ -33,6 +33,10 @@ import {
   getFileTypeErrorMessage,
   getAcceptString,
 } from '@/utils/fileTypes';
+import {
+  generateTestMetadataIfDev,
+  formatGPSCoordinates,
+} from '@/utils/testMetadataGenerator';
 
 // ============================================================================
 // STYLED COMPONENTS
@@ -708,19 +712,28 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       return;
     }
 
+    // Try to generate test metadata in development mode
+    const testMetadata = generateTestMetadataIfDev(file);
+
     // Create a mock audio item from the imported file (Quick Analysis Mode)
+    // Use test metadata if available (dev mode), otherwise use defaults
     const mockItem = {
-      id: `import-${Date.now()}`,
+      id: testMetadata?.id || `import-${Date.now()}`,
       type: 'audio' as const,
       fileName: file.name,
-      duration: 180, // Default 3 minutes
-      capturedAt: Date.now(),
-      user: 'Imported',
-      deviceInfo: 'Imported File',
+      duration: testMetadata?.duration
+        ? Math.floor(testMetadata.duration / 1000) // Convert ms to seconds
+        : 180, // Default 3 minutes
+      capturedAt: testMetadata?.timestamp.getTime() || Date.now(),
+      user: testMetadata?.user || 'Imported',
+      deviceInfo: testMetadata?.deviceId || 'Imported File',
       format: file.type || 'audio/unknown',
       sampleRate: 44100,
       channels: 2,
       flagCount: 0,
+      gps: testMetadata?.gpsCoordinates
+        ? formatGPSCoordinates(testMetadata.gpsCoordinates)
+        : null,
     };
 
     setLoadedAudio(mockItem);

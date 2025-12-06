@@ -42,6 +42,10 @@ import {
   getFileTypeErrorMessage,
   getAcceptString,
 } from '@/utils/fileTypes';
+import {
+  generateTestMetadataIfDev,
+  formatGPSCoordinates,
+} from '@/utils/testMetadataGenerator';
 
 // ============================================================================
 // STYLED COMPONENTS
@@ -533,18 +537,24 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       return;
     }
 
+    // Try to generate test metadata in development mode
+    const testMetadata = generateTestMetadataIfDev(file);
+
     // Create a mock image item from the imported file (Quick Analysis Mode)
+    // Use test metadata if available (dev mode), otherwise use defaults
     const mockItem = {
-      id: `import-${Date.now()}`,
+      id: testMetadata?.id || `import-${Date.now()}`,
       type: 'image' as const,
       fileName: file.name,
-      capturedAt: Date.now(),
-      user: 'Imported',
-      deviceInfo: 'Imported File',
+      capturedAt: testMetadata?.timestamp.getTime() || Date.now(),
+      user: testMetadata?.user || 'Imported',
+      deviceInfo: testMetadata?.deviceId || 'Imported File',
       format: file.type || 'image/unknown',
       dimensions: '4000 x 3000',
       flagCount: 0,
-      gps: null,
+      gps: testMetadata?.gpsCoordinates
+        ? formatGPSCoordinates(testMetadata.gpsCoordinates)
+        : null,
     };
 
     setLoadedImage(mockItem);

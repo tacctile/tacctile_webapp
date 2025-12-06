@@ -24,6 +24,10 @@ import {
   getFileTypeErrorMessage,
   getAcceptString,
 } from '@/utils/fileTypes';
+import {
+  generateTestMetadataIfDev,
+  formatGPSCoordinates,
+} from '@/utils/testMetadataGenerator';
 
 // Styled components
 const ViewerContainer = styled(Box)({
@@ -294,19 +298,27 @@ export const VideoTool: React.FC<VideoToolProps> = ({ investigationId }) => {
       return;
     }
 
+    // Try to generate test metadata in development mode
+    const testMetadata = generateTestMetadataIfDev(file);
+
     // Create a mock video item from the imported file (Quick Analysis Mode)
+    // Use test metadata if available (dev mode), otherwise use defaults
     const mockItem = {
-      id: `import-${Date.now()}`,
+      id: testMetadata?.id || `import-${Date.now()}`,
       type: 'video' as const,
       fileName: file.name,
-      duration: 3600, // Default 1 hour
-      capturedAt: Date.now(),
-      user: 'Imported',
-      deviceInfo: 'Imported File',
+      duration: testMetadata?.duration
+        ? Math.floor(testMetadata.duration / 1000) // Convert ms to seconds
+        : 3600, // Default 1 hour
+      capturedAt: testMetadata?.timestamp.getTime() || Date.now(),
+      user: testMetadata?.user || 'Imported',
+      deviceInfo: testMetadata?.deviceId || 'Imported File',
       format: file.type || 'video/unknown',
       flagCount: 0,
       hasFindings: false,
-      gps: null,
+      gps: testMetadata?.gpsCoordinates
+        ? formatGPSCoordinates(testMetadata.gpsCoordinates)
+        : null,
     };
 
     setLoadedVideo(mockItem);
