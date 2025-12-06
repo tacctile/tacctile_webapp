@@ -2027,12 +2027,13 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     let skippedCount = 0;
 
     const sessionStart = timeRange?.start || Date.now();
+    const sessionEnd = timeRange?.end || (sessionStart + 90 * 60 * 1000); // Default 90 min session
 
     // Process each file type
     const processFile = (file: File, type: MediaFileType) => {
       console.log('[DROP] processFile called for:', file.name, 'type:', type);
       // Try to generate test metadata in development mode
-      const testMetadata = generateTestMetadataIfDev(file);
+      const testMetadata = generateTestMetadataIfDev(file, { start: sessionStart, end: sessionEnd });
 
       // Use test metadata if available (dev mode), otherwise use defaults
       const id = testMetadata?.id || generateImportId();
@@ -2046,7 +2047,6 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       // Calculate timestamp - use test metadata timestamp or session start
       // Clamp to ensure clip doesn't exceed session bounds
       let capturedAt = testMetadata?.timestamp.getTime() || sessionStart;
-      const sessionEnd = timeRange?.end || (sessionStart + 90 * 60 * 1000); // Default 90 min session
       const durationMs = (durationSeconds || 0) * 1000;
 
       // If clip would extend past session end, clamp the start time earlier
