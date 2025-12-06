@@ -2,6 +2,12 @@
  * Cloud Storage Service
  * Storage-agnostic interface for Google Drive, Dropbox, and OneDrive
  * User picks their provider - we never store media on our servers (zero liability)
+ *
+ * Features:
+ * - Proactive token refresh: checks token validity before every API request
+ * - Reactive token refresh: retries on 401 with fresh token
+ * - Event emission for reconnection when refresh fails
+ * - PKCE-based OAuth for Dropbox and OneDrive (no client secret needed)
  */
 
 import { cloudStorageConfig } from '@/config';
@@ -14,6 +20,15 @@ import type {
   CloudStorageQuota,
   StorageError,
 } from '@/types';
+import {
+  tokenManager,
+  TokenManager,
+  generateCodeVerifier,
+  generateCodeChallenge,
+  type TokenInfo,
+  type TokenEvent,
+  type TokenEventListener,
+} from './TokenManager';
 
 // ============================================================================
 // PROVIDER INTERFACE
@@ -28,7 +43,7 @@ export interface CloudStorageProviderInterface {
   /**
    * Refresh access token
    */
-  refreshToken(refreshToken: string): Promise<{ accessToken: string; expiresAt: Date }>;
+  refreshToken(refreshToken: string): Promise<{ accessToken: string; refreshToken?: string; expiresAt: Date }>;
 
   /**
    * List files in a folder
@@ -85,11 +100,26 @@ export interface CloudStorageProviderInterface {
 // ============================================================================
 
 class GoogleDriveProvider implements CloudStorageProviderInterface {
-  private accessToken: string | null = null;
   private readonly provider: CloudStorageProvider = 'google_drive';
+  private readonly tokenMgr: TokenManager;
+  private gapiInitialized = false;
 
-  setAccessToken(token: string): void {
-    this.accessToken = token;
+  constructor(tokenMgr: TokenManager = tokenManager) {
+    this.tokenMgr = tokenMgr;
+
+    // Register refresh handler
+    this.tokenMgr.registerRefreshHandler('google_drive', async () => {
+      return this.refreshToken('');
+    });
+  }
+
+  setAccessToken(token: string, refreshToken = '', expiresAt?: Date): void {
+    this.tokenMgr.setTokens(this.provider, {
+      accessToken: token,
+      refreshToken,
+      expiresAt: expiresAt || new Date(Date.now() + 3600 * 1000),
+      provider: this.provider,
+    });
   }
 
   async authenticate(): Promise<CloudStorageConfig> {
@@ -113,16 +143,25 @@ class GoogleDriveProvider implements CloudStorageProviderInterface {
               discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
             });
 
+            this.gapiInitialized = true;
+
             const authInstance = gapi.auth2.getAuthInstance();
             const user = await authInstance.signIn();
             const authResponse = user.getAuthResponse(true);
 
-            this.accessToken = authResponse.access_token;
+            const tokenInfo: TokenInfo = {
+              provider: this.provider,
+              accessToken: authResponse.access_token,
+              refreshToken: authResponse.id_token, // Google uses ID token for refresh in implicit flow
+              expiresAt: new Date(authResponse.expires_at),
+            };
+
+            this.tokenMgr.setTokens(this.provider, tokenInfo);
 
             resolve({
               provider: this.provider,
               accessToken: authResponse.access_token,
-              refreshToken: authResponse.id_token, // Google uses ID token for refresh in implicit flow
+              refreshToken: authResponse.id_token,
               expiresAt: new Date(authResponse.expires_at),
             });
           } catch (error) {
@@ -135,100 +174,162 @@ class GoogleDriveProvider implements CloudStorageProviderInterface {
     });
   }
 
-  async refreshToken(refreshToken: string): Promise<{ accessToken: string; expiresAt: Date }> {
-    // For web apps using implicit flow, token refresh requires re-authentication
-    // In production with a backend, you'd use the refresh token with OAuth 2.0
+  async refreshToken(_refreshToken: string): Promise<{ accessToken: string; refreshToken?: string; expiresAt: Date }> {
+    // Ensure gapi is loaded
+    if (!this.gapiInitialized) {
+      await this.loadGapi();
+    }
+
     const authInstance = gapi.auth2.getAuthInstance();
     const user = authInstance.currentUser.get();
     const authResponse = await user.reloadAuthResponse();
 
-    this.accessToken = authResponse.access_token;
-
-    return {
+    const result = {
       accessToken: authResponse.access_token,
+      refreshToken: undefined, // Google implicit flow doesn't return new refresh token
       expiresAt: new Date(authResponse.expires_at),
     };
+
+    this.tokenMgr.setTokens(this.provider, {
+      provider: this.provider,
+      accessToken: result.accessToken,
+      refreshToken: this.tokenMgr.getTokens(this.provider)?.refreshToken || '',
+      expiresAt: result.expiresAt,
+    });
+
+    return result;
+  }
+
+  private async loadGapi(): Promise<void> {
+    if (this.gapiInitialized) return;
+
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[src="https://apis.google.com/js/api.js"]');
+      if (existing) {
+        // Already loaded, just init
+        gapi.load('client:auth2', async () => {
+          try {
+            const { clientId, scopes } = cloudStorageConfig.google;
+            await gapi.client.init({
+              clientId,
+              scope: scopes.join(' '),
+              discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+            });
+            this.gapiInitialized = true;
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        });
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://apis.google.com/js/api.js';
+      script.onload = () => {
+        gapi.load('client:auth2', async () => {
+          try {
+            const { clientId, scopes } = cloudStorageConfig.google;
+            await gapi.client.init({
+              clientId,
+              scope: scopes.join(' '),
+              discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+            });
+            this.gapiInitialized = true;
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        });
+      };
+      script.onerror = () => reject(new Error('Failed to load Google API'));
+      document.body.appendChild(script);
+    });
   }
 
   async listFiles(folderId = 'root'): Promise<(CloudFile | CloudFolder)[]> {
-    this.ensureAuthenticated();
+    return this.tokenMgr.executeWithTokenRefresh(
+      this.provider,
+      async () => {
+        await this.loadGapi();
+        const response = await gapi.client.drive.files.list({
+          q: `'${folderId}' in parents and trashed = false`,
+          fields: 'files(id, name, mimeType, size, createdTime, modifiedTime, thumbnailLink, webViewLink, parents)',
+          pageSize: 100,
+        });
 
-    const response = await gapi.client.drive.files.list({
-      q: `'${folderId}' in parents and trashed = false`,
-      fields: 'files(id, name, mimeType, size, createdTime, modifiedTime, thumbnailLink, webViewLink, parents)',
-      pageSize: 100,
-    });
+        return (response.result.files || []).map((file: gapi.client.drive.File) => {
+          const isFolder = file.mimeType === 'application/vnd.google-apps.folder';
 
-    return (response.result.files || []).map((file: gapi.client.drive.File) => {
-      const isFolder = file.mimeType === 'application/vnd.google-apps.folder';
+          if (isFolder) {
+            return {
+              id: file.id!,
+              name: file.name!,
+              provider: this.provider,
+              path: `/${file.name}`,
+              parentId: file.parents?.[0],
+            } as CloudFolder;
+          }
 
-      if (isFolder) {
-        return {
-          id: file.id!,
-          name: file.name!,
-          provider: this.provider,
-          path: `/${file.name}`,
-          parentId: file.parents?.[0],
-        } as CloudFolder;
-      }
-
-      return {
-        id: file.id!,
-        name: file.name!,
-        mimeType: file.mimeType!,
-        size: Number(file.size) || 0,
-        createdAt: new Date(file.createdTime!),
-        modifiedAt: new Date(file.modifiedTime!),
-        provider: this.provider,
-        path: `/${file.name}`,
-        thumbnailUrl: file.thumbnailLink,
-        webViewLink: file.webViewLink,
-        parentId: file.parents?.[0],
-      } as CloudFile;
-    });
+          return {
+            id: file.id!,
+            name: file.name!,
+            mimeType: file.mimeType!,
+            size: Number(file.size) || 0,
+            createdAt: new Date(file.createdTime!),
+            modifiedAt: new Date(file.modifiedTime!),
+            provider: this.provider,
+            path: `/${file.name}`,
+            thumbnailUrl: file.thumbnailLink,
+            webViewLink: file.webViewLink,
+            parentId: file.parents?.[0],
+          } as CloudFile;
+        });
+      },
+      (error) => this.isAuthError(error)
+    );
   }
 
   async getFile(fileId: string): Promise<CloudFile> {
-    this.ensureAuthenticated();
+    return this.tokenMgr.executeWithTokenRefresh(
+      this.provider,
+      async () => {
+        await this.loadGapi();
+        const response = await gapi.client.drive.files.get({
+          fileId,
+          fields: 'id, name, mimeType, size, createdTime, modifiedTime, thumbnailLink, webViewLink, parents',
+        });
 
-    const response = await gapi.client.drive.files.get({
-      fileId,
-      fields: 'id, name, mimeType, size, createdTime, modifiedTime, thumbnailLink, webViewLink, parents',
-    });
-
-    const file = response.result;
-    return {
-      id: file.id!,
-      name: file.name!,
-      mimeType: file.mimeType!,
-      size: Number(file.size) || 0,
-      createdAt: new Date(file.createdTime!),
-      modifiedAt: new Date(file.modifiedTime!),
-      provider: this.provider,
-      path: `/${file.name}`,
-      thumbnailUrl: file.thumbnailLink,
-      webViewLink: file.webViewLink,
-      parentId: file.parents?.[0],
-    };
+        const file = response.result;
+        return {
+          id: file.id!,
+          name: file.name!,
+          mimeType: file.mimeType!,
+          size: Number(file.size) || 0,
+          createdAt: new Date(file.createdTime!),
+          modifiedAt: new Date(file.modifiedTime!),
+          provider: this.provider,
+          path: `/${file.name}`,
+          thumbnailUrl: file.thumbnailLink,
+          webViewLink: file.webViewLink,
+          parentId: file.parents?.[0],
+        };
+      },
+      (error) => this.isAuthError(error)
+    );
   }
 
   async downloadFile(fileId: string): Promise<Blob> {
-    this.ensureAuthenticated();
+    const accessToken = await this.tokenMgr.ensureValidToken(this.provider);
 
-    const response = await fetch(
-      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-      {
-        headers: {
-          Authorization: `Bearer ${this.accessToken}`,
-        },
-      }
+    return this.tokenMgr.fetchWithTokenRefresh(
+      this.provider,
+      (token) =>
+        fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      (response) => response.blob()
     );
-
-    if (!response.ok) {
-      throw new Error(`Download failed: ${response.statusText}`);
-    }
-
-    return response.blob();
   }
 
   async uploadFile(
@@ -236,7 +337,7 @@ class GoogleDriveProvider implements CloudStorageProviderInterface {
     folderId = 'root',
     onProgress?: (progress: UploadProgress) => void
   ): Promise<CloudFile> {
-    this.ensureAuthenticated();
+    const accessToken = await this.tokenMgr.ensureValidToken(this.provider);
 
     const metadata = {
       name: file.name,
@@ -248,10 +349,10 @@ class GoogleDriveProvider implements CloudStorageProviderInterface {
     form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
     form.append('file', file);
 
-    const xhr = new XMLHttpRequest();
-    const uploadPromise = new Promise<CloudFile>((resolve, reject) => {
+    return new Promise<CloudFile>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
       xhr.open('POST', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,size,createdTime,modifiedTime,thumbnailLink,webViewLink');
-      xhr.setRequestHeader('Authorization', `Bearer ${this.accessToken}`);
+      xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
 
       if (onProgress) {
         xhr.upload.onprogress = (event) => {
@@ -268,7 +369,45 @@ class GoogleDriveProvider implements CloudStorageProviderInterface {
         };
       }
 
-      xhr.onload = () => {
+      xhr.onload = async () => {
+        // Handle 401 with retry
+        if (xhr.status === 401) {
+          try {
+            const result = await this.tokenMgr.refreshToken(this.provider);
+            // Retry with new token
+            const retryXhr = new XMLHttpRequest();
+            retryXhr.open('POST', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,size,createdTime,modifiedTime,thumbnailLink,webViewLink');
+            retryXhr.setRequestHeader('Authorization', `Bearer ${result.accessToken}`);
+
+            retryXhr.onload = () => {
+              if (retryXhr.status >= 200 && retryXhr.status < 300) {
+                const result = JSON.parse(retryXhr.responseText);
+                resolve({
+                  id: result.id,
+                  name: result.name,
+                  mimeType: result.mimeType,
+                  size: Number(result.size) || file.size,
+                  createdAt: new Date(result.createdTime),
+                  modifiedAt: new Date(result.modifiedTime),
+                  provider: this.provider,
+                  path: `/${result.name}`,
+                  thumbnailUrl: result.thumbnailLink,
+                  webViewLink: result.webViewLink,
+                  parentId: folderId,
+                });
+              } else {
+                reject(new Error(`Upload failed: ${retryXhr.statusText}`));
+              }
+            };
+            retryXhr.onerror = () => reject(new Error('Upload failed on retry'));
+            retryXhr.send(form);
+            return;
+          } catch {
+            reject(new Error('Authentication failed for google_drive: token refresh required'));
+            return;
+          }
+        }
+
         if (xhr.status >= 200 && xhr.status < 300) {
           const result = JSON.parse(xhr.responseText);
           resolve({
@@ -292,82 +431,112 @@ class GoogleDriveProvider implements CloudStorageProviderInterface {
       xhr.onerror = () => reject(new Error('Upload failed'));
       xhr.send(form);
     });
-
-    return uploadPromise;
   }
 
   async createFolder(name: string, parentId = 'root'): Promise<CloudFolder> {
-    this.ensureAuthenticated();
+    return this.tokenMgr.executeWithTokenRefresh(
+      this.provider,
+      async () => {
+        await this.loadGapi();
+        const response = await gapi.client.drive.files.create({
+          resource: {
+            name,
+            mimeType: 'application/vnd.google-apps.folder',
+            parents: [parentId],
+          },
+          fields: 'id, name',
+        });
 
-    const response = await gapi.client.drive.files.create({
-      resource: {
-        name,
-        mimeType: 'application/vnd.google-apps.folder',
-        parents: [parentId],
+        return {
+          id: response.result.id!,
+          name: response.result.name!,
+          provider: this.provider,
+          path: `/${name}`,
+          parentId,
+        };
       },
-      fields: 'id, name',
-    });
-
-    return {
-      id: response.result.id!,
-      name: response.result.name!,
-      provider: this.provider,
-      path: `/${name}`,
-      parentId,
-    };
+      (error) => this.isAuthError(error)
+    );
   }
 
   async delete(fileId: string): Promise<void> {
-    this.ensureAuthenticated();
-    await gapi.client.drive.files.delete({ fileId });
+    return this.tokenMgr.executeWithTokenRefresh(
+      this.provider,
+      async () => {
+        await this.loadGapi();
+        await gapi.client.drive.files.delete({ fileId });
+      },
+      (error) => this.isAuthError(error)
+    );
   }
 
   async getQuota(): Promise<CloudStorageQuota> {
-    this.ensureAuthenticated();
+    return this.tokenMgr.executeWithTokenRefresh(
+      this.provider,
+      async () => {
+        await this.loadGapi();
+        const response = await gapi.client.drive.about.get({
+          fields: 'storageQuota',
+        });
 
-    const response = await gapi.client.drive.about.get({
-      fields: 'storageQuota',
-    });
-
-    const quota = response.result.storageQuota!;
-    return {
-      used: Number(quota.usage) || 0,
-      total: Number(quota.limit) || 0,
-      provider: this.provider,
-    };
+        const quota = response.result.storageQuota!;
+        return {
+          used: Number(quota.usage) || 0,
+          total: Number(quota.limit) || 0,
+          provider: this.provider,
+        };
+      },
+      (error) => this.isAuthError(error)
+    );
   }
 
   async getShareableLink(fileId: string): Promise<string> {
-    this.ensureAuthenticated();
+    return this.tokenMgr.executeWithTokenRefresh(
+      this.provider,
+      async () => {
+        await this.loadGapi();
+        // Create sharing permission
+        await gapi.client.drive.permissions.create({
+          fileId,
+          resource: {
+            role: 'reader',
+            type: 'anyone',
+          },
+        });
 
-    // Create sharing permission
-    await gapi.client.drive.permissions.create({
-      fileId,
-      resource: {
-        role: 'reader',
-        type: 'anyone',
+        // Get the web view link
+        const response = await gapi.client.drive.files.get({
+          fileId,
+          fields: 'webViewLink',
+        });
+
+        return response.result.webViewLink!;
       },
-    });
-
-    // Get the web view link
-    const response = await gapi.client.drive.files.get({
-      fileId,
-      fields: 'webViewLink',
-    });
-
-    return response.result.webViewLink!;
+      (error) => this.isAuthError(error)
+    );
   }
 
   async revokeAccess(): Promise<void> {
-    const authInstance = gapi.auth2.getAuthInstance();
-    await authInstance.signOut();
-    this.accessToken = null;
+    try {
+      await this.loadGapi();
+      const authInstance = gapi.auth2.getAuthInstance();
+      await authInstance.signOut();
+    } catch {
+      // Ignore errors during sign out
+    }
+    this.tokenMgr.clearTokens(this.provider);
   }
 
-  private ensureAuthenticated(): void {
-    if (!this.accessToken) {
-      throw new Error('Not authenticated with Google Drive');
+  private isAuthError(error: unknown): boolean {
+    if (error instanceof Error) {
+      const message = error.message.toLowerCase();
+      return message.includes('401') ||
+        message.includes('unauthorized') ||
+        message.includes('auth') ||
+        message.includes('token') ||
+        message.includes('expired');
     }
+    return false;
   }
 }
 
@@ -376,13 +545,27 @@ class GoogleDriveProvider implements CloudStorageProviderInterface {
 // ============================================================================
 
 class DropboxProvider implements CloudStorageProviderInterface {
-  private accessToken: string | null = null;
   private readonly provider: CloudStorageProvider = 'dropbox';
   private readonly apiBase = 'https://api.dropboxapi.com/2';
   private readonly contentBase = 'https://content.dropboxapi.com/2';
+  private readonly tokenMgr: TokenManager;
 
-  setAccessToken(token: string): void {
-    this.accessToken = token;
+  constructor(tokenMgr: TokenManager = tokenManager) {
+    this.tokenMgr = tokenMgr;
+
+    // Register refresh handler
+    this.tokenMgr.registerRefreshHandler('dropbox', async (refreshToken) => {
+      return this.refreshToken(refreshToken);
+    });
+  }
+
+  setAccessToken(token: string, refreshToken = '', expiresAt?: Date): void {
+    this.tokenMgr.setTokens(this.provider, {
+      accessToken: token,
+      refreshToken,
+      expiresAt: expiresAt || new Date(Date.now() + 14400 * 1000), // 4 hours default
+      provider: this.provider,
+    });
   }
 
   async authenticate(): Promise<CloudStorageConfig> {
@@ -392,17 +575,24 @@ class DropboxProvider implements CloudStorageProviderInterface {
       throw new Error('Dropbox Client ID not configured');
     }
 
+    // Generate PKCE code verifier and challenge
+    const codeVerifier = generateCodeVerifier();
+    const codeChallenge = await generateCodeChallenge(codeVerifier);
+
     // Generate state for CSRF protection
     const state = crypto.randomUUID();
     sessionStorage.setItem('dropbox_oauth_state', state);
+    sessionStorage.setItem('dropbox_code_verifier', codeVerifier);
 
-    // Build OAuth URL
+    // Build OAuth URL with PKCE (authorization code flow)
     const authUrl = new URL('https://www.dropbox.com/oauth2/authorize');
     authUrl.searchParams.set('client_id', clientId);
     authUrl.searchParams.set('redirect_uri', redirectUri);
-    authUrl.searchParams.set('response_type', 'token');
+    authUrl.searchParams.set('response_type', 'code'); // Use code flow instead of token
     authUrl.searchParams.set('state', state);
-    authUrl.searchParams.set('token_access_type', 'offline');
+    authUrl.searchParams.set('code_challenge', codeChallenge);
+    authUrl.searchParams.set('code_challenge_method', 'S256');
+    authUrl.searchParams.set('token_access_type', 'offline'); // Request refresh token
 
     // Open OAuth popup
     return new Promise((resolve, reject) => {
@@ -413,7 +603,7 @@ class DropboxProvider implements CloudStorageProviderInterface {
         return;
       }
 
-      const checkPopup = setInterval(() => {
+      const checkPopup = setInterval(async () => {
         try {
           if (popup.closed) {
             clearInterval(checkPopup);
@@ -421,39 +611,73 @@ class DropboxProvider implements CloudStorageProviderInterface {
             return;
           }
 
-          // Check if redirected back with token
+          // Check if redirected back with code
           const popupUrl = popup.location.href;
           if (popupUrl.includes(redirectUri)) {
             clearInterval(checkPopup);
             popup.close();
 
-            const hash = new URL(popupUrl).hash.substring(1);
-            const params = new URLSearchParams(hash);
-
-            const returnedState = params.get('state');
+            const url = new URL(popupUrl);
+            const code = url.searchParams.get('code');
+            const returnedState = url.searchParams.get('state');
             const savedState = sessionStorage.getItem('dropbox_oauth_state');
+            const savedVerifier = sessionStorage.getItem('dropbox_code_verifier');
+
+            // Clean up
+            sessionStorage.removeItem('dropbox_oauth_state');
+            sessionStorage.removeItem('dropbox_code_verifier');
 
             if (returnedState !== savedState) {
               reject(new Error('OAuth state mismatch'));
               return;
             }
 
-            const accessToken = params.get('access_token');
-            const expiresIn = params.get('expires_in');
-
-            if (!accessToken) {
-              reject(new Error('No access token received'));
+            if (!code || !savedVerifier) {
+              reject(new Error('No authorization code received'));
               return;
             }
 
-            this.accessToken = accessToken;
+            // Exchange code for tokens using PKCE
+            try {
+              const tokenResponse = await fetch('https://api.dropboxapi.com/oauth2/token', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                  code,
+                  grant_type: 'authorization_code',
+                  client_id: clientId,
+                  redirect_uri: redirectUri,
+                  code_verifier: savedVerifier,
+                }),
+              });
 
-            resolve({
-              provider: this.provider,
-              accessToken,
-              refreshToken: '', // Dropbox implicit flow doesn't provide refresh token
-              expiresAt: new Date(Date.now() + (Number(expiresIn) || 14400) * 1000),
-            });
+              if (!tokenResponse.ok) {
+                const error = await tokenResponse.json();
+                reject(new Error(error.error_description || 'Token exchange failed'));
+                return;
+              }
+
+              const tokens = await tokenResponse.json();
+              const expiresAt = new Date(Date.now() + (tokens.expires_in || 14400) * 1000);
+
+              this.tokenMgr.setTokens(this.provider, {
+                accessToken: tokens.access_token,
+                refreshToken: tokens.refresh_token || '',
+                expiresAt,
+                provider: this.provider,
+              });
+
+              resolve({
+                provider: this.provider,
+                accessToken: tokens.access_token,
+                refreshToken: tokens.refresh_token || '',
+                expiresAt,
+              });
+            } catch (error) {
+              reject(error);
+            }
           }
         } catch {
           // Cross-origin errors are expected until redirect
@@ -462,80 +686,128 @@ class DropboxProvider implements CloudStorageProviderInterface {
     });
   }
 
-  async refreshToken(_refreshToken: string): Promise<{ accessToken: string; expiresAt: Date }> {
-    // Dropbox requires re-authentication for implicit flow
-    throw new Error('Token refresh requires re-authentication');
-  }
+  async refreshToken(refreshToken: string): Promise<{ accessToken: string; refreshToken?: string; expiresAt: Date }> {
+    const { clientId } = cloudStorageConfig.dropbox;
 
-  async listFiles(folderId = ''): Promise<(CloudFile | CloudFolder)[]> {
-    this.ensureAuthenticated();
+    if (!refreshToken) {
+      throw new Error('No refresh token available for Dropbox');
+    }
 
-    const response = await this.apiRequest('/files/list_folder', {
-      path: folderId || '',
-      include_media_info: true,
-    });
-
-    return response.entries.map((entry: DropboxEntry) => {
-      if (entry['.tag'] === 'folder') {
-        return {
-          id: entry.id,
-          name: entry.name,
-          provider: this.provider,
-          path: entry.path_display,
-          parentId: entry.path_display.split('/').slice(0, -1).join('/') || undefined,
-        } as CloudFolder;
-      }
-
-      return {
-        id: entry.id,
-        name: entry.name,
-        mimeType: this.getMimeType(entry.name),
-        size: entry.size || 0,
-        createdAt: new Date(entry.client_modified || Date.now()),
-        modifiedAt: new Date(entry.server_modified || Date.now()),
-        provider: this.provider,
-        path: entry.path_display,
-        parentId: entry.path_display.split('/').slice(0, -1).join('/') || undefined,
-      } as CloudFile;
-    });
-  }
-
-  async getFile(fileId: string): Promise<CloudFile> {
-    this.ensureAuthenticated();
-
-    const response = await this.apiRequest('/files/get_metadata', {
-      path: fileId,
-      include_media_info: true,
-    });
-
-    return {
-      id: response.id,
-      name: response.name,
-      mimeType: this.getMimeType(response.name),
-      size: response.size || 0,
-      createdAt: new Date(response.client_modified || Date.now()),
-      modifiedAt: new Date(response.server_modified || Date.now()),
-      provider: this.provider,
-      path: response.path_display,
-    };
-  }
-
-  async downloadFile(fileId: string): Promise<Blob> {
-    this.ensureAuthenticated();
-
-    const response = await fetch(`${this.contentBase}/files/download`, {
+    const response = await fetch('https://api.dropboxapi.com/oauth2/token', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${this.accessToken}`,
-        'Dropbox-API-Arg': JSON.stringify({ path: fileId }),
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+        client_id: clientId,
+      }),
     });
 
     if (!response.ok) {
-      throw new Error(`Download failed: ${response.statusText}`);
+      const error = await response.json();
+      throw new Error(error.error_description || 'Token refresh failed');
     }
 
-    return response.blob();
+    const tokens = await response.json();
+    const expiresAt = new Date(Date.now() + (tokens.expires_in || 14400) * 1000);
+
+    return {
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token || refreshToken, // Dropbox may or may not return new refresh token
+      expiresAt,
+    };
+  }
+
+  async listFiles(folderId = ''): Promise<(CloudFile | CloudFolder)[]> {
+    return this.tokenMgr.fetchWithTokenRefresh(
+      this.provider,
+      (token) =>
+        fetch(`${this.apiBase}/files/list_folder`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            path: folderId || '',
+            include_media_info: true,
+          }),
+        }),
+      async (response) => {
+        const data = await response.json();
+        return data.entries.map((entry: DropboxEntry) => {
+          if (entry['.tag'] === 'folder') {
+            return {
+              id: entry.id,
+              name: entry.name,
+              provider: this.provider,
+              path: entry.path_display,
+              parentId: entry.path_display.split('/').slice(0, -1).join('/') || undefined,
+            } as CloudFolder;
+          }
+
+          return {
+            id: entry.id,
+            name: entry.name,
+            mimeType: this.getMimeType(entry.name),
+            size: entry.size || 0,
+            createdAt: new Date(entry.client_modified || Date.now()),
+            modifiedAt: new Date(entry.server_modified || Date.now()),
+            provider: this.provider,
+            path: entry.path_display,
+            parentId: entry.path_display.split('/').slice(0, -1).join('/') || undefined,
+          } as CloudFile;
+        });
+      }
+    );
+  }
+
+  async getFile(fileId: string): Promise<CloudFile> {
+    return this.tokenMgr.fetchWithTokenRefresh(
+      this.provider,
+      (token) =>
+        fetch(`${this.apiBase}/files/get_metadata`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            path: fileId,
+            include_media_info: true,
+          }),
+        }),
+      async (response) => {
+        const data = await response.json();
+        return {
+          id: data.id,
+          name: data.name,
+          mimeType: this.getMimeType(data.name),
+          size: data.size || 0,
+          createdAt: new Date(data.client_modified || Date.now()),
+          modifiedAt: new Date(data.server_modified || Date.now()),
+          provider: this.provider,
+          path: data.path_display,
+        };
+      }
+    );
+  }
+
+  async downloadFile(fileId: string): Promise<Blob> {
+    return this.tokenMgr.fetchWithTokenRefresh(
+      this.provider,
+      (token) =>
+        fetch(`${this.contentBase}/files/download`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Dropbox-API-Arg': JSON.stringify({ path: fileId }),
+          },
+        }),
+      (response) => response.blob()
+    );
   }
 
   async uploadFile(
@@ -543,8 +815,6 @@ class DropboxProvider implements CloudStorageProviderInterface {
     folderId = '',
     onProgress?: (progress: UploadProgress) => void
   ): Promise<CloudFile> {
-    this.ensureAuthenticated();
-
     const path = folderId ? `${folderId}/${file.name}` : `/${file.name}`;
 
     // For files > 150MB, use chunked upload
@@ -552,10 +822,12 @@ class DropboxProvider implements CloudStorageProviderInterface {
       return this.chunkedUpload(file, path, onProgress);
     }
 
+    const accessToken = await this.tokenMgr.ensureValidToken(this.provider);
+
     const response = await fetch(`${this.contentBase}/files/upload`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${this.accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/octet-stream',
         'Dropbox-API-Arg': JSON.stringify({
           path,
@@ -565,6 +837,52 @@ class DropboxProvider implements CloudStorageProviderInterface {
       },
       body: file,
     });
+
+    // Handle 401 with retry
+    if (response.status === 401) {
+      const result = await this.tokenMgr.refreshToken(this.provider);
+      const retryResponse = await fetch(`${this.contentBase}/files/upload`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${result.accessToken}`,
+          'Content-Type': 'application/octet-stream',
+          'Dropbox-API-Arg': JSON.stringify({
+            path,
+            mode: 'add',
+            autorename: true,
+          }),
+        },
+        body: file,
+      });
+
+      if (!retryResponse.ok) {
+        throw new Error(`Upload failed: ${retryResponse.statusText}`);
+      }
+
+      const retryResult = await retryResponse.json();
+
+      if (onProgress) {
+        onProgress({
+          fileId: retryResult.id,
+          fileName: file.name,
+          bytesUploaded: file.size,
+          totalBytes: file.size,
+          percentage: 100,
+          status: 'completed',
+        });
+      }
+
+      return {
+        id: retryResult.id,
+        name: retryResult.name,
+        mimeType: this.getMimeType(retryResult.name),
+        size: retryResult.size,
+        createdAt: new Date(retryResult.client_modified),
+        modifiedAt: new Date(retryResult.server_modified),
+        provider: this.provider,
+        path: retryResult.path_display,
+      };
+    }
 
     if (!response.ok) {
       throw new Error(`Upload failed: ${response.statusText}`);
@@ -603,6 +921,7 @@ class DropboxProvider implements CloudStorageProviderInterface {
     const chunkSize = 8 * 1024 * 1024; // 8MB chunks
     let offset = 0;
     let sessionId: string | null = null;
+    let accessToken = await this.tokenMgr.ensureValidToken(this.provider);
 
     while (offset < file.size) {
       const chunk = file.slice(offset, offset + chunkSize);
@@ -612,19 +931,36 @@ class DropboxProvider implements CloudStorageProviderInterface {
         const response = await fetch(`${this.contentBase}/files/upload_session/start`, {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${this.accessToken}`,
+            Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/octet-stream',
           },
           body: chunk,
         });
-        const result = await response.json();
-        sessionId = result.session_id;
+
+        if (response.status === 401) {
+          const result = await this.tokenMgr.refreshToken(this.provider);
+          accessToken = result.accessToken;
+          // Retry start
+          const retryResponse = await fetch(`${this.contentBase}/files/upload_session/start`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/octet-stream',
+            },
+            body: chunk,
+          });
+          const retryResult = await retryResponse.json();
+          sessionId = retryResult.session_id;
+        } else {
+          const result = await response.json();
+          sessionId = result.session_id;
+        }
       } else if (offset + chunkSize >= file.size) {
         // Finish session
         const response = await fetch(`${this.contentBase}/files/upload_session/finish`, {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${this.accessToken}`,
+            Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/octet-stream',
             'Dropbox-API-Arg': JSON.stringify({
               cursor: { session_id: sessionId, offset },
@@ -633,8 +969,36 @@ class DropboxProvider implements CloudStorageProviderInterface {
           },
           body: chunk,
         });
-        const result = await response.json();
 
+        if (response.status === 401) {
+          const result = await this.tokenMgr.refreshToken(this.provider);
+          accessToken = result.accessToken;
+          const retryResponse = await fetch(`${this.contentBase}/files/upload_session/finish`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/octet-stream',
+              'Dropbox-API-Arg': JSON.stringify({
+                cursor: { session_id: sessionId, offset },
+                commit: { path, mode: 'add', autorename: true },
+              }),
+            },
+            body: chunk,
+          });
+          const retryResult = await retryResponse.json();
+          return {
+            id: retryResult.id,
+            name: retryResult.name,
+            mimeType: this.getMimeType(retryResult.name),
+            size: retryResult.size,
+            createdAt: new Date(retryResult.client_modified),
+            modifiedAt: new Date(retryResult.server_modified),
+            provider: this.provider,
+            path: retryResult.path_display,
+          };
+        }
+
+        const result = await response.json();
         return {
           id: result.id,
           name: result.name,
@@ -647,10 +1011,10 @@ class DropboxProvider implements CloudStorageProviderInterface {
         };
       } else {
         // Append to session
-        await fetch(`${this.contentBase}/files/upload_session/append_v2`, {
+        const response = await fetch(`${this.contentBase}/files/upload_session/append_v2`, {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${this.accessToken}`,
+            Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/octet-stream',
             'Dropbox-API-Arg': JSON.stringify({
               cursor: { session_id: sessionId, offset },
@@ -658,6 +1022,22 @@ class DropboxProvider implements CloudStorageProviderInterface {
           },
           body: chunk,
         });
+
+        if (response.status === 401) {
+          const result = await this.tokenMgr.refreshToken(this.provider);
+          accessToken = result.accessToken;
+          await fetch(`${this.contentBase}/files/upload_session/append_v2`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/octet-stream',
+              'Dropbox-API-Arg': JSON.stringify({
+                cursor: { session_id: sessionId, offset },
+              }),
+            },
+            body: chunk,
+          });
+        }
       }
 
       offset += chunk.size;
@@ -678,86 +1058,137 @@ class DropboxProvider implements CloudStorageProviderInterface {
   }
 
   async createFolder(name: string, parentId = ''): Promise<CloudFolder> {
-    this.ensureAuthenticated();
-
     const path = parentId ? `${parentId}/${name}` : `/${name}`;
 
-    const response = await this.apiRequest('/files/create_folder_v2', { path });
-
-    return {
-      id: response.metadata.id,
-      name: response.metadata.name,
-      provider: this.provider,
-      path: response.metadata.path_display,
-      parentId: parentId || undefined,
-    };
+    return this.tokenMgr.fetchWithTokenRefresh(
+      this.provider,
+      (token) =>
+        fetch(`${this.apiBase}/files/create_folder_v2`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ path }),
+        }),
+      async (response) => {
+        const data = await response.json();
+        return {
+          id: data.metadata.id,
+          name: data.metadata.name,
+          provider: this.provider,
+          path: data.metadata.path_display,
+          parentId: parentId || undefined,
+        };
+      }
+    );
   }
 
   async delete(fileId: string): Promise<void> {
-    this.ensureAuthenticated();
-    await this.apiRequest('/files/delete_v2', { path: fileId });
+    await this.tokenMgr.fetchWithTokenRefresh(
+      this.provider,
+      (token) =>
+        fetch(`${this.apiBase}/files/delete_v2`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ path: fileId }),
+        }),
+      async () => {}
+    );
   }
 
   async getQuota(): Promise<CloudStorageQuota> {
-    this.ensureAuthenticated();
-
-    const response = await this.apiRequest('/users/get_space_usage', {});
-
-    return {
-      used: response.used || 0,
-      total: response.allocation?.allocated || 0,
-      provider: this.provider,
-    };
+    return this.tokenMgr.fetchWithTokenRefresh(
+      this.provider,
+      (token) =>
+        fetch(`${this.apiBase}/users/get_space_usage`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({}),
+        }),
+      async (response) => {
+        const data = await response.json();
+        return {
+          used: data.used || 0,
+          total: data.allocation?.allocated || 0,
+          provider: this.provider,
+        };
+      }
+    );
   }
 
   async getShareableLink(fileId: string): Promise<string> {
-    this.ensureAuthenticated();
-
     try {
-      const response = await this.apiRequest('/sharing/create_shared_link_with_settings', {
-        path: fileId,
-        settings: { requested_visibility: 'public' },
-      });
-      return response.url;
+      return await this.tokenMgr.fetchWithTokenRefresh(
+        this.provider,
+        (token) =>
+          fetch(`${this.apiBase}/sharing/create_shared_link_with_settings`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              path: fileId,
+              settings: { requested_visibility: 'public' },
+            }),
+          }),
+        async (response) => {
+          const data = await response.json();
+          return data.url;
+        }
+      );
     } catch (error: unknown) {
       // Link might already exist
       const err = error as { message?: string };
       if (err.message?.includes('shared_link_already_exists')) {
-        const existing = await this.apiRequest('/sharing/list_shared_links', {
-          path: fileId,
-          direct_only: true,
-        });
-        return existing.links[0]?.url || '';
+        return this.tokenMgr.fetchWithTokenRefresh(
+          this.provider,
+          (token) =>
+            fetch(`${this.apiBase}/sharing/list_shared_links`, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                path: fileId,
+                direct_only: true,
+              }),
+            }),
+          async (response) => {
+            const data = await response.json();
+            return data.links[0]?.url || '';
+          }
+        );
       }
       throw error;
     }
   }
 
   async revokeAccess(): Promise<void> {
-    if (this.accessToken) {
-      await this.apiRequest('/auth/token/revoke', {});
-      this.accessToken = null;
+    const accessToken = this.tokenMgr.getAccessToken(this.provider);
+    if (accessToken) {
+      try {
+        await fetch(`${this.apiBase}/auth/token/revoke`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({}),
+        });
+      } catch {
+        // Ignore errors during revoke
+      }
     }
-  }
-
-  private async apiRequest(endpoint: string, body: unknown): Promise<DropboxResponse> {
-    const response = await fetch(`${this.apiBase}${endpoint}`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error_summary || response.statusText);
-    }
-
-    // Handle empty responses
-    const text = await response.text();
-    return text ? JSON.parse(text) : {};
+    this.tokenMgr.clearTokens(this.provider);
   }
 
   private getMimeType(filename: string): string {
@@ -779,12 +1210,6 @@ class DropboxProvider implements CloudStorageProviderInterface {
     };
     return mimeTypes[ext || ''] || 'application/octet-stream';
   }
-
-  private ensureAuthenticated(): void {
-    if (!this.accessToken) {
-      throw new Error('Not authenticated with Dropbox');
-    }
-  }
 }
 
 // Type definitions for Dropbox API responses
@@ -798,20 +1223,31 @@ interface DropboxEntry {
   server_modified?: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type DropboxResponse = any;
-
 // ============================================================================
 // ONEDRIVE PROVIDER
 // ============================================================================
 
 class OneDriveProvider implements CloudStorageProviderInterface {
-  private accessToken: string | null = null;
   private readonly provider: CloudStorageProvider = 'onedrive';
   private readonly graphBase = 'https://graph.microsoft.com/v1.0';
+  private readonly tokenMgr: TokenManager;
 
-  setAccessToken(token: string): void {
-    this.accessToken = token;
+  constructor(tokenMgr: TokenManager = tokenManager) {
+    this.tokenMgr = tokenMgr;
+
+    // Register refresh handler
+    this.tokenMgr.registerRefreshHandler('onedrive', async (refreshToken) => {
+      return this.refreshToken(refreshToken);
+    });
+  }
+
+  setAccessToken(token: string, refreshToken = '', expiresAt?: Date): void {
+    this.tokenMgr.setTokens(this.provider, {
+      accessToken: token,
+      refreshToken,
+      expiresAt: expiresAt || new Date(Date.now() + 3600 * 1000), // 1 hour default
+      provider: this.provider,
+    });
   }
 
   async authenticate(): Promise<CloudStorageConfig> {
@@ -821,19 +1257,24 @@ class OneDriveProvider implements CloudStorageProviderInterface {
       throw new Error('OneDrive Client ID not configured');
     }
 
-    // Generate state and nonce for CSRF/replay protection
-    const state = crypto.randomUUID();
-    const nonce = crypto.randomUUID();
-    sessionStorage.setItem('onedrive_oauth_state', state);
+    // Generate PKCE code verifier and challenge
+    const codeVerifier = generateCodeVerifier();
+    const codeChallenge = await generateCodeChallenge(codeVerifier);
 
-    // Build OAuth URL
+    // Generate state for CSRF protection
+    const state = crypto.randomUUID();
+    sessionStorage.setItem('onedrive_oauth_state', state);
+    sessionStorage.setItem('onedrive_code_verifier', codeVerifier);
+
+    // Build OAuth URL with PKCE (authorization code flow)
     const authUrl = new URL('https://login.microsoftonline.com/common/oauth2/v2.0/authorize');
     authUrl.searchParams.set('client_id', clientId);
     authUrl.searchParams.set('redirect_uri', redirectUri);
-    authUrl.searchParams.set('response_type', 'token');
+    authUrl.searchParams.set('response_type', 'code'); // Use code flow instead of token
     authUrl.searchParams.set('scope', scopes.join(' '));
     authUrl.searchParams.set('state', state);
-    authUrl.searchParams.set('nonce', nonce);
+    authUrl.searchParams.set('code_challenge', codeChallenge);
+    authUrl.searchParams.set('code_challenge_method', 'S256');
 
     // Open OAuth popup
     return new Promise((resolve, reject) => {
@@ -844,7 +1285,7 @@ class OneDriveProvider implements CloudStorageProviderInterface {
         return;
       }
 
-      const checkPopup = setInterval(() => {
+      const checkPopup = setInterval(async () => {
         try {
           if (popup.closed) {
             clearInterval(checkPopup);
@@ -857,33 +1298,68 @@ class OneDriveProvider implements CloudStorageProviderInterface {
             clearInterval(checkPopup);
             popup.close();
 
-            const hash = new URL(popupUrl).hash.substring(1);
-            const params = new URLSearchParams(hash);
-
-            const returnedState = params.get('state');
+            const url = new URL(popupUrl);
+            const code = url.searchParams.get('code');
+            const returnedState = url.searchParams.get('state');
             const savedState = sessionStorage.getItem('onedrive_oauth_state');
+            const savedVerifier = sessionStorage.getItem('onedrive_code_verifier');
+
+            // Clean up
+            sessionStorage.removeItem('onedrive_oauth_state');
+            sessionStorage.removeItem('onedrive_code_verifier');
 
             if (returnedState !== savedState) {
               reject(new Error('OAuth state mismatch'));
               return;
             }
 
-            const accessToken = params.get('access_token');
-            const expiresIn = params.get('expires_in');
-
-            if (!accessToken) {
-              reject(new Error('No access token received'));
+            if (!code || !savedVerifier) {
+              reject(new Error('No authorization code received'));
               return;
             }
 
-            this.accessToken = accessToken;
+            // Exchange code for tokens using PKCE
+            try {
+              const tokenResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                  code,
+                  grant_type: 'authorization_code',
+                  client_id: clientId,
+                  redirect_uri: redirectUri,
+                  code_verifier: savedVerifier,
+                  scope: scopes.join(' '),
+                }),
+              });
 
-            resolve({
-              provider: this.provider,
-              accessToken,
-              refreshToken: '', // Implicit flow doesn't provide refresh token
-              expiresAt: new Date(Date.now() + (Number(expiresIn) || 3600) * 1000),
-            });
+              if (!tokenResponse.ok) {
+                const error = await tokenResponse.json();
+                reject(new Error(error.error_description || 'Token exchange failed'));
+                return;
+              }
+
+              const tokens = await tokenResponse.json();
+              const expiresAt = new Date(Date.now() + (tokens.expires_in || 3600) * 1000);
+
+              this.tokenMgr.setTokens(this.provider, {
+                accessToken: tokens.access_token,
+                refreshToken: tokens.refresh_token || '',
+                expiresAt,
+                provider: this.provider,
+              });
+
+              resolve({
+                provider: this.provider,
+                accessToken: tokens.access_token,
+                refreshToken: tokens.refresh_token || '',
+                expiresAt,
+              });
+            } catch (error) {
+              reject(error);
+            }
           }
         } catch {
           // Cross-origin errors expected until redirect
@@ -892,76 +1368,118 @@ class OneDriveProvider implements CloudStorageProviderInterface {
     });
   }
 
-  async refreshToken(_refreshToken: string): Promise<{ accessToken: string; expiresAt: Date }> {
-    throw new Error('Token refresh requires re-authentication');
+  async refreshToken(refreshToken: string): Promise<{ accessToken: string; refreshToken?: string; expiresAt: Date }> {
+    const { clientId, scopes } = cloudStorageConfig.onedrive;
+
+    if (!refreshToken) {
+      throw new Error('No refresh token available for OneDrive');
+    }
+
+    const response = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+        client_id: clientId,
+        scope: scopes.join(' '),
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error_description || 'Token refresh failed');
+    }
+
+    const tokens = await response.json();
+    const expiresAt = new Date(Date.now() + (tokens.expires_in || 3600) * 1000);
+
+    return {
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token || refreshToken, // Microsoft may return new refresh token
+      expiresAt,
+    };
   }
 
   async listFiles(folderId = 'root'): Promise<(CloudFile | CloudFolder)[]> {
-    this.ensureAuthenticated();
-
     const endpoint = folderId === 'root'
       ? '/me/drive/root/children'
       : `/me/drive/items/${folderId}/children`;
 
-    const response = await this.graphRequest(endpoint);
+    return this.tokenMgr.fetchWithTokenRefresh(
+      this.provider,
+      (token) =>
+        fetch(`${this.graphBase}${endpoint}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      async (response) => {
+        const data = await response.json();
+        return data.value.map((item: OneDriveItem) => {
+          if (item.folder) {
+            return {
+              id: item.id,
+              name: item.name,
+              provider: this.provider,
+              path: item.parentReference?.path ? `${item.parentReference.path}/${item.name}` : `/${item.name}`,
+              parentId: item.parentReference?.id,
+            } as CloudFolder;
+          }
 
-    return response.value.map((item: OneDriveItem) => {
-      if (item.folder) {
-        return {
-          id: item.id,
-          name: item.name,
-          provider: this.provider,
-          path: item.parentReference?.path ? `${item.parentReference.path}/${item.name}` : `/${item.name}`,
-          parentId: item.parentReference?.id,
-        } as CloudFolder;
+          return {
+            id: item.id,
+            name: item.name,
+            mimeType: item.file?.mimeType || 'application/octet-stream',
+            size: item.size || 0,
+            createdAt: new Date(item.createdDateTime),
+            modifiedAt: new Date(item.lastModifiedDateTime),
+            provider: this.provider,
+            path: item.parentReference?.path ? `${item.parentReference.path}/${item.name}` : `/${item.name}`,
+            thumbnailUrl: item.thumbnails?.[0]?.medium?.url,
+            webViewLink: item.webUrl,
+            parentId: item.parentReference?.id,
+          } as CloudFile;
+        });
       }
-
-      return {
-        id: item.id,
-        name: item.name,
-        mimeType: item.file?.mimeType || 'application/octet-stream',
-        size: item.size || 0,
-        createdAt: new Date(item.createdDateTime),
-        modifiedAt: new Date(item.lastModifiedDateTime),
-        provider: this.provider,
-        path: item.parentReference?.path ? `${item.parentReference.path}/${item.name}` : `/${item.name}`,
-        thumbnailUrl: item.thumbnails?.[0]?.medium?.url,
-        webViewLink: item.webUrl,
-        parentId: item.parentReference?.id,
-      } as CloudFile;
-    });
+    );
   }
 
   async getFile(fileId: string): Promise<CloudFile> {
-    this.ensureAuthenticated();
-
-    const response = await this.graphRequest(`/me/drive/items/${fileId}`);
-
-    return {
-      id: response.id,
-      name: response.name,
-      mimeType: response.file?.mimeType || 'application/octet-stream',
-      size: response.size || 0,
-      createdAt: new Date(response.createdDateTime),
-      modifiedAt: new Date(response.lastModifiedDateTime),
-      provider: this.provider,
-      path: response.parentReference?.path ? `${response.parentReference.path}/${response.name}` : `/${response.name}`,
-      webViewLink: response.webUrl,
-      downloadUrl: response['@microsoft.graph.downloadUrl'],
-    };
+    return this.tokenMgr.fetchWithTokenRefresh(
+      this.provider,
+      (token) =>
+        fetch(`${this.graphBase}/me/drive/items/${fileId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      async (response) => {
+        const data = await response.json();
+        return {
+          id: data.id,
+          name: data.name,
+          mimeType: data.file?.mimeType || 'application/octet-stream',
+          size: data.size || 0,
+          createdAt: new Date(data.createdDateTime),
+          modifiedAt: new Date(data.lastModifiedDateTime),
+          provider: this.provider,
+          path: data.parentReference?.path ? `${data.parentReference.path}/${data.name}` : `/${data.name}`,
+          webViewLink: data.webUrl,
+          downloadUrl: data['@microsoft.graph.downloadUrl'],
+        };
+      }
+    );
   }
 
   async downloadFile(fileId: string): Promise<Blob> {
-    this.ensureAuthenticated();
-
-    // Get download URL
-    const item = await this.graphRequest(`/me/drive/items/${fileId}`);
-    const downloadUrl = item['@microsoft.graph.downloadUrl'];
+    // Get download URL first
+    const file = await this.getFile(fileId);
+    const downloadUrl = (file as CloudFile & { downloadUrl?: string }).downloadUrl;
 
     if (!downloadUrl) {
       throw new Error('No download URL available');
     }
 
+    // Download URL doesn't need auth
     const response = await fetch(downloadUrl);
     if (!response.ok) {
       throw new Error(`Download failed: ${response.statusText}`);
@@ -975,8 +1493,6 @@ class OneDriveProvider implements CloudStorageProviderInterface {
     folderId = 'root',
     onProgress?: (progress: UploadProgress) => void
   ): Promise<CloudFile> {
-    this.ensureAuthenticated();
-
     // For files > 4MB, use resumable upload
     if (file.size > 4 * 1024 * 1024) {
       return this.resumableUpload(file, folderId, onProgress);
@@ -986,43 +1502,44 @@ class OneDriveProvider implements CloudStorageProviderInterface {
       ? `/me/drive/root:/${file.name}:/content`
       : `/me/drive/items/${folderId}:/${file.name}:/content`;
 
-    const response = await fetch(`${this.graphBase}${endpoint}`, {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${this.accessToken}`,
-        'Content-Type': file.type || 'application/octet-stream',
-      },
-      body: file,
-    });
+    return this.tokenMgr.fetchWithTokenRefresh(
+      this.provider,
+      (token) =>
+        fetch(`${this.graphBase}${endpoint}`, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': file.type || 'application/octet-stream',
+          },
+          body: file,
+        }),
+      async (response) => {
+        const result = await response.json();
 
-    if (!response.ok) {
-      throw new Error(`Upload failed: ${response.statusText}`);
-    }
+        if (onProgress) {
+          onProgress({
+            fileId: result.id,
+            fileName: file.name,
+            bytesUploaded: file.size,
+            totalBytes: file.size,
+            percentage: 100,
+            status: 'completed',
+          });
+        }
 
-    const result = await response.json();
-
-    if (onProgress) {
-      onProgress({
-        fileId: result.id,
-        fileName: file.name,
-        bytesUploaded: file.size,
-        totalBytes: file.size,
-        percentage: 100,
-        status: 'completed',
-      });
-    }
-
-    return {
-      id: result.id,
-      name: result.name,
-      mimeType: result.file?.mimeType || file.type,
-      size: result.size,
-      createdAt: new Date(result.createdDateTime),
-      modifiedAt: new Date(result.lastModifiedDateTime),
-      provider: this.provider,
-      path: `/${result.name}`,
-      webViewLink: result.webUrl,
-    };
+        return {
+          id: result.id,
+          name: result.name,
+          mimeType: result.file?.mimeType || file.type,
+          size: result.size,
+          createdAt: new Date(result.createdDateTime),
+          modifiedAt: new Date(result.lastModifiedDateTime),
+          provider: this.provider,
+          path: `/${result.name}`,
+          webViewLink: result.webUrl,
+        };
+      }
+    );
   }
 
   private async resumableUpload(
@@ -1030,21 +1547,39 @@ class OneDriveProvider implements CloudStorageProviderInterface {
     folderId: string,
     onProgress?: (progress: UploadProgress) => void
   ): Promise<CloudFile> {
+    let accessToken = await this.tokenMgr.ensureValidToken(this.provider);
+
     // Create upload session
     const endpoint = folderId === 'root'
       ? `/me/drive/root:/${file.name}:/createUploadSession`
       : `/me/drive/items/${folderId}:/${file.name}:/createUploadSession`;
 
-    const sessionResponse = await fetch(`${this.graphBase}${endpoint}`, {
+    let sessionResponse = await fetch(`${this.graphBase}${endpoint}`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${this.accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         item: { '@microsoft.graph.conflictBehavior': 'rename' },
       }),
     });
+
+    // Handle 401 for session creation
+    if (sessionResponse.status === 401) {
+      const result = await this.tokenMgr.refreshToken(this.provider);
+      accessToken = result.accessToken;
+      sessionResponse = await fetch(`${this.graphBase}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          item: { '@microsoft.graph.conflictBehavior': 'rename' },
+        }),
+      });
+    }
 
     const session = await sessionResponse.json();
     const uploadUrl = session.uploadUrl;
@@ -1057,7 +1592,7 @@ class OneDriveProvider implements CloudStorageProviderInterface {
       const end = Math.min(offset + chunkSize, file.size);
       const chunk = file.slice(offset, end);
 
-      const response = await fetch(uploadUrl, {
+      let response = await fetch(uploadUrl, {
         method: 'PUT',
         headers: {
           'Content-Length': String(chunk.size),
@@ -1066,6 +1601,7 @@ class OneDriveProvider implements CloudStorageProviderInterface {
         body: chunk,
       });
 
+      // The upload URL doesn't need auth, but check for errors
       if (response.status === 200 || response.status === 201) {
         // Upload complete
         const result = await response.json();
@@ -1100,102 +1636,103 @@ class OneDriveProvider implements CloudStorageProviderInterface {
   }
 
   async createFolder(name: string, parentId = 'root'): Promise<CloudFolder> {
-    this.ensureAuthenticated();
-
     const endpoint = parentId === 'root'
       ? '/me/drive/root/children'
       : `/me/drive/items/${parentId}/children`;
 
-    const response = await fetch(`${this.graphBase}${endpoint}`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        name,
-        folder: {},
-        '@microsoft.graph.conflictBehavior': 'rename',
-      }),
-    });
-
-    const result = await response.json();
-
-    return {
-      id: result.id,
-      name: result.name,
-      provider: this.provider,
-      path: `/${result.name}`,
-      parentId: parentId === 'root' ? undefined : parentId,
-    };
+    return this.tokenMgr.fetchWithTokenRefresh(
+      this.provider,
+      (token) =>
+        fetch(`${this.graphBase}${endpoint}`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name,
+            folder: {},
+            '@microsoft.graph.conflictBehavior': 'rename',
+          }),
+        }),
+      async (response) => {
+        const result = await response.json();
+        return {
+          id: result.id,
+          name: result.name,
+          provider: this.provider,
+          path: `/${result.name}`,
+          parentId: parentId === 'root' ? undefined : parentId,
+        };
+      }
+    );
   }
 
   async delete(fileId: string): Promise<void> {
-    this.ensureAuthenticated();
+    const accessToken = await this.tokenMgr.ensureValidToken(this.provider);
 
-    await fetch(`${this.graphBase}/me/drive/items/${fileId}`, {
+    let response = await fetch(`${this.graphBase}/me/drive/items/${fileId}`, {
       method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${this.accessToken}`,
-      },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
+
+    // Handle 401 with retry
+    if (response.status === 401) {
+      const result = await this.tokenMgr.refreshToken(this.provider);
+      response = await fetch(`${this.graphBase}/me/drive/items/${fileId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${result.accessToken}` },
+      });
+    }
+
+    if (!response.ok && response.status !== 204) {
+      throw new Error(`Delete failed: ${response.statusText}`);
+    }
   }
 
   async getQuota(): Promise<CloudStorageQuota> {
-    this.ensureAuthenticated();
-
-    const response = await this.graphRequest('/me/drive');
-
-    return {
-      used: response.quota?.used || 0,
-      total: response.quota?.total || 0,
-      provider: this.provider,
-    };
+    return this.tokenMgr.fetchWithTokenRefresh(
+      this.provider,
+      (token) =>
+        fetch(`${this.graphBase}/me/drive`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      async (response) => {
+        const data = await response.json();
+        return {
+          used: data.quota?.used || 0,
+          total: data.quota?.total || 0,
+          provider: this.provider,
+        };
+      }
+    );
   }
 
   async getShareableLink(fileId: string): Promise<string> {
-    this.ensureAuthenticated();
-
-    const response = await fetch(`${this.graphBase}/me/drive/items/${fileId}/createLink`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        type: 'view',
-        scope: 'anonymous',
-      }),
-    });
-
-    const result = await response.json();
-    return result.link?.webUrl || '';
+    return this.tokenMgr.fetchWithTokenRefresh(
+      this.provider,
+      (token) =>
+        fetch(`${this.graphBase}/me/drive/items/${fileId}/createLink`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: 'view',
+            scope: 'anonymous',
+          }),
+        }),
+      async (response) => {
+        const result = await response.json();
+        return result.link?.webUrl || '';
+      }
+    );
   }
 
   async revokeAccess(): Promise<void> {
-    // Microsoft doesn't have a token revocation endpoint for implicit flow
-    this.accessToken = null;
-  }
-
-  private async graphRequest(endpoint: string): Promise<OneDriveResponse> {
-    const response = await fetch(`${this.graphBase}${endpoint}`, {
-      headers: {
-        Authorization: `Bearer ${this.accessToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || response.statusText);
-    }
-
-    return response.json();
-  }
-
-  private ensureAuthenticated(): void {
-    if (!this.accessToken) {
-      throw new Error('Not authenticated with OneDrive');
-    }
+    // Microsoft doesn't have a token revocation endpoint for consumer accounts
+    this.tokenMgr.clearTokens(this.provider);
   }
 }
 
@@ -1214,9 +1751,6 @@ interface OneDriveItem {
   '@microsoft.graph.downloadUrl'?: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type OneDriveResponse = any;
-
 // ============================================================================
 // CLOUD STORAGE SERVICE (FACADE)
 // ============================================================================
@@ -1225,11 +1759,13 @@ class CloudStorageService {
   private providers: Map<CloudStorageProvider, CloudStorageProviderInterface> = new Map();
   private activeProvider: CloudStorageProvider | null = null;
   private initialized = false;
+  private readonly tokenMgr: TokenManager;
 
-  constructor() {
-    this.providers.set('google_drive', new GoogleDriveProvider());
-    this.providers.set('dropbox', new DropboxProvider());
-    this.providers.set('onedrive', new OneDriveProvider());
+  constructor(tokenMgr: TokenManager = tokenManager) {
+    this.tokenMgr = tokenMgr;
+    this.providers.set('google_drive', new GoogleDriveProvider(tokenMgr));
+    this.providers.set('dropbox', new DropboxProvider(tokenMgr));
+    this.providers.set('onedrive', new OneDriveProvider(tokenMgr));
   }
 
   /**
@@ -1239,6 +1775,20 @@ class CloudStorageService {
     if (this.initialized) return;
     this.initialized = true;
     console.log('[CloudStorage] Initialized');
+  }
+
+  /**
+   * Get the token manager instance
+   */
+  getTokenManager(): TokenManager {
+    return this.tokenMgr;
+  }
+
+  /**
+   * Subscribe to token events (e.g., for UI reconnection prompts)
+   */
+  onTokenEvent(listener: TokenEventListener): () => void {
+    return this.tokenMgr.addEventListener(listener);
   }
 
   /**
@@ -1289,10 +1839,15 @@ class CloudStorageService {
   /**
    * Set credentials for a provider (from stored tokens)
    */
-  setCredentials(provider: CloudStorageProvider, accessToken: string): void {
-    const providerInstance = this.providers.get(provider);
+  setCredentials(
+    provider: CloudStorageProvider,
+    accessToken: string,
+    refreshToken = '',
+    expiresAt?: Date
+  ): void {
+    const providerInstance = this.providers.get(provider) as GoogleDriveProvider | DropboxProvider | OneDriveProvider | undefined;
     if (providerInstance) {
-      (providerInstance as GoogleDriveProvider | DropboxProvider | OneDriveProvider).setAccessToken(accessToken);
+      providerInstance.setAccessToken(accessToken, refreshToken, expiresAt);
       this.activeProvider = provider;
     }
   }
@@ -1319,6 +1874,27 @@ class CloudStorageService {
     }
 
     return providerInstance;
+  }
+
+  /**
+   * Check if token needs refresh for a provider
+   */
+  needsTokenRefresh(provider: CloudStorageProvider): boolean {
+    return this.tokenMgr.needsRefresh(provider);
+  }
+
+  /**
+   * Check if token is valid for a provider
+   */
+  isTokenValid(provider: CloudStorageProvider): boolean {
+    return this.tokenMgr.isTokenValid(provider);
+  }
+
+  /**
+   * Get token info for a provider
+   */
+  getTokenInfo(provider: CloudStorageProvider): TokenInfo | undefined {
+    return this.tokenMgr.getTokens(provider);
   }
 
   /**
@@ -1389,6 +1965,10 @@ export const cloudStorageService = new CloudStorageService();
 
 // Export classes for testing
 export { CloudStorageService, GoogleDriveProvider, DropboxProvider, OneDriveProvider };
+
+// Re-export token manager types and utilities
+export { tokenManager, generateCodeVerifier, generateCodeChallenge };
+export type { TokenInfo, TokenEvent, TokenEventListener };
 
 // Declare gapi for TypeScript
 declare const gapi: {
