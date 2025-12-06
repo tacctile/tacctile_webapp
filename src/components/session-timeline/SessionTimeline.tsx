@@ -1041,20 +1041,29 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   // Navigation store
   const navigateToTool = useNavigationStore((state) => state.navigateToTool);
 
-  // Calculate time range from items
+  // Calculate time range from items (accounting for time offsets)
   const timeRange = useMemo(() => {
     if (items.length === 0) return null;
     let minTime = Infinity;
     let maxTime = -Infinity;
     items.forEach((item) => {
-      minTime = Math.min(minTime, item.capturedAt);
-      const endTime = item.endAt || item.capturedAt;
-      maxTime = Math.max(maxTime, endTime);
+      // Account for time offset when calculating bounds
+      const offset = itemTimeOffsets[item.id] || 0;
+      const effectiveStart = item.capturedAt + offset;
+      // For items with duration, calculate effective end time
+      const durationMs = (item.duration || 0) * 1000;
+      const effectiveEnd = effectiveStart + durationMs;
+      // Use endAt if available (for backwards compatibility), otherwise compute from duration
+      const itemEndTime = item.endAt ? (item.endAt + offset) : effectiveEnd;
+
+      minTime = Math.min(minTime, effectiveStart);
+      maxTime = Math.max(maxTime, Math.max(itemEndTime, effectiveStart)); // Ensure end >= start
     });
-    // Add 2% padding
-    const padding = (maxTime - minTime) * 0.02;
+    // Add 2% padding to ensure no items render at the very edge
+    const duration = maxTime - minTime;
+    const padding = Math.max(duration * 0.02, 1000); // At least 1 second padding
     return { start: minTime - padding, end: maxTime + padding };
-  }, [items]);
+  }, [items, itemTimeOffsets]);
 
   // Initialize on mount
   useEffect(() => {
@@ -1276,8 +1285,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     return baseTime + offset;
   }, [itemTimeOffsets, timeRange]);
 
-  // Auto-assign device sub-lanes when same user has overlapping files
-  // Returns a Map<itemId, laneKey> where laneKey is "user" or "user|device"
+  // Auto-assign sub-lanes when same user has overlapping files (Tetris-style packing)
+  // Returns a Map<itemId, laneKey> where laneKey is "user" or "user|sublane-N"
   const autoDeviceLanes = useMemo(() => {
     const assignments = new Map<string, string>();
 
@@ -1297,92 +1306,51 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       itemsByUser.get(user)!.push(item);
     });
 
-    // For each user, detect overlaps and assign to sub-lanes
+    // For each user, use Tetris-style packing to assign items to lanes
     itemsByUser.forEach((userItems, user) => {
-      // Sort items by start time
+      // Sort items by start time for greedy lane assignment
       const sortedItems = [...userItems].sort((a, b) => {
         return computeEffectiveStartTime(a) - computeEffectiveStartTime(b);
       });
 
-      // Track lanes and their end times
-      // Key: lane key (user or user|device), Value: array of items in that lane with their end times
-      const lanes = new Map<string, { endTime: number; items: TimelineMediaItem[] }[]>();
-
-      // Initialize primary lane for user
-      lanes.set(user, []);
+      // Track lanes by their "rightmost end time" - since items are sorted by start,
+      // we only need to check if new item starts after lane's current end
+      // lanes[0] = primary lane (user), lanes[1] = user|sublane-1, etc.
+      const laneEndTimes: number[] = [];
 
       sortedItems.forEach(item => {
         const itemStart = computeEffectiveStartTime(item);
         const itemDuration = (item.duration || 0) * 1000; // Convert to ms
         const itemEnd = itemStart + itemDuration;
-        const deviceId = item.deviceInfo || 'unknown-device';
 
-        // For photos, they can always go in primary lane (they're thin lines)
+        // For photos, they can always go in primary lane (they're thin lines with no duration)
         if (item.type === 'photo') {
           assignments.set(item.id, user);
           return;
         }
 
-        // Check if item fits in primary lane (no overlap with any existing item)
-        const primaryLane = lanes.get(user)!;
-        const fitsInPrimary = !primaryLane.some(existing => {
-          // Check for overlap: item overlaps if it starts before existing ends and ends after existing starts
-          return itemStart < existing.endTime && itemEnd > computeEffectiveStartTime(existing.items[existing.items.length - 1]);
-        });
-
-        // Better overlap check for primary lane
-        const hasOverlapInPrimary = primaryLane.some(slot => {
-          return itemStart < slot.endTime;
-        });
-
-        if (!hasOverlapInPrimary) {
-          // Fits in primary lane
-          assignments.set(item.id, user);
-          primaryLane.push({ endTime: itemEnd, items: [item] });
-        } else {
-          // Need a device sub-lane
-          const deviceLaneKey = `${user}|${deviceId}`;
-
-          if (!lanes.has(deviceLaneKey)) {
-            lanes.set(deviceLaneKey, []);
-          }
-
-          const deviceLane = lanes.get(deviceLaneKey)!;
-
-          // Check if fits in device lane
-          const hasOverlapInDevice = deviceLane.some(slot => {
-            return itemStart < slot.endTime;
-          });
-
-          if (!hasOverlapInDevice) {
-            assignments.set(item.id, deviceLaneKey);
-            deviceLane.push({ endTime: itemEnd, items: [item] });
-          } else {
-            // If even device lane has overlap, create a numbered sub-lane
-            // This handles edge cases where multiple overlapping files from same device
-            let subLaneIndex = 2;
-            let foundSlot = false;
-            while (!foundSlot && subLaneIndex < 10) {
-              const subLaneKey = `${user}|${deviceId}#${subLaneIndex}`;
-              if (!lanes.has(subLaneKey)) {
-                lanes.set(subLaneKey, []);
-              }
-              const subLane = lanes.get(subLaneKey)!;
-              const hasOverlapInSub = subLane.some(slot => itemStart < slot.endTime);
-              if (!hasOverlapInSub) {
-                assignments.set(item.id, subLaneKey);
-                subLane.push({ endTime: itemEnd, items: [item] });
-                foundSlot = true;
-              } else {
-                subLaneIndex++;
-              }
-            }
-            // Fallback: if we couldn't find a slot (shouldn't happen), use primary
-            if (!foundSlot) {
-              assignments.set(item.id, user);
-            }
+        // Find the first lane where this item fits (Tetris-style fit-first-available)
+        let assignedLaneIndex = -1;
+        for (let i = 0; i < laneEndTimes.length; i++) {
+          // Item fits if it starts at or after this lane's current end time
+          if (itemStart >= laneEndTimes[i]) {
+            assignedLaneIndex = i;
+            break;
           }
         }
+
+        // If no existing lane has room, create a new one
+        if (assignedLaneIndex === -1) {
+          assignedLaneIndex = laneEndTimes.length;
+          laneEndTimes.push(0);
+        }
+
+        // Update the lane's end time
+        laneEndTimes[assignedLaneIndex] = itemEnd;
+
+        // Assign lane key: primary lane (index 0) uses just user, sub-lanes use user|sublane-N
+        const laneKey = assignedLaneIndex === 0 ? user : `${user}|sublane-${assignedLaneIndex}`;
+        assignments.set(item.id, laneKey);
       });
     });
 
@@ -1436,37 +1404,34 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     return result;
   }, [getOrderedUsers, allLaneKeys]);
 
-  // Parse lane key to get user and device parts
-  const parseLaneKey = useCallback((laneKey: string): { user: string; device: string | null; subIndex: number | null } => {
+  // Parse lane key to get user and sublane parts
+  const parseLaneKey = useCallback((laneKey: string): { user: string; sublaneIndex: number | null } => {
     if (!laneKey.includes('|')) {
-      return { user: laneKey, device: null, subIndex: null };
+      return { user: laneKey, sublaneIndex: null };
     }
     const [user, rest] = laneKey.split('|');
-    if (rest.includes('#')) {
-      const [device, indexStr] = rest.split('#');
-      return { user, device, subIndex: parseInt(indexStr, 10) };
+    // Handle new format: user|sublane-N
+    if (rest.startsWith('sublane-')) {
+      const indexStr = rest.replace('sublane-', '');
+      return { user, sublaneIndex: parseInt(indexStr, 10) };
     }
-    return { user, device: rest, subIndex: null };
+    // Legacy format: user|device or user|device#N - treat as numbered sublanes
+    if (rest.includes('#')) {
+      const [, indexStr] = rest.split('#');
+      return { user, sublaneIndex: parseInt(indexStr, 10) };
+    }
+    // Legacy device lane without index - treat as sublane 1
+    return { user, sublaneIndex: 1 };
   }, []);
 
   // Format lane label for display
   const formatLaneLabel = useCallback((laneKey: string): string => {
-    const { user, device, subIndex } = parseLaneKey(laneKey);
-    if (!device) {
+    const { user, sublaneIndex } = parseLaneKey(laneKey);
+    if (sublaneIndex === null) {
       return user;
     }
-    // Create a friendly device name by extracting meaningful parts
-    let friendlyDevice = device;
-    // Remove common prefixes and clean up the device name
-    if (device.includes('-')) {
-      const parts = device.split('-');
-      // Try to extract model name (e.g., "iphone-14" from "sarah-iphone-14")
-      friendlyDevice = parts.slice(-2).join('-');
-    }
-    if (subIndex !== null) {
-      return `${user} - ${friendlyDevice} (${subIndex})`;
-    }
-    return `${user} - ${friendlyDevice}`;
+    // Display as "User (Lane N)" for sublanes
+    return `${user} (Lane ${sublaneIndex + 1})`;
   }, [parseLaneKey]);
 
   // Check if a lane key is a device sub-lane
