@@ -1633,8 +1633,44 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     return true;
   }, [hasRealTimestamp, isItemLocked, itemTimeOffsets, getEffectiveLane, timeRange, checkOverlap]);
 
+  // Check if a lane has overlap for vertical movement (stricter than horizontal - no time snapping)
+  const checkLaneOverlap = useCallback((
+    movingItem: TimelineMediaItem,
+    targetLane: string
+  ): boolean => {
+    const itemStartTime = getEffectiveStartTime(movingItem);
+
+    // Images can stack (they're thin lines), allow unless exact collision
+    if (movingItem.type === 'photo') {
+      const otherItems = getItemsInLane(targetLane, 'photo').filter(i => i.id !== movingItem.id);
+      // For photos, only block if there's an exact collision (within 100ms)
+      return otherItems.some(item => {
+        const itemTime = getEffectiveStartTime(item);
+        return Math.abs(itemTime - itemStartTime) < 100;
+      });
+    }
+
+    // Video and audio cannot overlap in the same lane
+    const otherItems = getItemsInLane(targetLane, movingItem.type).filter(i => i.id !== movingItem.id);
+    const movingDuration = (movingItem.duration || 0) * 1000;
+    const movingEndTime = itemStartTime + movingDuration;
+
+    for (const item of otherItems) {
+      const itemStart = getEffectiveStartTime(item);
+      const itemDuration = (item.duration || 0) * 1000;
+      const itemEnd = itemStart + itemDuration;
+
+      // Check for overlap
+      if (itemStartTime < itemEnd && movingEndTime > itemStart) {
+        return true; // Has overlap
+      }
+    }
+
+    return false; // No overlap
+  }, [getItemsInLane, getEffectiveStartTime]);
+
   // Move item vertically (change lanes)
-  // Allowed when unlocked
+  // Snaps to first available lane in the requested direction, skipping occupied lanes
   const moveItemVertical = useCallback((item: TimelineMediaItem, direction: 'up' | 'down') => {
     // Check if item is locked
     if (isItemLocked(item)) {
@@ -1647,48 +1683,32 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     const currentLane = getEffectiveLane(item);
     const currentIndex = lanes.indexOf(currentLane);
 
-    // Calculate new lane index
-    let newIndex: number;
-    if (direction === 'up') {
-      newIndex = currentIndex - 1;
-      if (newIndex < 0) {
-        return false; // Already at top
+    // Search for the first available lane in the requested direction
+    const step = direction === 'up' ? -1 : 1;
+    let targetIndex = currentIndex + step;
+
+    // Keep searching in the requested direction until we find a free lane or hit bounds
+    while (targetIndex >= 0 && targetIndex < lanes.length) {
+      const targetLane = lanes[targetIndex];
+      const hasOverlap = checkLaneOverlap(item, targetLane);
+
+      if (!hasOverlap) {
+        // Found a free lane - move to it
+        setItemLaneAssignments(prev => ({
+          ...prev,
+          [item.id]: targetLane,
+        }));
+        return true;
       }
-    } else {
-      newIndex = currentIndex + 1;
-      if (newIndex >= lanes.length) {
-        return false; // Already at bottom
-      }
+
+      // Lane is occupied, try the next one in the same direction
+      targetIndex += step;
     }
 
-    const newLane = lanes[newIndex];
-
-    // Check for overlaps in the new lane
-    const itemStartTime = getEffectiveStartTime(item);
-    const overlapCheck = checkOverlap(item, itemStartTime, newLane);
-
-    if (!overlapCheck.valid && !overlapCheck.snappedTime) {
-      setLockedMoveToast({ visible: true, message: 'Cannot move: would overlap in target lane' });
-      return false;
-    }
-
-    // Update lane assignment
-    setItemLaneAssignments(prev => ({
-      ...prev,
-      [item.id]: newLane,
-    }));
-
-    // If there was a snap adjustment needed, also update the time offset
-    if (overlapCheck.snappedTime && !hasRealTimestamp(item)) {
-      const baseTime = timeRange?.start || 0;
-      setItemTimeOffsets(prev => ({
-        ...prev,
-        [item.id]: overlapCheck.snappedTime! - baseTime,
-      }));
-    }
-
-    return true;
-  }, [isItemLocked, getAvailableLanes, getEffectiveLane, getEffectiveStartTime, checkOverlap, hasRealTimestamp, timeRange]);
+    // No free lane found in that direction
+    setLockedMoveToast({ visible: true, message: 'Cannot move: no open lane in that direction' });
+    return false;
+  }, [isItemLocked, getAvailableLanes, getEffectiveLane, checkLaneOverlap]);
 
   // Handle arrow key movement for the active/selected item
   const handleArrowKeyMovement = useCallback((e: KeyboardEvent) => {
@@ -2018,13 +2038,21 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       const id = testMetadata?.id || generateImportId();
       const user = testMetadata?.user || extractUserFromFile(file) || ''; // Empty = Unassigned lane
 
-      // Calculate timestamp - use test metadata timestamp or session start
-      const capturedAt = testMetadata?.timestamp.getTime() || sessionStart;
-
       // Duration in seconds (test metadata is in ms, so divide by 1000)
       const durationSeconds = testMetadata?.duration
         ? Math.floor(testMetadata.duration / 1000)
         : type !== 'image' ? 60 : undefined;
+
+      // Calculate timestamp - use test metadata timestamp or session start
+      // Clamp to ensure clip doesn't exceed session bounds
+      let capturedAt = testMetadata?.timestamp.getTime() || sessionStart;
+      const sessionEnd = timeRange?.end || (sessionStart + 90 * 60 * 1000); // Default 90 min session
+      const durationMs = (durationSeconds || 0) * 1000;
+
+      // If clip would extend past session end, clamp the start time earlier
+      if (capturedAt + durationMs > sessionEnd) {
+        capturedAt = Math.max(sessionStart, sessionEnd - durationMs);
+      }
 
       // Debug: Log the metadata being applied
       console.log('[SessionTimeline] Processing file:', {
