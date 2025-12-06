@@ -134,6 +134,8 @@ const STORAGE_KEY_LOCKED_ITEMS = 'sessionTimeline_lockedItems';
 const STORAGE_KEY_UNLOCKED_ITEMS = 'sessionTimeline_unlockedItems';
 const STORAGE_KEY_TIME_OFFSETS = 'sessionTimeline_timeOffsets';
 const STORAGE_KEY_LANE_ASSIGNMENTS = 'sessionTimeline_laneAssignments'; // Now stores row indices instead of user names
+const LANE_ASSIGNMENTS_VERSION = 2; // Increment to force reset when data format changes
+const STORAGE_KEY_LANE_VERSION = 'sessionTimeline_laneAssignmentsVersion';
 
 // Movement constants
 const SHIFT_1_SECOND = 1000; // 1 second in ms
@@ -990,6 +992,39 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     }
     return {};
   });
+
+  // Clean up stale localStorage data from old lane assignment format
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // Check version - if outdated or missing, clear lane assignments
+    const savedVersion = localStorage.getItem(STORAGE_KEY_LANE_VERSION);
+    const currentVersion = savedVersion ? parseInt(savedVersion, 10) : 0;
+
+    if (currentVersion < LANE_ASSIGNMENTS_VERSION) {
+      // Clear old format data - Tetris algorithm will auto-pack fresh
+      localStorage.removeItem(STORAGE_KEY_LANE_ASSIGNMENTS);
+      localStorage.setItem(STORAGE_KEY_LANE_VERSION, String(LANE_ASSIGNMENTS_VERSION));
+      setItemRowAssignments({});
+      return;
+    }
+
+    // Also check for any string-based values (old format used user names as strings)
+    const saved = localStorage.getItem(STORAGE_KEY_LANE_ASSIGNMENTS);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        const hasOldFormat = Object.values(parsed).some(v => typeof v === 'string');
+        if (hasOldFormat) {
+          localStorage.removeItem(STORAGE_KEY_LANE_ASSIGNMENTS);
+          setItemRowAssignments({});
+        }
+      } catch {
+        localStorage.removeItem(STORAGE_KEY_LANE_ASSIGNMENTS);
+        setItemRowAssignments({});
+      }
+    }
+  }, []);
 
   // Toast state for locked file movement attempts
   const [lockedMoveToast, setLockedMoveToast] = useState<{ visible: boolean; message: string }>({
