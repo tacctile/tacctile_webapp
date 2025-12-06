@@ -59,6 +59,7 @@ import FastForwardIcon from '@mui/icons-material/FastForward';
 import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
+import DragHandleIcon from '@mui/icons-material/DragHandle';
 
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
