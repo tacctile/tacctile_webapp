@@ -154,39 +154,8 @@ function getDeviceIdForUser(user: string): string {
  * Also returns true if URL contains ?testmode=true or ?dev=true query parameter
  */
 export function isDevelopmentMode(): boolean {
-  // Check for Vite's import.meta.env (works in browser)
-  if (typeof import.meta !== 'undefined' && import.meta.env) {
-    // Use truthy check instead of strict equality for broader compatibility
-    const isDev = !!import.meta.env.DEV || import.meta.env.MODE === 'development';
-    if (isDev) {
-      return true;
-    }
-  }
-  // Check for URL query parameters to enable test mode on production deployments
-  if (typeof window !== 'undefined') {
-    const urlParams = new URLSearchParams(window.location.search);
-    const testModeParam = urlParams.get('testmode');
-    const devParam = urlParams.get('dev');
-
-    if (testModeParam === 'true' || devParam === 'true') {
-      console.log('[TestMetadata] Test mode activated via URL parameter');
-      return true;
-    }
-  }
-  // Fallback: check if running on localhost or development URLs
-  if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    return (
-      hostname === 'localhost' ||
-      hostname === '127.0.0.1' ||
-      hostname.includes('.local') ||
-      hostname.includes('dev.') ||
-      hostname.includes('-dev') ||
-      hostname.startsWith('192.168.') ||
-      hostname.startsWith('10.')
-    );
-  }
-  return false;
+  console.log('DEV MODE FORCED ON FOR TESTING');
+  return true;
 }
 
 /**
@@ -222,11 +191,14 @@ export function generateTestMetadata(file: File): TestFileMetadata {
 
   // Select random user
   const user = getRandomElement(USER_POOL);
+  const timestamp = generateSessionTimestamp();
+
+  console.log('GENERATED METADATA:', { user, timestamp, filename: file.name });
 
   return {
     id: generateUUID(),
     filename: file.name,
-    timestamp: generateSessionTimestamp(),
+    timestamp,
     user,
     deviceId: getDeviceIdForUser(user),
     gpsCoordinates: generateGPSCoordinates(),
