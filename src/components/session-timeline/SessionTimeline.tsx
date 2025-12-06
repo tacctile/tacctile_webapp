@@ -29,7 +29,6 @@ import {
   Menu,
   ListItemIcon,
   ListItemText,
-  Slider,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -49,9 +48,6 @@ import InfoIcon from '@mui/icons-material/Info';
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
-import FitScreenIcon from '@mui/icons-material/FitScreen';
-import ZoomInIcon from '@mui/icons-material/ZoomIn';
-import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
@@ -106,14 +102,7 @@ const BASE_LANE_HEIGHT = 36;
 // LocalStorage keys
 const STORAGE_KEY_LANE_HEIGHT = 'sessionTimeline_laneHeight';
 const STORAGE_KEY_DIVIDER_POSITION = 'sessionTimeline_dividerPosition';
-const STORAGE_KEY_ZOOM_LEVEL = 'sessionTimeline_zoomLevel';
 const STORAGE_KEY_REMOVED_ITEMS = 'sessionTimeline_removedItems';
-
-// Zoom settings
-const MIN_ZOOM = 0.1;
-const MAX_ZOOM = 10;
-const DEFAULT_ZOOM = 1;
-const ZOOM_STEP = 0.1;
 
 // Context menu state interface
 interface ContextMenuState {
@@ -690,95 +679,6 @@ const FlagDot = styled(Box)<{ color?: string }>(({ color }) => ({
   },
 }));
 
-const GlobalPlayhead = styled(Box)({
-  position: 'absolute',
-  top: 0,
-  bottom: 0,
-  width: 2,
-  backgroundColor: '#19abb5',
-  boxShadow: '0 0 10px rgba(25, 171, 181, 0.7)',
-  zIndex: 100,
-  pointerEvents: 'none', // Let drag area handle events
-  // Triangle grab handle at top (12px wide, 16px tall)
-  '&::before': {
-    content: '""',
-    position: 'absolute',
-    top: 0,
-    left: '50%',
-    transform: 'translateX(-50%)',
-    width: 0,
-    height: 0,
-    borderLeft: '8px solid transparent',
-    borderRight: '8px solid transparent',
-    borderTop: '12px solid #19abb5',
-    filter: 'drop-shadow(0 2px 4px rgba(25, 171, 181, 0.6))',
-  },
-  // Glow effect behind the triangle
-  '&::after': {
-    content: '""',
-    position: 'absolute',
-    top: -2,
-    left: '50%',
-    transform: 'translateX(-50%)',
-    width: 16,
-    height: 16,
-    borderRadius: '50%',
-    backgroundColor: 'rgba(25, 171, 181, 0.3)',
-    filter: 'blur(4px)',
-    zIndex: -1,
-  },
-});
-
-const PlayheadDragArea = styled(Box)<{ isDragging?: boolean }>(({ isDragging }) => ({
-  position: 'absolute',
-  top: 0,
-  bottom: 0,
-  width: 24, // Expanded hit area to 24px
-  marginLeft: -11,
-  cursor: isDragging ? 'grabbing' : 'grab',
-  zIndex: 102, // Above playhead and timecode
-  // Visual feedback on hover
-  '&:hover': {
-    '&::before': {
-      content: '""',
-      position: 'absolute',
-      top: 0,
-      left: '50%',
-      transform: 'translateX(-50%)',
-      width: 16,
-      height: 16,
-      borderRadius: '50%',
-      backgroundColor: 'rgba(25, 171, 181, 0.2)',
-    },
-  },
-}));
-
-// Playhead timecode badge that follows the playhead
-const PlayheadTimecode = styled(Box)({
-  position: 'absolute',
-  top: 18,
-  transform: 'translateX(-50%)',
-  backgroundColor: '#19abb5',
-  color: '#000',
-  fontSize: 9,
-  fontFamily: '"JetBrains Mono", monospace',
-  fontWeight: 600,
-  padding: '2px 6px',
-  borderRadius: 3,
-  whiteSpace: 'nowrap',
-  zIndex: 101,
-  pointerEvents: 'none',
-  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.3)',
-});
-
-// Zoom controls container - positioned in toolbar near ruler
-const ZoomControlsContainer = styled(Box)({
-  display: 'flex',
-  alignItems: 'center',
-  gap: 4,
-  marginLeft: 'auto', // Push to right side
-});
-
 // Right Panel Components
 const ImagePreviewSection = styled(Box)({
   height: 220,
@@ -875,25 +775,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   // Flag user filter
   const [flagUserFilter, setFlagUserFilter] = useState<string>('all');
 
-  // Playhead dragging
-  const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
-
   // Context menu state
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
-
-  // Zoom level (1 = 100%, 0.5 = 50%, 2 = 200%)
-  const [zoomLevel, setZoomLevel] = useState<number>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(STORAGE_KEY_ZOOM_LEVEL);
-      if (saved) {
-        const val = parseFloat(saved);
-        if (!isNaN(val) && val >= MIN_ZOOM && val <= MAX_ZOOM) {
-          return val;
-        }
-      }
-    }
-    return DEFAULT_ZOOM;
-  });
 
   // Items removed from timeline (stored by ID, can be re-added by dragging from Evidence Bank)
   const [removedItemIds, setRemovedItemIds] = useState<Set<string>>(() => {
@@ -982,11 +865,6 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_DIVIDER_POSITION, dividerPosition.toString());
   }, [dividerPosition]);
-
-  // Persist zoom level to localStorage
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_ZOOM_LEVEL, zoomLevel.toString());
-  }, [zoomLevel]);
 
   // Persist removed items to localStorage
   useEffect(() => {
@@ -1154,55 +1032,6 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     [timeRange]
   );
 
-  // Calculate playhead position
-  const playheadPosition = useMemo(() => {
-    if (!timeRange) return 0;
-    const totalDuration = timeRange.end - timeRange.start;
-    return ((globalTimestamp - timeRange.start) / totalDuration) * 100;
-  }, [timeRange, globalTimestamp]);
-
-  // Handle timeline click (set playhead)
-  const handleTimelineClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!timeRange || !lanesContainerRef.current || isDraggingPlayhead) return;
-      const rect = lanesContainerRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left - 100; // 100px for lane label width
-      const width = rect.width - 100;
-      const percent = Math.max(0, Math.min(1, x / width));
-      const newTimestamp = timeRange.start + percent * (timeRange.end - timeRange.start);
-      setGlobalTimestamp(newTimestamp);
-    },
-    [timeRange, setGlobalTimestamp, isDraggingPlayhead]
-  );
-
-  // Handle playhead drag
-  const handlePlayheadDrag = useCallback(
-    (e: React.MouseEvent) => {
-      if (!timeRange || !lanesContainerRef.current) return;
-      e.preventDefault();
-      setIsDraggingPlayhead(true);
-
-      const handleMove = (moveEvent: MouseEvent) => {
-        const rect = lanesContainerRef.current!.getBoundingClientRect();
-        const x = moveEvent.clientX - rect.left - 100;
-        const width = rect.width - 100;
-        const percent = Math.max(0, Math.min(1, x / width));
-        const newTimestamp = timeRange.start + percent * (timeRange.end - timeRange.start);
-        setGlobalTimestamp(newTimestamp);
-      };
-
-      const handleUp = () => {
-        setIsDraggingPlayhead(false);
-        document.removeEventListener('mousemove', handleMove);
-        document.removeEventListener('mouseup', handleUp);
-      };
-
-      document.addEventListener('mousemove', handleMove);
-      document.addEventListener('mouseup', handleUp);
-    },
-    [timeRange, setGlobalTimestamp]
-  );
-
   // Handle item single click (show metadata)
   const handleItemClick = useCallback(
     (item: TimelineMediaItem) => {
@@ -1334,62 +1163,6 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       photo: 'Image Tool',
     };
     return toolNames[type] || 'Tool';
-  }, []);
-
-  // ============================================================================
-  // ZOOM HANDLERS
-  // ============================================================================
-
-  // Zoom in
-  const handleZoomIn = useCallback(() => {
-    setZoomLevel(prev => Math.min(MAX_ZOOM, prev + ZOOM_STEP));
-  }, []);
-
-  // Zoom out
-  const handleZoomOut = useCallback(() => {
-    setZoomLevel(prev => Math.max(MIN_ZOOM, prev - ZOOM_STEP));
-  }, []);
-
-  // Fit all - reset to show entire session
-  const handleFitAll = useCallback(() => {
-    setZoomLevel(DEFAULT_ZOOM);
-  }, []);
-
-  // Handle zoom slider change
-  const handleZoomSliderChange = useCallback((_: Event, newValue: number | number[]) => {
-    setZoomLevel(newValue as number);
-  }, []);
-
-  // Handle mouse wheel zoom
-  const handleWheelZoom = useCallback((event: React.WheelEvent) => {
-    // Only zoom if hovering over timeline area
-    if (event.deltaY < 0) {
-      setZoomLevel(prev => Math.min(MAX_ZOOM, prev + ZOOM_STEP));
-    } else if (event.deltaY > 0) {
-      setZoomLevel(prev => Math.max(MIN_ZOOM, prev - ZOOM_STEP));
-    }
-  }, []);
-
-  // Handle keyboard zoom (+ and -)
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // Only handle if not focused on an input
-      if (document.activeElement?.tagName === 'INPUT' ||
-          document.activeElement?.tagName === 'TEXTAREA') {
-        return;
-      }
-
-      if (event.key === '+' || event.key === '=') {
-        event.preventDefault();
-        setZoomLevel(prev => Math.min(MAX_ZOOM, prev + ZOOM_STEP));
-      } else if (event.key === '-' || event.key === '_') {
-        event.preventDefault();
-        setZoomLevel(prev => Math.max(MIN_ZOOM, prev - ZOOM_STEP));
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   // ============================================================================
@@ -1782,111 +1555,13 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
             {laneHeightSize === 'small' ? '0.5x' : laneHeightSize === 'medium' ? '1x' : '1.5x'}
           </Typography>
 
-          {/* Zoom Controls - positioned at right of toolbar */}
-          <ZoomControlsContainer>
-            <Box sx={{ width: 1, height: 16, backgroundColor: '#333', mx: 1 }} />
-            <Tooltip title="Zoom out (-)">
-              <IconButton
-                size="small"
-                onClick={handleZoomOut}
-                disabled={zoomLevel <= MIN_ZOOM}
-                sx={{ color: '#666', padding: '2px', '&:hover': { color: '#19abb5' } }}
-              >
-                <ZoomOutIcon sx={{ fontSize: 14 }} />
-              </IconButton>
-            </Tooltip>
-            <Slider
-              value={zoomLevel}
-              onChange={handleZoomSliderChange}
-              min={MIN_ZOOM}
-              max={MAX_ZOOM}
-              step={ZOOM_STEP}
-              sx={{
-                width: 80,
-                color: '#19abb5',
-                '& .MuiSlider-thumb': {
-                  width: 10,
-                  height: 10,
-                  backgroundColor: '#19abb5',
-                  '&:hover, &.Mui-focusVisible': {
-                    boxShadow: '0 0 6px rgba(25, 171, 181, 0.5)',
-                  },
-                },
-                '& .MuiSlider-track': {
-                  height: 2,
-                },
-                '& .MuiSlider-rail': {
-                  height: 2,
-                  backgroundColor: '#333',
-                },
-              }}
-            />
-            <Tooltip title="Zoom in (+)">
-              <IconButton
-                size="small"
-                onClick={handleZoomIn}
-                disabled={zoomLevel >= MAX_ZOOM}
-                sx={{ color: '#666', padding: '2px', '&:hover': { color: '#19abb5' } }}
-              >
-                <ZoomInIcon sx={{ fontSize: 14 }} />
-              </IconButton>
-            </Tooltip>
-            <Typography sx={{ fontSize: 9, color: '#666', minWidth: 32, textAlign: 'center' }}>
-              {Math.round(zoomLevel * 100)}%
-            </Typography>
-            <Tooltip title="Fit all">
-              <IconButton
-                size="small"
-                onClick={handleFitAll}
-                sx={{ color: '#666', padding: '2px', '&:hover': { color: '#19abb5' } }}
-              >
-                <FitScreenIcon sx={{ fontSize: 14 }} />
-              </IconButton>
-            </Tooltip>
-          </ZoomControlsContainer>
         </LaneHeightToolbar>
 
         {/* Time Ruler */}
         <TimeRuler>{renderTimeRuler()}</TimeRuler>
 
         {/* Swim Lanes */}
-        <SwimLanesContainer
-          ref={lanesContainerRef}
-          onClick={handleTimelineClick}
-          onWheel={handleWheelZoom}
-          sx={{
-            // Apply zoom scaling to content width
-            '& > *:not(:first-of-type)': {
-              minWidth: `${100 * zoomLevel}%`,
-            },
-          }}
-        >
-          {/* Global Playhead with timecode badge */}
-          {timeRange && (
-            <>
-              <GlobalPlayhead
-                sx={{
-                  left: `calc(100px + ${playheadPosition}% * (100% - 100px) / 100)`,
-                }}
-              />
-              {/* Timecode badge that follows playhead */}
-              <PlayheadTimecode
-                sx={{
-                  left: `calc(100px + ${playheadPosition}% * (100% - 100px) / 100 + 1px)`,
-                }}
-              >
-                {formatTimecode(globalTimestamp)}
-              </PlayheadTimecode>
-              <PlayheadDragArea
-                isDragging={isDraggingPlayhead}
-                sx={{
-                  left: `calc(100px + ${playheadPosition}% * (100% - 100px) / 100)`,
-                }}
-                onMouseDown={handlePlayheadDrag}
-              />
-            </>
-          )}
-
+        <SwimLanesContainer ref={lanesContainerRef}>
           {/* VIDEO Section */}
           <SwimLaneSection>
             <SwimLaneSectionHeader
