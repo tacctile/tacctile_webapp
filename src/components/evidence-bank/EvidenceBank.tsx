@@ -135,17 +135,28 @@ const SectionsContainer = styled(Box)({
   },
 });
 
-const SectionHeader = styled(Box)<{ borderColor: string }>(({ borderColor }) => ({
+// Background tints for each section type
+const SECTION_TINTS = {
+  video: 'rgba(196, 92, 92, 0.08)',
+  audio: 'rgba(90, 154, 107, 0.08)',
+  image: 'rgba(90, 127, 191, 0.08)',
+};
+
+const SectionHeader = styled(Box)<{ borderColor: string; sectionType: 'video' | 'audio' | 'image' }>(({ borderColor, sectionType }) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  padding: '6px 8px',
-  backgroundColor: '#1a1a1a',
+  padding: '8px 10px',
+  backgroundColor: SECTION_TINTS[sectionType],
   borderLeft: `3px solid ${borderColor}`,
   cursor: 'pointer',
   userSelect: 'none',
   '&:hover': {
-    backgroundColor: '#222',
+    backgroundColor: sectionType === 'video'
+      ? 'rgba(196, 92, 92, 0.12)'
+      : sectionType === 'audio'
+        ? 'rgba(90, 154, 107, 0.12)'
+        : 'rgba(90, 127, 191, 0.12)',
   },
 }));
 
@@ -473,17 +484,18 @@ export const EvidenceBank: React.FC<EvidenceBankProps> = ({
       <Box key={type}>
         <SectionHeader
           borderColor={TYPE_COLORS[type]}
+          sectionType={type}
           onClick={() => toggleSection(type)}
         >
           <SectionTitle>
-            <Typography sx={{ fontSize: '11px', fontWeight: 600, color: '#e1e1e1', letterSpacing: '0.5px' }}>
+            <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#e1e1e1', letterSpacing: '0.75px' }}>
               {label}
             </Typography>
-            <Typography sx={{ fontSize: '10px', color: '#666' }}>
+            <Typography sx={{ fontSize: '10px', color: '#888', fontWeight: 500 }}>
               ({items.length})
             </Typography>
           </SectionTitle>
-          <IconButton size="small" sx={{ padding: 0.5, color: '#666' }}>
+          <IconButton size="small" sx={{ padding: 0.5, color: '#888' }}>
             {isExpanded ? <ExpandLessIcon sx={{ fontSize: 16 }} /> : <ExpandMoreIcon sx={{ fontSize: 16 }} />}
           </IconButton>
         </SectionHeader>
