@@ -15,16 +15,23 @@ export interface StorageLocation {
   icon?: string;
 }
 
+export type StorageType = 'local' | 'google_drive' | 'dropbox' | 'onedrive';
+
 export interface Session {
   id: string;
   name: string;
   path: string;
   storageId: string;
+  storageType: StorageType;
+  location?: string;
   thumbnail?: string;
   evidenceCount: number;
   flagCount: number;
   createdAt: number;
   modifiedAt: number;
+  evidence?: unknown[];
+  flags?: unknown[];
+  notes?: unknown[];
 }
 
 export interface MediaFile {
@@ -98,6 +105,8 @@ const dummySessions: Session[] = [
     name: 'Warehouse_Site_2024',
     path: '/local/sessions/warehouse_site_2024',
     storageId: 'local',
+    storageType: 'local',
+    location: 'Industrial District, Portland',
     thumbnail: undefined,
     evidenceCount: 12,
     flagCount: 8,
@@ -109,6 +118,7 @@ const dummySessions: Session[] = [
     name: 'Audio_Session_Oct',
     path: '/local/sessions/audio_session_oct',
     storageId: 'local',
+    storageType: 'local',
     thumbnail: undefined,
     evidenceCount: 5,
     flagCount: 3,
@@ -120,6 +130,8 @@ const dummySessions: Session[] = [
     name: 'Shadow_Analysis_Review',
     path: '/local/sessions/shadow_analysis_review',
     storageId: 'local',
+    storageType: 'local',
+    location: 'Observatory Hill',
     thumbnail: undefined,
     evidenceCount: 2,
     flagCount: 1,
@@ -131,6 +143,8 @@ const dummySessions: Session[] = [
     name: 'Historic_Site_Survey',
     path: '/dropbox/sessions/historic_site_survey',
     storageId: 'dropbox',
+    storageType: 'dropbox',
+    location: 'Old Town Historic District',
     thumbnail: undefined,
     evidenceCount: 8,
     flagCount: 4,

@@ -22,6 +22,7 @@ import {
   Tooltip,
   Divider,
 } from '@mui/material';
+import { NewSessionDialog, type NewSessionData } from './NewSessionDialog';
 import { styled } from '@mui/material/styles';
 import SearchIcon from '@mui/icons-material/Search';
 import GridViewIcon from '@mui/icons-material/GridView';
@@ -470,6 +471,7 @@ function getFileType(fileName: string): 'video' | 'audio' | 'image' | null {
 export const HomePage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [newSessionDialogOpen, setNewSessionDialogOpen] = useState(false);
 
   // Store state
   const {
@@ -486,6 +488,7 @@ export const HomePage: React.FC = () => {
     setStoragePanelCollapsed,
     setQuickAnalyzeFile,
     getFilteredSessions,
+    addSession,
   } = useHomeStore();
 
   const navigateToTool = useNavigationStore((state) => state.navigateToTool);
@@ -505,15 +508,49 @@ export const HomePage: React.FC = () => {
     console.log('Connect storage:', storage.type);
   }, []);
 
-  const handleSessionDoubleClick = useCallback((session: Session) => {
+  const handleSessionClick = useCallback((session: Session) => {
     setActiveSession(session.id);
     setActiveTool('session');
   }, [setActiveSession, setActiveTool]);
 
   const handleNewSession = useCallback(() => {
-    // TODO: Implement new session creation dialog
-    console.log('Create new session');
+    setNewSessionDialogOpen(true);
   }, []);
+
+  const handleCreateSession = useCallback((sessionData: NewSessionData) => {
+    // Map storage type to storage ID for the store
+    const storageIdMap: Record<string, string> = {
+      local: 'local',
+      google_drive: 'google-drive',
+      dropbox: 'dropbox',
+      onedrive: 'onedrive',
+    };
+
+    // Create session object matching the store's Session interface
+    const newSession: Session = {
+      id: sessionData.id,
+      name: sessionData.name,
+      path: `/${sessionData.storageType}/sessions/${sessionData.name.toLowerCase().replace(/\s+/g, '_')}`,
+      storageId: storageIdMap[sessionData.storageType] || 'local',
+      storageType: sessionData.storageType,
+      location: sessionData.location || undefined,
+      thumbnail: undefined,
+      evidenceCount: 0,
+      flagCount: 0,
+      createdAt: sessionData.createdAt,
+      modifiedAt: sessionData.modifiedAt,
+      evidence: [],
+      flags: [],
+      notes: [],
+    };
+
+    // Add to store
+    addSession(newSession);
+
+    // Set as active session and navigate to session timeline
+    setActiveSession(newSession.id);
+    setActiveTool('session');
+  }, [addSession, setActiveSession, setActiveTool]);
 
   const handleNewFolder = useCallback(() => {
     // TODO: Implement new folder creation
@@ -688,7 +725,7 @@ export const HomePage: React.FC = () => {
 
   // Render session card (grid view)
   const renderSessionCard = (session: Session) => (
-    <SessionCard key={session.id} onDoubleClick={() => handleSessionDoubleClick(session)}>
+    <SessionCard key={session.id} onClick={() => handleSessionClick(session)}>
       <SessionThumbnail>
         {session.thumbnail ? (
           <img src={session.thumbnail} alt={session.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -724,7 +761,7 @@ export const HomePage: React.FC = () => {
 
   // Render session row (list view)
   const renderSessionListItem = (session: Session) => (
-    <SessionListItem key={session.id} onDoubleClick={() => handleSessionDoubleClick(session)}>
+    <SessionListItem key={session.id} onClick={() => handleSessionClick(session)}>
       <Box sx={{ width: 40, height: 40, backgroundColor: '#0d0d0d', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <FolderIcon sx={{ color: '#444' }} />
       </Box>
@@ -831,6 +868,14 @@ export const HomePage: React.FC = () => {
           </PrimaryButton>
         </BottomBar>
       </RightPanel>
+
+      {/* New Session Dialog */}
+      <NewSessionDialog
+        open={newSessionDialogOpen}
+        storageLocations={storageLocations}
+        onClose={() => setNewSessionDialogOpen(false)}
+        onCreate={handleCreateSession}
+      />
     </PageContainer>
   );
 };
