@@ -1229,6 +1229,17 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
           result.push(user);
         }
       });
+      // Also include base users from itemLaneAssignments
+      // (items may have been moved to lanes for users not in the original list)
+      Object.values(itemLaneAssignments).forEach(laneKey => {
+        if (laneKey) {
+          // Extract base user from lane key (handles "user" or "user|device" formats)
+          const baseUser = laneKey.includes('|') ? laneKey.split('|')[0] : laneKey;
+          if (baseUser && !result.includes(baseUser)) {
+            result.push(baseUser);
+          }
+        }
+      });
       return result;
     }
 
@@ -1240,11 +1251,21 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     typeItems.forEach((item) => {
       if (item.user) userSet.add(item.user);
     });
+
+    // Also include base users from itemLaneAssignments for this item type
+    typeItems.forEach((item) => {
+      const assignedLane = itemLaneAssignments[item.id];
+      if (assignedLane) {
+        const baseUser = assignedLane.includes('|') ? assignedLane.split('|')[0] : assignedLane;
+        if (baseUser) userSet.add(baseUser);
+      }
+    });
+
     const users = Array.from(userSet).filter(Boolean);
 
     // If still no users, return array with empty string for "Unassigned" lane
     return users.length > 0 ? users : [''];
-  }, [laneOrder, items]);
+  }, [laneOrder, items, itemLaneAssignments]);
 
   // Helper to compute effective start time for an item (used in overlap detection)
   const computeEffectiveStartTime = useCallback((item: TimelineMediaItem): number => {
@@ -1909,7 +1930,35 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     const itemType = item.type;
     const lanes = getAvailableLanes(itemType);
     const currentLane = getEffectiveLane(item);
-    const currentIndex = lanes.indexOf(currentLane);
+    let currentIndex = lanes.indexOf(currentLane);
+
+    // Safety check: if current lane is not in the lanes list (e.g., item was moved to a
+    // dynamically-created lane that wasn't included), add it at a logical position
+    if (currentIndex === -1 && currentLane) {
+      // Insert the current lane into the lanes array so movement can continue
+      // For device sub-lanes (user|device), try to insert after the base user lane
+      const baseUser = currentLane.includes('|') ? currentLane.split('|')[0] : currentLane;
+      const baseUserIndex = lanes.indexOf(baseUser);
+      if (baseUserIndex !== -1) {
+        // Insert after the base user (or after existing sub-lanes for that user)
+        let insertIndex = baseUserIndex + 1;
+        while (insertIndex < lanes.length && lanes[insertIndex].startsWith(`${baseUser}|`)) {
+          insertIndex++;
+        }
+        lanes.splice(insertIndex, 0, currentLane);
+        currentIndex = insertIndex;
+      } else {
+        // Base user not found either - add current lane at the end (before catch-all)
+        const catchAllIndex = lanes.indexOf('');
+        if (catchAllIndex !== -1) {
+          lanes.splice(catchAllIndex, 0, currentLane);
+          currentIndex = catchAllIndex;
+        } else {
+          lanes.push(currentLane);
+          currentIndex = lanes.length - 1;
+        }
+      }
+    }
 
     // Search for the first available lane in the requested direction
     const step = direction === 'up' ? -1 : 1;
