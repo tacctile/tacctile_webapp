@@ -49,6 +49,13 @@ import InfoIcon from '@mui/icons-material/Info';
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
+import GraphicEqIcon from '@mui/icons-material/GraphicEq';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import PauseIcon from '@mui/icons-material/Pause';
+import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
+import SkipNextIcon from '@mui/icons-material/SkipNext';
+import FastRewindIcon from '@mui/icons-material/FastRewind';
+import FastForwardIcon from '@mui/icons-material/FastForward';
 
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
@@ -104,6 +111,7 @@ const BASE_LANE_HEIGHT = 36;
 const STORAGE_KEY_LANE_HEIGHT = 'sessionTimeline_laneHeight';
 const STORAGE_KEY_DIVIDER_POSITION = 'sessionTimeline_dividerPosition';
 const STORAGE_KEY_REMOVED_ITEMS = 'sessionTimeline_removedItems';
+const STORAGE_KEY_LANE_ORDER = 'sessionTimeline_laneOrder';
 
 // Context menu state interface
 interface ContextMenuState {
@@ -416,8 +424,8 @@ const MainContainer = styled(Box)({
   backgroundColor: '#0d0d0d',
 });
 
-// Video Preview Section (Top of Center)
-const VideoPreviewSection = styled(Box)({
+// Unified Preview Section (Top of Center) - shows video, audio, or image based on selection
+const UnifiedPreviewSection = styled(Box)({
   flex: 1,
   minHeight: 200,
   backgroundColor: '#000',
@@ -425,14 +433,42 @@ const VideoPreviewSection = styled(Box)({
   alignItems: 'center',
   justifyContent: 'center',
   position: 'relative',
-  borderBottom: '1px solid #252525',
 });
 
-const VideoPlaceholder = styled(Box)({
+const PreviewPlaceholder = styled(Box)({
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   color: '#444',
+});
+
+// Embedded Transport Controls (directly under preview)
+const EmbeddedTransportControls = styled(Box)({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 8,
+  padding: '8px 16px',
+  backgroundColor: '#161616',
+  borderBottom: '1px solid #252525',
+});
+
+const TransportButton = styled(IconButton)({
+  color: '#888',
+  padding: 6,
+  '&:hover': {
+    color: '#19abb5',
+    backgroundColor: 'rgba(25, 171, 181, 0.1)',
+  },
+});
+
+const PlayButton = styled(IconButton)({
+  color: '#fff',
+  backgroundColor: '#19abb5',
+  padding: 8,
+  '&:hover': {
+    backgroundColor: '#147a82',
+  },
 });
 
 // Resizable divider between video preview and timeline
@@ -556,7 +592,7 @@ const SwimLane = styled(Box)<{ laneHeight?: number; dimmed?: boolean }>(({ laneH
   transition: 'opacity 0.15s, height 0.15s',
 }));
 
-const LaneLabel = styled(Box)<{ laneHeight?: number }>(({ laneHeight = 36 }) => ({
+const LaneLabel = styled(Box)<{ laneHeight?: number; isDragging?: boolean; isDragOver?: boolean }>(({ laneHeight = 36, isDragging, isDragOver }) => ({
   width: 100,
   minWidth: 100,
   padding: '0 8px',
@@ -565,10 +601,20 @@ const LaneLabel = styled(Box)<{ laneHeight?: number }>(({ laneHeight = 36 }) => 
   gap: 4,
   fontSize: laneHeight < 24 ? 8 : 10,
   color: '#666',
-  backgroundColor: '#141414',
+  backgroundColor: isDragOver ? 'rgba(25, 171, 181, 0.15)' : '#141414',
   height: '100%',
   borderRight: '1px solid #1f1f1f',
   overflow: 'hidden',
+  cursor: 'grab',
+  opacity: isDragging ? 0.5 : 1,
+  transition: 'background-color 0.15s, opacity 0.15s',
+  borderTop: isDragOver ? '2px solid #19abb5' : '2px solid transparent',
+  '&:hover': {
+    backgroundColor: isDragOver ? 'rgba(25, 171, 181, 0.15)' : '#1a1a1a',
+  },
+  '&:active': {
+    cursor: 'grabbing',
+  },
 }));
 
 const LaneContent = styled(Box)<{ isDragOver?: boolean; canDrop?: boolean }>(({ isDragOver, canDrop }) => ({
@@ -664,44 +710,6 @@ const FlagLine = styled(Box)<{ color?: string; clipHeight?: number }>(({ color, 
   },
 }));
 
-// Right Panel Components
-const ImagePreviewSection = styled(Box)({
-  height: 220,
-  minHeight: 180,
-  backgroundColor: '#0a0a0a',
-  borderBottom: '1px solid #252525',
-  display: 'flex',
-  flexDirection: 'column',
-});
-
-const ImagePreviewHeader = styled(Box)({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  padding: '6px 12px',
-  backgroundColor: '#1a1a1a',
-  borderBottom: '1px solid #252525',
-  minHeight: 28,
-});
-
-const ImagePreviewContent = styled(Box)({
-  flex: 1,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  backgroundColor: '#000',
-  position: 'relative',
-});
-
-const EmptyState = styled(Box)({
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  height: '100%',
-  padding: 32,
-  textAlign: 'center',
-});
 
 // ============================================================================
 // COMPONENT
@@ -717,9 +725,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const lanesContainerRef = useRef<HTMLDivElement>(null);
   const [selectedEvidence, setSelectedEvidence] = useState<EvidenceItem | null>(null);
-  const [currentImage, setCurrentImage] = useState<TimelineMediaItem | null>(null);
 
-  // Image preview modal state
+  // Image preview modal state (for when active file is an image)
   const [imageModalOpen, setImageModalOpen] = useState(false);
 
   // Dummy data
@@ -788,6 +795,23 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   const [draggedEvidenceId, setDraggedEvidenceId] = useState<string | null>(null);
   const [dragOverLane, setDragOverLane] = useState<{ user: string; type: string } | null>(null);
 
+  // Lane reordering state - tracks order of user lanes per section
+  const [laneOrder, setLaneOrder] = useState<Record<string, string[]>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEY_LANE_ORDER);
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {
+          return { video: [], audio: [], image: [] };
+        }
+      }
+    }
+    return { video: [], audio: [], image: [] };
+  });
+  const [draggedLane, setDraggedLane] = useState<{ user: string; type: string } | null>(null);
+  const [laneDragOverUser, setLaneDragOverUser] = useState<{ user: string; type: string } | null>(null);
+
   // Loading state (for realistic UX)
   const [isLoading, setIsLoading] = useState(true);
 
@@ -795,6 +819,12 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   const globalTimestamp = usePlayheadStore((state) => state.timestamp);
   const setGlobalTimestamp = usePlayheadStore((state) => state.setTimestamp);
   const setSessionBounds = usePlayheadStore((state) => state.setSessionBounds);
+  const isPlaying = usePlayheadStore((state) => state.isPlaying);
+  const togglePlayback = usePlayheadStore((state) => state.togglePlayback);
+  const jumpToStart = usePlayheadStore((state) => state.jumpToStart);
+  const jumpToEnd = usePlayheadStore((state) => state.jumpToEnd);
+  const stepForward = usePlayheadStore((state) => state.stepForward);
+  const stepBackward = usePlayheadStore((state) => state.stepBackward);
 
   // Navigation store
   const navigateToTool = useNavigationStore((state) => state.navigateToTool);
@@ -870,6 +900,11 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     localStorage.setItem(STORAGE_KEY_REMOVED_ITEMS, JSON.stringify(Array.from(removedItemIds)));
   }, [removedItemIds]);
 
+  // Persist lane order to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_LANE_ORDER, JSON.stringify(laneOrder));
+  }, [laneOrder]);
+
   // Calculate the actual lane height in pixels
   const laneHeight = useMemo(() => {
     return Math.round(BASE_LANE_HEIGHT * LANE_HEIGHT_MULTIPLIERS[laneHeightSize]);
@@ -885,23 +920,6 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     return items.filter(item => !removedItemIds.has(item.id));
   }, [items, removedItemIds]);
 
-  // Determine which image is at current playhead position
-  useEffect(() => {
-    const photos = items
-      .filter((item) => item.type === 'photo')
-      .sort((a, b) => a.capturedAt - b.capturedAt);
-
-    // Find the most recent image before or at the playhead
-    let currentImg: TimelineMediaItem | null = null;
-    for (const img of photos) {
-      if (img.capturedAt <= globalTimestamp) {
-        currentImg = img;
-      } else {
-        break;
-      }
-    }
-    setCurrentImage(currentImg);
-  }, [globalTimestamp, items]);
 
   // Convert timeline items to evidence items for EvidenceBank
   const evidenceItems = useMemo(() => {
@@ -917,6 +935,22 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       hasFindings: item.hasEdits || item.flagCount > 0,
     }));
   }, [items]);
+
+  // Get ordered users for a specific media type
+  const getOrderedUsers = useCallback((type: 'video' | 'audio' | 'image'): string[] => {
+    const savedOrder = laneOrder[type];
+    if (savedOrder && savedOrder.length > 0) {
+      // Ensure all USERS are included even if not in saved order
+      const result = [...savedOrder];
+      USERS.forEach(user => {
+        if (!result.includes(user)) {
+          result.push(user);
+        }
+      });
+      return result;
+    }
+    return [...USERS];
+  }, [laneOrder]);
 
   // Group items by type and user for swim lanes (using visibleItems to exclude removed)
   const laneData = useMemo(() => {
@@ -975,26 +1009,28 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     };
   }, [items, visibleItems]);
 
-  // Aggregate all flags at/near current playhead position
+  // Get flags for the currently selected/active file
   const currentFlags = useMemo(() => {
-    const flags: Flag[] = [];
-    const tolerance = 5000; // 5 second tolerance for "at playhead"
+    // If no file is selected/active, return empty array
+    if (!activeFileId) {
+      return [];
+    }
 
-    items.forEach((item) => {
-      item.flags.forEach((flag) => {
-        // Check if flag is near current playhead position
-        if (Math.abs(flag.absoluteTimestamp - globalTimestamp) < tolerance) {
-          flags.push({
-            id: flag.id,
-            timestamp: flag.absoluteTimestamp,
-            label: flag.title,
-            note: flag.note,
-            createdBy: flag.userDisplayName,
-            createdAt: flag.absoluteTimestamp,
-          });
-        }
-      });
-    });
+    // Find the active item
+    const activeItem = items.find(item => item.id === activeFileId);
+    if (!activeItem) {
+      return [];
+    }
+
+    // Get all flags for the selected file
+    const flags: Flag[] = activeItem.flags.map((flag) => ({
+      id: flag.id,
+      timestamp: flag.absoluteTimestamp,
+      label: flag.title,
+      note: flag.note,
+      createdBy: flag.userDisplayName,
+      createdAt: flag.absoluteTimestamp,
+    }));
 
     // Apply user filter
     if (flagUserFilter !== 'all') {
@@ -1002,7 +1038,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     }
 
     return flags;
-  }, [items, globalTimestamp, flagUserFilter]);
+  }, [items, activeFileId, flagUserFilter]);
 
   // Get unique flag creators for filter dropdown
   const flagUsers = useMemo(() => {
@@ -1072,13 +1108,6 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     [setGlobalTimestamp]
   );
 
-  // Handle opening current image in Image Tool
-  const handleOpenInImageTool = useCallback(() => {
-    if (currentImage) {
-      setImageModalOpen(false);
-      navigateToTool('images', currentImage.evidenceId);
-    }
-  }, [currentImage, navigateToTool]);
 
   // Toggle file visibility (only one can be active at a time)
   const handleFileVisibilityToggle = useCallback((fileId: string) => {
@@ -1233,6 +1262,79 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   const handleDragEnd = useCallback(() => {
     setDraggedEvidenceId(null);
     setDragOverLane(null);
+  }, []);
+
+  // ============================================================================
+  // LANE REORDERING HANDLERS
+  // ============================================================================
+
+  // Handle lane drag start
+  const handleLaneDragStart = useCallback((e: React.DragEvent, user: string, type: string) => {
+    e.dataTransfer.setData('text/plain', `lane:${user}:${type}`);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedLane({ user, type });
+  }, []);
+
+  // Handle lane drag over
+  const handleLaneDragOver = useCallback((e: React.DragEvent, targetUser: string, type: string) => {
+    e.preventDefault();
+    // Only allow drag over if we're dragging a lane of the same type
+    if (draggedLane && draggedLane.type === type && draggedLane.user !== targetUser) {
+      setLaneDragOverUser({ user: targetUser, type });
+    }
+  }, [draggedLane]);
+
+  // Handle lane drag leave
+  const handleLaneDragLeave = useCallback(() => {
+    setLaneDragOverUser(null);
+  }, []);
+
+  // Handle lane drop - reorder lanes
+  const handleLaneDrop = useCallback((e: React.DragEvent, targetUser: string, type: string) => {
+    e.preventDefault();
+    setLaneDragOverUser(null);
+
+    if (!draggedLane || draggedLane.type !== type || draggedLane.user === targetUser) {
+      setDraggedLane(null);
+      return;
+    }
+
+    // Get current lane order for this type, or default to USERS
+    const currentOrder = laneOrder[type]?.length > 0 ? [...laneOrder[type]] : [...USERS];
+
+    // Ensure all users are in the order
+    USERS.forEach(user => {
+      if (!currentOrder.includes(user)) {
+        currentOrder.push(user);
+      }
+    });
+
+    const draggedIndex = currentOrder.indexOf(draggedLane.user);
+    const targetIndex = currentOrder.indexOf(targetUser);
+
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedLane(null);
+      return;
+    }
+
+    // Remove dragged lane from its position
+    currentOrder.splice(draggedIndex, 1);
+    // Insert at target position
+    currentOrder.splice(targetIndex, 0, draggedLane.user);
+
+    // Update lane order state
+    setLaneOrder(prev => ({
+      ...prev,
+      [type]: currentOrder,
+    }));
+
+    setDraggedLane(null);
+  }, [draggedLane, laneOrder]);
+
+  // Handle lane drag end
+  const handleLaneDragEnd = useCallback(() => {
+    setDraggedLane(null);
+    setLaneDragOverUser(null);
   }, []);
 
   // Check if dragged item can be dropped in a specific lane
@@ -1446,8 +1548,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     );
   }
 
-  // Get active video for preview (now based on activeFileId)
-  const activeVideo = items.find((i) => i.id === activeFileId && i.type === 'video');
+  // Get active file for preview (any type - video, audio, or image)
+  const activeFile = items.find((i) => i.id === activeFileId);
 
   // Check if any lanes have items that should be dimmed
   const hasActiveFile = activeFileId !== null;
@@ -1455,41 +1557,167 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   // Main content (center area)
   const mainContent = (
     <MainContainer ref={containerRef}>
-      {/* Video Preview Section - height controlled by divider */}
-      <VideoPreviewSection
+      {/* Unified Preview Section - shows video/audio/image based on selection */}
+      <UnifiedPreviewSection
         sx={{
           height: `${dividerPosition}%`,
           flex: 'none',
           userSelect: isDraggingDivider ? 'none' : 'auto',
         }}
       >
-        {/* Video player placeholder */}
-        <Box
-          sx={{
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background:
-              'linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 50%, #1a1a1a 100%)',
-            flexDirection: 'column',
-          }}
-        >
-          <VideocamIcon sx={{ fontSize: 48, color: '#333', mb: 1 }} />
-          <Typography sx={{ color: '#555', fontSize: 12 }}>
-            {activeVideo?.fileName || 'Video preview'}
-          </Typography>
-          <Typography sx={{ color: '#444', fontSize: 10, mt: 0.5 }}>
-            {new Date(globalTimestamp).toLocaleTimeString()}
-          </Typography>
-          {activeVideo && (
-            <Typography sx={{ color: '#19abb5', fontSize: 9, mt: 0.5 }}>
-              Active file
+        {!activeFile ? (
+          // No file selected placeholder
+          <PreviewPlaceholder>
+            <Box
+              sx={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 50%, #1a1a1a 100%)',
+                flexDirection: 'column',
+              }}
+            >
+              <VideocamIcon sx={{ fontSize: 48, color: '#333', mb: 1 }} />
+              <Typography sx={{ color: '#555', fontSize: 12 }}>
+                No file selected
+              </Typography>
+              <Typography sx={{ color: '#444', fontSize: 10, mt: 1 }}>
+                Click a file on the timeline to preview
+              </Typography>
+            </Box>
+          </PreviewPlaceholder>
+        ) : activeFile.type === 'video' ? (
+          // Video preview
+          <Box
+            sx={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 50%, #1a1a1a 100%)',
+              flexDirection: 'column',
+            }}
+          >
+            <VideocamIcon sx={{ fontSize: 56, color: '#c45c5c', mb: 1 }} />
+            <Typography sx={{ color: '#e1e1e1', fontSize: 14, fontWeight: 500 }}>
+              {activeFile.fileName}
             </Typography>
-          )}
+            <Typography sx={{ color: '#666', fontSize: 11, mt: 0.5 }}>
+              {activeFile.user || 'Unknown'} • {activeFile.deviceInfo || 'Unknown device'}
+            </Typography>
+            <Typography sx={{ color: '#19abb5', fontSize: 11, mt: 1, fontFamily: '"JetBrains Mono", monospace' }}>
+              {formatTimecode(globalTimestamp)}
+            </Typography>
+          </Box>
+        ) : activeFile.type === 'audio' ? (
+          // Audio waveform preview
+          <Box
+            sx={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'linear-gradient(135deg, #0f1a0f 0%, #1a2a1a 50%, #0f1a0f 100%)',
+              flexDirection: 'column',
+            }}
+          >
+            <GraphicEqIcon sx={{ fontSize: 56, color: '#5a9a6b', mb: 1 }} />
+            <Typography sx={{ color: '#e1e1e1', fontSize: 14, fontWeight: 500 }}>
+              {activeFile.fileName}
+            </Typography>
+            <Typography sx={{ color: '#666', fontSize: 11, mt: 0.5 }}>
+              {activeFile.user || 'Unknown'} • {activeFile.deviceInfo || 'Unknown device'}
+            </Typography>
+            <Typography sx={{ color: '#19abb5', fontSize: 11, mt: 1, fontFamily: '"JetBrains Mono", monospace' }}>
+              {formatTimecode(globalTimestamp)}
+            </Typography>
+            {/* Waveform placeholder */}
+            <Box
+              sx={{
+                width: '80%',
+                height: 40,
+                mt: 2,
+                background: 'linear-gradient(90deg, rgba(90, 154, 107, 0.3) 0%, rgba(90, 154, 107, 0.6) 25%, rgba(90, 154, 107, 0.4) 50%, rgba(90, 154, 107, 0.7) 75%, rgba(90, 154, 107, 0.3) 100%)',
+                borderRadius: 2,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Typography sx={{ color: '#5a9a6b', fontSize: 10 }}>Waveform</Typography>
+            </Box>
+          </Box>
+        ) : (
+          // Image preview (photo type)
+          <Box
+            sx={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'linear-gradient(135deg, #0f0f1a 0%, #1a1a2a 50%, #0f0f1a 100%)',
+              flexDirection: 'column',
+              cursor: 'pointer',
+            }}
+            onClick={() => setImageModalOpen(true)}
+          >
+            <ImageIcon sx={{ fontSize: 64, color: '#5a7fbf', mb: 1 }} />
+            <Typography sx={{ color: '#e1e1e1', fontSize: 14, fontWeight: 500 }}>
+              {activeFile.fileName}
+            </Typography>
+            <Typography sx={{ color: '#666', fontSize: 11, mt: 0.5 }}>
+              {activeFile.user || 'Unknown'} • {activeFile.deviceInfo || 'Unknown device'}
+            </Typography>
+            {activeFile.gps && (
+              <Typography sx={{ color: '#19abb5', fontSize: 10, mt: 1 }}>
+                📍 {activeFile.gps}
+              </Typography>
+            )}
+            <Typography sx={{ color: '#555', fontSize: 9, mt: 2 }}>
+              Click to enlarge
+            </Typography>
+          </Box>
+        )}
+      </UnifiedPreviewSection>
+
+      {/* Embedded Transport Controls - directly under preview */}
+      <EmbeddedTransportControls>
+        <Tooltip title="Jump to start (Home)">
+          <TransportButton onClick={jumpToStart} size="small">
+            <SkipPreviousIcon sx={{ fontSize: 18 }} />
+          </TransportButton>
+        </Tooltip>
+        <Tooltip title="Step back (←)">
+          <TransportButton onClick={stepBackward} size="small">
+            <FastRewindIcon sx={{ fontSize: 18 }} />
+          </TransportButton>
+        </Tooltip>
+        <Tooltip title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}>
+          <PlayButton onClick={togglePlayback} size="small">
+            {isPlaying ? <PauseIcon sx={{ fontSize: 20 }} /> : <PlayArrowIcon sx={{ fontSize: 20 }} />}
+          </PlayButton>
+        </Tooltip>
+        <Tooltip title="Step forward (→)">
+          <TransportButton onClick={stepForward} size="small">
+            <FastForwardIcon sx={{ fontSize: 18 }} />
+          </TransportButton>
+        </Tooltip>
+        <Tooltip title="Jump to end (End)">
+          <TransportButton onClick={jumpToEnd} size="small">
+            <SkipNextIcon sx={{ fontSize: 18 }} />
+          </TransportButton>
+        </Tooltip>
+        <Box sx={{ ml: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography sx={{ color: '#19abb5', fontSize: 12, fontFamily: '"JetBrains Mono", monospace' }}>
+            {formatTimecode(globalTimestamp)}
+          </Typography>
         </Box>
-      </VideoPreviewSection>
+      </EmbeddedTransportControls>
 
       {/* Resizable Divider */}
       <ResizeDivider onMouseDown={handleDividerDrag}>
@@ -1567,10 +1795,20 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
             </SwimLaneSectionHeader>
             {!videoSectionCollapsed && (
               <>
-                {/* Per-user lanes (permanent) */}
-                {laneData.users.map((user) => (
+                {/* Per-user lanes (permanent) - ordered by user preference */}
+                {getOrderedUsers('video').map((user) => (
                   <SwimLane key={`video-${user}`} laneHeight={laneHeight}>
-                    <LaneLabel laneHeight={laneHeight}>
+                    <LaneLabel
+                      laneHeight={laneHeight}
+                      isDragging={draggedLane?.user === user && draggedLane?.type === 'video'}
+                      isDragOver={laneDragOverUser?.user === user && laneDragOverUser?.type === 'video'}
+                      draggable
+                      onDragStart={(e) => handleLaneDragStart(e, user, 'video')}
+                      onDragOver={(e) => handleLaneDragOver(e, user, 'video')}
+                      onDragLeave={handleLaneDragLeave}
+                      onDrop={(e) => handleLaneDrop(e, user, 'video')}
+                      onDragEnd={handleLaneDragEnd}
+                    >
                       <PersonIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: '#555' }} />
                       <Typography
                         sx={{
@@ -1637,9 +1875,19 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
             </SwimLaneSectionHeader>
             {!audioSectionCollapsed && (
               <>
-                {laneData.users.map((user) => (
+                {getOrderedUsers('audio').map((user) => (
                   <SwimLane key={`audio-${user}`} laneHeight={laneHeight}>
-                    <LaneLabel laneHeight={laneHeight}>
+                    <LaneLabel
+                      laneHeight={laneHeight}
+                      isDragging={draggedLane?.user === user && draggedLane?.type === 'audio'}
+                      isDragOver={laneDragOverUser?.user === user && laneDragOverUser?.type === 'audio'}
+                      draggable
+                      onDragStart={(e) => handleLaneDragStart(e, user, 'audio')}
+                      onDragOver={(e) => handleLaneDragOver(e, user, 'audio')}
+                      onDragLeave={handleLaneDragLeave}
+                      onDrop={(e) => handleLaneDrop(e, user, 'audio')}
+                      onDragEnd={handleLaneDragEnd}
+                    >
                       <PersonIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: '#555' }} />
                       <Typography
                         sx={{
@@ -1705,9 +1953,19 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
             </SwimLaneSectionHeader>
             {!imagesSectionCollapsed && (
               <>
-                {laneData.users.map((user) => (
+                {getOrderedUsers('image').map((user) => (
                   <SwimLane key={`images-${user}`} laneHeight={laneHeight}>
-                    <LaneLabel laneHeight={laneHeight}>
+                    <LaneLabel
+                      laneHeight={laneHeight}
+                      isDragging={draggedLane?.user === user && draggedLane?.type === 'image'}
+                      isDragOver={laneDragOverUser?.user === user && laneDragOverUser?.type === 'image'}
+                      draggable
+                      onDragStart={(e) => handleLaneDragStart(e, user, 'image')}
+                      onDragOver={(e) => handleLaneDragOver(e, user, 'image')}
+                      onDragLeave={handleLaneDragLeave}
+                      onDrop={(e) => handleLaneDrop(e, user, 'image')}
+                      onDragEnd={handleLaneDragEnd}
+                    >
                       <PersonIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: '#555' }} />
                       <Typography
                         sx={{
@@ -1758,137 +2016,107 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     </MainContainer>
   );
 
-  // Right panel content (image preview + flags)
+  // Right panel content - Flags only (image preview moved to center)
   const inspectorContent = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      {/* Image Preview Section */}
-      <ImagePreviewSection>
-        <ImagePreviewHeader>
-          <Typography
-            sx={{
-              fontSize: 9,
-              color: '#666',
-              textTransform: 'uppercase',
-              fontWeight: 600,
-            }}
-          >
-            Image at Playhead
-          </Typography>
-        </ImagePreviewHeader>
-        <ImagePreviewContent>
-          {currentImage ? (
-            <Tooltip title="Click to enlarge" placement="top">
-              <Box
-                sx={{
-                  width: '100%',
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background:
-                    'linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 50%, #1a1a1a 100%)',
-                  cursor: 'pointer',
-                  padding: 2,
-                  transition: 'filter 0.15s',
-                  '&:hover': {
-                    filter: 'brightness(1.1)',
-                  },
-                }}
-                onClick={() => setImageModalOpen(true)}
-              >
-                <ImageIcon sx={{ fontSize: 40, color: '#5a7fbf', mb: 1 }} />
-                <Typography
-                  sx={{
-                    fontSize: 11,
-                    color: '#ccc',
-                    textAlign: 'center',
-                    px: 1,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    maxWidth: '100%',
-                  }}
-                >
-                  {currentImage.fileName}
-                </Typography>
-                <Typography sx={{ fontSize: 10, color: '#666', mt: 0.5 }}>
-                  {currentImage.user || 'Unknown'}
-                </Typography>
-                {currentImage.flagCount > 0 && (
-                  <Typography sx={{ fontSize: 9, color: '#19abb5', mt: 0.5 }}>
-                    {currentImage.flagCount} flag{currentImage.flagCount !== 1 ? 's' : ''}
-                  </Typography>
-                )}
-                <Typography sx={{ fontSize: 9, color: '#555', mt: 1 }}>
-                  Click to enlarge
-                </Typography>
-              </Box>
-            </Tooltip>
-          ) : (
-            <Box
+      {/* Selected file indicator */}
+      {activeFile && (
+        <Box
+          sx={{
+            padding: '8px 12px',
+            backgroundColor: '#1a1a1a',
+            borderBottom: '1px solid #252525',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
+          {activeFile.type === 'video' && <VideocamIcon sx={{ fontSize: 14, color: '#c45c5c' }} />}
+          {activeFile.type === 'audio' && <MicIcon sx={{ fontSize: 14, color: '#5a9a6b' }} />}
+          {activeFile.type === 'photo' && <PhotoIcon sx={{ fontSize: 14, color: '#5a7fbf' }} />}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
               sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                color: '#444',
+                fontSize: 11,
+                color: '#e1e1e1',
+                fontWeight: 500,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
               }}
             >
-              <ImageIcon sx={{ fontSize: 40, mb: 1, opacity: 0.3 }} />
-              <Typography sx={{ fontSize: 11, color: '#555', textAlign: 'center' }}>
-                No image at current position
-              </Typography>
-            </Box>
-          )}
-        </ImagePreviewContent>
-      </ImagePreviewSection>
-
-      {/* Flags Panel with user filter */}
-      <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        {/* User filter for flags */}
-        {flagUsers.length > 0 && (
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              padding: '6px 12px',
-              backgroundColor: '#1a1a1a',
-              borderBottom: '1px solid #252525',
-            }}
-          >
-            <FilterListIcon sx={{ fontSize: 14, color: '#666' }} />
-            <Typography sx={{ fontSize: 10, color: '#666' }}>Filter:</Typography>
-            <FormControl size="small" sx={{ minWidth: 80 }}>
-              <Select
-                value={flagUserFilter}
-                onChange={(e) => setFlagUserFilter(e.target.value)}
-                sx={{
-                  fontSize: 10,
-                  color: '#ccc',
-                  height: 24,
-                  backgroundColor: '#252525',
-                  '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
-                  '& .MuiSelect-select': { padding: '2px 8px' },
-                }}
-              >
-                <MenuItem value="all" sx={{ fontSize: 11 }}>All Users</MenuItem>
-                {flagUsers.map((user) => (
-                  <MenuItem key={user} value={user} sx={{ fontSize: 11 }}>
-                    {user}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+              {activeFile.fileName}
+            </Typography>
+            <Typography sx={{ fontSize: 9, color: '#666' }}>
+              {activeFile.user || 'Unknown'} • {activeFile.flagCount} flag{activeFile.flagCount !== 1 ? 's' : ''}
+            </Typography>
           </Box>
-        )}
+        </Box>
+      )}
+
+      {/* No file selected message */}
+      {!activeFile && (
+        <Box
+          sx={{
+            padding: '12px',
+            backgroundColor: '#1a1a1a',
+            borderBottom: '1px solid #252525',
+            textAlign: 'center',
+          }}
+        >
+          <Typography sx={{ fontSize: 11, color: '#555' }}>
+            Select a file to view flags
+          </Typography>
+        </Box>
+      )}
+
+      {/* User filter for flags - only show when a file is selected and has flags */}
+      {activeFile && flagUsers.length > 0 && (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            padding: '6px 12px',
+            backgroundColor: '#161616',
+            borderBottom: '1px solid #252525',
+          }}
+        >
+          <FilterListIcon sx={{ fontSize: 14, color: '#666' }} />
+          <Typography sx={{ fontSize: 10, color: '#666' }}>Filter:</Typography>
+          <FormControl size="small" sx={{ minWidth: 80 }}>
+            <Select
+              value={flagUserFilter}
+              onChange={(e) => setFlagUserFilter(e.target.value)}
+              sx={{
+                fontSize: 10,
+                color: '#ccc',
+                height: 24,
+                backgroundColor: '#252525',
+                '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+                '& .MuiSelect-select': { padding: '2px 8px' },
+              }}
+            >
+              <MenuItem value="all" sx={{ fontSize: 11 }}>All Users</MenuItem>
+              {flagUsers.map((user) => (
+                <MenuItem key={user} value={user} sx={{ fontSize: 11 }}>
+                  {user}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+      )}
+
+      {/* Flags Panel - takes full remaining space */}
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <FlagsPanel
           flags={currentFlags}
           onFlagClick={handleFlagClick}
           onFlagAdd={() => console.log('Add flag')}
           onFlagEdit={(flag) => console.log('Edit flag:', flag.id)}
           onFlagDelete={(flagId) => console.log('Delete flag:', flagId)}
-          disabled={false}
+          disabled={!activeFile}
         />
       </Box>
     </Box>
@@ -1937,8 +2165,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
         inspectorPanel={inspectorContent}
         mainContent={mainContent}
         evidenceTitle="Evidence"
-        inspectorTitle="Preview & Flags"
-        showTransport={true}
+        inspectorTitle="Flags"
+        showTransport={false}
       />
 
       {/* Context Menu for timeline clips */}
@@ -2004,9 +2232,9 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
         </MenuItem>
       </Menu>
 
-      {/* Image Preview Modal */}
+      {/* Image Preview Modal - now shows active file if it's an image */}
       <Dialog
-        open={imageModalOpen && currentImage !== null}
+        open={imageModalOpen && activeFile?.type === 'photo'}
         onClose={(_, reason) => {
           // Only close on X button or Esc, not on backdrop click
           if (reason !== 'backdropClick') {
@@ -2025,7 +2253,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
           },
         }}
       >
-        {currentImage && (
+        {activeFile?.type === 'photo' && (
           <>
             {/* Modal Header */}
             <Box
@@ -2042,10 +2270,10 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                 <ImageIcon sx={{ fontSize: 24, color: '#5a7fbf' }} />
                 <Box>
                   <Typography sx={{ fontSize: 14, fontWeight: 600, color: '#e1e1e1' }}>
-                    {currentImage.fileName}
+                    {activeFile.fileName}
                   </Typography>
                   <Typography sx={{ fontSize: 11, color: '#888' }}>
-                    {currentImage.user || 'Unknown'} • {currentImage.deviceInfo || 'Unknown device'}
+                    {activeFile.user || 'Unknown'} • {activeFile.deviceInfo || 'Unknown device'}
                   </Typography>
                 </Box>
               </Box>
@@ -2093,14 +2321,14 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
               >
                 <ImageIcon sx={{ fontSize: 80, color: '#5a7fbf', mb: 2 }} />
                 <Typography sx={{ fontSize: 16, color: '#888', mb: 1 }}>
-                  {currentImage.fileName}
+                  {activeFile.fileName}
                 </Typography>
                 <Typography sx={{ fontSize: 12, color: '#555' }}>
-                  {currentImage.format || 'Image format unknown'}
+                  {activeFile.format || 'Image format unknown'}
                 </Typography>
-                {currentImage.gps && (
+                {activeFile.gps && (
                   <Typography sx={{ fontSize: 11, color: '#19abb5', mt: 1 }}>
-                    📍 {currentImage.gps}
+                    📍 {activeFile.gps}
                   </Typography>
                 )}
               </Box>
@@ -2118,9 +2346,9 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
               }}
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                {currentImage.flagCount > 0 && (
+                {activeFile.flagCount > 0 && (
                   <Typography sx={{ fontSize: 12, color: '#19abb5' }}>
-                    {currentImage.flagCount} flag{currentImage.flagCount !== 1 ? 's' : ''}
+                    {activeFile.flagCount} flag{activeFile.flagCount !== 1 ? 's' : ''}
                   </Typography>
                 )}
                 <Typography sx={{ fontSize: 11, color: '#555' }}>
@@ -2129,7 +2357,10 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
               </Box>
               <Button
                 variant="contained"
-                onClick={handleOpenInImageTool}
+                onClick={() => {
+                  setImageModalOpen(false);
+                  navigateToTool('images', activeFile.evidenceId);
+                }}
                 startIcon={<OpenInNewIcon sx={{ fontSize: 16 }} />}
                 sx={{
                   backgroundColor: '#19abb5',
