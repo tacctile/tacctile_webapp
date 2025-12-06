@@ -1246,17 +1246,230 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     return users.length > 0 ? users : [''];
   }, [laneOrder, items]);
 
-  // Get effective lane/user assignment for an item (respects manual lane assignments)
+  // Helper to compute effective start time for an item (used in overlap detection)
+  const computeEffectiveStartTime = useCallback((item: TimelineMediaItem): number => {
+    const offset = itemTimeOffsets[item.id] || 0;
+    const hasTimestamp = item.capturedAt !== undefined && item.capturedAt !== null && item.capturedAt > 0;
+    const baseTime = hasTimestamp ? item.capturedAt : (timeRange?.start || 0);
+    return baseTime + offset;
+  }, [itemTimeOffsets, timeRange]);
+
+  // Auto-assign device sub-lanes when same user has overlapping files
+  // Returns a Map<itemId, laneKey> where laneKey is "user" or "user|device"
+  const autoDeviceLanes = useMemo(() => {
+    const assignments = new Map<string, string>();
+
+    // Group items by user (excluding catch-all/empty user)
+    const itemsByUser = new Map<string, TimelineMediaItem[]>();
+    visibleItems.forEach(item => {
+      // Skip items that have manual lane assignments (they're handled separately)
+      if (itemLaneAssignments[item.id] !== undefined) {
+        return;
+      }
+      const user = item.user || '';
+      if (!user) return; // Skip items without user
+
+      if (!itemsByUser.has(user)) {
+        itemsByUser.set(user, []);
+      }
+      itemsByUser.get(user)!.push(item);
+    });
+
+    // For each user, detect overlaps and assign to sub-lanes
+    itemsByUser.forEach((userItems, user) => {
+      // Sort items by start time
+      const sortedItems = [...userItems].sort((a, b) => {
+        return computeEffectiveStartTime(a) - computeEffectiveStartTime(b);
+      });
+
+      // Track lanes and their end times
+      // Key: lane key (user or user|device), Value: array of items in that lane with their end times
+      const lanes = new Map<string, { endTime: number; items: TimelineMediaItem[] }[]>();
+
+      // Initialize primary lane for user
+      lanes.set(user, []);
+
+      sortedItems.forEach(item => {
+        const itemStart = computeEffectiveStartTime(item);
+        const itemDuration = (item.duration || 0) * 1000; // Convert to ms
+        const itemEnd = itemStart + itemDuration;
+        const deviceId = item.deviceInfo || 'unknown-device';
+
+        // For photos, they can always go in primary lane (they're thin lines)
+        if (item.type === 'photo') {
+          assignments.set(item.id, user);
+          return;
+        }
+
+        // Check if item fits in primary lane (no overlap with any existing item)
+        const primaryLane = lanes.get(user)!;
+        const fitsInPrimary = !primaryLane.some(existing => {
+          // Check for overlap: item overlaps if it starts before existing ends and ends after existing starts
+          return itemStart < existing.endTime && itemEnd > computeEffectiveStartTime(existing.items[existing.items.length - 1]);
+        });
+
+        // Better overlap check for primary lane
+        const hasOverlapInPrimary = primaryLane.some(slot => {
+          return itemStart < slot.endTime;
+        });
+
+        if (!hasOverlapInPrimary) {
+          // Fits in primary lane
+          assignments.set(item.id, user);
+          primaryLane.push({ endTime: itemEnd, items: [item] });
+        } else {
+          // Need a device sub-lane
+          const deviceLaneKey = `${user}|${deviceId}`;
+
+          if (!lanes.has(deviceLaneKey)) {
+            lanes.set(deviceLaneKey, []);
+          }
+
+          const deviceLane = lanes.get(deviceLaneKey)!;
+
+          // Check if fits in device lane
+          const hasOverlapInDevice = deviceLane.some(slot => {
+            return itemStart < slot.endTime;
+          });
+
+          if (!hasOverlapInDevice) {
+            assignments.set(item.id, deviceLaneKey);
+            deviceLane.push({ endTime: itemEnd, items: [item] });
+          } else {
+            // If even device lane has overlap, create a numbered sub-lane
+            // This handles edge cases where multiple overlapping files from same device
+            let subLaneIndex = 2;
+            let foundSlot = false;
+            while (!foundSlot && subLaneIndex < 10) {
+              const subLaneKey = `${user}|${deviceId}#${subLaneIndex}`;
+              if (!lanes.has(subLaneKey)) {
+                lanes.set(subLaneKey, []);
+              }
+              const subLane = lanes.get(subLaneKey)!;
+              const hasOverlapInSub = subLane.some(slot => itemStart < slot.endTime);
+              if (!hasOverlapInSub) {
+                assignments.set(item.id, subLaneKey);
+                subLane.push({ endTime: itemEnd, items: [item] });
+                foundSlot = true;
+              } else {
+                subLaneIndex++;
+              }
+            }
+            // Fallback: if we couldn't find a slot (shouldn't happen), use primary
+            if (!foundSlot) {
+              assignments.set(item.id, user);
+            }
+          }
+        }
+      });
+    });
+
+    return assignments;
+  }, [visibleItems, itemLaneAssignments, computeEffectiveStartTime]);
+
+  // Get all unique lane keys (including auto-generated device sub-lanes)
+  const allLaneKeys = useMemo(() => {
+    const keys = new Set<string>();
+
+    // Add all users from USERS constant
+    USERS.forEach(user => keys.add(user));
+
+    // Add users from items
+    items.forEach(item => {
+      if (item.user) keys.add(item.user);
+    });
+
+    // Add all device sub-lane keys from auto assignments
+    autoDeviceLanes.forEach((laneKey) => {
+      keys.add(laneKey);
+    });
+
+    // Add manual lane assignments
+    Object.values(itemLaneAssignments).forEach(laneKey => {
+      if (laneKey) keys.add(laneKey);
+    });
+
+    return keys;
+  }, [items, autoDeviceLanes, itemLaneAssignments]);
+
+  // Get ordered lanes including device sub-lanes for a specific media type
+  const getOrderedLanes = useCallback((type: 'video' | 'audio' | 'image'): string[] => {
+    const baseUsers = getOrderedUsers(type);
+    const result: string[] = [];
+
+    // For each base user, add the user lane and any device sub-lanes
+    baseUsers.forEach(user => {
+      result.push(user);
+
+      // Find device sub-lanes for this user (format: "user|device" or "user|device#n")
+      const deviceLanes: string[] = [];
+      allLaneKeys.forEach(laneKey => {
+        if (laneKey.startsWith(`${user}|`)) {
+          deviceLanes.push(laneKey);
+        }
+      });
+
+      // Sort device lanes alphabetically and add them
+      deviceLanes.sort().forEach(lane => result.push(lane));
+    });
+
+    return result;
+  }, [getOrderedUsers, allLaneKeys]);
+
+  // Parse lane key to get user and device parts
+  const parseLaneKey = useCallback((laneKey: string): { user: string; device: string | null; subIndex: number | null } => {
+    if (!laneKey.includes('|')) {
+      return { user: laneKey, device: null, subIndex: null };
+    }
+    const [user, rest] = laneKey.split('|');
+    if (rest.includes('#')) {
+      const [device, indexStr] = rest.split('#');
+      return { user, device, subIndex: parseInt(indexStr, 10) };
+    }
+    return { user, device: rest, subIndex: null };
+  }, []);
+
+  // Format lane label for display
+  const formatLaneLabel = useCallback((laneKey: string): string => {
+    const { user, device, subIndex } = parseLaneKey(laneKey);
+    if (!device) {
+      return user;
+    }
+    // Create a friendly device name by extracting meaningful parts
+    let friendlyDevice = device;
+    // Remove common prefixes and clean up the device name
+    if (device.includes('-')) {
+      const parts = device.split('-');
+      // Try to extract model name (e.g., "iphone-14" from "sarah-iphone-14")
+      friendlyDevice = parts.slice(-2).join('-');
+    }
+    if (subIndex !== null) {
+      return `${user} - ${friendlyDevice} (${subIndex})`;
+    }
+    return `${user} - ${friendlyDevice}`;
+  }, [parseLaneKey]);
+
+  // Check if a lane key is a device sub-lane
+  const isDeviceSubLane = useCallback((laneKey: string): boolean => {
+    return laneKey.includes('|');
+  }, []);
+
+  // Get effective lane/user assignment for an item (respects manual lane assignments, then auto device lanes)
   const getEffectiveLane = useCallback((item: TimelineMediaItem): string => {
     // Check if item has a manual lane assignment override
     if (itemLaneAssignments[item.id] !== undefined) {
       return itemLaneAssignments[item.id];
     }
+    // Check if item has an auto-assigned device sub-lane
+    const autoLane = autoDeviceLanes.get(item.id);
+    if (autoLane !== undefined) {
+      return autoLane;
+    }
     // Otherwise use the original user
     return item.user;
-  }, [itemLaneAssignments]);
+  }, [itemLaneAssignments, autoDeviceLanes]);
 
-  // Group items by type and user for swim lanes (using visibleItems to exclude removed)
+  // Group items by type and lane key for swim lanes (using visibleItems to exclude removed)
   const laneData = useMemo(() => {
     // Get unique users from items + permanent users (use all items for user list)
     const userSet = new Set<string>(USERS);
@@ -1265,7 +1478,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     });
     const users = Array.from(userSet).filter(Boolean);
 
-    // Group by type and user (using visibleItems)
+    // Group by type and lane key (including device sub-lanes)
     const videoByUser: Record<string, TimelineMediaItem[]> = {};
     const audioByUser: Record<string, TimelineMediaItem[]> = {};
     const imagesByUser: Record<string, TimelineMediaItem[]> = {};
@@ -1273,30 +1486,50 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     const audioCatchAll: TimelineMediaItem[] = [];
     const imagesCatchAll: TimelineMediaItem[] = [];
 
+    // Initialize entries for all users
     users.forEach((u) => {
       videoByUser[u] = [];
       audioByUser[u] = [];
       imagesByUser[u] = [];
     });
 
+    // Initialize entries for all device sub-lanes
+    allLaneKeys.forEach((laneKey) => {
+      if (laneKey.includes('|')) {
+        videoByUser[laneKey] = [];
+        audioByUser[laneKey] = [];
+        imagesByUser[laneKey] = [];
+      }
+    });
+
     visibleItems.forEach((item) => {
-      // Use effective lane (respects manual lane assignments)
-      const effectiveUser = getEffectiveLane(item);
+      // Use effective lane (respects manual lane assignments and auto device sub-lanes)
+      const effectiveLane = getEffectiveLane(item);
       if (item.type === 'video') {
-        if (effectiveUser && videoByUser[effectiveUser]) {
-          videoByUser[effectiveUser].push(item);
+        // Initialize the lane if it doesn't exist yet
+        if (!videoByUser[effectiveLane]) {
+          videoByUser[effectiveLane] = [];
+        }
+        if (effectiveLane) {
+          videoByUser[effectiveLane].push(item);
         } else {
           videoCatchAll.push(item);
         }
       } else if (item.type === 'audio') {
-        if (effectiveUser && audioByUser[effectiveUser]) {
-          audioByUser[effectiveUser].push(item);
+        if (!audioByUser[effectiveLane]) {
+          audioByUser[effectiveLane] = [];
+        }
+        if (effectiveLane) {
+          audioByUser[effectiveLane].push(item);
         } else {
           audioCatchAll.push(item);
         }
       } else if (item.type === 'photo') {
-        if (effectiveUser && imagesByUser[effectiveUser]) {
-          imagesByUser[effectiveUser].push(item);
+        if (!imagesByUser[effectiveLane]) {
+          imagesByUser[effectiveLane] = [];
+        }
+        if (effectiveLane) {
+          imagesByUser[effectiveLane].push(item);
         } else {
           imagesCatchAll.push(item);
         }
@@ -1312,7 +1545,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       audioCatchAll,
       imagesCatchAll,
     };
-  }, [items, visibleItems, getEffectiveLane]);
+  }, [items, visibleItems, getEffectiveLane, allLaneKeys]);
 
   // Get flags for the currently selected/active file
   const currentFlags = useMemo(() => {
@@ -1576,12 +1809,12 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     return { valid: true };
   }, [getItemsInLane, getEffectiveStartTime, timeRange]);
 
-  // Get available lanes for an item type (ordered list of users + catch-all)
+  // Get available lanes for an item type (ordered list of lanes including device sub-lanes + catch-all)
   const getAvailableLanes = useCallback((itemType: 'video' | 'audio' | 'photo'): string[] => {
-    const users = getOrderedUsers(itemType === 'photo' ? 'image' : itemType);
+    const lanes = getOrderedLanes(itemType === 'photo' ? 'image' : itemType);
     // Add empty string for catch-all lane
-    return [...users, ''];
-  }, [getOrderedUsers]);
+    return [...lanes, ''];
+  }, [getOrderedLanes]);
 
   // Move item horizontally (shift time position)
   // Only allowed for non-timestamped files, or when unlocked
@@ -2813,41 +3046,42 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
             </SwimLaneSectionHeader>
             {!videoSectionCollapsed && (
               <>
-                {/* Per-user lanes (permanent) - ordered by user preference */}
-                {getOrderedUsers('video').map((user) => (
-                  <SwimLane key={`video-${user}`} laneHeight={laneHeight}>
+                {/* Per-user lanes (permanent) - ordered by user preference, includes device sub-lanes */}
+                {getOrderedLanes('video').map((laneKey) => (
+                  <SwimLane key={`video-${laneKey}`} laneHeight={laneHeight}>
                     <LaneLabel
                       laneHeight={laneHeight}
-                      isDragging={draggedLane?.user === user && draggedLane?.type === 'video'}
-                      isDragOver={laneDragOverUser?.user === user && laneDragOverUser?.type === 'video'}
-                      draggable
-                      onDragStart={(e) => handleLaneDragStart(e, user, 'video')}
-                      onDragOver={(e) => handleLaneDragOver(e, user, 'video')}
+                      isDragging={draggedLane?.user === laneKey && draggedLane?.type === 'video'}
+                      isDragOver={laneDragOverUser?.user === laneKey && laneDragOverUser?.type === 'video'}
+                      draggable={!isDeviceSubLane(laneKey)}
+                      onDragStart={(e) => !isDeviceSubLane(laneKey) && handleLaneDragStart(e, laneKey, 'video')}
+                      onDragOver={(e) => handleLaneDragOver(e, laneKey, 'video')}
                       onDragLeave={handleLaneDragLeave}
-                      onDrop={(e) => handleLaneDrop(e, user, 'video')}
+                      onDrop={(e) => handleLaneDrop(e, laneKey, 'video')}
                       onDragEnd={handleLaneDragEnd}
                     >
-                      <PersonIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: '#555' }} />
+                      <PersonIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: isDeviceSubLane(laneKey) ? '#777' : '#555' }} />
                       <Typography
                         sx={{
                           fontSize: laneHeight < 24 ? 8 : 10,
-                          color: '#888',
+                          color: isDeviceSubLane(laneKey) ? '#999' : '#888',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           flex: 1,
+                          fontStyle: isDeviceSubLane(laneKey) ? 'italic' : 'normal',
                         }}
                       >
-                        {user}
+                        {formatLaneLabel(laneKey)}
                       </Typography>
                     </LaneLabel>
                     <LaneContent
-                      isDragOver={isLaneDragOver(user, 'video')}
-                      canDrop={canDropInLane(user)}
-                      onDragOver={(e) => handleDragOverLane(e, user, 'video')}
+                      isDragOver={isLaneDragOver(laneKey, 'video')}
+                      canDrop={canDropInLane(laneKey)}
+                      onDragOver={(e) => handleDragOverLane(e, laneKey, 'video')}
                       onDragLeave={handleDragLeaveLane}
-                      onDrop={(e) => handleDropOnTimeline(e, user, 'video')}
+                      onDrop={(e) => handleDropOnTimeline(e, laneKey, 'video')}
                     >
-                      {renderLane(laneData.videoByUser[user] || [], 'video')}
+                      {renderLane(laneData.videoByUser[laneKey] || [], 'video')}
                     </LaneContent>
                   </SwimLane>
                 ))}
@@ -2893,40 +3127,41 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
             </SwimLaneSectionHeader>
             {!audioSectionCollapsed && (
               <>
-                {getOrderedUsers('audio').map((user) => (
-                  <SwimLane key={`audio-${user}`} laneHeight={laneHeight}>
+                {getOrderedLanes('audio').map((laneKey) => (
+                  <SwimLane key={`audio-${laneKey}`} laneHeight={laneHeight}>
                     <LaneLabel
                       laneHeight={laneHeight}
-                      isDragging={draggedLane?.user === user && draggedLane?.type === 'audio'}
-                      isDragOver={laneDragOverUser?.user === user && laneDragOverUser?.type === 'audio'}
-                      draggable
-                      onDragStart={(e) => handleLaneDragStart(e, user, 'audio')}
-                      onDragOver={(e) => handleLaneDragOver(e, user, 'audio')}
+                      isDragging={draggedLane?.user === laneKey && draggedLane?.type === 'audio'}
+                      isDragOver={laneDragOverUser?.user === laneKey && laneDragOverUser?.type === 'audio'}
+                      draggable={!isDeviceSubLane(laneKey)}
+                      onDragStart={(e) => !isDeviceSubLane(laneKey) && handleLaneDragStart(e, laneKey, 'audio')}
+                      onDragOver={(e) => handleLaneDragOver(e, laneKey, 'audio')}
                       onDragLeave={handleLaneDragLeave}
-                      onDrop={(e) => handleLaneDrop(e, user, 'audio')}
+                      onDrop={(e) => handleLaneDrop(e, laneKey, 'audio')}
                       onDragEnd={handleLaneDragEnd}
                     >
-                      <PersonIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: '#555' }} />
+                      <PersonIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: isDeviceSubLane(laneKey) ? '#777' : '#555' }} />
                       <Typography
                         sx={{
                           fontSize: laneHeight < 24 ? 8 : 10,
-                          color: '#888',
+                          color: isDeviceSubLane(laneKey) ? '#999' : '#888',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           flex: 1,
+                          fontStyle: isDeviceSubLane(laneKey) ? 'italic' : 'normal',
                         }}
                       >
-                        {user}
+                        {formatLaneLabel(laneKey)}
                       </Typography>
                     </LaneLabel>
                     <LaneContent
-                      isDragOver={isLaneDragOver(user, 'audio')}
-                      canDrop={canDropInLane(user)}
-                      onDragOver={(e) => handleDragOverLane(e, user, 'audio')}
+                      isDragOver={isLaneDragOver(laneKey, 'audio')}
+                      canDrop={canDropInLane(laneKey)}
+                      onDragOver={(e) => handleDragOverLane(e, laneKey, 'audio')}
                       onDragLeave={handleDragLeaveLane}
-                      onDrop={(e) => handleDropOnTimeline(e, user, 'audio')}
+                      onDrop={(e) => handleDropOnTimeline(e, laneKey, 'audio')}
                     >
-                      {renderLane(laneData.audioByUser[user] || [], 'audio')}
+                      {renderLane(laneData.audioByUser[laneKey] || [], 'audio')}
                     </LaneContent>
                   </SwimLane>
                 ))}
@@ -2971,40 +3206,41 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
             </SwimLaneSectionHeader>
             {!imagesSectionCollapsed && (
               <>
-                {getOrderedUsers('image').map((user) => (
-                  <SwimLane key={`images-${user}`} laneHeight={laneHeight}>
+                {getOrderedLanes('image').map((laneKey) => (
+                  <SwimLane key={`images-${laneKey}`} laneHeight={laneHeight}>
                     <LaneLabel
                       laneHeight={laneHeight}
-                      isDragging={draggedLane?.user === user && draggedLane?.type === 'image'}
-                      isDragOver={laneDragOverUser?.user === user && laneDragOverUser?.type === 'image'}
-                      draggable
-                      onDragStart={(e) => handleLaneDragStart(e, user, 'image')}
-                      onDragOver={(e) => handleLaneDragOver(e, user, 'image')}
+                      isDragging={draggedLane?.user === laneKey && draggedLane?.type === 'image'}
+                      isDragOver={laneDragOverUser?.user === laneKey && laneDragOverUser?.type === 'image'}
+                      draggable={!isDeviceSubLane(laneKey)}
+                      onDragStart={(e) => !isDeviceSubLane(laneKey) && handleLaneDragStart(e, laneKey, 'image')}
+                      onDragOver={(e) => handleLaneDragOver(e, laneKey, 'image')}
                       onDragLeave={handleLaneDragLeave}
-                      onDrop={(e) => handleLaneDrop(e, user, 'image')}
+                      onDrop={(e) => handleLaneDrop(e, laneKey, 'image')}
                       onDragEnd={handleLaneDragEnd}
                     >
-                      <PersonIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: '#555' }} />
+                      <PersonIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: isDeviceSubLane(laneKey) ? '#777' : '#555' }} />
                       <Typography
                         sx={{
                           fontSize: laneHeight < 24 ? 8 : 10,
-                          color: '#888',
+                          color: isDeviceSubLane(laneKey) ? '#999' : '#888',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           flex: 1,
+                          fontStyle: isDeviceSubLane(laneKey) ? 'italic' : 'normal',
                         }}
                       >
-                        {user}
+                        {formatLaneLabel(laneKey)}
                       </Typography>
                     </LaneLabel>
                     <LaneContent
-                      isDragOver={isLaneDragOver(user, 'image')}
-                      canDrop={canDropInLane(user)}
-                      onDragOver={(e) => handleDragOverLane(e, user, 'image')}
+                      isDragOver={isLaneDragOver(laneKey, 'image')}
+                      canDrop={canDropInLane(laneKey)}
+                      onDragOver={(e) => handleDragOverLane(e, laneKey, 'image')}
                       onDragLeave={handleDragLeaveLane}
-                      onDrop={(e) => handleDropOnTimeline(e, user, 'image')}
+                      onDrop={(e) => handleDropOnTimeline(e, laneKey, 'image')}
                     >
-                      {renderLane(laneData.imagesByUser[user] || [], 'image')}
+                      {renderLane(laneData.imagesByUser[laneKey] || [], 'image')}
                     </LaneContent>
                   </SwimLane>
                 ))}
