@@ -1817,17 +1817,12 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   }, [getOrderedLanes]);
 
   // Move item horizontally (shift time position)
-  // Only allowed for non-timestamped files, or when unlocked
+  // Only allowed when file is unlocked (locked files cannot move)
   const moveItemHorizontal = useCallback((item: TimelineMediaItem, shiftMs: number) => {
-    // Files with timestamps can NEVER move horizontally (time position is sacred)
-    if (hasRealTimestamp(item)) {
-      setLockedMoveToast({ visible: true, message: 'Timestamped files cannot move horizontally' });
-      return false;
-    }
-
-    // Check if item is locked
+    // Check if item is locked - locked files cannot move horizontally
+    // Note: Files with timestamps are locked by default but can be unlocked to allow repositioning
     if (isItemLocked(item)) {
-      setLockedMoveToast({ visible: true, message: 'File is locked' });
+      setLockedMoveToast({ visible: true, message: 'File is locked - unlock to move' });
       return false;
     }
 
@@ -1864,7 +1859,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       [item.id]: finalOffset,
     }));
     return true;
-  }, [hasRealTimestamp, isItemLocked, itemTimeOffsets, getEffectiveLane, timeRange, checkOverlap]);
+  }, [isItemLocked, itemTimeOffsets, getEffectiveLane, timeRange, checkOverlap]);
 
   // Check if a lane has overlap for vertical movement (stricter than horizontal - no time snapping)
   const checkLaneOverlap = useCallback((
