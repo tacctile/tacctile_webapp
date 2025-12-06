@@ -40,9 +40,9 @@ export interface NewSessionData {
   createdAt: number;
   modifiedAt: number;
   storageType: StorageType;
-  evidence: never[];
-  flags: never[];
-  notes: never[];
+  evidence: [];
+  flags: [];
+  notes: [];
 }
 
 // ============================================================================
@@ -103,8 +103,13 @@ const StyledTextField = styled(TextField)({
   },
   '& .MuiInputLabel-root': {
     color: '#888',
+    backgroundColor: '#1a1a1a',
+    padding: '0 4px',
     '&.Mui-focused': {
       color: '#19abb5',
+    },
+    '&.MuiInputLabel-shrink': {
+      backgroundColor: '#1a1a1a',
     },
   },
   '& .MuiOutlinedInput-input': {
@@ -127,8 +132,13 @@ const StyledFormControl = styled(FormControl)({
   },
   '& .MuiInputLabel-root': {
     color: '#888',
+    backgroundColor: '#1a1a1a',
+    padding: '0 4px',
     '&.Mui-focused': {
       color: '#19abb5',
+    },
+    '&.MuiInputLabel-shrink': {
+      backgroundColor: '#1a1a1a',
     },
   },
   '& .MuiSelect-select': {

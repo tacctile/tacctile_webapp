@@ -17,6 +17,45 @@ export interface StorageLocation {
 
 export type StorageType = 'local' | 'google_drive' | 'dropbox' | 'onedrive';
 
+// Evidence item stored in session - matches TimelineMediaItem structure
+export interface SessionEvidence {
+  id: string;
+  evidenceId: string;
+  type: 'video' | 'audio' | 'photo';
+  fileName: string;
+  thumbnailUrl?: string;
+  capturedAt: number;
+  duration?: number;
+  endAt?: number;
+  user: string;
+  deviceInfo?: string;
+  format?: string;
+  gps?: string;
+  flagCount: number;
+  hasEdits: boolean;
+  flags: SessionFlag[];
+}
+
+export interface SessionFlag {
+  id: string;
+  timestamp: number;
+  absoluteTimestamp: number;
+  title: string;
+  note?: string;
+  confidence: 'low' | 'medium' | 'high';
+  userId: string;
+  userDisplayName: string;
+  color?: string;
+}
+
+export interface SessionNote {
+  id: string;
+  content: string;
+  createdAt: number;
+  updatedAt: number;
+  userId: string;
+}
+
 export interface Session {
   id: string;
   name: string;
@@ -29,9 +68,9 @@ export interface Session {
   flagCount: number;
   createdAt: number;
   modifiedAt: number;
-  evidence?: unknown[];
-  flags?: unknown[];
-  notes?: unknown[];
+  evidence: SessionEvidence[];
+  flags: SessionFlag[];
+  notes: SessionNote[];
 }
 
 export interface MediaFile {
@@ -93,7 +132,12 @@ interface HomeState {
   setQuickAnalyzeFile: (file: { name: string; type: 'video' | 'audio' | 'image'; url: string } | null) => void;
   setStoragePanelCollapsed: (collapsed: boolean) => void;
 
+  // Session evidence management
+  addSessionEvidence: (sessionId: string, evidence: SessionEvidence[]) => void;
+  updateSessionEvidence: (sessionId: string, evidence: SessionEvidence[]) => void;
+
   // Derived
+  getSessionById: (sessionId: string) => Session | undefined;
   getFilteredSessions: () => Session[];
   getFilteredMediaFiles: () => MediaFile[];
 }
@@ -112,6 +156,9 @@ const dummySessions: Session[] = [
     flagCount: 8,
     createdAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
     modifiedAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
+    evidence: [],
+    flags: [],
+    notes: [],
   },
   {
     id: 'session-2',
@@ -124,6 +171,9 @@ const dummySessions: Session[] = [
     flagCount: 3,
     createdAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
     modifiedAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
+    evidence: [],
+    flags: [],
+    notes: [],
   },
   {
     id: 'session-3',
@@ -137,6 +187,9 @@ const dummySessions: Session[] = [
     flagCount: 1,
     createdAt: Date.now() - 14 * 24 * 60 * 60 * 1000,
     modifiedAt: Date.now() - 1 * 24 * 60 * 60 * 1000,
+    evidence: [],
+    flags: [],
+    notes: [],
   },
   {
     id: 'session-4',
@@ -150,6 +203,9 @@ const dummySessions: Session[] = [
     flagCount: 4,
     createdAt: Date.now() - 60 * 24 * 60 * 60 * 1000,
     modifiedAt: Date.now() - 10 * 24 * 60 * 60 * 1000,
+    evidence: [],
+    flags: [],
+    notes: [],
   },
 ];
 
@@ -223,7 +279,41 @@ export const useHomeStore = create<HomeState>()(
       setQuickAnalyzeFile: (file) => set({ quickAnalyzeFile: file }),
       setStoragePanelCollapsed: (collapsed) => set({ storagePanelCollapsed: collapsed }),
 
+      // Session evidence management
+      addSessionEvidence: (sessionId, evidence) =>
+        set((state) => ({
+          sessions: state.sessions.map((s) =>
+            s.id === sessionId
+              ? {
+                  ...s,
+                  evidence: [...(s.evidence || []), ...evidence],
+                  evidenceCount: (s.evidence?.length || 0) + evidence.length,
+                  modifiedAt: Date.now(),
+                }
+              : s
+          ),
+        })),
+
+      updateSessionEvidence: (sessionId, evidence) =>
+        set((state) => ({
+          sessions: state.sessions.map((s) =>
+            s.id === sessionId
+              ? {
+                  ...s,
+                  evidence,
+                  evidenceCount: evidence.length,
+                  modifiedAt: Date.now(),
+                }
+              : s
+          ),
+        })),
+
       // Derived getters
+      getSessionById: (sessionId) => {
+        const { sessions } = get();
+        return sessions.find((s) => s.id === sessionId);
+      },
+
       getFilteredSessions: () => {
         const { sessions, activeStorageId, searchQuery, sortBy, sortOrder } = get();
 
@@ -304,6 +394,7 @@ export const useHomeStore = create<HomeState>()(
         sortOrder: state.sortOrder,
         storagePanelCollapsed: state.storagePanelCollapsed,
         storageLocations: state.storageLocations,
+        sessions: state.sessions,
       }),
     }
   )
