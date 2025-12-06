@@ -1252,11 +1252,12 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       if (item.user) userSet.add(item.user);
     });
 
-    // Also include base users from itemLaneAssignments for this item type
-    typeItems.forEach((item) => {
-      const assignedLane = itemLaneAssignments[item.id];
-      if (assignedLane) {
-        const baseUser = assignedLane.includes('|') ? assignedLane.split('|')[0] : assignedLane;
+    // Also include base users from ALL itemLaneAssignments
+    // (items may have been moved to lanes for users not in the current type's items,
+    // and we need to be consistent with the savedOrder path above)
+    Object.values(itemLaneAssignments).forEach(laneKey => {
+      if (laneKey) {
+        const baseUser = laneKey.includes('|') ? laneKey.split('|')[0] : laneKey;
         if (baseUser) userSet.add(baseUser);
       }
     });
