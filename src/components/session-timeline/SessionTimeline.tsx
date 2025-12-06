@@ -116,6 +116,13 @@ const STORAGE_KEY_REMOVED_ITEMS = 'sessionTimeline_removedItems';
 const STORAGE_KEY_LANE_ORDER = 'sessionTimeline_laneOrder';
 const STORAGE_KEY_LOCKED_ITEMS = 'sessionTimeline_lockedItems';
 const STORAGE_KEY_UNLOCKED_ITEMS = 'sessionTimeline_unlockedItems';
+const STORAGE_KEY_TIME_OFFSETS = 'sessionTimeline_timeOffsets';
+const STORAGE_KEY_LANE_ASSIGNMENTS = 'sessionTimeline_laneAssignments';
+
+// Movement constants
+const SHIFT_1_SECOND = 1000; // 1 second in ms
+const SHIFT_10_SECONDS = 10000; // 10 seconds in ms
+const SHIFT_1_FRAME = 1000 / 30; // ~33ms for 30fps
 
 // Context menu state interface
 interface ContextMenuState {
@@ -846,6 +853,44 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     return new Set();
   });
 
+  // Time offsets for non-timestamped files (ms offset from default position)
+  // Files without timestamps can be shifted horizontally
+  const [itemTimeOffsets, setItemTimeOffsets] = useState<Record<string, number>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEY_TIME_OFFSETS);
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {
+          return {};
+        }
+      }
+    }
+    return {};
+  });
+
+  // Lane assignments for items moved to different lanes (itemId -> assignedUser)
+  // Allows moving files between users' lanes or to catch-all
+  const [itemLaneAssignments, setItemLaneAssignments] = useState<Record<string, string>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEY_LANE_ASSIGNMENTS);
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {
+          return {};
+        }
+      }
+    }
+    return {};
+  });
+
+  // Toast state for locked file movement attempts
+  const [lockedMoveToast, setLockedMoveToast] = useState<{ visible: boolean; message: string }>({
+    visible: false,
+    message: '',
+  });
+
   // Loading state (for realistic UX)
   const [isLoading, setIsLoading] = useState(true);
 
@@ -948,6 +993,26 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     localStorage.setItem(STORAGE_KEY_LOCKED_ITEMS, JSON.stringify(Array.from(manuallyLockedItems)));
   }, [manuallyLockedItems]);
 
+  // Persist time offsets to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_TIME_OFFSETS, JSON.stringify(itemTimeOffsets));
+  }, [itemTimeOffsets]);
+
+  // Persist lane assignments to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_LANE_ASSIGNMENTS, JSON.stringify(itemLaneAssignments));
+  }, [itemLaneAssignments]);
+
+  // Auto-hide locked move toast after 2 seconds
+  useEffect(() => {
+    if (lockedMoveToast.visible) {
+      const timer = setTimeout(() => {
+        setLockedMoveToast({ visible: false, message: '' });
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [lockedMoveToast.visible]);
+
   // Calculate the actual lane height in pixels
   const laneHeight = useMemo(() => {
     return Math.round(BASE_LANE_HEIGHT * LANE_HEIGHT_MULTIPLIERS[laneHeightSize]);
@@ -995,6 +1060,16 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     return [...USERS];
   }, [laneOrder]);
 
+  // Get effective lane/user assignment for an item (respects manual lane assignments)
+  const getEffectiveLane = useCallback((item: TimelineMediaItem): string => {
+    // Check if item has a manual lane assignment override
+    if (itemLaneAssignments[item.id] !== undefined) {
+      return itemLaneAssignments[item.id];
+    }
+    // Otherwise use the original user
+    return item.user;
+  }, [itemLaneAssignments]);
+
   // Group items by type and user for swim lanes (using visibleItems to exclude removed)
   const laneData = useMemo(() => {
     // Get unique users from items + permanent users (use all items for user list)
@@ -1019,22 +1094,23 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     });
 
     visibleItems.forEach((item) => {
-      const user = item.user;
+      // Use effective lane (respects manual lane assignments)
+      const effectiveUser = getEffectiveLane(item);
       if (item.type === 'video') {
-        if (user && videoByUser[user]) {
-          videoByUser[user].push(item);
+        if (effectiveUser && videoByUser[effectiveUser]) {
+          videoByUser[effectiveUser].push(item);
         } else {
           videoCatchAll.push(item);
         }
       } else if (item.type === 'audio') {
-        if (user && audioByUser[user]) {
-          audioByUser[user].push(item);
+        if (effectiveUser && audioByUser[effectiveUser]) {
+          audioByUser[effectiveUser].push(item);
         } else {
           audioCatchAll.push(item);
         }
       } else if (item.type === 'photo') {
-        if (user && imagesByUser[user]) {
-          imagesByUser[user].push(item);
+        if (effectiveUser && imagesByUser[effectiveUser]) {
+          imagesByUser[effectiveUser].push(item);
         } else {
           imagesCatchAll.push(item);
         }
@@ -1050,7 +1126,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       audioCatchAll,
       imagesCatchAll,
     };
-  }, [items, visibleItems]);
+  }, [items, visibleItems, getEffectiveLane]);
 
   // Get flags for the currently selected/active file
   const currentFlags = useMemo(() => {
@@ -1097,6 +1173,22 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   }, [items]);
 
   // Calculate clip position on timeline
+  // Check if an item has a real timestamp (vs defaulting to session start)
+  const hasRealTimestamp = useCallback((item: TimelineMediaItem): boolean => {
+    return item.capturedAt !== undefined && item.capturedAt !== null && item.capturedAt > 0;
+  }, []);
+
+  // Get effective start time for an item (accounting for time offsets)
+  const getEffectiveStartTime = useCallback(
+    (item: TimelineMediaItem): number => {
+      const offset = itemTimeOffsets[item.id] || 0;
+      // For items without timestamps, default position is session start
+      const baseTime = hasRealTimestamp(item) ? item.capturedAt : (timeRange?.start || 0);
+      return baseTime + offset;
+    },
+    [itemTimeOffsets, timeRange, hasRealTimestamp]
+  );
+
   const getClipPosition = useCallback(
     (startTime: number, duration?: number) => {
       if (!timeRange) return { left: 0, width: 0 };
@@ -1231,6 +1323,240 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       });
     }
   }, []);
+
+  // ============================================================================
+  // MOVEMENT LOGIC (Arrow Key Controls)
+  // ============================================================================
+
+  // Get all items in a specific lane for overlap checking
+  const getItemsInLane = useCallback((targetUser: string, itemType: 'video' | 'audio' | 'photo'): TimelineMediaItem[] => {
+    return visibleItems.filter(item => {
+      const effectiveUser = getEffectiveLane(item);
+      return item.type === itemType && effectiveUser === targetUser;
+    });
+  }, [visibleItems, getEffectiveLane]);
+
+  // Check if a time position would cause overlap with other items in the same lane
+  // Returns the nearest valid position if overlap would occur, or null if position is valid
+  const checkOverlap = useCallback((
+    movingItem: TimelineMediaItem,
+    newStartTime: number,
+    targetLane: string
+  ): { valid: boolean; snappedTime?: number } => {
+    // Images can overlap (they're thin lines), just offset slightly for exact collisions
+    if (movingItem.type === 'photo') {
+      const otherItems = getItemsInLane(targetLane, 'photo').filter(i => i.id !== movingItem.id);
+      const hasExactCollision = otherItems.some(item => {
+        const itemTime = getEffectiveStartTime(item);
+        return Math.abs(itemTime - newStartTime) < 100; // Within 100ms
+      });
+      if (hasExactCollision) {
+        // Offset by 100ms to avoid exact collision
+        return { valid: true, snappedTime: newStartTime + 100 };
+      }
+      return { valid: true };
+    }
+
+    // Video and audio cannot overlap in the same lane
+    const otherItems = getItemsInLane(targetLane, movingItem.type).filter(i => i.id !== movingItem.id);
+    const movingDuration = (movingItem.duration || 0) * 1000; // Convert to ms
+    const newEndTime = newStartTime + movingDuration;
+
+    for (const item of otherItems) {
+      const itemStart = getEffectiveStartTime(item);
+      const itemDuration = (item.duration || 0) * 1000;
+      const itemEnd = itemStart + itemDuration;
+
+      // Check for overlap: new item overlaps with existing item
+      if (newStartTime < itemEnd && newEndTime > itemStart) {
+        // Try snapping to just before or after the blocking item
+        const snapBefore = itemStart - movingDuration;
+        const snapAfter = itemEnd;
+
+        // Choose the snap position closest to the intended position
+        const distBefore = Math.abs(newStartTime - snapBefore);
+        const distAfter = Math.abs(newStartTime - snapAfter);
+
+        if (distBefore <= distAfter && snapBefore >= (timeRange?.start || 0)) {
+          return { valid: false, snappedTime: snapBefore };
+        } else if (snapAfter + movingDuration <= (timeRange?.end || Infinity)) {
+          return { valid: false, snappedTime: snapAfter };
+        }
+        // Can't fit anywhere - prevent movement
+        return { valid: false };
+      }
+    }
+
+    return { valid: true };
+  }, [getItemsInLane, getEffectiveStartTime, timeRange]);
+
+  // Get available lanes for an item type (ordered list of users + catch-all)
+  const getAvailableLanes = useCallback((itemType: 'video' | 'audio' | 'photo'): string[] => {
+    const users = getOrderedUsers(itemType === 'photo' ? 'image' : itemType);
+    // Add empty string for catch-all lane
+    return [...users, ''];
+  }, [getOrderedUsers]);
+
+  // Move item horizontally (shift time position)
+  // Only allowed for non-timestamped files, or when unlocked
+  const moveItemHorizontal = useCallback((item: TimelineMediaItem, shiftMs: number) => {
+    // Files with timestamps can NEVER move horizontally (time position is sacred)
+    if (hasRealTimestamp(item)) {
+      setLockedMoveToast({ visible: true, message: 'Timestamped files cannot move horizontally' });
+      return false;
+    }
+
+    // Check if item is locked
+    if (isItemLocked(item)) {
+      setLockedMoveToast({ visible: true, message: 'File is locked' });
+      return false;
+    }
+
+    const currentOffset = itemTimeOffsets[item.id] || 0;
+    const newOffset = currentOffset + shiftMs;
+    const currentLane = getEffectiveLane(item);
+
+    // Calculate new absolute time
+    const baseTime = timeRange?.start || 0;
+    const newStartTime = baseTime + newOffset;
+
+    // Check bounds
+    if (newStartTime < (timeRange?.start || 0)) {
+      return false;
+    }
+    const itemDuration = (item.duration || 0) * 1000;
+    if (newStartTime + itemDuration > (timeRange?.end || Infinity)) {
+      return false;
+    }
+
+    // Check for overlaps
+    const overlapCheck = checkOverlap(item, newStartTime, currentLane);
+    if (!overlapCheck.valid && !overlapCheck.snappedTime) {
+      setLockedMoveToast({ visible: true, message: 'Cannot move: would overlap' });
+      return false;
+    }
+
+    const finalOffset = overlapCheck.snappedTime
+      ? overlapCheck.snappedTime - baseTime
+      : newOffset;
+
+    setItemTimeOffsets(prev => ({
+      ...prev,
+      [item.id]: finalOffset,
+    }));
+    return true;
+  }, [hasRealTimestamp, isItemLocked, itemTimeOffsets, getEffectiveLane, timeRange, checkOverlap]);
+
+  // Move item vertically (change lanes)
+  // Allowed when unlocked
+  const moveItemVertical = useCallback((item: TimelineMediaItem, direction: 'up' | 'down') => {
+    // Check if item is locked
+    if (isItemLocked(item)) {
+      setLockedMoveToast({ visible: true, message: 'File is locked' });
+      return false;
+    }
+
+    const itemType = item.type;
+    const lanes = getAvailableLanes(itemType);
+    const currentLane = getEffectiveLane(item);
+    const currentIndex = lanes.indexOf(currentLane);
+
+    // Calculate new lane index
+    let newIndex: number;
+    if (direction === 'up') {
+      newIndex = currentIndex - 1;
+      if (newIndex < 0) {
+        return false; // Already at top
+      }
+    } else {
+      newIndex = currentIndex + 1;
+      if (newIndex >= lanes.length) {
+        return false; // Already at bottom
+      }
+    }
+
+    const newLane = lanes[newIndex];
+
+    // Check for overlaps in the new lane
+    const itemStartTime = getEffectiveStartTime(item);
+    const overlapCheck = checkOverlap(item, itemStartTime, newLane);
+
+    if (!overlapCheck.valid && !overlapCheck.snappedTime) {
+      setLockedMoveToast({ visible: true, message: 'Cannot move: would overlap in target lane' });
+      return false;
+    }
+
+    // Update lane assignment
+    setItemLaneAssignments(prev => ({
+      ...prev,
+      [item.id]: newLane,
+    }));
+
+    // If there was a snap adjustment needed, also update the time offset
+    if (overlapCheck.snappedTime && !hasRealTimestamp(item)) {
+      const baseTime = timeRange?.start || 0;
+      setItemTimeOffsets(prev => ({
+        ...prev,
+        [item.id]: overlapCheck.snappedTime! - baseTime,
+      }));
+    }
+
+    return true;
+  }, [isItemLocked, getAvailableLanes, getEffectiveLane, getEffectiveStartTime, checkOverlap, hasRealTimestamp, timeRange]);
+
+  // Handle arrow key movement for the active/selected item
+  const handleArrowKeyMovement = useCallback((e: KeyboardEvent) => {
+    // Only handle arrow keys
+    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      return;
+    }
+
+    // Need an active file to move
+    const activeItem = activeFileId ? items.find(i => i.id === activeFileId) : null;
+    if (!activeItem) {
+      return;
+    }
+
+    // Prevent default scrolling behavior
+    e.preventDefault();
+
+    switch (e.key) {
+      case 'ArrowUp':
+        moveItemVertical(activeItem, 'up');
+        break;
+      case 'ArrowDown':
+        moveItemVertical(activeItem, 'down');
+        break;
+      case 'ArrowLeft': {
+        // Shift time earlier (only for non-timestamped files)
+        let shiftAmount = SHIFT_1_SECOND;
+        if (e.shiftKey) {
+          shiftAmount = SHIFT_10_SECONDS;
+        } else if (e.ctrlKey || e.metaKey) {
+          shiftAmount = SHIFT_1_FRAME;
+        }
+        moveItemHorizontal(activeItem, -shiftAmount);
+        break;
+      }
+      case 'ArrowRight': {
+        // Shift time later (only for non-timestamped files)
+        let shiftAmount = SHIFT_1_SECOND;
+        if (e.shiftKey) {
+          shiftAmount = SHIFT_10_SECONDS;
+        } else if (e.ctrlKey || e.metaKey) {
+          shiftAmount = SHIFT_1_FRAME;
+        }
+        moveItemHorizontal(activeItem, shiftAmount);
+        break;
+      }
+    }
+  }, [activeFileId, items, moveItemVertical, moveItemHorizontal]);
+
+  // Register arrow key movement handler
+  useEffect(() => {
+    window.addEventListener('keydown', handleArrowKeyMovement);
+    return () => window.removeEventListener('keydown', handleArrowKeyMovement);
+  }, [handleArrowKeyMovement]);
 
   // ============================================================================
   // CONTEXT MENU HANDLERS
@@ -1540,10 +1866,13 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     const maxChars = clipHeight < 20 ? 8 : clipHeight < 24 ? 12 : 18;
 
     return laneItems.map((item) => {
-      const pos = getClipPosition(item.capturedAt, item.duration);
+      // Use effective start time (accounts for time offsets)
+      const effectiveStartTime = getEffectiveStartTime(item);
+      const pos = getClipPosition(effectiveStartTime, item.duration);
+      const effectiveEndTime = effectiveStartTime + (item.duration || 0) * 1000;
       const isHighlighted =
-        item.capturedAt <= globalTimestamp &&
-        (item.endAt ? item.endAt >= globalTimestamp : item.capturedAt + 1000 >= globalTimestamp);
+        effectiveStartTime <= globalTimestamp &&
+        (effectiveEndTime >= globalTimestamp || effectiveStartTime + 1000 >= globalTimestamp);
       const isActive = activeFileId === item.id;
       const isDimmed = activeFileId !== null && !isActive;
       const isLocked = isItemLocked(item);
@@ -2624,6 +2953,38 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
           </>
         )}
       </Dialog>
+
+      {/* Locked move toast notification */}
+      {lockedMoveToast.visible && (
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: 80,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: 'rgba(30, 30, 30, 0.95)',
+            color: '#ffa726',
+            padding: '10px 20px',
+            borderRadius: 2,
+            border: '1px solid #ffa726',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            zIndex: 9999,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+            animation: 'fadeIn 0.2s ease-out',
+            '@keyframes fadeIn': {
+              from: { opacity: 0, transform: 'translateX(-50%) translateY(10px)' },
+              to: { opacity: 1, transform: 'translateX(-50%) translateY(0)' },
+            },
+          }}
+        >
+          <LockIcon sx={{ fontSize: 16 }} />
+          <Typography sx={{ fontSize: 13, fontWeight: 500 }}>
+            {lockedMoveToast.message}
+          </Typography>
+        </Box>
+      )}
     </>
   );
 };
