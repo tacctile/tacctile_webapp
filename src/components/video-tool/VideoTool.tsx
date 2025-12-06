@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Box, Typography, Slider, IconButton, Tooltip, Button } from '@mui/material';
+import { Box, Typography, Slider, IconButton, Tooltip, Button, Snackbar, Alert } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
@@ -13,11 +13,17 @@ import SkipNextIcon from '@mui/icons-material/SkipNext';
 import FastRewindIcon from '@mui/icons-material/FastRewind';
 import FastForwardIcon from '@mui/icons-material/FastForward';
 import LoopIcon from '@mui/icons-material/Loop';
+import FileUploadIcon from '@mui/icons-material/FileUpload';
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank } from '@/components/evidence-bank';
 import { MetadataPanel, PrecisionSlider, FlagsPanel, ResizablePanelSplit, type Flag } from '@/components/common';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
 import { useNavigationStore } from '@/stores/useNavigationStore';
+import {
+  isFileType,
+  getFileTypeErrorMessage,
+  getAcceptString,
+} from '@/utils/fileTypes';
 
 // Styled components
 const ViewerContainer = styled(Box)({
@@ -114,6 +120,41 @@ const FilterSlider = styled(Slider)({
   },
 });
 
+// File drop zone for center canvas when no file loaded
+const FileDropZone = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  color: isActive ? '#19abb5' : '#444',
+  backgroundColor: isActive ? 'rgba(25, 171, 181, 0.08)' : 'transparent',
+  border: isActive ? '2px dashed #19abb5' : '2px dashed transparent',
+  borderRadius: 8,
+  padding: 32,
+  margin: 16,
+  transition: 'all 0.2s ease',
+  cursor: 'pointer',
+}));
+
+// Import button for left panel
+const ImportButton = styled(Button)({
+  fontSize: 9,
+  color: '#888',
+  backgroundColor: '#252525',
+  border: '1px solid #333',
+  padding: '4px 8px',
+  textTransform: 'none',
+  minWidth: 'auto',
+  '&:hover': {
+    backgroundColor: '#333',
+    borderColor: '#19abb5',
+    color: '#19abb5',
+  },
+  '& .MuiButton-startIcon': {
+    marginRight: 4,
+  },
+});
+
 // Mock video evidence
 const videoEvidence = [
   { id: 'v1', type: 'video' as const, fileName: 'camera_01_main_hall.mp4', duration: 3847, capturedAt: Date.now() - 7200000, user: 'Sarah', deviceInfo: 'Sony A7IV', flagCount: 3, hasFindings: true, format: 'H.265 / 4K', gps: '39.95°N, 75.16°W' },
@@ -160,6 +201,21 @@ export const VideoTool: React.FC<VideoToolProps> = ({ investigationId }) => {
   const [filters, setFilters] = useState(defaultFilters);
   const [flags, setFlags] = useState<Flag[]>(mockFlags);
   const [loopEnabled, setLoopEnabled] = useState(false);
+
+  // File drop zone state
+  const [isFileDragOver, setIsFileDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Toast notification state
+  const [toast, setToast] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error' | 'info' | 'warning';
+  }>({
+    open: false,
+    message: '',
+    severity: 'info',
+  });
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const timestamp = usePlayheadStore((state) => state.timestamp);
@@ -217,6 +273,106 @@ export const VideoTool: React.FC<VideoToolProps> = ({ investigationId }) => {
     // TODO: Implement flag creation
   };
 
+  // ============================================================================
+  // FILE DROP ZONE HANDLERS
+  // ============================================================================
+
+  // Show toast notification
+  const showToast = useCallback((message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    setToast({ open: true, message, severity });
+  }, []);
+
+  // Close toast
+  const handleCloseToast = useCallback(() => {
+    setToast(prev => ({ ...prev, open: false }));
+  }, []);
+
+  // Process dropped/imported video file
+  const processVideoFile = useCallback((file: File) => {
+    if (!isFileType(file, 'video')) {
+      showToast(getFileTypeErrorMessage('video'), 'error');
+      return;
+    }
+
+    // Create a mock video item from the imported file (Quick Analysis Mode)
+    const mockItem = {
+      id: `import-${Date.now()}`,
+      type: 'video' as const,
+      fileName: file.name,
+      duration: 3600, // Default 1 hour
+      capturedAt: Date.now(),
+      user: 'Imported',
+      deviceInfo: 'Imported File',
+      format: file.type || 'video/unknown',
+      flagCount: 0,
+      hasFindings: false,
+      gps: null,
+    };
+
+    setLoadedVideo(mockItem);
+    setSelectedEvidence(mockItem);
+    setFilters(defaultFilters);
+    showToast(`Loaded: ${file.name}`, 'success');
+  }, [showToast]);
+
+  // Handle file drag enter
+  const handleFileDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsFileDragOver(true);
+    }
+  }, []);
+
+  // Handle file drag leave
+  const handleFileDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsFileDragOver(false);
+  }, []);
+
+  // Handle file drag over
+  const handleFileDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes('Files')) {
+      e.dataTransfer.dropEffect = 'copy';
+    }
+  }, []);
+
+  // Handle file drop
+  const handleFileDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsFileDragOver(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      processVideoFile(files[0]);
+    }
+  }, [processVideoFile]);
+
+  // Handle Import button click
+  const handleImportClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  // Handle file input change
+  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      processVideoFile(files[0]);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, [processVideoFile]);
+
+  // Handle drop zone click
+  const handleDropZoneClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
   // Build CSS filter string from filter values
   const cssFilters = `
     brightness(${filters.brightness}%)
@@ -264,20 +420,25 @@ export const VideoTool: React.FC<VideoToolProps> = ({ investigationId }) => {
             />
           </Box>
         ) : (
-          <Box sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            color: '#444',
-          }}>
-            <VideocamIcon sx={{ fontSize: 64, mb: 2, opacity: 0.3 }} />
-            <Typography sx={{ fontSize: 14, color: '#555' }}>
-              No video loaded
+          <FileDropZone
+            isActive={isFileDragOver}
+            onDragEnter={handleFileDragEnter}
+            onDragLeave={handleFileDragLeave}
+            onDragOver={handleFileDragOver}
+            onDrop={handleFileDrop}
+            onClick={handleDropZoneClick}
+          >
+            <VideocamIcon sx={{ fontSize: 64, mb: 2, opacity: isFileDragOver ? 0.8 : 0.3 }} />
+            <Typography sx={{ fontSize: 14, color: isFileDragOver ? '#19abb5' : '#555' }}>
+              {isFileDragOver ? 'Drop video file here' : 'No video loaded'}
             </Typography>
             <Typography sx={{ fontSize: 12, color: '#444', mt: 0.5 }}>
-              Double-click a video in the Evidence panel
+              {isFileDragOver ? 'Release to import' : 'Drag & drop or click to import video files'}
             </Typography>
-          </Box>
+            <Typography sx={{ fontSize: 10, color: '#333', mt: 1 }}>
+              .mp4, .mov, .avi, .webm, .mkv
+            </Typography>
+          </FileDropZone>
         )}
 
         {/* Overlay controls - top right */}
@@ -650,37 +811,93 @@ export const VideoTool: React.FC<VideoToolProps> = ({ investigationId }) => {
   );
 
   return (
-    <WorkspaceLayout
-      evidencePanel={
-        <EvidenceBank
-          items={videoEvidence}
-          selectedId={selectedEvidence?.id}
-          onSelect={(item) => setSelectedEvidence(item)}
-          onDoubleClick={handleDoubleClick}
-          filterByType="video"
-        />
-      }
-      metadataPanel={
-        <MetadataPanel
-          data={selectedEvidence ? {
-            fileName: selectedEvidence.fileName,
-            capturedAt: selectedEvidence.capturedAt,
-            duration: selectedEvidence.duration,
-            user: selectedEvidence.user,
-            device: selectedEvidence.deviceInfo,
-            format: selectedEvidence.format,
-            gps: selectedEvidence.gps,
-            flagCount: selectedEvidence.flagCount,
-          } : null}
-          type="video"
-        />
-      }
-      inspectorPanel={inspectorContent}
-      mainContent={mainContent}
-      evidenceTitle="Video Files"
-      inspectorTitle="Filters"
-      showTransport={true}
-    />
+    <>
+      {/* Hidden file input for imports */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={getAcceptString('video')}
+        style={{ display: 'none' }}
+        onChange={handleFileInputChange}
+      />
+
+      <WorkspaceLayout
+        evidencePanel={
+          <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            {/* Import button header */}
+            <Box sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              padding: '4px 8px',
+              borderBottom: '1px solid #252525',
+              backgroundColor: '#1a1a1a',
+            }}>
+              <ImportButton
+                startIcon={<FileUploadIcon sx={{ fontSize: 12 }} />}
+                onClick={handleImportClick}
+              >
+                Import
+              </ImportButton>
+            </Box>
+            <Box sx={{ flex: 1, minHeight: 0 }}>
+              <EvidenceBank
+                items={videoEvidence}
+                selectedId={selectedEvidence?.id}
+                onSelect={(item) => setSelectedEvidence(item)}
+                onDoubleClick={handleDoubleClick}
+                filterByType="video"
+              />
+            </Box>
+          </Box>
+        }
+        metadataPanel={
+          <MetadataPanel
+            data={selectedEvidence ? {
+              fileName: selectedEvidence.fileName,
+              capturedAt: selectedEvidence.capturedAt,
+              duration: selectedEvidence.duration,
+              user: selectedEvidence.user,
+              device: selectedEvidence.deviceInfo,
+              format: selectedEvidence.format,
+              gps: selectedEvidence.gps,
+              flagCount: selectedEvidence.flagCount,
+            } : null}
+            type="video"
+          />
+        }
+        inspectorPanel={inspectorContent}
+        mainContent={mainContent}
+        evidenceTitle="Video Files"
+        inspectorTitle="Filters"
+        showTransport={true}
+      />
+
+      {/* Toast notification */}
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={4000}
+        onClose={handleCloseToast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleCloseToast}
+          severity={toast.severity}
+          sx={{
+            width: '100%',
+            backgroundColor: toast.severity === 'success' ? '#1e3d1e' :
+                           toast.severity === 'error' ? '#3d1e1e' : '#1e2d3d',
+            color: '#e1e1e1',
+            border: `1px solid ${
+              toast.severity === 'success' ? '#5a9a6b' :
+              toast.severity === 'error' ? '#c45c5c' : '#19abb5'
+            }`,
+          }}
+        >
+          {toast.message}
+        </Alert>
+      </Snackbar>
+    </>
   );
 };
 

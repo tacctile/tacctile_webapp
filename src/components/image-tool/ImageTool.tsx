@@ -7,6 +7,8 @@ import {
   Button,
   ToggleButton,
   ToggleButtonGroup,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import ImageIcon from '@mui/icons-material/Image';
@@ -29,11 +31,17 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import AddIcon from '@mui/icons-material/Add';
 import PersonIcon from '@mui/icons-material/Person';
+import FileUploadIcon from '@mui/icons-material/FileUpload';
 
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
 import { MetadataPanel, PrecisionSlider } from '@/components/common';
 import { useNavigationStore } from '@/stores/useNavigationStore';
+import {
+  isFileType,
+  getFileTypeErrorMessage,
+  getAcceptString,
+} from '@/utils/fileTypes';
 
 // ============================================================================
 // STYLED COMPONENTS
@@ -144,6 +152,41 @@ const BottomBar = styled(Box)({
   alignItems: 'center',
   justifyContent: 'space-between',
   padding: '0 12px',
+});
+
+// File drop zone for center canvas when no file loaded
+const FileDropZone = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  color: isActive ? '#19abb5' : '#444',
+  backgroundColor: isActive ? 'rgba(25, 171, 181, 0.08)' : 'transparent',
+  border: isActive ? '2px dashed #19abb5' : '2px dashed transparent',
+  borderRadius: 8,
+  padding: 32,
+  margin: 16,
+  transition: 'all 0.2s ease',
+  cursor: 'pointer',
+}));
+
+// Import button for left panel
+const ImportButton = styled(Button)({
+  fontSize: 9,
+  color: '#888',
+  backgroundColor: '#252525',
+  border: '1px solid #333',
+  padding: '4px 8px',
+  textTransform: 'none',
+  minWidth: 'auto',
+  '&:hover': {
+    backgroundColor: '#333',
+    borderColor: '#19abb5',
+    color: '#19abb5',
+  },
+  '& .MuiButton-startIcon': {
+    marginRight: 4,
+  },
 });
 
 // Right Panel Styled Components
@@ -404,6 +447,21 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     'Jen': true,
   });
 
+  // File drop zone state
+  const [isFileDragOver, setIsFileDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Toast notification state
+  const [toast, setToast] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error' | 'info' | 'warning';
+  }>({
+    open: false,
+    message: '',
+    severity: 'info',
+  });
+
   const loadedFileId = useNavigationStore((state) => state.loadedFiles.image);
 
   // Load image when navigated to
@@ -454,22 +512,128 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     return Array.from(users);
   };
 
+  // ============================================================================
+  // FILE DROP ZONE HANDLERS
+  // ============================================================================
+
+  // Show toast notification
+  const showToast = useCallback((message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    setToast({ open: true, message, severity });
+  }, []);
+
+  // Close toast
+  const handleCloseToast = useCallback(() => {
+    setToast(prev => ({ ...prev, open: false }));
+  }, []);
+
+  // Process dropped/imported image file
+  const processImageFile = useCallback((file: File) => {
+    if (!isFileType(file, 'image')) {
+      showToast(getFileTypeErrorMessage('image'), 'error');
+      return;
+    }
+
+    // Create a mock image item from the imported file (Quick Analysis Mode)
+    const mockItem = {
+      id: `import-${Date.now()}`,
+      type: 'image' as const,
+      fileName: file.name,
+      capturedAt: Date.now(),
+      user: 'Imported',
+      deviceInfo: 'Imported File',
+      format: file.type || 'image/unknown',
+      dimensions: '4000 x 3000',
+      flagCount: 0,
+      gps: null,
+    };
+
+    setLoadedImage(mockItem);
+    setSelectedEvidence(mockItem);
+    setFilters(defaultFilters);
+    showToast(`Loaded: ${file.name}`, 'success');
+  }, [showToast]);
+
+  // Handle file drag enter
+  const handleFileDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsFileDragOver(true);
+    }
+  }, []);
+
+  // Handle file drag leave
+  const handleFileDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsFileDragOver(false);
+  }, []);
+
+  // Handle file drag over
+  const handleFileDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes('Files')) {
+      e.dataTransfer.dropEffect = 'copy';
+    }
+  }, []);
+
+  // Handle file drop
+  const handleFileDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsFileDragOver(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      processImageFile(files[0]);
+    }
+  }, [processImageFile]);
+
+  // Handle Import button click
+  const handleImportClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  // Handle file input change
+  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      processImageFile(files[0]);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, [processImageFile]);
+
+  // Handle drop zone click
+  const handleDropZoneClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
   // Render placeholder or image
   const renderCanvas = () => {
     if (!loadedImage) {
       return (
-        <Box sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          color: '#444',
-        }}>
-          <ImageIcon sx={{ fontSize: 64, mb: 2, opacity: 0.3 }} />
-          <Typography sx={{ fontSize: 14, color: '#555' }}>No image loaded</Typography>
-          <Typography sx={{ fontSize: 12, color: '#444', mt: 0.5 }}>
-            Double-click an image in the Evidence panel
+        <FileDropZone
+          isActive={isFileDragOver}
+          onDragEnter={handleFileDragEnter}
+          onDragLeave={handleFileDragLeave}
+          onDragOver={handleFileDragOver}
+          onDrop={handleFileDrop}
+          onClick={handleDropZoneClick}
+        >
+          <ImageIcon sx={{ fontSize: 64, mb: 2, opacity: isFileDragOver ? 0.8 : 0.3 }} />
+          <Typography sx={{ fontSize: 14, color: isFileDragOver ? '#19abb5' : '#555' }}>
+            {isFileDragOver ? 'Drop image file here' : 'No image loaded'}
           </Typography>
-        </Box>
+          <Typography sx={{ fontSize: 12, color: '#444', mt: 0.5 }}>
+            {isFileDragOver ? 'Release to import' : 'Drag & drop or click to import image files'}
+          </Typography>
+          <Typography sx={{ fontSize: 10, color: '#333', mt: 1 }}>
+            .jpg, .jpeg, .png, .gif, .webp, .tiff, .bmp
+          </Typography>
+        </FileDropZone>
       );
     }
 
@@ -922,37 +1086,93 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   );
 
   return (
-    <WorkspaceLayout
-      evidencePanel={
-        <EvidenceBank
-          items={imageEvidence}
-          selectedId={selectedEvidence?.id}
-          onSelect={(item) => setSelectedEvidence(item as typeof imageEvidence[0])}
-          onDoubleClick={(item) => handleDoubleClick(item as typeof imageEvidence[0])}
-          filterByType="image"
-        />
-      }
-      metadataPanel={
-        <MetadataPanel
-          data={selectedEvidence ? {
-            fileName: selectedEvidence.fileName,
-            capturedAt: selectedEvidence.capturedAt,
-            resolution: selectedEvidence.dimensions,
-            user: selectedEvidence.user,
-            device: selectedEvidence.deviceInfo,
-            format: selectedEvidence.format,
-            gps: selectedEvidence.gps || undefined,
-            flagCount: selectedEvidence.flagCount,
-          } : null}
-          type="image"
-        />
-      }
-      inspectorPanel={inspectorContent}
-      mainContent={mainContent}
-      evidenceTitle="Image Files"
-      inspectorTitle=""
-      showTransport={false}
-    />
+    <>
+      {/* Hidden file input for imports */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={getAcceptString('image')}
+        style={{ display: 'none' }}
+        onChange={handleFileInputChange}
+      />
+
+      <WorkspaceLayout
+        evidencePanel={
+          <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            {/* Import button header */}
+            <Box sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              padding: '4px 8px',
+              borderBottom: '1px solid #252525',
+              backgroundColor: '#1a1a1a',
+            }}>
+              <ImportButton
+                startIcon={<FileUploadIcon sx={{ fontSize: 12 }} />}
+                onClick={handleImportClick}
+              >
+                Import
+              </ImportButton>
+            </Box>
+            <Box sx={{ flex: 1, minHeight: 0 }}>
+              <EvidenceBank
+                items={imageEvidence}
+                selectedId={selectedEvidence?.id}
+                onSelect={(item) => setSelectedEvidence(item as typeof imageEvidence[0])}
+                onDoubleClick={(item) => handleDoubleClick(item as typeof imageEvidence[0])}
+                filterByType="image"
+              />
+            </Box>
+          </Box>
+        }
+        metadataPanel={
+          <MetadataPanel
+            data={selectedEvidence ? {
+              fileName: selectedEvidence.fileName,
+              capturedAt: selectedEvidence.capturedAt,
+              resolution: selectedEvidence.dimensions,
+              user: selectedEvidence.user,
+              device: selectedEvidence.deviceInfo,
+              format: selectedEvidence.format,
+              gps: selectedEvidence.gps || undefined,
+              flagCount: selectedEvidence.flagCount,
+            } : null}
+            type="image"
+          />
+        }
+        inspectorPanel={inspectorContent}
+        mainContent={mainContent}
+        evidenceTitle="Image Files"
+        inspectorTitle=""
+        showTransport={false}
+      />
+
+      {/* Toast notification */}
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={4000}
+        onClose={handleCloseToast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleCloseToast}
+          severity={toast.severity}
+          sx={{
+            width: '100%',
+            backgroundColor: toast.severity === 'success' ? '#1e3d1e' :
+                           toast.severity === 'error' ? '#3d1e1e' : '#1e2d3d',
+            color: '#e1e1e1',
+            border: `1px solid ${
+              toast.severity === 'success' ? '#5a9a6b' :
+              toast.severity === 'error' ? '#c45c5c' : '#19abb5'
+            }`,
+          }}
+        >
+          {toast.message}
+        </Alert>
+      </Snackbar>
+    </>
   );
 };
 
