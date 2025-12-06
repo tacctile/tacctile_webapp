@@ -27,7 +27,7 @@ const TOOL_TRANSITION_DURATION = 175;
 // Lazy load heavy tool components - only load when user opens that tool
 const HomePage = lazy(() => import('@/components/home/HomePage'));
 const StreamingTool = lazy(() => import('@/components/streaming-tool/StreamingTool'));
-const SessionTimeline = lazy(() => import('@/components/session-timeline/SessionTimeline'));
+const SessionTimeline = lazy(() => import('@/components/session-timeline'));
 const AudioTool = lazy(() => import('@/components/audio-tool/AudioTool'));
 const ImageTool = lazy(() => import('@/components/image-tool/ImageTool'));
 const VideoTool = lazy(() => import('@/components/video-tool/VideoTool'));
