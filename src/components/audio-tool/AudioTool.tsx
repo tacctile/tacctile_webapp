@@ -6,6 +6,8 @@ import {
   Tooltip,
   Button,
   Slider,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import MicIcon from '@mui/icons-material/Mic';
@@ -18,12 +20,19 @@ import SkipNextIcon from '@mui/icons-material/SkipNext';
 import FastRewindIcon from '@mui/icons-material/FastRewind';
 import FastForwardIcon from '@mui/icons-material/FastForward';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import FolderOpenIcon from '@mui/icons-material/FolderOpen';
+import FileUploadIcon from '@mui/icons-material/FileUpload';
 
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
 import { MetadataPanel, PrecisionSlider, FlagsPanel, type Flag } from '@/components/common';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
 import { useNavigationStore } from '@/stores/useNavigationStore';
+import {
+  isFileType,
+  getFileTypeErrorMessage,
+  getAcceptString,
+} from '@/utils/fileTypes';
 
 // ============================================================================
 // STYLED COMPONENTS
@@ -180,6 +189,41 @@ const FilterResetButton = styled(IconButton)({
   '&:hover': {
     color: '#19abb5',
     backgroundColor: 'rgba(25, 171, 181, 0.1)',
+  },
+});
+
+// File drop zone for center canvas when no file loaded
+const FileDropZone = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
+  flex: 1,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  color: isActive ? '#19abb5' : '#444',
+  backgroundColor: isActive ? 'rgba(25, 171, 181, 0.08)' : 'transparent',
+  border: isActive ? '2px dashed #19abb5' : '2px dashed transparent',
+  borderRadius: 8,
+  margin: 16,
+  transition: 'all 0.2s ease',
+  cursor: 'pointer',
+}));
+
+// Import button for left panel
+const ImportButton = styled(Button)({
+  fontSize: 9,
+  color: '#888',
+  backgroundColor: '#252525',
+  border: '1px solid #333',
+  padding: '4px 8px',
+  textTransform: 'none',
+  minWidth: 'auto',
+  '&:hover': {
+    backgroundColor: '#333',
+    borderColor: '#19abb5',
+    color: '#19abb5',
+  },
+  '& .MuiButton-startIcon': {
+    marginRight: 4,
   },
 });
 
@@ -521,6 +565,21 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [loopEnabled, setLoopEnabled] = useState(false);
   const [hoveredFilter, setHoveredFilter] = useState<string | null>(null);
 
+  // File drop zone state
+  const [isFileDragOver, setIsFileDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Toast notification state
+  const [toast, setToast] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error' | 'info' | 'warning';
+  }>({
+    open: false,
+    message: '',
+    severity: 'info',
+  });
+
   // Filter values
   const [filters, setFilters] = useState({
     deNoise: 0,
@@ -628,24 +687,129 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     return filters[filterName] === defaults[filterName];
   };
 
-  // Render spectrogram placeholder
+  // ============================================================================
+  // FILE DROP ZONE HANDLERS
+  // ============================================================================
+
+  // Show toast notification
+  const showToast = useCallback((message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    setToast({ open: true, message, severity });
+  }, []);
+
+  // Close toast
+  const handleCloseToast = useCallback(() => {
+    setToast(prev => ({ ...prev, open: false }));
+  }, []);
+
+  // Process dropped/imported audio file
+  const processAudioFile = useCallback((file: File) => {
+    if (!isFileType(file, 'audio')) {
+      showToast(getFileTypeErrorMessage('audio'), 'error');
+      return;
+    }
+
+    // Create a mock audio item from the imported file (Quick Analysis Mode)
+    const mockItem = {
+      id: `import-${Date.now()}`,
+      type: 'audio' as const,
+      fileName: file.name,
+      duration: 180, // Default 3 minutes
+      capturedAt: Date.now(),
+      user: 'Imported',
+      deviceInfo: 'Imported File',
+      format: file.type || 'audio/unknown',
+      sampleRate: 44100,
+      channels: 2,
+      flagCount: 0,
+    };
+
+    setLoadedAudio(mockItem);
+    setSelectedEvidence(mockItem);
+    showToast(`Loaded: ${file.name}`, 'success');
+  }, [showToast]);
+
+  // Handle file drag enter
+  const handleFileDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsFileDragOver(true);
+    }
+  }, []);
+
+  // Handle file drag leave
+  const handleFileDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsFileDragOver(false);
+  }, []);
+
+  // Handle file drag over
+  const handleFileDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes('Files')) {
+      e.dataTransfer.dropEffect = 'copy';
+    }
+  }, []);
+
+  // Handle file drop
+  const handleFileDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsFileDragOver(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      processAudioFile(files[0]); // Only process first file for single-file tools
+    }
+  }, [processAudioFile]);
+
+  // Handle Import button click
+  const handleImportClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  // Handle file input change
+  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      processAudioFile(files[0]);
+    }
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, [processAudioFile]);
+
+  // Handle drop zone click
+  const handleDropZoneClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  // Render spectrogram placeholder (with drop zone when no file)
   const renderSpectrogram = () => {
     if (!loadedAudio) {
       return (
-        <Box sx={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#444',
-        }}>
-          <MicIcon sx={{ fontSize: 64, mb: 2, opacity: 0.3 }} />
-          <Typography sx={{ fontSize: 14, color: '#555' }}>No audio loaded</Typography>
-          <Typography sx={{ fontSize: 12, color: '#444', mt: 0.5 }}>
-            Double-click an audio file in the Evidence panel
+        <FileDropZone
+          isActive={isFileDragOver}
+          onDragEnter={handleFileDragEnter}
+          onDragLeave={handleFileDragLeave}
+          onDragOver={handleFileDragOver}
+          onDrop={handleFileDrop}
+          onClick={handleDropZoneClick}
+        >
+          <MicIcon sx={{ fontSize: 64, mb: 2, opacity: isFileDragOver ? 0.8 : 0.3 }} />
+          <Typography sx={{ fontSize: 14, color: isFileDragOver ? '#19abb5' : '#555' }}>
+            {isFileDragOver ? 'Drop audio file here' : 'No audio loaded'}
           </Typography>
-        </Box>
+          <Typography sx={{ fontSize: 12, color: '#444', mt: 0.5 }}>
+            {isFileDragOver ? 'Release to import' : 'Drag & drop or click to import audio files'}
+          </Typography>
+          <Typography sx={{ fontSize: 10, color: '#333', mt: 1 }}>
+            .mp3, .wav, .ogg, .m4a, .flac, .aac
+          </Typography>
+        </FileDropZone>
       );
     }
 
@@ -1088,37 +1252,93 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   );
 
   return (
-    <WorkspaceLayout
-      evidencePanel={
-        <EvidenceBank
-          items={audioEvidence}
-          selectedId={selectedEvidence?.id}
-          onSelect={(item) => setSelectedEvidence(item as typeof audioEvidence[0])}
-          onDoubleClick={(item) => handleDoubleClick(item as typeof audioEvidence[0])}
-          filterByType="audio"
-        />
-      }
-      metadataPanel={
-        <MetadataPanel
-          data={selectedEvidence ? {
-            fileName: selectedEvidence.fileName,
-            capturedAt: selectedEvidence.capturedAt,
-            duration: selectedEvidence.duration,
-            user: selectedEvidence.user,
-            device: selectedEvidence.deviceInfo,
-            format: selectedEvidence.format,
-            gps: selectedEvidence.gps || undefined,
-            flagCount: selectedEvidence.flagCount,
-          } : null}
-          type="audio"
-        />
-      }
-      inspectorPanel={inspectorContent}
-      mainContent={mainContent}
-      evidenceTitle="Audio Files"
-      inspectorTitle=""
-      showTransport={false}
-    />
+    <>
+      {/* Hidden file input for imports */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={getAcceptString('audio')}
+        style={{ display: 'none' }}
+        onChange={handleFileInputChange}
+      />
+
+      <WorkspaceLayout
+        evidencePanel={
+          <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            {/* Import button header */}
+            <Box sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              padding: '4px 8px',
+              borderBottom: '1px solid #252525',
+              backgroundColor: '#1a1a1a',
+            }}>
+              <ImportButton
+                startIcon={<FileUploadIcon sx={{ fontSize: 12 }} />}
+                onClick={handleImportClick}
+              >
+                Import
+              </ImportButton>
+            </Box>
+            <Box sx={{ flex: 1, minHeight: 0 }}>
+              <EvidenceBank
+                items={audioEvidence}
+                selectedId={selectedEvidence?.id}
+                onSelect={(item) => setSelectedEvidence(item as typeof audioEvidence[0])}
+                onDoubleClick={(item) => handleDoubleClick(item as typeof audioEvidence[0])}
+                filterByType="audio"
+              />
+            </Box>
+          </Box>
+        }
+        metadataPanel={
+          <MetadataPanel
+            data={selectedEvidence ? {
+              fileName: selectedEvidence.fileName,
+              capturedAt: selectedEvidence.capturedAt,
+              duration: selectedEvidence.duration,
+              user: selectedEvidence.user,
+              device: selectedEvidence.deviceInfo,
+              format: selectedEvidence.format,
+              gps: selectedEvidence.gps || undefined,
+              flagCount: selectedEvidence.flagCount,
+            } : null}
+            type="audio"
+          />
+        }
+        inspectorPanel={inspectorContent}
+        mainContent={mainContent}
+        evidenceTitle="Audio Files"
+        inspectorTitle=""
+        showTransport={false}
+      />
+
+      {/* Toast notification */}
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={4000}
+        onClose={handleCloseToast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleCloseToast}
+          severity={toast.severity}
+          sx={{
+            width: '100%',
+            backgroundColor: toast.severity === 'success' ? '#1e3d1e' :
+                           toast.severity === 'error' ? '#3d1e1e' : '#1e2d3d',
+            color: '#e1e1e1',
+            border: `1px solid ${
+              toast.severity === 'success' ? '#5a9a6b' :
+              toast.severity === 'error' ? '#c45c5c' : '#19abb5'
+            }`,
+          }}
+        >
+          {toast.message}
+        </Alert>
+      </Snackbar>
+    </>
   );
 };
 

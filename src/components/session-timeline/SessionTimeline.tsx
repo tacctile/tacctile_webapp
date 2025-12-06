@@ -31,6 +31,8 @@ import {
   ListItemText,
   Dialog,
   Button,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { styled } from '@mui/material/styles';
@@ -58,6 +60,7 @@ import FastRewindIcon from '@mui/icons-material/FastRewind';
 import FastForwardIcon from '@mui/icons-material/FastForward';
 import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
+import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
@@ -65,6 +68,13 @@ import { MetadataPanel, FlagsPanel, type Flag } from '@/components/common';
 
 import { usePlayheadStore } from '../../stores/usePlayheadStore';
 import { useNavigationStore } from '../../stores/useNavigationStore';
+import {
+  detectFileType,
+  sortFilesByType,
+  extractUserFromFile,
+  generateImportId,
+  type MediaFileType,
+} from '@/utils/fileTypes';
 
 // ============================================================================
 // TYPES
@@ -702,6 +712,90 @@ const TimelineImage = styled(Box)<{ highlighted?: boolean; imageHeight?: number 
   },
 }));
 
+// Thin vertical line for images on timeline
+const TimelineImageLine = styled(Box)<{ highlighted?: boolean; imageHeight?: number }>(({ highlighted, imageHeight = 28 }) => ({
+  position: 'absolute',
+  top: 2,
+  width: 2,
+  minWidth: 2,
+  height: Math.max(16, imageHeight - 4),
+  backgroundColor: '#5a7fbf',
+  borderRadius: 1,
+  cursor: 'pointer',
+  border: highlighted ? '1px solid #19abb5' : '1px solid transparent',
+  boxShadow: highlighted ? '0 0 8px rgba(25, 171, 181, 0.6)' : 'none',
+  transition: 'all 0.15s',
+  zIndex: 2,
+  // Expand clickable hitbox
+  '&::before': {
+    content: '""',
+    position: 'absolute',
+    left: -4,
+    right: -4,
+    top: -2,
+    bottom: -2,
+    minWidth: 12,
+  },
+  '&:hover': {
+    width: 4,
+    backgroundColor: '#7b9fd4',
+    boxShadow: '0 0 6px rgba(90, 127, 191, 0.6)',
+    zIndex: 15,
+  },
+}));
+
+// Image thumbnail popup on hover
+const ImageThumbnailPopup = styled(Box)({
+  position: 'absolute',
+  bottom: '100%',
+  left: '50%',
+  transform: 'translateX(-50%)',
+  marginBottom: 8,
+  padding: 4,
+  backgroundColor: '#1e1e1e',
+  border: '1px solid #333',
+  borderRadius: 4,
+  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
+  zIndex: 100,
+  pointerEvents: 'none',
+  minWidth: 100,
+});
+
+// File drop zone overlay
+const FileDropOverlay = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
+  position: 'absolute',
+  inset: 0,
+  backgroundColor: isActive ? 'rgba(25, 171, 181, 0.15)' : 'transparent',
+  border: isActive ? '2px dashed #19abb5' : '2px dashed transparent',
+  borderRadius: 4,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  pointerEvents: isActive ? 'auto' : 'none',
+  transition: 'all 0.2s ease',
+  zIndex: isActive ? 50 : -1,
+}));
+
+// Import button styled component
+const ImportButton = styled(Button)({
+  fontSize: 10,
+  color: '#888',
+  backgroundColor: '#252525',
+  border: '1px solid #333',
+  padding: '4px 10px',
+  textTransform: 'none',
+  marginLeft: 'auto',
+  '&:hover': {
+    backgroundColor: '#333',
+    borderColor: '#19abb5',
+    color: '#19abb5',
+  },
+  '& .MuiButton-startIcon': {
+    marginRight: 4,
+  },
+});
+
 
 // Flag markers - vertical lines spanning the height of the clip
 const FlagLine = styled(Box)<{ color?: string; clipHeight?: number }>(({ color, clipHeight = 28 }) => ({
@@ -740,8 +834,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   // Image preview modal state (for when active file is an image)
   const [imageModalOpen, setImageModalOpen] = useState(false);
 
-  // Dummy data
-  const [items] = useState<TimelineMediaItem[]>(() => generateDummyData());
+  // Timeline items (includes dummy data + imported files)
+  const [items, setItems] = useState<TimelineMediaItem[]>(() => generateDummyData());
 
   // Section collapse state
   const [videoSectionCollapsed, setVideoSectionCollapsed] = useState(false);
@@ -890,6 +984,25 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     visible: false,
     message: '',
   });
+
+  // File drop zone state
+  const [isFileDragOver, setIsFileDragOver] = useState(false);
+  const [fileDragCounter, setFileDragCounter] = useState(0); // Track nested drag events
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Toast notification state for import feedback
+  const [toast, setToast] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error' | 'info' | 'warning';
+  }>({
+    open: false,
+    message: '',
+    severity: 'info',
+  });
+
+  // Image hover state for thumbnail popup
+  const [hoveredImageId, setHoveredImageId] = useState<string | null>(null);
 
   // Loading state (for realistic UX)
   const [isLoading, setIsLoading] = useState(true);
@@ -1798,6 +1911,147 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     []
   );
 
+  // ============================================================================
+  // FILE DROP ZONE HANDLERS
+  // ============================================================================
+
+  // Show toast notification
+  const showToast = useCallback((message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    setToast({ open: true, message, severity });
+  }, []);
+
+  // Close toast notification
+  const handleCloseToast = useCallback(() => {
+    setToast(prev => ({ ...prev, open: false }));
+  }, []);
+
+  // Process imported files and add to timeline
+  const processImportedFiles = useCallback((files: File[]) => {
+    const sortedFiles = sortFilesByType(files);
+    const newItems: TimelineMediaItem[] = [];
+    let importedCount = 0;
+    let skippedCount = 0;
+
+    const sessionStart = timeRange?.start || Date.now();
+
+    // Process each file type
+    const processFile = (file: File, type: MediaFileType) => {
+      const id = generateImportId();
+      const user = extractUserFromFile(file) || ''; // Empty = Unassigned lane
+
+      // Calculate timestamp - files without metadata go to beginning
+      const capturedAt = sessionStart;
+
+      const newItem: TimelineMediaItem = {
+        id,
+        evidenceId: `ev-${id}`,
+        type: type === 'image' ? 'photo' : type,
+        fileName: file.name,
+        capturedAt,
+        duration: type !== 'image' ? 60 : undefined, // Default 60s for audio/video
+        endAt: type !== 'image' ? capturedAt + 60000 : undefined,
+        user,
+        deviceInfo: 'Imported File',
+        format: file.type || 'Unknown',
+        gps: undefined,
+        flagCount: 0,
+        hasEdits: false,
+        flags: [],
+      };
+
+      newItems.push(newItem);
+      importedCount++;
+    };
+
+    // Process video files
+    sortedFiles.video.forEach(file => processFile(file, 'video'));
+    // Process audio files
+    sortedFiles.audio.forEach(file => processFile(file, 'audio'));
+    // Process image files
+    sortedFiles.image.forEach(file => processFile(file, 'image'));
+
+    // Count unsupported files
+    const totalSupported = sortedFiles.video.length + sortedFiles.audio.length + sortedFiles.image.length;
+    skippedCount = files.length - totalSupported;
+
+    // Add new items to state
+    if (newItems.length > 0) {
+      setItems(prev => [...prev, ...newItems]);
+
+      // Show success toast
+      let message = `Imported ${importedCount} file${importedCount !== 1 ? 's' : ''}`;
+      if (skippedCount > 0) {
+        message += ` (${skippedCount} unsupported file${skippedCount !== 1 ? 's' : ''} skipped)`;
+      }
+      showToast(message, 'success');
+    } else if (skippedCount > 0) {
+      showToast(`No supported files found. ${skippedCount} file${skippedCount !== 1 ? 's were' : ' was'} skipped.`, 'warning');
+    }
+  }, [timeRange, showToast]);
+
+  // Handle file drag enter on timeline
+  const handleFileDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setFileDragCounter(prev => prev + 1);
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsFileDragOver(true);
+    }
+  }, []);
+
+  // Handle file drag leave on timeline
+  const handleFileDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setFileDragCounter(prev => {
+      const newCount = prev - 1;
+      if (newCount <= 0) {
+        setIsFileDragOver(false);
+        return 0;
+      }
+      return newCount;
+    });
+  }, []);
+
+  // Handle file drag over on timeline
+  const handleFileDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes('Files')) {
+      e.dataTransfer.dropEffect = 'copy';
+    }
+  }, []);
+
+  // Handle file drop on timeline
+  const handleFileDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsFileDragOver(false);
+    setFileDragCounter(0);
+
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    if (droppedFiles.length > 0) {
+      processImportedFiles(droppedFiles);
+    }
+  }, [processImportedFiles]);
+
+  // Handle Import Files button click
+  const handleImportButtonClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  // Handle file input change (for Import Files button)
+  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    if (selectedFiles.length > 0) {
+      processImportedFiles(selectedFiles);
+    }
+    // Reset input value so same files can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, [processImportedFiles]);
+
   // Handle divider drag for resizing
   const handleDividerDrag = useCallback(
     (e: React.MouseEvent) => {
@@ -1912,19 +2166,15 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       );
 
       if (laneType === 'image') {
-        const iconSize = clipHeight < 20 ? 8 : clipHeight < 24 ? 10 : 12;
-        const imageBlockContent = (
-          <TimelineImage
+        const isHovered = hoveredImageId === item.id;
+        const imageLineContent = (
+          <TimelineImageLine
+            key={item.id}
             highlighted={isActive}
             imageHeight={clipHeight}
             sx={{
               left: pos.left,
-              width: Math.max(50, clipHeight * 1.2),
               opacity: isDimmed ? 0.55 : isLocked ? 0.85 : 1,
-              transition: 'opacity 0.15s',
-              border: isActive ? '2px solid #19abb5' : '2px solid transparent',
-              boxShadow: isActive ? '0 0 10px rgba(25, 171, 181, 0.6)' : 'none',
-              overflow: 'hidden',
             }}
             onClick={(e) => {
               e.stopPropagation();
@@ -1933,42 +2183,48 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
             }}
             onDoubleClick={(e) => { e.stopPropagation(); handleItemDoubleClick(item); }}
             onContextMenu={(e) => handleContextMenu(e, item)}
+            onMouseEnter={() => setHoveredImageId(item.id)}
+            onMouseLeave={() => setHoveredImageId(null)}
           >
-            <Box sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-start',
-              justifyContent: 'center',
-              width: '100%',
-              height: '100%',
-              padding: '2px 4px',
-              paddingRight: lockButtonSize + 6,
-            }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <PhotoIcon sx={{ fontSize: iconSize, color: '#fff' }} />
-                <Typography sx={{ fontSize: clipHeight < 24 ? 7 : 8, color: '#fff', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {item.fileName.length > 10 ? item.fileName.substring(0, 7) + '...' : item.fileName}
-                </Typography>
-              </Box>
-              {clipHeight >= 24 && (
-                <Typography sx={{ fontSize: 6, color: 'rgba(255,255,255,0.7)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {formatBlockTimestamp(item.capturedAt)} • {item.user || '?'}
-                </Typography>
-              )}
-            </Box>
-            {LockToggle}
-          </TimelineImage>
+            {/* Thumbnail popup on hover */}
+            {isHovered && (
+              <ImageThumbnailPopup>
+                <Box sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 0.5,
+                }}>
+                  <Box sx={{
+                    width: 60,
+                    height: 45,
+                    backgroundColor: '#252525',
+                    borderRadius: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <PhotoIcon sx={{ fontSize: 20, color: '#5a7fbf' }} />
+                  </Box>
+                  <Typography sx={{ fontSize: 9, color: '#e1e1e1', textAlign: 'center', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.fileName}
+                  </Typography>
+                  <Typography sx={{ fontSize: 8, color: '#888' }}>
+                    {formatBlockTimestamp(item.capturedAt)}
+                  </Typography>
+                  {isLocked && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#ffa726' }}>
+                      <LockIcon sx={{ fontSize: 10 }} />
+                      <Typography sx={{ fontSize: 7 }}>Locked</Typography>
+                    </Box>
+                  )}
+                </Box>
+              </ImageThumbnailPopup>
+            )}
+          </TimelineImageLine>
         );
 
-        // Wrap in tooltip only if locked
-        if (isLocked) {
-          return (
-            <Tooltip key={item.id} title="🔒 Locked - unlock to move" placement="top" arrow>
-              {imageBlockContent}
-            </Tooltip>
-          );
-        }
-        return <React.Fragment key={item.id}>{imageBlockContent}</React.Fragment>;
+        return imageLineContent;
       }
 
       // Render flags on clip as vertical lines
@@ -2127,7 +2383,34 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
 
   // Main content (center area)
   const mainContent = (
-    <MainContainer ref={containerRef}>
+    <MainContainer
+      ref={containerRef}
+      onDragEnter={handleFileDragEnter}
+      onDragLeave={handleFileDragLeave}
+      onDragOver={handleFileDragOver}
+      onDrop={handleFileDrop}
+      sx={{ position: 'relative' }}
+    >
+      {/* Hidden file input for Import button */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept="video/*,audio/*,image/*,.mp4,.mov,.avi,.webm,.mkv,.mp3,.wav,.ogg,.m4a,.flac,.aac,.jpg,.jpeg,.png,.gif,.webp,.tiff,.bmp"
+        style={{ display: 'none' }}
+        onChange={handleFileInputChange}
+      />
+
+      {/* File drop overlay */}
+      <FileDropOverlay isActive={isFileDragOver}>
+        <FolderOpenIcon sx={{ fontSize: 64, color: '#19abb5', mb: 2 }} />
+        <Typography sx={{ color: '#e1e1e1', fontSize: 16, fontWeight: 500 }}>
+          Drop files to import
+        </Typography>
+        <Typography sx={{ color: '#888', fontSize: 12, mt: 1 }}>
+          Video, Audio, and Image files supported
+        </Typography>
+      </FileDropOverlay>
       {/* Unified Preview Section - shows video/audio/image based on selection */}
       <UnifiedPreviewSection
         sx={{
@@ -2340,6 +2623,13 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
             {laneHeightSize === 'small' ? '0.5x' : laneHeightSize === 'medium' ? '1x' : '1.5x'}
           </Typography>
 
+          {/* Import Files Button */}
+          <ImportButton
+            startIcon={<FolderOpenIcon sx={{ fontSize: 14 }} />}
+            onClick={handleImportButtonClick}
+          >
+            Import Files
+          </ImportButton>
         </LaneHeightToolbar>
 
         {/* Time Ruler */}
@@ -2985,6 +3275,33 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
           </Typography>
         </Box>
       )}
+
+      {/* Toast notification for file import feedback */}
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={4000}
+        onClose={handleCloseToast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleCloseToast}
+          severity={toast.severity}
+          sx={{
+            width: '100%',
+            backgroundColor: toast.severity === 'success' ? '#1e3d1e' :
+                           toast.severity === 'error' ? '#3d1e1e' :
+                           toast.severity === 'warning' ? '#3d3d1e' : '#1e2d3d',
+            color: '#e1e1e1',
+            border: `1px solid ${
+              toast.severity === 'success' ? '#5a9a6b' :
+              toast.severity === 'error' ? '#c45c5c' :
+              toast.severity === 'warning' ? '#e6a23c' : '#19abb5'
+            }`,
+          }}
+        >
+          {toast.message}
+        </Alert>
+      </Snackbar>
     </>
   );
 };
