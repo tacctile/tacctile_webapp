@@ -1034,6 +1034,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   const navigateToTool = useNavigationStore((state) => state.navigateToTool);
 
   // Calculate time range from items (accounting for time offsets)
+  // IMPORTANT: Must account for minimum visual durations to prevent clipping
   const timeRange = useMemo(() => {
     if (items.length === 0) return null;
     let minTime = Infinity;
@@ -1043,13 +1044,18 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       const offset = itemTimeOffsets[item.id] || 0;
       const effectiveStart = item.capturedAt + offset;
       // For items with duration, calculate effective end time
-      const durationMs = (item.duration || 0) * 1000;
+      // Photos use IMAGE_MIN_DURATION_MS (1 second) as minimum for visual width
+      // Videos/audio without duration also get minimum to prevent zero-width bounds
+      const baseDurationMs = (item.duration || 0) * 1000;
+      const durationMs = item.type === 'photo'
+        ? Math.max(baseDurationMs, IMAGE_MIN_DURATION_MS)
+        : Math.max(baseDurationMs, IMAGE_MIN_DURATION_MS); // Apply minimum to all types
       const effectiveEnd = effectiveStart + durationMs;
       // Use endAt if available (for backwards compatibility), otherwise compute from duration
-      const itemEndTime = item.endAt ? (item.endAt + offset) : effectiveEnd;
+      const itemEndTime = item.endAt ? Math.max(item.endAt + offset, effectiveEnd) : effectiveEnd;
 
       minTime = Math.min(minTime, effectiveStart);
-      maxTime = Math.max(maxTime, Math.max(itemEndTime, effectiveStart)); // Ensure end >= start
+      maxTime = Math.max(maxTime, itemEndTime);
     });
     // Add 2% padding to ensure no items render at the very edge
     const duration = maxTime - minTime;
@@ -1223,12 +1229,14 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   }, [itemTimeOffsets, timeRange]);
 
   // Helper to compute effective end time for an item
+  // Used for collision detection in Tetris auto-packing algorithm
   const computeEffectiveEndTime = useCallback((item: TimelineMediaItem): number => {
     const startTime = computeEffectiveStartTime(item);
-    // Images get a minimum duration for collision detection
-    const durationMs = item.type === 'photo'
-      ? IMAGE_MIN_DURATION_MS
-      : (item.duration || 0) * 1000;
+    // All items get a minimum duration for collision detection to prevent overlaps
+    // Photos: Use IMAGE_MIN_DURATION_MS (1 second) for visual marker width
+    // Videos/Audio: Use IMAGE_MIN_DURATION_MS as minimum for items without duration
+    const baseDurationMs = (item.duration || 0) * 1000;
+    const durationMs = Math.max(baseDurationMs, IMAGE_MIN_DURATION_MS);
     return startTime + durationMs;
   }, [computeEffectiveStartTime]);
 
