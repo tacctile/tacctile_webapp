@@ -1233,7 +1233,9 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     }
 
     // Fall back to users extracted from actual items
-    const typeItems = items.filter((item) => item.type === type);
+    // Note: 'image' type in lanes corresponds to 'photo' type in items
+    const itemType = type === 'image' ? 'photo' : type;
+    const typeItems = items.filter((item) => item.type === itemType);
     const userSet = new Set<string>();
     typeItems.forEach((item) => {
       if (item.user) userSet.add(item.user);

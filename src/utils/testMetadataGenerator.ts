@@ -94,21 +94,6 @@ function getRandomInRange(min: number, max: number): number {
 }
 
 /**
- * Generate a random timestamp within a 2-hour session window ending now
- * The session window is 7:00 PM - 9:00 PM today (or adjusted to current time)
- */
-function generateSessionTimestamp(): Date {
-  const now = new Date();
-
-  // Create a 2-hour window: session starts 2 hours before now
-  const sessionStart = new Date(now.getTime() - 2 * 60 * 60 * 1000);
-
-  // Random time within the session
-  const randomOffset = Math.random() * 2 * 60 * 60 * 1000; // 0 to 2 hours in ms
-  return new Date(sessionStart.getTime() + randomOffset);
-}
-
-/**
  * Generate random GPS coordinates within ~500m of center point
  */
 function generateGPSCoordinates(): { latitude: number; longitude: number } {
@@ -209,7 +194,24 @@ export function generateTestMetadata(file: File): TestFileMetadata {
 
   // Select random user
   const user = getRandomElement(USER_POOL);
-  const timestamp = generateSessionTimestamp();
+
+  // Generate duration first so we can ensure timestamp + duration doesn't exceed session end
+  const duration = generateDuration(fileType);
+
+  // Session window: 2 hours before now until now
+  const now = new Date();
+  const sessionStart = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+  const sessionEnd = now;
+
+  // Calculate the latest valid start time for this clip
+  // For clips with duration, ensure timestamp + duration <= sessionEnd
+  const durationMs = duration || 0;
+  const latestValidStart = new Date(sessionEnd.getTime() - durationMs);
+
+  // Generate timestamp within valid range [sessionStart, latestValidStart]
+  const validRange = latestValidStart.getTime() - sessionStart.getTime();
+  const randomOffset = Math.random() * Math.max(0, validRange);
+  const timestamp = new Date(sessionStart.getTime() + randomOffset);
 
   console.log('GENERATED METADATA:', { user, timestamp, filename: file.name });
 
@@ -220,7 +222,7 @@ export function generateTestMetadata(file: File): TestFileMetadata {
     user,
     deviceId: getDeviceIdForUser(user),
     gpsCoordinates: generateGPSCoordinates(),
-    duration: generateDuration(fileType),
+    duration,
     fileType,
   };
 }
