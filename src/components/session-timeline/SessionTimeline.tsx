@@ -1282,78 +1282,73 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   // Manual row assignments (from dragging) override auto-packing.
   // ============================================================================
 
-  // Tetris auto-pack items into rows for a specific media type
-  // Returns: { rows: TimelineMediaItem[][], rowAssignments: Map<itemId, rowIndex> }
+  // [BUILD:TL-x7k] Tetris auto-pack items into rows for a specific media type
   const packItemsIntoRows = useCallback((
     typeItems: TimelineMediaItem[],
     manualAssignments: Record<string, number>
   ): { rows: TimelineMediaItem[][]; rowAssignments: Map<string, number> } => {
+    console.log('[TETRIS-x7k] packItemsIntoRows called with', typeItems.length, 'items');
+
     const rowAssignments = new Map<string, number>();
     const rows: TimelineMediaItem[][] = [];
-
-    // Track occupied time ranges for each row
-    // Each row is an array of {start, end} intervals
     const rowOccupied: Array<Array<{start: number; end: number}>> = [];
 
-    // Sort items by start time for greedy placement
     const sortedItems = [...typeItems].sort((a, b) => {
       return computeEffectiveStartTime(a) - computeEffectiveStartTime(b);
     });
 
-    sortedItems.forEach(item => {
+    sortedItems.forEach((item, idx) => {
       const itemStart = computeEffectiveStartTime(item);
       const itemEnd = computeEffectiveEndTime(item);
 
-      // Check for manual row assignment override
+      console.log(`[TETRIS-x7k] Item ${idx}: ${item.fileName.substring(0, 15)}... start=${itemStart} end=${itemEnd} duration=${item.duration}s`);
+
       if (manualAssignments[item.id] !== undefined) {
         const targetRow = manualAssignments[item.id];
-
-        // Ensure the target row exists
+        console.log(`[TETRIS-x7k] -> Manual assignment to row ${targetRow}`);
         while (rows.length <= targetRow) {
           rows.push([]);
           rowOccupied.push([]);
         }
-
-        // Place item in the manually assigned row (even if it would overlap - user's choice)
         rows[targetRow].push(item);
         rowOccupied[targetRow].push({ start: itemStart, end: itemEnd });
         rowAssignments.set(item.id, targetRow);
         return;
       }
 
-      // Find the first row where this item fits without overlapping
       let assignedRowIndex = -1;
       for (let rowIdx = 0; rowIdx < rows.length; rowIdx++) {
         const occupied = rowOccupied[rowIdx];
         let fits = true;
-
-        // Check if item overlaps with any occupied interval in this row
         for (const interval of occupied) {
-          if (itemStart < interval.end && itemEnd > interval.start) {
+          const overlaps = itemStart < interval.end && itemEnd > interval.start;
+          if (overlaps) {
+            console.log(`[TETRIS-x7k]   Row ${rowIdx} overlap: [${itemStart}-${itemEnd}] vs [${interval.start}-${interval.end}]`);
             fits = false;
             break;
           }
         }
-
         if (fits) {
           assignedRowIndex = rowIdx;
+          console.log(`[TETRIS-x7k]   Row ${rowIdx} fits!`);
           break;
         }
       }
 
-      // If no existing row has room, create a new row
       if (assignedRowIndex === -1) {
         assignedRowIndex = rows.length;
         rows.push([]);
         rowOccupied.push([]);
+        console.log(`[TETRIS-x7k]   Created new row ${assignedRowIndex}`);
       }
 
-      // Place the item in the assigned row
       rows[assignedRowIndex].push(item);
       rowOccupied[assignedRowIndex].push({ start: itemStart, end: itemEnd });
       rowAssignments.set(item.id, assignedRowIndex);
+      console.log(`[TETRIS-x7k] -> Assigned to row ${assignedRowIndex}`);
     });
 
+    console.log(`[TETRIS-x7k] Result: ${rows.length} rows`);
     return { rows, rowAssignments };
   }, [computeEffectiveStartTime, computeEffectiveEndTime]);
 
@@ -2777,7 +2772,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
               onClick={() => setVideoSectionCollapsed(!videoSectionCollapsed)}
             >
               <VideocamIcon sx={{ fontSize: 14, color: '#c45c5c' }} />
-              <SectionTitle>Video</SectionTitle>
+              <SectionTitle>Video [x7k]</SectionTitle>
               <Typography sx={{ fontSize: 10, color: '#555' }}>
                 ({visibleItems.filter((i) => i.type === 'video').length})
               </Typography>
@@ -2829,7 +2824,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
               onClick={() => setAudioSectionCollapsed(!audioSectionCollapsed)}
             >
               <MicIcon sx={{ fontSize: 14, color: '#5a9a6b' }} />
-              <SectionTitle>Audio</SectionTitle>
+              <SectionTitle>Audio [x7k]</SectionTitle>
               <Typography sx={{ fontSize: 10, color: '#555' }}>
                 ({visibleItems.filter((i) => i.type === 'audio').length})
               </Typography>
@@ -2881,7 +2876,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
               onClick={() => setImagesSectionCollapsed(!imagesSectionCollapsed)}
             >
               <PhotoIcon sx={{ fontSize: 14, color: '#5a7fbf' }} />
-              <SectionTitle>Images</SectionTitle>
+              <SectionTitle>Images [x7k]</SectionTitle>
               <Typography sx={{ fontSize: 10, color: '#555' }}>
                 ({visibleItems.filter((i) => i.type === 'photo').length})
               </Typography>
