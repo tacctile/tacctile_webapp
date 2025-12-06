@@ -55,13 +55,17 @@ const Header = styled(Box)({
   padding: '0 8px',
   borderBottom: '1px solid #252525',
   backgroundColor: '#161616',
+  overflow: 'visible', // Allow Knox orb animation to bleed
+  position: 'relative',
+  zIndex: 1,
 });
 
 const HeaderTitle = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   gap: 8,
-  overflow: 'hidden',
+  overflow: 'visible', // Allow Knox orb animation to bleed outside bounds
+  position: 'relative',
 });
 
 const HeaderActions = styled(Box)({
@@ -376,8 +380,8 @@ export const AISidekickPanel: React.FC<AISidekickPanelProps> = ({ context }) => 
     // Set thinking state
     setKnoxState('thinking');
 
-    // Simulate thinking delay (1-2 seconds)
-    const thinkingDelay = 1000 + Math.random() * 1000;
+    // Simulate thinking delay (1.5-2.5 seconds)
+    const thinkingDelay = 1500 + Math.random() * 1000;
 
     setTimeout(() => {
       // Pick random response
@@ -465,8 +469,8 @@ export const AISidekickPanel: React.FC<AISidekickPanelProps> = ({ context }) => 
       <PanelContainer isCollapsed={true}>
         <CollapsedContent onClick={toggleCollapse}>
           <Tooltip title="Expand Knox" placement="left">
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <KnoxAvatar state={knoxState} size={24} />
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'visible' }}>
+              <KnoxAvatar state={knoxState} size={28} />
             </Box>
           </Tooltip>
         </CollapsedContent>
@@ -479,8 +483,8 @@ export const AISidekickPanel: React.FC<AISidekickPanelProps> = ({ context }) => 
       {/* Header */}
       <Header>
         <HeaderTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', ml: -0.5 }}>
-            <KnoxAvatar state={knoxState} size={22} />
+          <Box sx={{ display: 'flex', alignItems: 'center', overflow: 'visible' }}>
+            <KnoxAvatar state={knoxState} size={36} />
           </Box>
           <Typography variant="body2" sx={{ fontWeight: 500, color: '#ccc' }} noWrap>
             Knox
