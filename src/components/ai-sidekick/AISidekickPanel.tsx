@@ -323,6 +323,36 @@ export const AISidekickPanel: React.FC<AISidekickPanelProps> = ({ context }) => 
     };
   }, []);
 
+  // Restore focus to input when Knox finishes responding
+  // This ensures natural conversation flow without needing to click back into the input
+  useEffect(() => {
+    // When knoxState transitions to 'idle' or 'complete' (input becomes enabled),
+    // restore focus to the input field
+    if (knoxState === 'idle' || knoxState === 'complete' || knoxState === 'typing') {
+      // Small delay to ensure the input is enabled before focusing
+      const focusTimeout = setTimeout(() => {
+        if (inputRef.current && !isCollapsed && !isSearchMode) {
+          inputRef.current.focus();
+        }
+      }, 50);
+      return () => clearTimeout(focusTimeout);
+    }
+  }, [knoxState, isCollapsed, isSearchMode]);
+
+  // Focus input when panel is expanded or search mode is exited
+  useEffect(() => {
+    if (!isCollapsed && !isSearchMode) {
+      // Wait for panel transition to complete before focusing
+      const focusTimeout = setTimeout(() => {
+        if (inputRef.current && knoxState !== 'thinking' && knoxState !== 'responding') {
+          inputRef.current.focus();
+        }
+      }, 200);
+      return () => clearTimeout(focusTimeout);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only run when panel state changes, not knoxState
+  }, [isCollapsed, isSearchMode]);
+
   // Handle Knox state based on typing
   useEffect(() => {
     if (isTyping && input.trim()) {
