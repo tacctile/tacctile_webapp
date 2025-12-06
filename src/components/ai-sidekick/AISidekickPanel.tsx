@@ -11,13 +11,13 @@ import {
   IconButton,
   Tooltip,
   InputAdornment,
-  CircularProgress,
   Collapse,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { useAISidekickStore } from '@/stores/useAISidekickStore';
 import { useNavigationStore } from '@/stores/useNavigationStore';
 import type { ChatMessage, AISidekickContext } from '@/types/ai-sidekick';
+import { KnoxAvatar, type KnoxState } from './KnoxAvatar';
 
 // ============================================================================
 // CONSTANTS
@@ -178,6 +178,15 @@ const DUMMY_MESSAGES: ChatMessage[] = [
   },
 ];
 
+// Dummy responses for testing Knox states
+const DUMMY_RESPONSES = [
+  "Got it! Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+  "Interesting question! Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation.",
+  "Let me help with that. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit.",
+  "Found it! Excepteur sint occaecat cupidatat non proident.",
+  "Here's what I found: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore.",
+];
+
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
@@ -235,8 +244,14 @@ interface AISidekickPanelProps {
 
 export const AISidekickPanel: React.FC<AISidekickPanelProps> = ({ context }) => {
   const [input, setInput] = useState('');
+  const [knoxState, setKnoxState] = useState<KnoxState>('idle');
+  const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
+  const [isTyping, setIsTyping] = useState(false);
+  const [isDemoMode, setIsDemoMode] = useState(true);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const completeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Store state
   const {
@@ -269,13 +284,18 @@ export const AISidekickPanel: React.FC<AISidekickPanelProps> = ({ context }) => 
     sessionId: context?.sessionId || null,
   }), [context, activeTool, loadedFiles]);
 
-  // Display messages (use dummy if empty and no API key)
+  // Display messages (use dummy if empty and no API key, or local messages in demo mode)
   const displayMessages = useMemo(() => {
+    // If we have local messages (demo mode), show those
+    if (localMessages.length > 0) {
+      return [...DUMMY_MESSAGES, ...localMessages];
+    }
+    // If no API key and no messages, show dummy messages
     if (messages.length === 0 && !apiKey) {
       return DUMMY_MESSAGES;
     }
     return messages;
-  }, [messages, apiKey]);
+  }, [messages, apiKey, localMessages]);
 
   // Auto-scroll to latest message
   useEffect(() => {
@@ -291,14 +311,131 @@ export const AISidekickPanel: React.FC<AISidekickPanelProps> = ({ context }) => 
     }
   }, [messages.length, apiKey]);
 
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      if (completeTimeoutRef.current) clearTimeout(completeTimeoutRef.current);
+    };
+  }, []);
+
+  // Handle Knox state based on typing
+  useEffect(() => {
+    if (isTyping && input.trim()) {
+      setKnoxState('typing');
+    } else if (knoxState === 'typing' && !isTyping) {
+      // Return to idle when typing stops
+      setKnoxState('idle');
+    }
+  }, [isTyping, input, knoxState]);
+
+  // Handle input change with typing detection
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    setInput(newValue);
+
+    // Mark as typing
+    setIsTyping(true);
+
+    // Clear previous timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Set timeout to stop typing state after 1.5s of no input
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+    }, 1500);
+  }, []);
+
+  // Handle input focus
+  const handleInputFocus = useCallback(() => {
+    if (knoxState === 'idle') {
+      setKnoxState('typing');
+    }
+  }, [knoxState]);
+
+  // Handle input blur
+  const handleInputBlur = useCallback(() => {
+    if (knoxState === 'typing' && !input.trim()) {
+      setKnoxState('idle');
+    }
+  }, [knoxState, input]);
+
+  // Simulate dummy response with Knox states
+  const simulateDummyResponse = useCallback((userMessage: string) => {
+    // Add user message to local messages
+    const userMsg: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: userMessage,
+      timestamp: new Date(),
+    };
+    setLocalMessages(prev => [...prev, userMsg]);
+
+    // Set thinking state
+    setKnoxState('thinking');
+
+    // Simulate thinking delay (1-2 seconds)
+    const thinkingDelay = 1000 + Math.random() * 1000;
+
+    setTimeout(() => {
+      // Pick random response
+      const response = DUMMY_RESPONSES[Math.floor(Math.random() * DUMMY_RESPONSES.length)];
+
+      // Set responding state
+      setKnoxState('responding');
+
+      // Add assistant message
+      const assistantMsg: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        content: response,
+        timestamp: new Date(),
+      };
+      setLocalMessages(prev => [...prev, assistantMsg]);
+
+      // After a short delay, show complete state
+      setTimeout(() => {
+        setKnoxState('complete');
+
+        // Clear complete timeout ref if exists
+        if (completeTimeoutRef.current) {
+          clearTimeout(completeTimeoutRef.current);
+        }
+
+        // Return to idle after complete animation
+        completeTimeoutRef.current = setTimeout(() => {
+          setKnoxState('idle');
+        }, 500);
+      }, 300);
+    }, thinkingDelay);
+  }, []);
+
   // Handle send message
   const handleSend = useCallback(async () => {
     const trimmedInput = input.trim();
-    if (!trimmedInput || isLoading) return;
+    if (!trimmedInput || isLoading || knoxState === 'thinking' || knoxState === 'responding') return;
 
     setInput('');
+    setIsTyping(false);
+
+    // Use dummy mode if no API key
+    if (!apiKey || isDemoMode) {
+      simulateDummyResponse(trimmedInput);
+      return;
+    }
+
+    // Real API mode
+    setKnoxState('thinking');
     await sendMessage(trimmedInput, fullContext);
-  }, [input, isLoading, sendMessage, fullContext]);
+    setKnoxState('complete');
+
+    // Return to idle after complete animation
+    setTimeout(() => {
+      setKnoxState('idle');
+    }, 500);
+  }, [input, isLoading, knoxState, apiKey, isDemoMode, simulateDummyResponse, sendMessage, fullContext]);
 
   // Handle key press (Enter to send, Shift+Enter for newline)
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -328,12 +465,8 @@ export const AISidekickPanel: React.FC<AISidekickPanelProps> = ({ context }) => 
       <PanelContainer isCollapsed={true}>
         <CollapsedContent onClick={toggleCollapse}>
           <Tooltip title="Expand Knox" placement="left">
-            <Box
-              component="span"
-              className="material-symbols-outlined"
-              sx={{ color: '#19abb5', fontSize: 24 }}
-            >
-              smart_toy
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <KnoxAvatar state={knoxState} size={24} />
             </Box>
           </Tooltip>
         </CollapsedContent>
@@ -346,12 +479,8 @@ export const AISidekickPanel: React.FC<AISidekickPanelProps> = ({ context }) => 
       {/* Header */}
       <Header>
         <HeaderTitle>
-          <Box
-            component="span"
-            className="material-symbols-outlined"
-            sx={{ color: '#19abb5', fontSize: 20 }}
-          >
-            smart_toy
+          <Box sx={{ display: 'flex', alignItems: 'center', ml: -0.5 }}>
+            <KnoxAvatar state={knoxState} size={22} />
           </Box>
           <Typography variant="body2" sx={{ fontWeight: 500, color: '#ccc' }} noWrap>
             Knox
@@ -502,10 +631,10 @@ export const AISidekickPanel: React.FC<AISidekickPanelProps> = ({ context }) => 
               </MessageBubble>
             ))}
 
-            {isLoading && (
+            {(isLoading || knoxState === 'thinking') && (
               <MessageBubble isUser={false} isSystem={false}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CircularProgress size={14} sx={{ color: '#19abb5' }} />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 0.5 }}>
+                  <KnoxAvatar state="thinking" size={18} />
                   <Typography variant="body2" sx={{ color: '#808080' }}>
                     Thinking...
                   </Typography>
@@ -535,20 +664,26 @@ export const AISidekickPanel: React.FC<AISidekickPanelProps> = ({ context }) => 
       {!isSearchMode && (
         <InputArea>
           <TextField
-            ref={inputRef}
+            inputRef={inputRef}
             size="small"
             fullWidth
             multiline
             maxRows={4}
-            placeholder={apiKey ? "Ask Knox..." : "Configure API key to chat"}
+            placeholder="Ask Knox..."
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            disabled={isLoading || !apiKey}
+            onFocus={handleInputFocus}
+            onBlur={handleInputBlur}
+            disabled={knoxState === 'thinking' || knoxState === 'responding'}
             sx={{
               '& .MuiOutlinedInput-root': {
                 backgroundColor: '#1e1e1e',
                 fontSize: '0.8125rem',
+                transition: 'border-color 180ms ease-out, box-shadow 180ms ease-out',
+                '&.Mui-focused': {
+                  boxShadow: '0 0 0 2px rgba(25, 171, 181, 0.15)',
+                },
                 '&.Mui-disabled': {
                   backgroundColor: '#151515',
                 },
@@ -559,11 +694,12 @@ export const AISidekickPanel: React.FC<AISidekickPanelProps> = ({ context }) => 
             <span>
               <IconButton
                 onClick={handleSend}
-                disabled={isLoading || !input.trim() || !apiKey}
+                disabled={knoxState === 'thinking' || knoxState === 'responding' || !input.trim()}
                 sx={{
-                  color: input.trim() && apiKey ? '#19abb5' : '#555',
+                  color: input.trim() ? '#19abb5' : '#555',
                   '&:hover': { backgroundColor: 'rgba(25, 171, 181, 0.1)' },
                   '&.Mui-disabled': { color: '#333' },
+                  transition: 'color 180ms ease-out',
                 }}
               >
                 <Box component="span" className="material-symbols-outlined" sx={{ fontSize: 20 }}>
