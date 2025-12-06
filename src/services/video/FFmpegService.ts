@@ -6,54 +6,191 @@
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
+/** Loading state for FFmpeg.wasm */
+export type FFmpegLoadingState = 'idle' | 'loading' | 'ready' | 'error';
+
+/** State change listener callback */
+export type FFmpegStateListener = (state: FFmpegLoadingState, errorMessage?: string) => void;
+
+/** Current state information for subscribers */
+export interface FFmpegStateInfo {
+  state: FFmpegLoadingState;
+  errorMessage: string | null;
+}
+
 class FFmpegService {
   private ffmpeg: FFmpeg | null = null;
   private isLoaded = false;
   private isLoading = false;
 
+  /** Current loading state */
+  private loadingState: FFmpegLoadingState = 'idle';
+
+  /** Error message from the last failed load attempt */
+  private errorMessage: string | null = null;
+
+  /** Subscribers listening to state changes */
+  private listeners: Set<FFmpegStateListener> = new Set();
+
+  /** Maximum number of retry attempts */
+  private static readonly MAX_RETRIES = 3;
+
+  /** Delay between retry attempts in milliseconds */
+  private static readonly RETRY_DELAY_MS = 2000;
+
   /**
-   * Initialize FFmpeg.wasm
+   * Subscribe to loading state changes
+   * @param listener Callback function to be called on state changes
+   * @returns Unsubscribe function
+   */
+  subscribe(listener: FFmpegStateListener): () => void {
+    this.listeners.add(listener);
+    // Immediately call with current state
+    listener(this.loadingState, this.errorMessage ?? undefined);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  /**
+   * Get current state information
+   */
+  getState(): FFmpegStateInfo {
+    return {
+      state: this.loadingState,
+      errorMessage: this.errorMessage
+    };
+  }
+
+  /**
+   * Notify all listeners of state change
+   */
+  private notifyListeners(): void {
+    for (const listener of this.listeners) {
+      try {
+        listener(this.loadingState, this.errorMessage ?? undefined);
+      } catch (error) {
+        console.error('[FFmpeg] Error in state listener:', error);
+      }
+    }
+  }
+
+  /**
+   * Set the loading state and notify listeners
+   */
+  private setLoadingState(state: FFmpegLoadingState, error?: string): void {
+    this.loadingState = state;
+    if (error !== undefined) {
+      this.errorMessage = error;
+    } else if (state === 'ready' || state === 'idle') {
+      this.errorMessage = null;
+    }
+    this.notifyListeners();
+  }
+
+  /**
+   * Delay helper for retry logic
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Attempt to load FFmpeg core once
+   */
+  private async attemptLoad(): Promise<void> {
+    this.ffmpeg = new FFmpeg();
+
+    // Set up logging
+    this.ffmpeg.on('log', ({ message }) => {
+      console.log('[FFmpeg]', message);
+    });
+
+    // Set up progress tracking
+    this.ffmpeg.on('progress', ({ progress, time }) => {
+      console.log(`[FFmpeg] Progress: ${(progress * 100).toFixed(2)}% (${time}s)`);
+    });
+
+    // Load FFmpeg core
+    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+    await this.ffmpeg.load({
+      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+    });
+  }
+
+  /**
+   * Initialize FFmpeg.wasm with automatic retry logic
    */
   async load(): Promise<void> {
     if (this.isLoaded) return;
     if (this.isLoading) {
       // Wait for existing load to complete
       while (this.isLoading) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await this.delay(100);
+      }
+      // After waiting, check if load succeeded or failed
+      if (this.loadingState === 'error') {
+        throw new Error(this.errorMessage ?? 'FFmpeg failed to load');
       }
       return;
     }
 
     this.isLoading = true;
+    this.setLoadingState('loading');
 
-    try {
-      this.ffmpeg = new FFmpeg();
+    let lastError: Error | null = null;
 
-      // Set up logging
-      this.ffmpeg.on('log', ({ message }) => {
-        console.log('[FFmpeg]', message);
-      });
+    for (let attempt = 1; attempt <= FFmpegService.MAX_RETRIES; attempt++) {
+      try {
+        console.log(`[FFmpeg] Load attempt ${attempt}/${FFmpegService.MAX_RETRIES}`);
+        await this.attemptLoad();
 
-      // Set up progress tracking
-      this.ffmpeg.on('progress', ({ progress, time }) => {
-        console.log(`[FFmpeg] Progress: ${(progress * 100).toFixed(2)}% (${time}s)`);
-      });
+        this.isLoaded = true;
+        this.isLoading = false;
+        this.setLoadingState('ready');
+        console.log('[FFmpeg] Loaded successfully');
+        return;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        console.error(`[FFmpeg] Load attempt ${attempt} failed:`, lastError.message);
 
-      // Load FFmpeg core
-      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
-      await this.ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-      });
+        // Clean up failed ffmpeg instance
+        this.ffmpeg = null;
 
-      this.isLoaded = true;
-      console.log('[FFmpeg] Loaded successfully');
-    } catch (error) {
-      console.error('[FFmpeg] Failed to load:', error);
-      throw error;
-    } finally {
-      this.isLoading = false;
+        // If not the last attempt, wait before retrying
+        if (attempt < FFmpegService.MAX_RETRIES) {
+          console.log(`[FFmpeg] Retrying in ${FFmpegService.RETRY_DELAY_MS}ms...`);
+          await this.delay(FFmpegService.RETRY_DELAY_MS);
+        }
+      }
     }
+
+    // All attempts failed
+    this.isLoading = false;
+    const errorMsg = lastError?.message ?? 'Unknown error loading FFmpeg';
+    this.setLoadingState('error', errorMsg);
+    console.error(`[FFmpeg] Failed to load after ${FFmpegService.MAX_RETRIES} attempts:`, errorMsg);
+    throw new Error(`FFmpeg failed to load after ${FFmpegService.MAX_RETRIES} attempts: ${errorMsg}`);
+  }
+
+  /**
+   * Retry loading FFmpeg after a failure
+   * Resets state and attempts to load again
+   */
+  async retry(): Promise<void> {
+    if (this.isLoading) {
+      console.log('[FFmpeg] Already loading, please wait');
+      return;
+    }
+
+    // Reset state
+    this.isLoaded = false;
+    this.ffmpeg = null;
+    this.setLoadingState('idle');
+
+    // Attempt to load
+    await this.load();
   }
 
   /**
