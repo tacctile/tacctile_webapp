@@ -3,7 +3,7 @@
  * Replaces electron-store with IndexedDB + localStorage
  */
 
-import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import { openDB, DBSchema, IDBPDatabase, IDBPTransaction } from 'idb';
 
 interface TacctileDB extends DBSchema {
   investigations: {
@@ -39,6 +39,122 @@ interface TacctileDB extends DBSchema {
   };
 }
 
+/**
+ * Migration function type
+ * Each migration receives the database instance and the transaction
+ * to perform schema changes (create/delete stores, indexes, etc.)
+ */
+type MigrationFunction = (
+  db: IDBPDatabase<TacctileDB>,
+  transaction: IDBPTransaction<TacctileDB, ArrayLike<keyof TacctileDB>, 'versionchange'>
+) => void;
+
+/**
+ * Migration registry - maps version numbers to their migration functions
+ * Each migration upgrades from (version - 1) to (version)
+ *
+ * Example: migration for version 2 upgrades from v1 to v2
+ *
+ * To add a new migration:
+ * 1. Add a new entry with the target version number as key
+ * 2. Implement the migration function
+ * 3. Update DB_VERSION constant to the new version
+ */
+const migrations: Record<number, MigrationFunction> = {
+  /**
+   * Version 1: Initial schema setup
+   * Creates the base object stores: investigations, evidence, settings, cache
+   */
+  1: (db) => {
+    // Create investigations store
+    if (!db.objectStoreNames.contains('investigations')) {
+      db.createObjectStore('investigations', { keyPath: 'id' });
+    }
+    // Create evidence store with index
+    if (!db.objectStoreNames.contains('evidence')) {
+      const evidenceStore = db.createObjectStore('evidence', { keyPath: 'id' });
+      evidenceStore.createIndex('investigationId', 'investigationId');
+    }
+    // Create settings store
+    if (!db.objectStoreNames.contains('settings')) {
+      db.createObjectStore('settings');
+    }
+    // Create cache store
+    if (!db.objectStoreNames.contains('cache')) {
+      db.createObjectStore('cache');
+    }
+  },
+
+  /**
+   * Version 2: Placeholder for future migration
+   *
+   * Example migration patterns:
+   * - Add new object store: db.createObjectStore('newStore', { keyPath: 'id' });
+   * - Add index to existing store: transaction.objectStore('evidence').createIndex('newIndex', 'field');
+   * - Delete store: db.deleteObjectStore('oldStore');
+   * - Delete index: transaction.objectStore('evidence').deleteIndex('oldIndex');
+   *
+   * Note: Data transformations should be done after the upgrade completes,
+   * not within the versionchange transaction.
+   */
+  2: (_db, _transaction) => {
+    // Placeholder for future schema changes
+    // This migration intentionally does nothing - it's a template for future use
+  },
+};
+
+/**
+ * Run migrations sequentially from oldVersion to newVersion
+ * Each migration is wrapped in try-catch to prevent data corruption
+ *
+ * For fresh installs (oldVersion === 0), runs all migrations starting from version 1.
+ * For existing users, runs only the migrations needed to reach newVersion.
+ *
+ * Example: User on v1 opening app with v4 schema runs: 1→2, 2→3, 3→4
+ */
+function runMigrations(
+  db: IDBPDatabase<TacctileDB>,
+  oldVersion: number,
+  newVersion: number,
+  transaction: IDBPTransaction<TacctileDB, ArrayLike<keyof TacctileDB>, 'versionchange'>
+): void {
+  // For fresh installs, oldVersion is 0, so we start from migration 1
+  // For existing users, we start from their current version + 1
+  const startVersion = oldVersion + 1;
+
+  if (oldVersion === 0) {
+    console.log(`[StorageService] Fresh install - initializing database to v${newVersion}`);
+  } else {
+    console.log(`[StorageService] Upgrading database from v${oldVersion} to v${newVersion}`);
+  }
+
+  // Run each migration in sequence
+  for (let version = startVersion; version <= newVersion; version++) {
+    const migration = migrations[version];
+
+    if (!migration) {
+      console.warn(`[StorageService] No migration found for version ${version}, skipping`);
+      continue;
+    }
+
+    try {
+      console.log(`[StorageService] Running migration to v${version}`);
+      migration(db, transaction);
+      console.log(`[StorageService] Migration to v${version} completed successfully`);
+    } catch (error) {
+      // Log the error but don't rethrow - this prevents corrupting the database
+      // The transaction will still complete with whatever changes were made before the error
+      console.error(`[StorageService] Migration to v${version} failed:`, error);
+      console.error(`[StorageService] Database may be in an inconsistent state. ` +
+        `Consider implementing a recovery strategy or reverting to a backup.`);
+      // We don't rethrow here to avoid aborting the entire upgrade transaction
+      // which could leave the database in an unusable state
+    }
+  }
+
+  console.log(`[StorageService] Database is now at v${newVersion}`);
+}
+
 class StorageService {
   private db: IDBPDatabase<TacctileDB> | null = null;
   private dbName = 'tacctile-webapp-db';
@@ -46,26 +162,16 @@ class StorageService {
 
   /**
    * Initialize the database
+   * Runs migrations sequentially from the user's current version to dbVersion
    */
   async init(): Promise<void> {
     if (this.db) return;
 
     this.db = await openDB<TacctileDB>(this.dbName, this.dbVersion, {
-      upgrade(db) {
-        // Create object stores
-        if (!db.objectStoreNames.contains('investigations')) {
-          db.createObjectStore('investigations', { keyPath: 'id' });
-        }
-        if (!db.objectStoreNames.contains('evidence')) {
-          const evidenceStore = db.createObjectStore('evidence', { keyPath: 'id' });
-          evidenceStore.createIndex('investigationId', 'investigationId');
-        }
-        if (!db.objectStoreNames.contains('settings')) {
-          db.createObjectStore('settings');
-        }
-        if (!db.objectStoreNames.contains('cache')) {
-          db.createObjectStore('cache');
-        }
+      upgrade(db, oldVersion, newVersion, transaction) {
+        // Run migrations from oldVersion to newVersion
+        // oldVersion is 0 for fresh installs, otherwise the user's current version
+        runMigrations(db, oldVersion, newVersion ?? db.version, transaction);
       },
     });
   }
