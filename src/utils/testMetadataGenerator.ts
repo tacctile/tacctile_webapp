@@ -165,6 +165,7 @@ export function isDevelopmentMode(): boolean {
  * Generate random test metadata for an imported file
  *
  * @param file - The File object being imported
+ * @param sessionBounds - Optional session bounds to constrain timestamps within
  * @returns TestFileMetadata object with randomized values
  * @throws Error if file type cannot be detected
  *
@@ -185,7 +186,7 @@ export function isDevelopmentMode(): boolean {
  * // }
  * ```
  */
-export function generateTestMetadata(file: File): TestFileMetadata {
+export function generateTestMetadata(file: File, sessionBounds?: { start: number; end: number }): TestFileMetadata {
   // Detect file type
   const fileType = detectFileType(file);
   if (!fileType) {
@@ -198,10 +199,10 @@ export function generateTestMetadata(file: File): TestFileMetadata {
   // Generate duration first so we can ensure timestamp + duration doesn't exceed session end
   const duration = generateDuration(fileType);
 
-  // Session window: 2 hours before now until now
-  const now = new Date();
-  const sessionStart = new Date(now.getTime() - 2 * 60 * 60 * 1000);
-  const sessionEnd = now;
+  // Session window: use provided bounds or default to 2 hours before now until now
+  const now = Date.now();
+  const sessionStart = new Date(sessionBounds?.start ?? now - 2 * 60 * 60 * 1000);
+  const sessionEnd = new Date(sessionBounds?.end ?? now);
 
   // Calculate the latest valid start time for this clip
   // For clips with duration, ensure timestamp + duration <= sessionEnd
@@ -232,9 +233,10 @@ export function generateTestMetadata(file: File): TestFileMetadata {
  * Returns null in production mode
  *
  * @param file - The File object being imported
+ * @param sessionBounds - Optional session bounds to constrain timestamps within
  * @returns TestFileMetadata in development mode, null in production
  */
-export function generateTestMetadataIfDev(file: File): TestFileMetadata | null {
+export function generateTestMetadataIfDev(file: File, sessionBounds?: { start: number; end: number }): TestFileMetadata | null {
   const isDevMode = isDevelopmentMode();
 
   if (!isDevMode) {
@@ -243,7 +245,7 @@ export function generateTestMetadataIfDev(file: File): TestFileMetadata | null {
   }
 
   try {
-    const metadata = generateTestMetadata(file);
+    const metadata = generateTestMetadata(file, sessionBounds);
     console.log('[TestMetadata] Generated metadata for', file.name, ':', {
       user: metadata.user,
       timestamp: metadata.timestamp.toISOString(),
