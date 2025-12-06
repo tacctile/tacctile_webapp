@@ -151,6 +151,7 @@ function getDeviceIdForUser(user: string): string {
 
 /**
  * Check if we're in development mode
+ * Also returns true if URL contains ?testmode=true or ?dev=true query parameter
  */
 export function isDevelopmentMode(): boolean {
   // Check for Vite's import.meta.env (works in browser)
@@ -158,6 +159,17 @@ export function isDevelopmentMode(): boolean {
     // Use truthy check instead of strict equality for broader compatibility
     const isDev = !!import.meta.env.DEV || import.meta.env.MODE === 'development';
     if (isDev) {
+      return true;
+    }
+  }
+  // Check for URL query parameters to enable test mode on production deployments
+  if (typeof window !== 'undefined') {
+    const urlParams = new URLSearchParams(window.location.search);
+    const testModeParam = urlParams.get('testmode');
+    const devParam = urlParams.get('dev');
+
+    if (testModeParam === 'true' || devParam === 'true') {
+      console.log('[TestMetadata] Test mode activated via URL parameter');
       return true;
     }
   }
