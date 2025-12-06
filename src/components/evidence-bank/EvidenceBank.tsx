@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Box, Typography, TextField, InputAdornment, Chip, Select, MenuItem, FormControl, Collapse, IconButton } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import SearchIcon from '@mui/icons-material/Search';
@@ -301,6 +301,24 @@ export const EvidenceBank: React.FC<EvidenceBankProps> = ({
     image: true,
   });
 
+  // Ref to store item element references for scroll-into-view
+  const itemRefs = useRef<Record<string, HTMLElement | null>>({});
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Scroll selected item into view when selectedId changes
+  useEffect(() => {
+    if (selectedId && itemRefs.current[selectedId]) {
+      const element = itemRefs.current[selectedId];
+      if (element && containerRef.current) {
+        // Scroll with smooth behavior
+        element.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+        });
+      }
+    }
+  }, [selectedId]);
+
   const toggleSection = useCallback((section: string) => {
     setExpandedSections(prev => ({
       ...prev,
@@ -382,6 +400,7 @@ export const EvidenceBank: React.FC<EvidenceBankProps> = ({
   const renderListItem = (item: EvidenceItem) => (
     <ListItem
       key={item.id}
+      ref={(el: HTMLDivElement | null) => { itemRefs.current[item.id] = el; }}
       selected={item.id === selectedId}
       borderColor={TYPE_COLORS[item.type]}
       onClick={() => handleClick(item)}
@@ -432,6 +451,7 @@ export const EvidenceBank: React.FC<EvidenceBankProps> = ({
   const renderGridItem = (item: EvidenceItem) => (
     <GridItem
       key={item.id}
+      ref={(el: HTMLDivElement | null) => { itemRefs.current[item.id] = el; }}
       selected={item.id === selectedId}
       hasFindings={item.hasFindings}
       onClick={() => handleClick(item)}
@@ -594,7 +614,7 @@ export const EvidenceBank: React.FC<EvidenceBankProps> = ({
           {items.length === 0 ? 'No evidence in session' : 'No matching evidence'}
         </Box>
       ) : (
-        <SectionsContainer>
+        <SectionsContainer ref={containerRef}>
           {(activeFilter === 'all' || activeFilter === 'video') &&
             renderSection('video', groupedItems.videos, 'VIDEO')}
           {(activeFilter === 'all' || activeFilter === 'audio') &&

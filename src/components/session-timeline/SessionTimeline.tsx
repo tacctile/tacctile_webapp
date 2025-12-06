@@ -56,6 +56,8 @@ import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
 import SkipNextIcon from '@mui/icons-material/SkipNext';
 import FastRewindIcon from '@mui/icons-material/FastRewind';
 import FastForwardIcon from '@mui/icons-material/FastForward';
+import LockIcon from '@mui/icons-material/Lock';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
 
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
@@ -112,6 +114,8 @@ const STORAGE_KEY_LANE_HEIGHT = 'sessionTimeline_laneHeight';
 const STORAGE_KEY_DIVIDER_POSITION = 'sessionTimeline_dividerPosition';
 const STORAGE_KEY_REMOVED_ITEMS = 'sessionTimeline_removedItems';
 const STORAGE_KEY_LANE_ORDER = 'sessionTimeline_laneOrder';
+const STORAGE_KEY_LOCKED_ITEMS = 'sessionTimeline_lockedItems';
+const STORAGE_KEY_UNLOCKED_ITEMS = 'sessionTimeline_unlockedItems';
 
 // Context menu state interface
 interface ContextMenuState {
@@ -812,6 +816,36 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   const [draggedLane, setDraggedLane] = useState<{ user: string; type: string } | null>(null);
   const [laneDragOverUser, setLaneDragOverUser] = useState<{ user: string; type: string } | null>(null);
 
+  // Lock state management
+  // Files WITH timestamps are LOCKED by default, files WITHOUT timestamps are UNLOCKED by default
+  // These sets track manual overrides from the default behavior
+  const [manuallyUnlockedItems, setManuallyUnlockedItems] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEY_UNLOCKED_ITEMS);
+      if (saved) {
+        try {
+          return new Set(JSON.parse(saved));
+        } catch {
+          return new Set();
+        }
+      }
+    }
+    return new Set();
+  });
+  const [manuallyLockedItems, setManuallyLockedItems] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEY_LOCKED_ITEMS);
+      if (saved) {
+        try {
+          return new Set(JSON.parse(saved));
+        } catch {
+          return new Set();
+        }
+      }
+    }
+    return new Set();
+  });
+
   // Loading state (for realistic UX)
   const [isLoading, setIsLoading] = useState(true);
 
@@ -904,6 +938,15 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_LANE_ORDER, JSON.stringify(laneOrder));
   }, [laneOrder]);
+
+  // Persist lock state to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_UNLOCKED_ITEMS, JSON.stringify(Array.from(manuallyUnlockedItems)));
+  }, [manuallyUnlockedItems]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_LOCKED_ITEMS, JSON.stringify(Array.from(manuallyLockedItems)));
+  }, [manuallyLockedItems]);
 
   // Calculate the actual lane height in pixels
   const laneHeight = useMemo(() => {
@@ -1121,6 +1164,72 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     const minutes = date.getMinutes().toString().padStart(2, '0');
     const seconds = date.getSeconds().toString().padStart(2, '0');
     return `${hours}:${minutes}:${seconds}`;
+  }, []);
+
+  // Format duration in seconds to human readable
+  const formatDuration = useCallback((seconds: number): string => {
+    if (seconds < 60) return `${Math.round(seconds)}s`;
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.round(seconds % 60);
+    if (mins < 60) return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+    const hrs = Math.floor(mins / 60);
+    const remainingMins = mins % 60;
+    return remainingMins > 0 ? `${hrs}h ${remainingMins}m` : `${hrs}h`;
+  }, []);
+
+  // Format timestamp for display on blocks (just time, shorter format)
+  const formatBlockTimestamp = useCallback((timestamp: number): string => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }, []);
+
+  // Determine if an item is locked
+  // Files WITH timestamps (capturedAt) are LOCKED by default
+  // Files WITHOUT timestamps are UNLOCKED by default
+  // Manual overrides are tracked in manuallyUnlockedItems and manuallyLockedItems
+  const isItemLocked = useCallback((item: TimelineMediaItem): boolean => {
+    const hasTimestamp = item.capturedAt !== undefined && item.capturedAt !== null && item.capturedAt > 0;
+
+    if (hasTimestamp) {
+      // Default locked, check if manually unlocked
+      return !manuallyUnlockedItems.has(item.id);
+    } else {
+      // Default unlocked, check if manually locked
+      return manuallyLockedItems.has(item.id);
+    }
+  }, [manuallyUnlockedItems, manuallyLockedItems]);
+
+  // Toggle lock state for an item
+  const toggleItemLock = useCallback((item: TimelineMediaItem, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+
+    const hasTimestamp = item.capturedAt !== undefined && item.capturedAt !== null && item.capturedAt > 0;
+
+    if (hasTimestamp) {
+      // Default is locked - toggle by adding/removing from manuallyUnlockedItems
+      setManuallyUnlockedItems(prev => {
+        const next = new Set(prev);
+        if (next.has(item.id)) {
+          next.delete(item.id); // Re-lock (back to default)
+        } else {
+          next.add(item.id); // Unlock
+        }
+        return next;
+      });
+    } else {
+      // Default is unlocked - toggle by adding/removing from manuallyLockedItems
+      setManuallyLockedItems(prev => {
+        const next = new Set(prev);
+        if (next.has(item.id)) {
+          next.delete(item.id); // Re-unlock (back to default)
+        } else {
+          next.add(item.id); // Lock
+        }
+        return next;
+      });
+    }
   }, []);
 
   // ============================================================================
@@ -1428,7 +1537,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     laneType: 'video' | 'audio' | 'image'
   ) => {
     // Calculate max chars for file name based on clip height
-    const maxChars = clipHeight < 20 ? 12 : clipHeight < 24 ? 18 : 25;
+    const maxChars = clipHeight < 20 ? 8 : clipHeight < 24 ? 12 : 18;
 
     return laneItems.map((item) => {
       const pos = getClipPosition(item.capturedAt, item.duration);
@@ -1437,33 +1546,100 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
         (item.endAt ? item.endAt >= globalTimestamp : item.capturedAt + 1000 >= globalTimestamp);
       const isActive = activeFileId === item.id;
       const isDimmed = activeFileId !== null && !isActive;
+      const isLocked = isItemLocked(item);
+
+      // Lock button styling
+      const lockButtonSize = clipHeight < 24 ? 14 : 18;
+      const lockIconSize = clipHeight < 24 ? 10 : 12;
+
+      // Lock toggle button component (rendered as tail of clip or icon)
+      const LockToggle = (
+        <Box
+          onClick={(e) => toggleItemLock(item, e)}
+          sx={{
+            position: 'absolute',
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: lockButtonSize + 4,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: isLocked ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+            borderLeft: '1px solid rgba(255, 255, 255, 0.15)',
+            cursor: 'pointer',
+            transition: 'background-color 0.15s',
+            '&:hover': {
+              backgroundColor: isLocked ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255, 255, 255, 0.25)',
+            },
+          }}
+        >
+          {isLocked ? (
+            <LockIcon sx={{ fontSize: lockIconSize, color: '#ffa726', opacity: 0.9 }} />
+          ) : (
+            <LockOpenIcon sx={{ fontSize: lockIconSize, color: '#81c784', opacity: 0.9 }} />
+          )}
+        </Box>
+      );
 
       if (laneType === 'image') {
         const iconSize = clipHeight < 20 ? 8 : clipHeight < 24 ? 10 : 12;
-        return (
-          <Tooltip key={item.id} title={item.fileName} placement="top">
-            <TimelineImage
-              highlighted={isActive}
-              imageHeight={clipHeight}
-              sx={{
-                left: pos.left,
-                opacity: isDimmed ? 0.55 : 1,
-                transition: 'opacity 0.15s',
-                border: isActive ? '2px solid #19abb5' : '2px solid transparent',
-                boxShadow: isActive ? '0 0 10px rgba(25, 171, 181, 0.6)' : 'none',
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleFileVisibilityToggle(item.id);
-                handleItemClick(item);
-              }}
-              onDoubleClick={(e) => { e.stopPropagation(); handleItemDoubleClick(item); }}
-              onContextMenu={(e) => handleContextMenu(e, item)}
-            >
-              <PhotoIcon sx={{ fontSize: iconSize, color: '#fff' }} />
-            </TimelineImage>
-          </Tooltip>
+        const imageBlockContent = (
+          <TimelineImage
+            highlighted={isActive}
+            imageHeight={clipHeight}
+            sx={{
+              left: pos.left,
+              width: Math.max(50, clipHeight * 1.2),
+              opacity: isDimmed ? 0.55 : isLocked ? 0.85 : 1,
+              transition: 'opacity 0.15s',
+              border: isActive ? '2px solid #19abb5' : '2px solid transparent',
+              boxShadow: isActive ? '0 0 10px rgba(25, 171, 181, 0.6)' : 'none',
+              overflow: 'hidden',
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleFileVisibilityToggle(item.id);
+              handleItemClick(item);
+            }}
+            onDoubleClick={(e) => { e.stopPropagation(); handleItemDoubleClick(item); }}
+            onContextMenu={(e) => handleContextMenu(e, item)}
+          >
+            <Box sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              justifyContent: 'center',
+              width: '100%',
+              height: '100%',
+              padding: '2px 4px',
+              paddingRight: lockButtonSize + 6,
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <PhotoIcon sx={{ fontSize: iconSize, color: '#fff' }} />
+                <Typography sx={{ fontSize: clipHeight < 24 ? 7 : 8, color: '#fff', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {item.fileName.length > 10 ? item.fileName.substring(0, 7) + '...' : item.fileName}
+                </Typography>
+              </Box>
+              {clipHeight >= 24 && (
+                <Typography sx={{ fontSize: 6, color: 'rgba(255,255,255,0.7)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {formatBlockTimestamp(item.capturedAt)} • {item.user || '?'}
+                </Typography>
+              )}
+            </Box>
+            {LockToggle}
+          </TimelineImage>
         );
+
+        // Wrap in tooltip only if locked
+        if (isLocked) {
+          return (
+            <Tooltip key={item.id} title="🔒 Locked - unlock to move" placement="top" arrow>
+              {imageBlockContent}
+            </Tooltip>
+          );
+        }
+        return <React.Fragment key={item.id}>{imageBlockContent}</React.Fragment>;
       }
 
       // Render flags on clip as vertical lines
@@ -1478,7 +1654,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
             <FlagLine
               color={flag.color}
               clipHeight={clipHeight}
-              sx={{ left: `${Math.min(95, Math.max(5, flagOffset))}%` }}
+              sx={{ left: `${Math.min(90, Math.max(5, flagOffset))}%` }}
               onClick={(e) => {
                 e.stopPropagation();
                 setGlobalTimestamp(flag.absoluteTimestamp);
@@ -1488,46 +1664,112 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
         );
       });
 
-      return (
-        <Tooltip key={item.id} title={`${item.fileName}\nClick to select • Double-click to focus`} placement="top">
-          <TimelineClip
-            clipType={laneType}
-            highlighted={isActive}
-            clipHeight={clipHeight}
-            sx={{
-              left: pos.left,
-              width: pos.width,
-              minWidth: clipHeight < 20 ? 30 : 40,
-              opacity: isDimmed ? 0.55 : 1,
-              transition: 'opacity 0.15s, border-color 0.15s, box-shadow 0.15s',
-              border: isActive ? '2px solid #19abb5' : '2px solid transparent',
-              boxShadow: isActive ? '0 0 10px rgba(25, 171, 181, 0.6)' : 'none',
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleFileVisibilityToggle(item.id);
-              handleItemClick(item);
-            }}
-            onDoubleClick={(e) => { e.stopPropagation(); handleItemDoubleClick(item); }}
-            onContextMenu={(e) => handleContextMenu(e, item)}
-          >
+      // Video/Audio clip content with all info displayed directly on block
+      const clipContent = (
+        <TimelineClip
+          clipType={laneType}
+          highlighted={isActive}
+          clipHeight={clipHeight}
+          sx={{
+            left: pos.left,
+            width: pos.width,
+            minWidth: clipHeight < 20 ? 60 : 80,
+            opacity: isDimmed ? 0.55 : isLocked ? 0.85 : 1,
+            transition: 'opacity 0.15s, border-color 0.15s, box-shadow 0.15s',
+            border: isActive ? '2px solid #19abb5' : '2px solid transparent',
+            boxShadow: isActive ? '0 0 10px rgba(25, 171, 181, 0.6)' : 'none',
+            paddingRight: lockButtonSize + 8,
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleFileVisibilityToggle(item.id);
+            handleItemClick(item);
+          }}
+          onDoubleClick={(e) => { e.stopPropagation(); handleItemDoubleClick(item); }}
+          onContextMenu={(e) => handleContextMenu(e, item)}
+        >
+          {/* Main content area - show filename, timestamp, user, duration */}
+          <Box sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            flex: 1,
+            minWidth: 0,
+            overflow: 'hidden',
+            justifyContent: 'center',
+          }}>
+            {/* Top row: filename */}
             <Typography
               sx={{
-                fontSize: clipHeight < 20 ? 8 : 10,
+                fontSize: clipHeight < 20 ? 8 : clipHeight < 24 ? 9 : 10,
                 color: '#fff',
+                fontWeight: 500,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
-                flex: 1,
-                minWidth: 0,
+                lineHeight: 1.2,
               }}
             >
               {item.fileName.length > maxChars ? item.fileName.substring(0, maxChars - 3) + '...' : item.fileName}
             </Typography>
-            {clipFlags}
-          </TimelineClip>
-        </Tooltip>
+
+            {/* Bottom row: timestamp | user | duration (only if clip is tall enough) */}
+            {clipHeight >= 24 && (
+              <Box sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                overflow: 'hidden',
+              }}>
+                <Typography sx={{
+                  fontSize: clipHeight < 30 ? 7 : 8,
+                  color: 'rgba(255,255,255,0.7)',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {formatBlockTimestamp(item.capturedAt)}
+                </Typography>
+                <Typography sx={{ fontSize: clipHeight < 30 ? 7 : 8, color: 'rgba(255,255,255,0.4)' }}>•</Typography>
+                <Typography sx={{
+                  fontSize: clipHeight < 30 ? 7 : 8,
+                  color: 'rgba(255,255,255,0.7)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}>
+                  {item.user || '?'}
+                </Typography>
+                {item.duration && (
+                  <>
+                    <Typography sx={{ fontSize: clipHeight < 30 ? 7 : 8, color: 'rgba(255,255,255,0.4)' }}>•</Typography>
+                    <Typography sx={{
+                      fontSize: clipHeight < 30 ? 7 : 8,
+                      color: 'rgba(255,255,255,0.7)',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {formatDuration(item.duration)}
+                    </Typography>
+                  </>
+                )}
+              </Box>
+            )}
+          </Box>
+
+          {/* Flag markers */}
+          {clipFlags}
+
+          {/* Lock toggle button at tail */}
+          {LockToggle}
+        </TimelineClip>
       );
+
+      // Wrap in tooltip only if locked
+      if (isLocked) {
+        return (
+          <Tooltip key={item.id} title="🔒 Locked - unlock to move" placement="top" arrow>
+            {clipContent}
+          </Tooltip>
+        );
+      }
+      return <React.Fragment key={item.id}>{clipContent}</React.Fragment>;
     });
   };
 
@@ -2128,8 +2370,12 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
         evidencePanel={
           <EvidenceBank
             items={evidenceItems}
-            selectedId={selectedEvidence?.id}
-            onSelect={(item) => setSelectedEvidence(item)}
+            selectedId={activeFileId}
+            onSelect={(item) => {
+              // When clicking an item in Evidence Bank, also select it on timeline
+              setActiveFileId(item.id);
+              setSelectedEvidence(item);
+            }}
             onDoubleClick={(item) => {
               const toolMap: Record<string, 'video' | 'audio' | 'images'> = {
                 video: 'video',
