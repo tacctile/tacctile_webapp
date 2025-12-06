@@ -1264,8 +1264,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
 
     const users = Array.from(userSet).filter(Boolean);
 
-    // If still no users, return array with empty string for "Unassigned" lane
-    return users.length > 0 ? users : [''];
+    // Return empty array if no users - lanes will only appear when items exist
+    return users;
   }, [laneOrder, items, itemLaneAssignments]);
 
   // Helper to compute effective start time for an item (used in overlap detection)
@@ -1390,13 +1390,11 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   }, [visibleItems, itemLaneAssignments, computeEffectiveStartTime]);
 
   // Get all unique lane keys (including auto-generated device sub-lanes)
+  // Only includes lanes that have actual items assigned to them
   const allLaneKeys = useMemo(() => {
     const keys = new Set<string>();
 
-    // Add all users from USERS constant
-    USERS.forEach(user => keys.add(user));
-
-    // Add users from items
+    // Add users from items (only users that have actual files)
     items.forEach(item => {
       if (item.user) keys.add(item.user);
     });
@@ -1493,8 +1491,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
 
   // Group items by type and lane key for swim lanes (using visibleItems to exclude removed)
   const laneData = useMemo(() => {
-    // Get unique users from items + permanent users (use all items for user list)
-    const userSet = new Set<string>(USERS);
+    // Get unique users from items only (lanes only appear when items exist)
+    const userSet = new Set<string>();
     items.forEach((item) => {
       if (item.user) userSet.add(item.user);
     });
@@ -1568,6 +1566,31 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       imagesCatchAll,
     };
   }, [items, visibleItems, getEffectiveLane, allLaneKeys]);
+
+  // Computed values for section/lane visibility
+  // Only show sections when there are items of that type
+  const hasVideoItems = useMemo(() => {
+    return visibleItems.some(item => item.type === 'video');
+  }, [visibleItems]);
+
+  const hasAudioItems = useMemo(() => {
+    return visibleItems.some(item => item.type === 'audio');
+  }, [visibleItems]);
+
+  const hasImageItems = useMemo(() => {
+    return visibleItems.some(item => item.type === 'photo');
+  }, [visibleItems]);
+
+  // Check if a specific lane has items for a given type
+  const laneHasItems = useCallback((laneKey: string, type: 'video' | 'audio' | 'image'): boolean => {
+    if (type === 'video') {
+      return (laneData.videoByUser[laneKey]?.length || 0) > 0;
+    } else if (type === 'audio') {
+      return (laneData.audioByUser[laneKey]?.length || 0) > 0;
+    } else {
+      return (laneData.imagesByUser[laneKey]?.length || 0) > 0;
+    }
+  }, [laneData]);
 
   // Get flags for the currently selected/active file
   const currentFlags = useMemo(() => {
@@ -2218,15 +2241,12 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       return;
     }
 
-    // Get current lane order for this type, or default to USERS
-    const currentOrder = laneOrder[type]?.length > 0 ? [...laneOrder[type]] : [...USERS];
-
-    // Ensure all users are in the order
-    USERS.forEach(user => {
-      if (!currentOrder.includes(user)) {
-        currentOrder.push(user);
-      }
+    // Get current lane order for this type, or initialize from items
+    const usersFromItems = new Set<string>();
+    items.forEach(item => {
+      if (item.user) usersFromItems.add(item.user);
     });
+    const currentOrder = laneOrder[type]?.length > 0 ? [...laneOrder[type]] : Array.from(usersFromItems);
 
     const draggedIndex = currentOrder.indexOf(draggedLane.user);
     const targetIndex = currentOrder.indexOf(targetUser);
@@ -3072,7 +3092,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
 
         {/* Swim Lanes */}
         <SwimLanesContainer ref={lanesContainerRef}>
-          {/* VIDEO Section */}
+          {/* VIDEO Section - only show when there are video items */}
+          {hasVideoItems && (
           <SwimLaneSection>
             <SwimLaneSectionHeader
               color="#c45c5c"
@@ -3081,7 +3102,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
               <VideocamIcon sx={{ fontSize: 14, color: '#c45c5c' }} />
               <SectionTitle>Video</SectionTitle>
               <Typography sx={{ fontSize: 10, color: '#555' }}>
-                ({items.filter((i) => i.type === 'video').length})
+                ({visibleItems.filter((i) => i.type === 'video').length})
               </Typography>
               {videoSectionCollapsed ? (
                 <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} />
@@ -3091,8 +3112,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
             </SwimLaneSectionHeader>
             {!videoSectionCollapsed && (
               <>
-                {/* Per-user lanes (permanent) - ordered by user preference, includes device sub-lanes */}
-                {getOrderedLanes('video').map((laneKey) => (
+                {/* Per-user lanes - only show lanes that have items */}
+                {getOrderedLanes('video').filter(laneKey => laneHasItems(laneKey, 'video')).map((laneKey) => (
                   <SwimLane key={`video-${laneKey}`} laneHeight={laneHeight}>
                     <LaneLabel
                       laneHeight={laneHeight}
@@ -3130,8 +3151,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                     </LaneContent>
                   </SwimLane>
                 ))}
-                {/* Catch-all lane (always show when dragging for drop target) */}
-                {(laneData.videoCatchAll.length > 0 || draggedEvidenceId) && (
+                {/* Catch-all lane - only show when it has items */}
+                {laneData.videoCatchAll.length > 0 && (
                   <SwimLane laneHeight={laneHeight}>
                     <LaneLabel laneHeight={laneHeight}>
                       <Typography sx={{ fontSize: laneHeight < 24 ? 8 : 10, color: '#666', fontStyle: 'italic' }}>
@@ -3152,8 +3173,10 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
               </>
             )}
           </SwimLaneSection>
+          )}
 
-          {/* AUDIO Section */}
+          {/* AUDIO Section - only show when there are audio items */}
+          {hasAudioItems && (
           <SwimLaneSection>
             <SwimLaneSectionHeader
               color="#5a9a6b"
@@ -3162,7 +3185,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
               <MicIcon sx={{ fontSize: 14, color: '#5a9a6b' }} />
               <SectionTitle>Audio</SectionTitle>
               <Typography sx={{ fontSize: 10, color: '#555' }}>
-                ({items.filter((i) => i.type === 'audio').length})
+                ({visibleItems.filter((i) => i.type === 'audio').length})
               </Typography>
               {audioSectionCollapsed ? (
                 <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} />
@@ -3172,7 +3195,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
             </SwimLaneSectionHeader>
             {!audioSectionCollapsed && (
               <>
-                {getOrderedLanes('audio').map((laneKey) => (
+                {getOrderedLanes('audio').filter(laneKey => laneHasItems(laneKey, 'audio')).map((laneKey) => (
                   <SwimLane key={`audio-${laneKey}`} laneHeight={laneHeight}>
                     <LaneLabel
                       laneHeight={laneHeight}
@@ -3210,7 +3233,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                     </LaneContent>
                   </SwimLane>
                 ))}
-                {(laneData.audioCatchAll.length > 0 || draggedEvidenceId) && (
+                {/* Catch-all lane - only show when it has items */}
+                {laneData.audioCatchAll.length > 0 && (
                   <SwimLane laneHeight={laneHeight}>
                     <LaneLabel laneHeight={laneHeight}>
                       <Typography sx={{ fontSize: laneHeight < 24 ? 8 : 10, color: '#666', fontStyle: 'italic' }}>
@@ -3231,8 +3255,10 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
               </>
             )}
           </SwimLaneSection>
+          )}
 
-          {/* IMAGES Section */}
+          {/* IMAGES Section - only show when there are image items */}
+          {hasImageItems && (
           <SwimLaneSection>
             <SwimLaneSectionHeader
               color="#5a7fbf"
@@ -3241,7 +3267,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
               <PhotoIcon sx={{ fontSize: 14, color: '#5a7fbf' }} />
               <SectionTitle>Images</SectionTitle>
               <Typography sx={{ fontSize: 10, color: '#555' }}>
-                ({items.filter((i) => i.type === 'photo').length})
+                ({visibleItems.filter((i) => i.type === 'photo').length})
               </Typography>
               {imagesSectionCollapsed ? (
                 <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} />
@@ -3251,7 +3277,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
             </SwimLaneSectionHeader>
             {!imagesSectionCollapsed && (
               <>
-                {getOrderedLanes('image').map((laneKey) => (
+                {getOrderedLanes('image').filter(laneKey => laneHasItems(laneKey, 'image')).map((laneKey) => (
                   <SwimLane key={`images-${laneKey}`} laneHeight={laneHeight}>
                     <LaneLabel
                       laneHeight={laneHeight}
@@ -3289,7 +3315,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                     </LaneContent>
                   </SwimLane>
                 ))}
-                {(laneData.imagesCatchAll.length > 0 || draggedEvidenceId) && (
+                {/* Catch-all lane - only show when it has items */}
+                {laneData.imagesCatchAll.length > 0 && (
                   <SwimLane laneHeight={laneHeight}>
                     <LaneLabel laneHeight={laneHeight}>
                       <Typography sx={{ fontSize: laneHeight < 24 ? 8 : 10, color: '#666', fontStyle: 'italic' }}>
@@ -3310,6 +3337,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
               </>
             )}
           </SwimLaneSection>
+          )}
         </SwimLanesContainer>
       </TimelineSection>
     </MainContainer>
