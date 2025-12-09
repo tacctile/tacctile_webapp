@@ -22,14 +22,14 @@ import { styled } from '@mui/material/styles';
 
 // Styled components
 const BarContainer = styled(Box)({
-  height: 36,
-  minHeight: 36,
-  maxHeight: 36,
+  height: 50,
+  minHeight: 50,
+  maxHeight: 50,
   backgroundColor: '#1a1a1a',
   borderTop: '1px solid #252525',
   display: 'flex',
   alignItems: 'center',
-  padding: '0 12px',
+  padding: '0 16px',
   fontSize: 12,
   color: '#cccccc',
   userSelect: 'none',
@@ -38,9 +38,9 @@ const BarContainer = styled(Box)({
 
 const Divider = styled(Box)({
   width: 1,
-  height: 20,
+  height: 28,
   backgroundColor: '#252525',
-  margin: '0 10px',
+  margin: '0 12px',
   flexShrink: 0,
 });
 
@@ -58,7 +58,8 @@ const BarItem = styled(Box)({
 });
 
 const Logo = styled('img')({
-  height: 20,
+  height: 38,
+  marginRight: 4,
   cursor: 'pointer',
   transition: 'opacity 0.15s ease',
   '&:hover': {
