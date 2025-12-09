@@ -4,7 +4,7 @@
  * Contains all tool/navigation icons with tooltips
  */
 
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Tooltip } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { useNavigationStore, ToolType } from '@/stores/useNavigationStore';
@@ -80,12 +80,14 @@ const IconsContainer = styled(Box)({
   width: '100%',
 });
 
-const SettingsContainer = styled(Box)({
+const BottomContainer = styled(Box)({
   marginTop: 'auto',
   paddingBottom: 12,
   width: '100%',
   display: 'flex',
-  justifyContent: 'center',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: 8,
 });
 
 const IconButton = styled(Box)<{ active?: boolean }>(({ active }) => ({
@@ -108,10 +110,31 @@ const IconButton = styled(Box)<{ active?: boolean }>(({ active }) => ({
 export const IconRail: React.FC = () => {
   const activeTool = useNavigationStore((state) => state.activeTool);
   const setActiveTool = useNavigationStore((state) => state.setActiveTool);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Listen for fullscreen changes (including Escape key)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
 
   const handleToolClick = (toolId: ToolType) => {
     setActiveTool(toolId);
   };
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  }, []);
 
   return (
     <RailContainer>
@@ -138,8 +161,25 @@ export const IconRail: React.FC = () => {
         ))}
       </IconsContainer>
 
-      {/* Settings icon pushed to bottom */}
-      <SettingsContainer>
+      {/* Bottom icons - Fullscreen and Settings */}
+      <BottomContainer>
+        {/* Fullscreen toggle */}
+        <Tooltip
+          title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+          placement="right"
+          arrow
+        >
+          <IconButton
+            onClick={toggleFullscreen}
+          >
+            <MaterialSymbol
+              icon={isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
+              size={24}
+            />
+          </IconButton>
+        </Tooltip>
+
+        {/* Settings icon */}
         <Tooltip
           title={SETTINGS_TOOL.tooltip}
           placement="right"
@@ -156,7 +196,7 @@ export const IconRail: React.FC = () => {
             />
           </IconButton>
         </Tooltip>
-      </SettingsContainer>
+      </BottomContainer>
     </RailContainer>
   );
 };
