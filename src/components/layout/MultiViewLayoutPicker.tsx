@@ -16,39 +16,27 @@ import {
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import CloseIcon from '@mui/icons-material/Close';
+import {
+  MultiViewLayoutType,
+  MultiViewToolType,
+  TileAssignments,
+  buildMultiViewUrl,
+  getLayoutConfig,
+} from '@/types/multiview';
+import { useAppPersistence } from '@/stores/useAppPersistence';
+import { multiViewSyncService } from '@/services/multiview/MultiViewSyncService';
 
 // ============================================================================
-// TYPES
+// TYPES (local aliases for backwards compatibility)
 // ============================================================================
 
-type LayoutType =
-  | 'two-across'
-  | 'two-stacked'
-  | 'two-left-one-right'
-  | 'one-left-two-right'
-  | 'three-across'
-  | 'two-by-two';
-
-type ToolType =
-  | 'video-viewer'
-  | 'audio-viewer'
-  | 'timeline'
-  | 'notes'
-  | 'images'
-  | 'flags'
-  | null;
+type LayoutType = MultiViewLayoutType;
+type ToolType = MultiViewToolType;
 
 interface LayoutConfig {
   id: LayoutType;
   name: string;
   tiles: number;
-}
-
-interface TileAssignments {
-  tile1: ToolType;
-  tile2: ToolType;
-  tile3: ToolType;
-  tile4: ToolType;
 }
 
 // ============================================================================
@@ -385,6 +373,9 @@ export const MultiViewLayoutPicker: React.FC<MultiViewLayoutPickerProps> = ({
     tile4: null,
   });
 
+  // Get active session info for naming the window
+  const activeSessionId = useAppPersistence((state) => state.activeSessionId);
+
   const handleBackdropClick = useCallback((e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
       onClose();
@@ -412,11 +403,53 @@ export const MultiViewLayoutPicker: React.FC<MultiViewLayoutPickerProps> = ({
     .some(tool => tool !== null);
 
   const handleOpenMultiView = useCallback(() => {
-    if (hasToolSelected && onOpenMultiView) {
-      onOpenMultiView(selectedLayout, tileAssignments);
-      onClose();
+    if (!hasToolSelected) return;
+
+    // Initialize the sync service in the main window
+    multiViewSyncService.init();
+
+    // Get layout config for window size
+    const layoutConfig = getLayoutConfig(selectedLayout);
+    const windowWidth = layoutConfig?.defaultWidth || 1200;
+    const windowHeight = layoutConfig?.defaultHeight || 800;
+
+    // Build the multi-view URL
+    const sessionName = activeSessionId ? `Session_${activeSessionId.slice(0, 8)}` : 'Multi-View Session';
+    const url = buildMultiViewUrl(selectedLayout, tileAssignments, activeSessionId || undefined, sessionName);
+
+    // Calculate window position (center on screen or offset from main window)
+    const left = Math.max(0, (window.screen.width - windowWidth) / 2);
+    const top = Math.max(0, (window.screen.height - windowHeight) / 2);
+
+    // Open the multi-view window
+    const windowFeatures = [
+      `width=${windowWidth}`,
+      `height=${windowHeight}`,
+      `left=${left}`,
+      `top=${top}`,
+      'toolbar=no',
+      'menubar=no',
+      'location=no',
+      'status=no',
+      'resizable=yes',
+      'scrollbars=no',
+    ].join(',');
+
+    const multiViewWindow = window.open(url, 'tacctile-multiview', windowFeatures);
+
+    // Focus the new window if it opened successfully
+    if (multiViewWindow) {
+      multiViewWindow.focus();
     }
-  }, [hasToolSelected, onOpenMultiView, selectedLayout, tileAssignments, onClose]);
+
+    // Call the optional callback if provided
+    if (onOpenMultiView) {
+      onOpenMultiView(selectedLayout, tileAssignments);
+    }
+
+    // Close the modal
+    onClose();
+  }, [hasToolSelected, selectedLayout, tileAssignments, activeSessionId, onOpenMultiView, onClose]);
 
   // Render layout preview based on selected layout
   const renderLayoutPreview = () => {
