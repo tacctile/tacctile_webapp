@@ -382,14 +382,11 @@ export const VideoTool: React.FC<VideoToolProps> = ({ investigationId }) => {
 
   // Handle drop zone click
   const handleDropZoneClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    // Don't open file picker in fullscreen mode as browsers exit fullscreen for security
-    if (document.fullscreenElement) {
-      showToast('Please exit fullscreen to import files', 'info');
-      return;
-    }
+    // Open the file picker
     fileInputRef.current?.click();
-  }, [showToast]);
+    // Stop propagation to prevent parent handlers from triggering (e.g., fullscreen exit)
+    e.stopPropagation();
+  }, []);
 
   // Build CSS filter string from filter values
   const cssFilters = `

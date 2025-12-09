@@ -618,12 +618,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
   // Handle drop zone click
   const handleDropZoneClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    // Don't open file picker in fullscreen mode as browsers exit fullscreen for security
-    if (document.fullscreenElement) {
-      return;
-    }
+    // Open the file picker
     fileInputRef.current?.click();
+    // Stop propagation to prevent parent handlers from triggering (e.g., fullscreen exit)
+    e.stopPropagation();
   }, []);
 
   // Render placeholder or image

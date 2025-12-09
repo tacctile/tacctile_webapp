@@ -797,12 +797,10 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
 
   // Handle drop zone click
   const handleDropZoneClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    // Don't open file picker in fullscreen mode as browsers exit fullscreen for security
-    if (document.fullscreenElement) {
-      return;
-    }
+    // Open the file picker
     fileInputRef.current?.click();
+    // Stop propagation to prevent parent handlers from triggering (e.g., fullscreen exit)
+    e.stopPropagation();
   }, []);
 
   // Render spectrogram placeholder (with drop zone when no file)
