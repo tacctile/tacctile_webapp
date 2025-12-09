@@ -1,101 +1,283 @@
-import React, { useEffect } from 'react';
-import { Box, IconButton, Typography, Tooltip } from '@mui/material';
+import React, { useEffect, useState } from 'react';
+import { Box, Tooltip, Menu, MenuItem } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
-import FastRewindIcon from '@mui/icons-material/FastRewind';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import PauseIcon from '@mui/icons-material/Pause';
-import FastForwardIcon from '@mui/icons-material/FastForward';
-import SkipNextIcon from '@mui/icons-material/SkipNext';
-import LoopIcon from '@mui/icons-material/Loop';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
+import { useAudioToolStore } from '@/stores/useAudioToolStore';
+
+// ============================================================================
+// STYLED COMPONENTS
+// ============================================================================
 
 const TransportContainer = styled(Box)({
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'center',
-  height: 56,
-  gap: 8,
-  padding: '0 24px',
+  justifyContent: 'space-between',
+  height: 52,
+  padding: '0 16px',
   backgroundColor: '#161616',
-  borderTop: '1px solid #252525',
+  borderTop: '1px solid #2a2a2a',
   position: 'relative',
 });
 
-// Real-world timestamp display positioned on the left
-const RealWorldTimestamp = styled(Box)({
-  position: 'absolute',
-  left: 24,
+const TransportSection = styled(Box)({
   display: 'flex',
   alignItems: 'center',
-  gap: 6,
+  gap: 8,
 });
 
-const TimestampLabel = styled('span')({
-  fontFamily: '"JetBrains Mono", "Consolas", monospace',
-  fontSize: '13px',
+const TransportCenter = styled(Box)({
+  display: 'flex',
+  alignItems: 'center',
+  gap: 4,
+  position: 'absolute',
+  left: '50%',
+  transform: 'translateX(-50%)',
+});
+
+// Timecode display - monospace, clean
+const TimecodeDisplay = styled('div')({
+  fontFamily: '"JetBrains Mono", "Roboto Mono", "Consolas", monospace',
+  fontSize: '15px',
   fontWeight: 500,
-  color: '#e1e1e1',
+  color: '#e0e0e0',
   letterSpacing: '-0.3px',
+  minWidth: 80,
+  userSelect: 'none',
 });
 
-const TimecodeDisplay = styled(Typography)({
-  fontFamily: '"JetBrains Mono", "Consolas", monospace',
+// Base transport button - circular with hover states
+const TransportButton = styled('button')<{ $active?: boolean }>(({ $active }) => ({
+  width: 36,
+  height: 36,
+  borderRadius: '50%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'transparent',
+  border: 'none',
+  cursor: 'pointer',
+  transition: 'all 0.15s ease',
+  color: $active ? '#19abb5' : '#888',
+  '&:hover': {
+    background: 'rgba(255, 255, 255, 0.1)',
+    color: '#fff',
+  },
+  '&:active': {
+    color: '#19abb5',
+  },
+  '& svg': {
+    width: 20,
+    height: 20,
+    fill: 'currentColor',
+  },
+}));
+
+// Hero play button - circular with teal background
+const PlayButton = styled('button')<{ $isPlaying?: boolean }>(({ $isPlaying }) => ({
+  width: 44,
+  height: 44,
+  borderRadius: '50%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: '#19abb5',
+  border: 'none',
+  cursor: 'pointer',
+  transition: 'all 0.15s ease',
+  color: '#fff',
+  boxShadow: '0 2px 8px rgba(25, 171, 181, 0.3)',
+  '&:hover': {
+    background: '#1bc4d0',
+    boxShadow: '0 4px 12px rgba(25, 171, 181, 0.4)',
+  },
+  '&:active': {
+    transform: 'scale(0.95)',
+  },
+  '& svg': {
+    width: 22,
+    height: 22,
+    fill: 'currentColor',
+    marginLeft: $isPlaying ? 0 : 2, // Slight offset for play icon visual centering
+  },
+}));
+
+// Reverse play button - similar styling to hero but secondary color when active
+const ReversePlayButton = styled('button')<{ $active?: boolean }>(({ $active }) => ({
+  width: 36,
+  height: 36,
+  borderRadius: '50%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: $active ? 'rgba(25, 171, 181, 0.2)' : 'transparent',
+  border: $active ? '1px solid #19abb5' : 'none',
+  cursor: 'pointer',
+  transition: 'all 0.15s ease',
+  color: $active ? '#19abb5' : '#888',
+  '&:hover': {
+    background: $active ? 'rgba(25, 171, 181, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+    color: $active ? '#19abb5' : '#fff',
+  },
+  '& svg': {
+    width: 20,
+    height: 20,
+    fill: 'currentColor',
+  },
+}));
+
+// Loop toggle button
+const LoopButton = styled('button')<{ $active?: boolean }>(({ $active }) => ({
+  width: 32,
+  height: 32,
+  borderRadius: '50%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'transparent',
+  border: 'none',
+  cursor: 'pointer',
+  transition: 'all 0.15s ease',
+  color: $active ? '#19abb5' : '#888',
+  '&:hover': {
+    background: 'rgba(255, 255, 255, 0.1)',
+    color: $active ? '#19abb5' : '#fff',
+  },
+  '& svg': {
+    width: 18,
+    height: 18,
+    fill: 'currentColor',
+  },
+}));
+
+// Speed selector button
+const SpeedButton = styled('button')({
+  height: 28,
+  padding: '0 10px',
+  borderRadius: 4,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 4,
+  background: '#1e1e1e',
+  border: '1px solid #303030',
+  cursor: 'pointer',
+  transition: 'all 0.15s ease',
+  color: '#ccc',
+  fontFamily: '"Inter", sans-serif',
   fontSize: '12px',
   fontWeight: 500,
-  color: '#19abb5',
-  minWidth: 90,
-  textAlign: 'center',
-  letterSpacing: '-0.3px',
-});
-
-const SpeedSelect = styled('select')({
-  backgroundColor: '#1e1e1e',
-  color: '#cccccc',
-  border: '1px solid #303030',
-  borderRadius: 2,
-  padding: '3px 6px',
-  fontSize: '11px',
-  cursor: 'pointer',
-  fontFamily: '"Inter", sans-serif',
   '&:hover': {
     borderColor: '#19abb5',
+    color: '#fff',
   },
-  '&:focus': {
-    outline: 'none',
-    borderColor: '#19abb5',
+  '& svg': {
+    width: 12,
+    height: 12,
+    fill: 'currentColor',
+    opacity: 0.7,
   },
 });
 
-// Format timestamp to HH:MM:SS:FF (frames at 30fps)
+const SpeedMenu = styled(Menu)({
+  '& .MuiPaper-root': {
+    backgroundColor: '#1e1e1e',
+    border: '1px solid #303030',
+    borderRadius: 4,
+    minWidth: 80,
+  },
+});
+
+const SpeedMenuItem = styled(MenuItem)<{ $selected?: boolean }>(({ $selected }) => ({
+  fontFamily: '"Inter", sans-serif',
+  fontSize: '12px',
+  fontWeight: 500,
+  color: $selected ? '#19abb5' : '#ccc',
+  backgroundColor: $selected ? 'rgba(25, 171, 181, 0.1)' : 'transparent',
+  padding: '6px 12px',
+  '&:hover': {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: '#fff',
+  },
+}));
+
+// ============================================================================
+// ICONS (SVG)
+// ============================================================================
+
+const SkipStartIcon = () => (
+  <svg viewBox="0 0 24 24">
+    <path d="M6 6h2v12H6V6zm3.5 6 8.5 6V6l-8.5 6z" />
+  </svg>
+);
+
+const StepBackIcon = () => (
+  <svg viewBox="0 0 24 24">
+    <path d="M11 18V6l-8.5 6 8.5 6zm.5-6 8.5 6V6l-8.5 6z" />
+  </svg>
+);
+
+const ReversePlayIcon = () => (
+  <svg viewBox="0 0 24 24">
+    <path d="M19 12 8 5v14l11-7z" transform="rotate(180 12 12)" />
+  </svg>
+);
+
+const PlayIcon = () => (
+  <svg viewBox="0 0 24 24">
+    <path d="M8 5v14l11-7L8 5z" />
+  </svg>
+);
+
+const PauseIcon = () => (
+  <svg viewBox="0 0 24 24">
+    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+  </svg>
+);
+
+const StepForwardIcon = () => (
+  <svg viewBox="0 0 24 24">
+    <path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z" />
+  </svg>
+);
+
+const SkipEndIcon = () => (
+  <svg viewBox="0 0 24 24">
+    <path d="M6 18l8.5-6L6 6v12zm10-12v12h2V6h-2z" />
+  </svg>
+);
+
+const LoopIcon = () => (
+  <svg viewBox="0 0 24 24">
+    <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" />
+  </svg>
+);
+
+const ChevronDownIcon = () => (
+  <svg viewBox="0 0 24 24">
+    <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z" />
+  </svg>
+);
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+// Format timestamp to HH:MM:SS format (simplified for cleaner display)
 const formatTimecode = (ms: number): string => {
-  const totalSeconds = Math.floor(ms / 1000);
+  const totalSeconds = Math.floor(Math.max(0, ms) / 1000);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
-  const frames = Math.floor((ms % 1000) / 33.33); // ~30fps
 
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:${frames.toString().padStart(2, '0')}`;
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 };
 
-// Format real-world timestamp as "Dec 5, 2024 • 09:47:32 PM"
-const formatRealWorldTimestamp = (ms: number): string => {
-  const date = new Date(ms);
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const month = months[date.getMonth()];
-  const day = date.getDate();
-  const year = date.getFullYear();
+// Speed options
+const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
 
-  let hours = date.getHours();
-  const minutes = date.getMinutes().toString().padStart(2, '0');
-  const seconds = date.getSeconds().toString().padStart(2, '0');
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  hours = hours % 12;
-  hours = hours ? hours : 12; // the hour '0' should be '12'
-  const hoursStr = hours.toString().padStart(2, '0');
-
-  return `${month} ${day}, ${year} • ${hoursStr}:${minutes}:${seconds} ${ampm}`;
-};
+// ============================================================================
+// COMPONENT
+// ============================================================================
 
 interface TransportControlsProps {
   showTimecode?: boolean;
@@ -106,19 +288,40 @@ interface TransportControlsProps {
 export const TransportControls: React.FC<TransportControlsProps> = ({
   showTimecode = true,
   showSpeed = true,
-  compact = false,
 }) => {
+  // Playhead store
   const timestamp = usePlayheadStore((state) => state.timestamp);
   const isPlaying = usePlayheadStore((state) => state.isPlaying);
+  const isReversePlaying = usePlayheadStore((state) => state.isReversePlaying);
   const playbackSpeed = usePlayheadStore((state) => state.playbackSpeed);
-  const play = usePlayheadStore((state) => state.play);
-  const pause = usePlayheadStore((state) => state.pause);
   const togglePlayback = usePlayheadStore((state) => state.togglePlayback);
+  const toggleReversePlayback = usePlayheadStore((state) => state.toggleReversePlayback);
   const setPlaybackSpeed = usePlayheadStore((state) => state.setPlaybackSpeed);
   const stepForward = usePlayheadStore((state) => state.stepForward);
   const stepBackward = usePlayheadStore((state) => state.stepBackward);
   const jumpToStart = usePlayheadStore((state) => state.jumpToStart);
   const jumpToEnd = usePlayheadStore((state) => state.jumpToEnd);
+
+  // Audio tool store for loop toggle
+  const looping = useAudioToolStore((state) => state.playback.looping);
+  const toggleLooping = useAudioToolStore((state) => state.toggleLooping);
+
+  // Speed menu state
+  const [speedAnchor, setSpeedAnchor] = useState<null | HTMLElement>(null);
+  const speedMenuOpen = Boolean(speedAnchor);
+
+  const handleSpeedClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setSpeedAnchor(event.currentTarget);
+  };
+
+  const handleSpeedClose = () => {
+    setSpeedAnchor(null);
+  };
+
+  const handleSpeedSelect = (speed: number) => {
+    setPlaybackSpeed(speed);
+    handleSpeedClose();
+  };
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -133,11 +336,11 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
           break;
         case 'ArrowLeft':
           e.preventDefault();
-          stepBackward(e.shiftKey ? 1000 : 33); // Shift = 1 second, normal = 1 frame
+          stepBackward(e.shiftKey ? 5000 : 33); // Shift = 5 seconds, normal = 1 frame
           break;
         case 'ArrowRight':
           e.preventDefault();
-          stepForward(e.shiftKey ? 1000 : 33);
+          stepForward(e.shiftKey ? 5000 : 33);
           break;
         case 'Home':
           e.preventDefault();
@@ -147,111 +350,129 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
           e.preventDefault();
           jumpToEnd();
           break;
+        case 'KeyL':
+          e.preventDefault();
+          toggleLooping();
+          break;
+        case 'KeyR':
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            toggleReversePlayback();
+          }
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [togglePlayback, stepForward, stepBackward, jumpToStart, jumpToEnd]);
-
-  const speeds = [0.25, 0.5, 1, 1.5, 2];
-
-  // Common button styles for larger, easier-to-click buttons
-  const transportButtonStyle = {
-    color: '#888',
-    padding: '8px',
-    '&:hover': {
-      color: '#19abb5',
-      backgroundColor: 'rgba(25, 171, 181, 0.1)',
-    },
-  };
-
-  const iconSize = 24;
+  }, [togglePlayback, stepForward, stepBackward, jumpToStart, jumpToEnd, toggleLooping, toggleReversePlayback]);
 
   return (
     <TransportContainer>
-      {/* Real-world timestamp display - LEFT side (Investigation clock) */}
-      <RealWorldTimestamp>
-        <Tooltip title="Investigation timeline - real-world date/time at playhead">
-          <TimestampLabel>{formatRealWorldTimestamp(timestamp)}</TimestampLabel>
+      {/* LEFT SECTION: Timecode Display */}
+      <TransportSection>
+        {showTimecode && (
+          <Tooltip title="Playback position">
+            <TimecodeDisplay>{formatTimecode(timestamp)}</TimecodeDisplay>
+          </Tooltip>
+        )}
+      </TransportSection>
+
+      {/* CENTER SECTION: Transport Controls */}
+      <TransportCenter>
+        {/* Skip to Start */}
+        <Tooltip title="Jump to start (Home)">
+          <TransportButton onClick={jumpToStart} aria-label="Skip to start">
+            <SkipStartIcon />
+          </TransportButton>
         </Tooltip>
-      </RealWorldTimestamp>
 
-      {/* Center group: Timecode + Transport controls */}
-      {/* Timecode Display */}
-      {showTimecode && (
-        <TimecodeDisplay>{formatTimecode(timestamp)}</TimecodeDisplay>
-      )}
+        {/* Step Back (5 seconds) */}
+        <Tooltip title="Step back 5s (←, Shift+← for more)">
+          <TransportButton onClick={() => stepBackward(5000)} aria-label="Step back">
+            <StepBackIcon />
+          </TransportButton>
+        </Tooltip>
 
-      {/* Divider after timecode */}
-      <Box sx={{ width: 1, height: 24, backgroundColor: '#333', mx: 1 }} />
+        {/* Reverse Play */}
+        <Tooltip title="Reverse play (R) - for EVP analysis">
+          <ReversePlayButton
+            onClick={toggleReversePlayback}
+            $active={isReversePlaying}
+            aria-label="Reverse play"
+          >
+            <ReversePlayIcon />
+          </ReversePlayButton>
+        </Tooltip>
 
-      {/* Skip to Start */}
-      <Tooltip title="Jump to start (Home)">
-        <IconButton onClick={jumpToStart} sx={transportButtonStyle}>
-          <SkipPreviousIcon sx={{ fontSize: iconSize }} />
-        </IconButton>
-      </Tooltip>
+        {/* Play/Pause - Hero Button */}
+        <Tooltip title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}>
+          <PlayButton
+            onClick={togglePlayback}
+            $isPlaying={isPlaying}
+            aria-label={isPlaying ? 'Pause' : 'Play'}
+          >
+            {isPlaying ? <PauseIcon /> : <PlayIcon />}
+          </PlayButton>
+        </Tooltip>
 
-      {/* Rewind / Step Back */}
-      <Tooltip title="Rewind (←, Shift+← for 1 sec)">
-        <IconButton onClick={() => stepBackward()} sx={transportButtonStyle}>
-          <FastRewindIcon sx={{ fontSize: iconSize }} />
-        </IconButton>
-      </Tooltip>
+        {/* Step Forward (5 seconds) */}
+        <Tooltip title="Step forward 5s (→, Shift+→ for more)">
+          <TransportButton onClick={() => stepForward(5000)} aria-label="Step forward">
+            <StepForwardIcon />
+          </TransportButton>
+        </Tooltip>
 
-      {/* Play/Pause - Highlighted */}
-      <Tooltip title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}>
-        <IconButton
-          onClick={togglePlayback}
-          sx={{
-            color: '#19abb5',
-            backgroundColor: 'rgba(25, 171, 181, 0.15)',
-            padding: '10px',
-            '&:hover': { backgroundColor: 'rgba(25, 171, 181, 0.25)' },
-          }}
-        >
-          {isPlaying ? <PauseIcon sx={{ fontSize: 28 }} /> : <PlayArrowIcon sx={{ fontSize: 28 }} />}
-        </IconButton>
-      </Tooltip>
+        {/* Skip to End */}
+        <Tooltip title="Jump to end (End)">
+          <TransportButton onClick={jumpToEnd} aria-label="Skip to end">
+            <SkipEndIcon />
+          </TransportButton>
+        </Tooltip>
+      </TransportCenter>
 
-      {/* Fast Forward / Step Forward */}
-      <Tooltip title="Fast forward (→, Shift+→ for 1 sec)">
-        <IconButton onClick={() => stepForward()} sx={transportButtonStyle}>
-          <FastForwardIcon sx={{ fontSize: iconSize }} />
-        </IconButton>
-      </Tooltip>
+      {/* RIGHT SECTION: Loop Toggle + Speed Selector */}
+      <TransportSection>
+        {/* Loop Toggle */}
+        <Tooltip title={looping ? 'Loop enabled (L)' : 'Enable loop (L)'}>
+          <LoopButton
+            onClick={toggleLooping}
+            $active={looping}
+            aria-label={looping ? 'Disable loop' : 'Enable loop'}
+          >
+            <LoopIcon />
+          </LoopButton>
+        </Tooltip>
 
-      {/* Skip to End */}
-      <Tooltip title="Jump to end (End)">
-        <IconButton onClick={jumpToEnd} sx={transportButtonStyle}>
-          <SkipNextIcon sx={{ fontSize: iconSize }} />
-        </IconButton>
-      </Tooltip>
-
-      {/* Divider before loop/speed */}
-      <Box sx={{ width: 1, height: 24, backgroundColor: '#333', mx: 1 }} />
-
-      {/* Loop toggle */}
-      <Tooltip title="Loop playback">
-        <IconButton sx={transportButtonStyle}>
-          <LoopIcon sx={{ fontSize: iconSize - 2 }} />
-        </IconButton>
-      </Tooltip>
-
-      {/* Speed selector */}
-      {showSpeed && (
-        <SpeedSelect
-          value={playbackSpeed}
-          onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
-        >
-          {speeds.map((speed) => (
-            <option key={speed} value={speed}>
-              {speed}x
-            </option>
-          ))}
-        </SpeedSelect>
-      )}
+        {/* Speed Selector */}
+        {showSpeed && (
+          <>
+            <Tooltip title="Playback speed">
+              <SpeedButton onClick={handleSpeedClick} aria-label="Playback speed">
+                {playbackSpeed}x
+                <ChevronDownIcon />
+              </SpeedButton>
+            </Tooltip>
+            <SpeedMenu
+              anchorEl={speedAnchor}
+              open={speedMenuOpen}
+              onClose={handleSpeedClose}
+              anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+              transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            >
+              {SPEEDS.map((speed) => (
+                <SpeedMenuItem
+                  key={speed}
+                  onClick={() => handleSpeedSelect(speed)}
+                  $selected={playbackSpeed === speed}
+                >
+                  {speed}x
+                </SpeedMenuItem>
+              ))}
+            </SpeedMenu>
+          </>
+        )}
+      </TransportSection>
     </TransportContainer>
   );
 };
