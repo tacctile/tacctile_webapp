@@ -13,6 +13,7 @@ interface PlayheadState {
 
   // Playback state
   isPlaying: boolean;
+  isReversePlaying: boolean; // For EVP analysis - play backwards
   playbackSpeed: number; // 0.25, 0.5, 1, 1.5, 2
 
   // Session time boundaries (set when session loads)
@@ -24,6 +25,7 @@ interface PlayheadState {
   play: () => void;
   pause: () => void;
   togglePlayback: () => void;
+  toggleReversePlayback: () => void; // Toggle reverse play mode
   setPlaybackSpeed: (speed: number) => void;
   stepForward: (ms?: number) => void;  // default 1 frame (~33ms)
   stepBackward: (ms?: number) => void;
@@ -37,6 +39,7 @@ export const usePlayheadStore = create<PlayheadState>()(
     (set, get) => ({
       timestamp: 0,
       isPlaying: false,
+      isReversePlaying: false,
       playbackSpeed: 1,
       sessionStart: null,
       sessionEnd: null,
@@ -50,9 +53,16 @@ export const usePlayheadStore = create<PlayheadState>()(
         set({ timestamp: clamped });
       },
 
-      play: () => set({ isPlaying: true }),
-      pause: () => set({ isPlaying: false }),
-      togglePlayback: () => set((state) => ({ isPlaying: !state.isPlaying })),
+      play: () => set({ isPlaying: true, isReversePlaying: false }),
+      pause: () => set({ isPlaying: false, isReversePlaying: false }),
+      togglePlayback: () => set((state) => ({
+        isPlaying: !state.isPlaying,
+        isReversePlaying: false
+      })),
+      toggleReversePlayback: () => set((state) => ({
+        isReversePlaying: !state.isReversePlaying,
+        isPlaying: !state.isReversePlaying // Start playing when reverse is activated
+      })),
 
       setPlaybackSpeed: (speed) => set({ playbackSpeed: speed }),
 
@@ -98,6 +108,7 @@ export const usePlayheadStore = create<PlayheadState>()(
 // Selectors
 export const selectTimestamp = (state: PlayheadState) => state.timestamp;
 export const selectIsPlaying = (state: PlayheadState) => state.isPlaying;
+export const selectIsReversePlaying = (state: PlayheadState) => state.isReversePlaying;
 export const selectPlaybackSpeed = (state: PlayheadState) => state.playbackSpeed;
 export const selectSessionBounds = (state: PlayheadState) => ({
   start: state.sessionStart,
