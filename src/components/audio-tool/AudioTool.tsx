@@ -16,6 +16,12 @@ import FileUploadIcon from '@mui/icons-material/FileUpload';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import NearMeIcon from '@mui/icons-material/NearMe';
+import CropFreeIcon from '@mui/icons-material/CropFree';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver';
+import VolumeUpIcon from '@mui/icons-material/VolumeUp';
+import VolumeDownIcon from '@mui/icons-material/VolumeDown';
 
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
@@ -189,6 +195,41 @@ const InspectorSlider = styled(Slider)({
     },
   },
 });
+
+// Spectral tool row styling
+const SpectralToolRow = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  height: 34,
+  padding: '0 12px',
+  cursor: 'pointer',
+  backgroundColor: isActive ? 'rgba(25, 171, 181, 0.15)' : 'transparent',
+  borderLeft: isActive ? '2px solid #19abb5' : '2px solid transparent',
+  '&:hover': {
+    backgroundColor: isActive ? 'rgba(25, 171, 181, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+  },
+}));
+
+const SpectralToolIcon = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 20,
+  height: 20,
+  color: isActive ? '#19abb5' : '#888',
+  '& svg': {
+    fontSize: 18,
+  },
+}));
+
+const SpectralToolName = styled(Typography)<{ isActive: boolean }>(({ isActive }) => ({
+  fontSize: 11,
+  color: isActive ? '#19abb5' : '#999',
+}));
+
+// Spectral tool type
+type SpectralToolType = 'selection' | 'marquee' | 'repair' | 'voiceIsolate' | 'gain' | 'attenuate';
 
 // File drop zone for center canvas when no file loaded
 const FileDropZone = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
@@ -985,6 +1026,8 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [loadedAudio, setLoadedAudio] = useState<typeof audioEvidence[0] | null>(null);
   const [videoRefCollapsed, setVideoRefCollapsed] = useState(true); // collapsed by default, expands when video exists
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+  const [spectralToolsCollapsed, setSpectralToolsCollapsed] = useState(false);
+  const [activeSpectralTool, setActiveSpectralTool] = useState<SpectralToolType>('selection');
   const [flags, setFlags] = useState<Flag[]>(mockFlags);
 
   // File drop zone state
@@ -1367,6 +1410,105 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
               </Box>
             )}
           </InspectorSectionContent>
+        )}
+      </InspectorSection>
+
+      {/* Spectral Tools - collapsible section */}
+      <InspectorSection sx={{ flexShrink: 0 }}>
+        <InspectorSectionHeader onClick={() => setSpectralToolsCollapsed(!spectralToolsCollapsed)}>
+          <InspectorSectionTitle>Spectral Tools</InspectorSectionTitle>
+          {spectralToolsCollapsed ? (
+            <ChevronRightIcon sx={{ fontSize: 16, color: '#666' }} />
+          ) : (
+            <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} />
+          )}
+        </InspectorSectionHeader>
+        {!spectralToolsCollapsed && (
+          <Box sx={{ py: 0.5 }}>
+            <Tooltip title="Default selection tool" placement="left" arrow>
+              <SpectralToolRow
+                isActive={activeSpectralTool === 'selection'}
+                onClick={() => setActiveSpectralTool('selection')}
+              >
+                <SpectralToolIcon isActive={activeSpectralTool === 'selection'}>
+                  <NearMeIcon />
+                </SpectralToolIcon>
+                <SpectralToolName isActive={activeSpectralTool === 'selection'}>
+                  Selection
+                </SpectralToolName>
+              </SpectralToolRow>
+            </Tooltip>
+
+            <Tooltip title="Draw rectangle to select time + frequency range" placement="left" arrow>
+              <SpectralToolRow
+                isActive={activeSpectralTool === 'marquee'}
+                onClick={() => setActiveSpectralTool('marquee')}
+              >
+                <SpectralToolIcon isActive={activeSpectralTool === 'marquee'}>
+                  <CropFreeIcon />
+                </SpectralToolIcon>
+                <SpectralToolName isActive={activeSpectralTool === 'marquee'}>
+                  Marquee Select
+                </SpectralToolName>
+              </SpectralToolRow>
+            </Tooltip>
+
+            <Tooltip title="Paint over unwanted sounds to remove them" placement="left" arrow>
+              <SpectralToolRow
+                isActive={activeSpectralTool === 'repair'}
+                onClick={() => setActiveSpectralTool('repair')}
+              >
+                <SpectralToolIcon isActive={activeSpectralTool === 'repair'}>
+                  <AutoFixHighIcon />
+                </SpectralToolIcon>
+                <SpectralToolName isActive={activeSpectralTool === 'repair'}>
+                  Spectral Repair
+                </SpectralToolName>
+              </SpectralToolRow>
+            </Tooltip>
+
+            <Tooltip title="AI-powered voice extraction" placement="left" arrow>
+              <SpectralToolRow
+                isActive={activeSpectralTool === 'voiceIsolate'}
+                onClick={() => setActiveSpectralTool('voiceIsolate')}
+              >
+                <SpectralToolIcon isActive={activeSpectralTool === 'voiceIsolate'}>
+                  <RecordVoiceOverIcon />
+                </SpectralToolIcon>
+                <SpectralToolName isActive={activeSpectralTool === 'voiceIsolate'}>
+                  Voice Isolate
+                </SpectralToolName>
+              </SpectralToolRow>
+            </Tooltip>
+
+            <Tooltip title="Paint to boost audio in selected region" placement="left" arrow>
+              <SpectralToolRow
+                isActive={activeSpectralTool === 'gain'}
+                onClick={() => setActiveSpectralTool('gain')}
+              >
+                <SpectralToolIcon isActive={activeSpectralTool === 'gain'}>
+                  <VolumeUpIcon />
+                </SpectralToolIcon>
+                <SpectralToolName isActive={activeSpectralTool === 'gain'}>
+                  Gain
+                </SpectralToolName>
+              </SpectralToolRow>
+            </Tooltip>
+
+            <Tooltip title="Paint to reduce audio in selected region" placement="left" arrow>
+              <SpectralToolRow
+                isActive={activeSpectralTool === 'attenuate'}
+                onClick={() => setActiveSpectralTool('attenuate')}
+              >
+                <SpectralToolIcon isActive={activeSpectralTool === 'attenuate'}>
+                  <VolumeDownIcon />
+                </SpectralToolIcon>
+                <SpectralToolName isActive={activeSpectralTool === 'attenuate'}>
+                  Attenuate
+                </SpectralToolName>
+              </SpectralToolRow>
+            </Tooltip>
+          </Box>
         )}
       </InspectorSection>
 
