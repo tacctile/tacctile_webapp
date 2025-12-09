@@ -64,7 +64,7 @@ import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 
 import { WorkspaceLayout } from '@/components/layout';
-import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
+import { EvidenceBank, type EvidenceItem, type MediaFilter } from '@/components/evidence-bank';
 import { MetadataPanel, FlagsPanel, type Flag } from '@/components/common';
 
 import { usePlayheadStore } from '../../stores/usePlayheadStore';
@@ -871,6 +871,9 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   // Active file visibility - only one file can be active at a time
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
 
+  // Evidence Bank filter state - tracks which filter is active (all, video, audio, image)
+  const [evidenceFilter, setEvidenceFilter] = useState<MediaFilter>('all');
+
   // Lane height setting (persisted to localStorage)
   const [laneHeightSize, setLaneHeightSize] = useState<LaneHeightSize>(() => {
     if (typeof window !== 'undefined') {
@@ -1370,8 +1373,18 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       setGlobalTimestamp(item.capturedAt);
       // Also select it for metadata display
       handleItemClick(item);
+
+      // Auto-switch Evidence Bank filter if a filter is active and the selected file
+      // is of a different type than the current filter
+      if (evidenceFilter !== 'all') {
+        // Map TimelineMediaItem type to MediaFilter type ('photo' -> 'image')
+        const itemFilterType: MediaFilter = item.type === 'photo' ? 'image' : item.type;
+        if (evidenceFilter !== itemFilterType) {
+          setEvidenceFilter(itemFilterType);
+        }
+      }
     },
-    [setGlobalTimestamp, handleItemClick]
+    [setGlobalTimestamp, handleItemClick, evidenceFilter]
   );
 
   // Handle flag click (jump to timestamp)
@@ -1384,9 +1397,24 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
 
 
   // Toggle file visibility (only one can be active at a time)
-  const handleFileVisibilityToggle = useCallback((fileId: string) => {
-    setActiveFileId((prev) => (prev === fileId ? null : fileId));
-  }, []);
+  // Also auto-switches Evidence Bank filter if a filter is active and file type differs
+  const handleFileVisibilityToggle = useCallback((fileId: string, fileType?: 'video' | 'audio' | 'photo') => {
+    setActiveFileId((prev) => {
+      // If toggling off, just return null
+      if (prev === fileId) return null;
+
+      // Toggling on - also handle filter auto-switch
+      if (fileType && evidenceFilter !== 'all') {
+        // Map TimelineMediaItem type to MediaFilter type ('photo' -> 'image')
+        const itemFilterType: MediaFilter = fileType === 'photo' ? 'image' : fileType;
+        if (evidenceFilter !== itemFilterType) {
+          setEvidenceFilter(itemFilterType);
+        }
+      }
+
+      return fileId;
+    });
+  }, [evidenceFilter]);
 
   // Format timecode from timestamp
   const formatTimecode = useCallback((timestamp: number): string => {
@@ -2215,7 +2243,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
             }}
             onClick={(e) => {
               e.stopPropagation();
-              handleFileVisibilityToggle(item.id);
+              handleFileVisibilityToggle(item.id, item.type);
               handleItemClick(item);
             }}
             onDoubleClick={(e) => { e.stopPropagation(); handleItemDoubleClick(item); }}
@@ -2304,7 +2332,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
           }}
           onClick={(e) => {
             e.stopPropagation();
-            handleFileVisibilityToggle(item.id);
+            handleFileVisibilityToggle(item.id, item.type);
             handleItemClick(item);
           }}
           onDoubleClick={(e) => { e.stopPropagation(); handleItemDoubleClick(item); }}
@@ -3043,6 +3071,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
               <EvidenceBank
                 items={evidenceItems}
                 selectedId={activeFileId}
+                filter={evidenceFilter}
+                onFilterChange={setEvidenceFilter}
                 onSelect={(item) => {
                   // When clicking an item in Evidence Bank, also select it on timeline
                   setActiveFileId(item.id);

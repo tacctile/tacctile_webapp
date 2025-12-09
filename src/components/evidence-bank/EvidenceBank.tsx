@@ -23,7 +23,7 @@ export interface EvidenceItem {
   hasFindings: boolean;
 }
 
-type MediaFilter = 'all' | 'video' | 'audio' | 'image';
+export type MediaFilter = 'all' | 'video' | 'audio' | 'image';
 type SortOption = 'timestamp' | 'filename' | 'user';
 
 // Type colors for left borders
@@ -288,6 +288,8 @@ interface EvidenceBankProps {
   onSelect?: (item: EvidenceItem) => void;
   onDoubleClick?: (item: EvidenceItem) => void;
   filterByType?: MediaFilter; // Force filter to specific type (for tool-specific views)
+  filter?: MediaFilter; // Controlled filter state (for parent control)
+  onFilterChange?: (filter: MediaFilter) => void; // Called when filter changes
   onDragStart?: (itemId: string) => void; // Called when drag starts
   onDragEnd?: () => void; // Called when drag ends
 }
@@ -298,10 +300,23 @@ export const EvidenceBank: React.FC<EvidenceBankProps> = ({
   onSelect,
   onDoubleClick,
   filterByType,
+  filter,
+  onFilterChange,
   onDragStart,
   onDragEnd,
 }) => {
-  const [mediaFilter, setMediaFilter] = useState<MediaFilter>(filterByType || 'all');
+  // Use controlled filter if provided, otherwise use internal state
+  const [internalFilter, setInternalFilter] = useState<MediaFilter>(filterByType || 'all');
+  const mediaFilter = filter !== undefined ? filter : internalFilter;
+
+  const handleFilterChange = useCallback((newFilter: MediaFilter) => {
+    if (filter === undefined) {
+      // Uncontrolled mode - update internal state
+      setInternalFilter(newFilter);
+    }
+    // Always notify parent of filter change
+    onFilterChange?.(newFilter);
+  }, [filter, onFilterChange]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('timestamp');
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -584,28 +599,28 @@ export const EvidenceBank: React.FC<EvidenceBankProps> = ({
               label={`All ${counts.all}`}
               size="small"
               selected={mediaFilter === 'all'}
-              onClick={() => setMediaFilter('all')}
+              onClick={() => handleFilterChange('all')}
             />
             <FilterChip
               icon={<VideocamIcon sx={{ fontSize: 14 }} />}
               label={counts.video}
               size="small"
               selected={mediaFilter === 'video'}
-              onClick={() => setMediaFilter('video')}
+              onClick={() => handleFilterChange('video')}
             />
             <FilterChip
               icon={<MicIcon sx={{ fontSize: 14 }} />}
               label={counts.audio}
               size="small"
               selected={mediaFilter === 'audio'}
-              onClick={() => setMediaFilter('audio')}
+              onClick={() => handleFilterChange('audio')}
             />
             <FilterChip
               icon={<PhotoIcon sx={{ fontSize: 14 }} />}
               label={counts.image}
               size="small"
               selected={mediaFilter === 'image'}
-              onClick={() => setMediaFilter('image')}
+              onClick={() => handleFilterChange('image')}
             />
           </MediaFilters>
         </FilterBar>
