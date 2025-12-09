@@ -8,7 +8,7 @@ import { TransportControls } from '@/components/common';
 // Layout constants
 const EVIDENCE_PANEL_WIDTH = 280;
 const INSPECTOR_PANEL_WIDTH = 280; // Was 300, now matches left column
-const COLLAPSED_WIDTH = 36;
+const COLLAPSED_WIDTH = 40;
 
 const LayoutContainer = styled(Box)({
   display: 'flex',
@@ -91,22 +91,29 @@ const CenterContent = styled(Box)({
 });
 
 const CollapsedPanel = styled(Box)({
-  width: 36,
-  minWidth: 36,
-  maxWidth: 36,
+  width: 40,
+  minWidth: 40,
+  maxWidth: 40,
   backgroundColor: '#181818',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  paddingTop: 6,
+  paddingTop: 8,
 });
 
 const CollapseButton = styled(IconButton)({
-  color: '#666',
-  padding: 4,
+  color: '#808080',
+  padding: 6,
+  minWidth: 28,
+  minHeight: 28,
+  borderRadius: 4,
+  transition: 'all 0.15s ease',
+  '& .MuiSvgIcon-root': {
+    fontSize: 20,
+  },
   '&:hover': {
     color: '#19abb5',
-    backgroundColor: 'rgba(25, 171, 181, 0.08)',
+    backgroundColor: 'rgba(25, 171, 181, 0.1)',
   },
 });
 
