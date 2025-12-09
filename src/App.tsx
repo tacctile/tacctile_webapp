@@ -446,7 +446,7 @@ const App: React.FC = () => {
             selectedTool={selectedTool}
             onToolSelect={handleToolSelect}
             notificationCount={3}
-            userName="Sarah Chen"
+            userName="Nina Vance"
           />
 
           {/* Main Content Area */}
@@ -496,7 +496,7 @@ const App: React.FC = () => {
               currentTool={selectedTool}
               syncStatus="synced"
               sessionName={activeSessionId || undefined}
-              userName="Sarah Chen"
+              userName="Nina Vance"
             />
           )}
         </Box>
