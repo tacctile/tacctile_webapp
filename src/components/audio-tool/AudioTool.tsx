@@ -18,6 +18,7 @@ import FileUploadIcon from '@mui/icons-material/FileUpload';
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
 import { MetadataPanel, PrecisionSlider, FlagsPanel, type Flag } from '@/components/common';
+import { ProfessionalWaveform } from './ProfessionalWaveform';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
 import { useNavigationStore } from '@/stores/useNavigationStore';
 import {
@@ -1000,6 +1001,17 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   // Simulated meter levels (would come from Web Audio API in real implementation)
   const [meterLevels, setMeterLevels] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
+  // Waveform selection state
+  const [waveformSelection, setWaveformSelection] = useState<{
+    start: number;
+    end: number;
+  } | null>(null);
+
+  // Playhead store for waveform integration
+  const timestamp = usePlayheadStore((state) => state.timestamp);
+  const isPlaying = usePlayheadStore((state) => state.isPlaying);
+  const setTimestamp = usePlayheadStore((state) => state.setTimestamp);
+
   const navigateToTool = useNavigationStore((state) => state.navigateToTool);
   const loadedFileId = useNavigationStore((state) => state.loadedFiles.audio);
 
@@ -1274,33 +1286,17 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     );
   };
 
-  // Render waveform placeholder
-  const renderWaveform = () => {
-    if (!loadedAudio) {
-      return (
-        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Typography sx={{ color: '#333', fontSize: 10 }}>No waveform</Typography>
-        </Box>
-      );
-    }
+  // Waveform seek handler - converts seconds to milliseconds for playhead store
+  const handleWaveformSeek = useCallback((timeInSeconds: number) => {
+    setTimestamp(timeInSeconds * 1000); // Convert to milliseconds
+  }, [setTimestamp]);
 
-    return (
-      <Box sx={{ flex: 1, height: '100%', display: 'flex', alignItems: 'center', gap: '1px' }}>
-        {Array.from({ length: 200 }).map((_, i) => (
-          <Box
-            key={i}
-            sx={{
-              flex: 1,
-              height: `${15 + Math.sin(i * 0.08) * 25 + Math.random() * 35}%`,
-              backgroundColor: '#5a9a6b',
-              borderRadius: 0.5,
-              opacity: 0.8,
-            }}
-          />
-        ))}
-      </Box>
-    );
-  };
+  // Waveform selection handler
+  const handleWaveformSelection = useCallback((startTime: number, endTime: number) => {
+    setWaveformSelection({ start: startTime, end: endTime });
+    // Could be used for loop points or region editing
+    console.log('Waveform selection:', startTime, '-', endTime, 'seconds');
+  }, []);
 
   // Right panel content - Video Reference (if applicable) + Flags
   const inspectorContent = (
@@ -1409,8 +1405,17 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
 
       {/* Waveform */}
       <WaveformSection>
-        <Typography sx={{ fontSize: 10, color: '#555', width: 50 }}>WAVE</Typography>
-        {renderWaveform()}
+        <Typography sx={{ fontSize: 10, color: '#555', width: 50, flexShrink: 0 }}>WAVE</Typography>
+        <ProfessionalWaveform
+          isLoaded={!!loadedAudio}
+          duration={loadedAudio?.duration || 0}
+          currentTime={timestamp / 1000} // Convert from ms to seconds
+          isPlaying={isPlaying}
+          onSeek={handleWaveformSeek}
+          onSelection={handleWaveformSelection}
+          selectionStart={waveformSelection?.start}
+          selectionEnd={waveformSelection?.end}
+        />
       </WaveformSection>
 
       {/* EQ Section - thinner header */}
