@@ -5,6 +5,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
 import { TopHeaderBar } from '@/components/layout/TopHeaderBar';
 import StatusBar from '@/components/layout/StatusBar';
+import { BottomBar } from '@/components/layout/BottomBar';
 import { LayoutProvider } from '@/contexts/LayoutContext';
 import { ErrorBoundary, LoadingSkeleton } from '@/components/common';
 import { useKeyboardShortcuts, createNavigationShortcuts, createViewShortcuts, createEditingShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -499,6 +500,9 @@ const App: React.FC = () => {
               userName="Nina Vance"
             />
           )}
+
+          {/* Bottom Bar */}
+          <BottomBar />
         </Box>
       </LayoutProvider>
     </ThemeProvider>
