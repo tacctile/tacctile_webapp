@@ -2,11 +2,15 @@ import React from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Badge from '@mui/material/Badge';
+import Tooltip from '@mui/material/Tooltip';
+import Avatar from '@mui/material/Avatar';
+import IconButton from '@mui/material/IconButton';
 import Person from '@mui/icons-material/Person';
 import FiberManualRecord from '@mui/icons-material/FiberManualRecord';
 import LocationOn from '@mui/icons-material/LocationOn';
 import AccessTime from '@mui/icons-material/AccessTime';
 import Notifications from '@mui/icons-material/Notifications';
+import Search from '@mui/icons-material/Search';
 
 // Divider component for visual separation
 const Divider: React.FC = () => (
@@ -114,6 +118,48 @@ export const BottomBar: React.FC = () => {
       >
         <Notifications sx={{ color: '#999', fontSize: '20px' }} />
       </Badge>
+
+      <Divider />
+
+      {/* Search */}
+      <Tooltip title="Search" placement="top">
+        <IconButton
+          sx={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '4px',
+            color: '#808080',
+            '&:hover': {
+              backgroundColor: 'rgba(255, 255, 255, 0.06)',
+              color: '#e1e1e1',
+            },
+          }}
+        >
+          <Search sx={{ fontSize: '20px' }} />
+        </IconButton>
+      </Tooltip>
+
+      <Divider />
+
+      {/* User Avatar */}
+      <Tooltip title="Nina Vance" placement="top">
+        <Avatar
+          sx={{
+            width: 32,
+            height: 32,
+            backgroundColor: '#19abb5',
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'transform 0.15s ease',
+            '&:hover': {
+              transform: 'scale(1.05)',
+            },
+          }}
+        >
+          NV
+        </Avatar>
+      </Tooltip>
     </Box>
   );
 };
