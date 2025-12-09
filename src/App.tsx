@@ -3,8 +3,7 @@ import { ThemeProvider, createTheme, keyframes } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
-import { TopHeaderBar } from '@/components/layout/TopHeaderBar';
-import StatusBar from '@/components/layout/StatusBar';
+import BottomBar from '@/components/layout/BottomBar';
 import { LayoutProvider } from '@/contexts/LayoutContext';
 import { ErrorBoundary, LoadingSkeleton } from '@/components/common';
 import { useKeyboardShortcuts, createNavigationShortcuts, createViewShortcuts, createEditingShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -441,14 +440,6 @@ const App: React.FC = () => {
             paddingRight: 'env(safe-area-inset-right)',
           }}
         >
-          {/* Top Header Bar - Fixed, icons only with tooltips */}
-          <TopHeaderBar
-            selectedTool={selectedTool}
-            onToolSelect={handleToolSelect}
-            notificationCount={3}
-            userName="Sarah Chen"
-          />
-
           {/* Main Content Area */}
           <Box sx={{
             display: 'flex',
@@ -489,14 +480,15 @@ const App: React.FC = () => {
             )}
           </Box>
 
-          {/* Status Bar */}
+          {/* Bottom Bar */}
           {!isMobile && (
-            <StatusBar
-              investigationName={activeSessionId ? 'Current Session' : 'No Active Session'}
-              currentTool={selectedTool}
+            <BottomBar
+              sessionName={activeSessionId || 'Session-3'}
+              userCount={3}
               syncStatus="synced"
-              sessionName={activeSessionId || undefined}
-              userName="Sarah Chen"
+              location="45.523°N, 122.676°W"
+              notificationCount={2}
+              onLogoClick={() => setActiveTool('home')}
             />
           )}
         </Box>
