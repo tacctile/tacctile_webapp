@@ -51,7 +51,7 @@ const MainContainer = styled(Box)({
 });
 
 const SpectrogramSection = styled(Box)({
-  flex: '1 1 50%',
+  flex: '1 1 40%',
   minHeight: 0,
   position: 'relative',
   backgroundColor: '#0a0a0a',
@@ -88,8 +88,8 @@ const TimeScale = styled(Box)({
 });
 
 const WaveformSection = styled(Box)({
-  flex: '1 1 auto',
-  minHeight: 80,
+  flex: '1 1 35%',
+  minHeight: 140,
   backgroundColor: '#0d0d0d',
   borderBottom: '1px solid #252525',
   display: 'flex',
@@ -104,6 +104,37 @@ const EQSection = styled(Box)({
   borderBottom: '1px solid #252525',
   display: 'flex',
   flexDirection: 'column',
+});
+
+// Overview Bar styled components (iZotope RX-style navigation)
+const OverviewBarContainer = styled(Box)({
+  height: 28,
+  backgroundColor: '#111',
+  borderBottom: '1px solid #252525',
+  position: 'relative',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  padding: '0 8px',
+});
+
+const OverviewBarContent = styled(Box)({
+  flex: 1,
+  height: 24,
+  backgroundColor: '#1a1a1a',
+  borderRadius: 2,
+  position: 'relative',
+  overflow: 'hidden',
+});
+
+const OverviewTimeLabel = styled(Typography)({
+  fontSize: 9,
+  color: '#555',
+  fontFamily: '"JetBrains Mono", monospace',
+  position: 'absolute',
+  bottom: 1,
+  pointerEvents: 'none',
+  userSelect: 'none',
 });
 
 const ToolbarSection = styled(Box)({
@@ -196,10 +227,10 @@ const InspectorSlider = styled(Slider)({
   },
 });
 
-// Spectral tools grid container
+// Spectral tools grid container - 2x3 layout (2 columns, 3 rows)
 const SpectralToolsGrid = styled(Box)({
   display: 'grid',
-  gridTemplateColumns: 'repeat(3, 1fr)',
+  gridTemplateColumns: 'repeat(2, 1fr)',
   gap: 8,
   padding: '4px 12px 8px 12px',
 });
@@ -596,6 +627,316 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
         ))}
       </Box>
     </Box>
+  );
+};
+
+// ============================================================================
+// OVERVIEW BAR COMPONENT (iZotope RX-style navigation)
+// ============================================================================
+
+interface OverviewBarProps {
+  /** Whether audio is loaded */
+  isLoaded: boolean;
+  /** Total duration in seconds */
+  duration: number;
+  /** Current playback position in seconds */
+  currentTime: number;
+  /** Zoom level (1 = fit to view) */
+  zoom: number;
+  /** Scroll offset (0-1) */
+  scrollOffset: number;
+  /** Callback when user clicks to seek */
+  onSeek?: (timeInSeconds: number) => void;
+  /** Callback when user drags viewport */
+  onViewportDrag?: (newScrollOffset: number) => void;
+  /** Callback when user is scrubbing (dragging playhead) */
+  onScrub?: (timeInSeconds: number, isScrubbing: boolean) => void;
+}
+
+const OverviewBar: React.FC<OverviewBarProps> = ({
+  isLoaded,
+  duration,
+  currentTime,
+  zoom,
+  scrollOffset,
+  onSeek,
+  onViewportDrag,
+  onScrub,
+}) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isDraggingViewport, setIsDraggingViewport] = useState(false);
+  const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
+  const [dragStartX, setDragStartX] = useState(0);
+  const [dragStartOffset, setDragStartOffset] = useState(0);
+  const waveformDataRef = useRef<Float32Array | null>(null);
+
+  // Colors
+  const COLORS = {
+    background: '#1a1a1a',
+    waveform: '#666',
+    waveformPeak: '#888',
+    viewportFill: 'rgba(25, 171, 181, 0.25)',
+    viewportBorder: 'rgba(25, 171, 181, 0.8)',
+    playhead: '#19abb5',
+    timeLabel: '#555',
+  };
+
+  // Generate simplified waveform data for overview
+  const generateMiniWaveformData = useCallback((numSamples: number): Float32Array => {
+    if (waveformDataRef.current && waveformDataRef.current.length === numSamples) {
+      return waveformDataRef.current;
+    }
+
+    const data = new Float32Array(numSamples);
+    let phase = 0;
+    let envelope = 0.3;
+    let envelopeTarget = 0.5;
+
+    for (let i = 0; i < numSamples; i++) {
+      if (Math.random() < 0.002) {
+        envelopeTarget = 0.1 + Math.random() * 0.7;
+      }
+      envelope += (envelopeTarget - envelope) * 0.0002;
+
+      const f1 = Math.sin(phase * 0.1) * 0.4;
+      const f2 = Math.sin(phase * 0.37) * 0.25;
+      const noise = (Math.random() - 0.5) * 0.2;
+
+      let sample = (f1 + f2 + noise) * envelope;
+
+      // Add quiet sections
+      const t = i / numSamples;
+      if (t > 0.15 && t < 0.18) sample *= 0.1;
+      if (t > 0.45 && t < 0.47) sample *= 0.05;
+      if (t > 0.72 && t < 0.74) sample *= 0.15;
+
+      data[i] = Math.max(-1, Math.min(1, sample));
+      phase += 0.01 + Math.random() * 0.015;
+    }
+
+    waveformDataRef.current = data;
+    return data;
+  }, []);
+
+  // Calculate viewport indicator position and width
+  const getViewportBounds = useCallback(() => {
+    const visibleWidth = 1 / zoom;
+    const maxOffset = Math.max(0, 1 - visibleWidth);
+    const clampedOffset = Math.min(scrollOffset, maxOffset);
+    return {
+      left: clampedOffset * 100,
+      width: visibleWidth * 100,
+    };
+  }, [zoom, scrollOffset]);
+
+  // Draw the overview bar
+  const drawOverview = useCallback(() => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const rect = container.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    canvas.style.width = `${rect.width}px`;
+    canvas.style.height = `${rect.height}px`;
+    ctx.scale(dpr, dpr);
+
+    const width = rect.width;
+    const height = rect.height;
+    const centerY = height / 2;
+
+    // Clear canvas
+    ctx.fillStyle = COLORS.background;
+    ctx.fillRect(0, 0, width, height);
+
+    if (!isLoaded) return;
+
+    // Draw mini waveform
+    const waveformData = generateMiniWaveformData(width);
+
+    ctx.fillStyle = COLORS.waveform;
+    ctx.beginPath();
+    ctx.moveTo(0, centerY);
+
+    // Draw top half
+    for (let i = 0; i < width; i++) {
+      const sample = Math.abs(waveformData[i]);
+      const y = centerY - sample * (centerY - 1);
+      ctx.lineTo(i, y);
+    }
+
+    // Draw bottom half (mirror)
+    for (let i = width - 1; i >= 0; i--) {
+      const sample = Math.abs(waveformData[i]);
+      const y = centerY + sample * (centerY - 1);
+      ctx.lineTo(i, y);
+    }
+
+    ctx.closePath();
+    ctx.fill();
+
+    // Draw viewport indicator (only if zoomed in)
+    if (zoom > 1) {
+      const viewport = getViewportBounds();
+      const viewportX = (viewport.left / 100) * width;
+      const viewportWidth = (viewport.width / 100) * width;
+
+      ctx.fillStyle = COLORS.viewportFill;
+      ctx.fillRect(viewportX, 0, viewportWidth, height);
+
+      ctx.strokeStyle = COLORS.viewportBorder;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(viewportX + 0.5, 0.5, viewportWidth - 1, height - 1);
+    }
+
+    // Draw playhead
+    const playheadX = (currentTime / duration) * width;
+    if (playheadX >= 0 && playheadX <= width) {
+      ctx.strokeStyle = COLORS.playhead;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(playheadX, 0);
+      ctx.lineTo(playheadX, height);
+      ctx.stroke();
+    }
+  }, [isLoaded, duration, currentTime, zoom, generateMiniWaveformData, getViewportBounds, COLORS]);
+
+  // Animation and resize effects
+  useEffect(() => {
+    drawOverview();
+  }, [drawOverview]);
+
+  useEffect(() => {
+    const handleResize = () => drawOverview();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [drawOverview]);
+
+  // Format time for labels
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Mouse handlers
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!isLoaded || !containerRef.current) return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const ratio = x / rect.width;
+    const clickTime = ratio * duration;
+
+    // Check if clicking on viewport indicator
+    if (zoom > 1) {
+      const viewport = getViewportBounds();
+      const viewportStart = (viewport.left / 100) * rect.width;
+      const viewportEnd = viewportStart + (viewport.width / 100) * rect.width;
+
+      if (x >= viewportStart && x <= viewportEnd) {
+        // Start dragging viewport
+        setIsDraggingViewport(true);
+        setDragStartX(x);
+        setDragStartOffset(scrollOffset);
+        return;
+      }
+    }
+
+    // Check if clicking near playhead (for scrubbing)
+    const playheadX = (currentTime / duration) * rect.width;
+    const playheadThreshold = 8;
+    if (Math.abs(x - playheadX) < playheadThreshold) {
+      setIsDraggingPlayhead(true);
+      onScrub?.(clickTime, true);
+      return;
+    }
+
+    // Otherwise, seek to clicked position
+    onSeek?.(Math.max(0, Math.min(clickTime, duration)));
+  }, [isLoaded, duration, zoom, scrollOffset, currentTime, getViewportBounds, onSeek, onScrub]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!containerRef.current) return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+
+    if (isDraggingViewport) {
+      const deltaX = x - dragStartX;
+      const deltaRatio = deltaX / rect.width;
+      const newOffset = Math.max(0, Math.min(1 - 1/zoom, dragStartOffset + deltaRatio));
+      onViewportDrag?.(newOffset);
+    } else if (isDraggingPlayhead) {
+      const ratio = Math.max(0, Math.min(1, x / rect.width));
+      const time = ratio * duration;
+      onScrub?.(time, true);
+    }
+  }, [isDraggingViewport, isDraggingPlayhead, dragStartX, dragStartOffset, zoom, duration, onViewportDrag, onScrub]);
+
+  const handleMouseUp = useCallback(() => {
+    if (isDraggingPlayhead) {
+      onScrub?.(currentTime, false);
+    }
+    setIsDraggingViewport(false);
+    setIsDraggingPlayhead(false);
+  }, [isDraggingPlayhead, currentTime, onScrub]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (isDraggingPlayhead) {
+      onScrub?.(currentTime, false);
+    }
+    setIsDraggingViewport(false);
+    setIsDraggingPlayhead(false);
+  }, [isDraggingPlayhead, currentTime, onScrub]);
+
+  if (!isLoaded) {
+    return (
+      <OverviewBarContainer>
+        <OverviewBarContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Typography sx={{ fontSize: 9, color: '#444' }}>No audio loaded</Typography>
+        </OverviewBarContent>
+      </OverviewBarContainer>
+    );
+  }
+
+  return (
+    <OverviewBarContainer>
+      <OverviewBarContent
+        ref={containerRef}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+      >
+        <canvas
+          ref={canvasRef}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+          }}
+        />
+        {/* Time labels */}
+        <OverviewTimeLabel sx={{ left: 4 }}>
+          {formatTime(0)}
+        </OverviewTimeLabel>
+        <OverviewTimeLabel sx={{ left: '50%', transform: 'translateX(-50%)' }}>
+          {formatTime(duration / 2)}
+        </OverviewTimeLabel>
+        <OverviewTimeLabel sx={{ right: 4 }}>
+          {formatTime(duration)}
+        </OverviewTimeLabel>
+      </OverviewBarContent>
+    </OverviewBarContainer>
   );
 };
 
@@ -1083,6 +1424,11 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     end: number;
   } | null>(null);
 
+  // Overview bar / zoom state
+  const [overviewZoom, setOverviewZoom] = useState(1); // 1 = fit to view
+  const [overviewScrollOffset, setOverviewScrollOffset] = useState(0); // 0-1 position
+  const [isScrubbing, setIsScrubbing] = useState(false);
+
   // Playhead store for waveform integration
   const timestamp = usePlayheadStore((state) => state.timestamp);
   const isPlaying = usePlayheadStore((state) => state.isPlaying);
@@ -1360,6 +1706,21 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     // Could be used for loop points or region editing
     console.log('Waveform selection:', startTime, '-', endTime, 'seconds');
   }, []);
+
+  // Overview bar handlers
+  const handleOverviewSeek = useCallback((timeInSeconds: number) => {
+    setTimestamp(timeInSeconds * 1000); // Convert to milliseconds
+  }, [setTimestamp]);
+
+  const handleOverviewViewportDrag = useCallback((newScrollOffset: number) => {
+    setOverviewScrollOffset(newScrollOffset);
+  }, []);
+
+  const handleOverviewScrub = useCallback((timeInSeconds: number, scrubbing: boolean) => {
+    setIsScrubbing(scrubbing);
+    setTimestamp(timeInSeconds * 1000); // Convert to milliseconds
+    // TODO: In a real implementation, we would play audio snippets during scrubbing
+  }, [setTimestamp]);
 
   // Right panel content - Video Reference + Filters + Flags
   const inspectorContent = (
@@ -1656,6 +2017,18 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   // Main content
   const mainContent = (
     <MainContainer>
+      {/* Overview Bar - iZotope RX-style navigation */}
+      <OverviewBar
+        isLoaded={!!loadedAudio}
+        duration={loadedAudio?.duration || 0}
+        currentTime={timestamp / 1000} // Convert from ms to seconds
+        zoom={overviewZoom}
+        scrollOffset={overviewScrollOffset}
+        onSeek={handleOverviewSeek}
+        onViewportDrag={handleOverviewViewportDrag}
+        onScrub={handleOverviewScrub}
+      />
+
       {/* Spectrogram */}
       <SpectrogramSection>
         {renderSpectrogram()}
