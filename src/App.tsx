@@ -4,7 +4,6 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
 import { TopHeaderBar } from '@/components/layout/TopHeaderBar';
-import StatusBar from '@/components/layout/StatusBar';
 import { BottomBar } from '@/components/layout/BottomBar';
 import { LayoutProvider } from '@/contexts/LayoutContext';
 import { ErrorBoundary, LoadingSkeleton } from '@/components/common';
@@ -489,17 +488,6 @@ const App: React.FC = () => {
               </Suspense>
             )}
           </Box>
-
-          {/* Status Bar */}
-          {!isMobile && (
-            <StatusBar
-              investigationName={activeSessionId ? 'Current Session' : 'No Active Session'}
-              currentTool={selectedTool}
-              syncStatus="synced"
-              sessionName={activeSessionId || undefined}
-              userName="Nina Vance"
-            />
-          )}
 
           {/* Bottom Bar */}
           <BottomBar />
