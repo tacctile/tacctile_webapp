@@ -381,9 +381,15 @@ export const VideoTool: React.FC<VideoToolProps> = ({ investigationId }) => {
   }, [processVideoFile]);
 
   // Handle drop zone click
-  const handleDropZoneClick = useCallback(() => {
+  const handleDropZoneClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Don't open file picker in fullscreen mode as browsers exit fullscreen for security
+    if (document.fullscreenElement) {
+      showToast('Please exit fullscreen to import files', 'info');
+      return;
+    }
     fileInputRef.current?.click();
-  }, []);
+  }, [showToast]);
 
   // Build CSS filter string from filter values
   const cssFilters = `
@@ -882,7 +888,7 @@ export const VideoTool: React.FC<VideoToolProps> = ({ investigationId }) => {
         mainContent={mainContent}
         evidenceTitle="Video Files"
         inspectorTitle="Filters"
-        showTransport={true}
+        showTransport={false}
       />
 
       {/* Toast notification */}

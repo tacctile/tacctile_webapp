@@ -603,7 +603,12 @@ export const HomePage: React.FC = () => {
     }
   }, [handleQuickAnalyze]);
 
-  const handleBrowseClick = useCallback(() => {
+  const handleBrowseClick = useCallback((e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    // Don't open file picker in fullscreen mode as browsers exit fullscreen for security
+    if (document.fullscreenElement) {
+      return;
+    }
     fileInputRef.current?.click();
   }, []);
 

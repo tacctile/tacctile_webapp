@@ -796,7 +796,12 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   }, [processAudioFile]);
 
   // Handle drop zone click
-  const handleDropZoneClick = useCallback(() => {
+  const handleDropZoneClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Don't open file picker in fullscreen mode as browsers exit fullscreen for security
+    if (document.fullscreenElement) {
+      return;
+    }
     fileInputRef.current?.click();
   }, []);
 
