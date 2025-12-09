@@ -12,12 +12,14 @@ import {
 import { styled } from '@mui/material/styles';
 import MicIcon from '@mui/icons-material/Mic';
 import VideocamIcon from '@mui/icons-material/Videocam';
-import CloseIcon from '@mui/icons-material/Close';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
-import { MetadataPanel, PrecisionSlider, FlagsPanel, type Flag } from '@/components/common';
+import { MetadataPanel, FlagsPanel, type Flag } from '@/components/common';
 import { ProfessionalWaveform } from './ProfessionalWaveform';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
 import { useNavigationStore } from '@/stores/useNavigationStore';
@@ -43,7 +45,7 @@ const MainContainer = styled(Box)({
 });
 
 const SpectrogramSection = styled(Box)({
-  flex: 1,
+  flex: '1 1 50%',
   minHeight: 0,
   position: 'relative',
   backgroundColor: '#0a0a0a',
@@ -80,7 +82,8 @@ const TimeScale = styled(Box)({
 });
 
 const WaveformSection = styled(Box)({
-  height: 60,
+  flex: '1 1 auto',
+  minHeight: 80,
   backgroundColor: '#0d0d0d',
   borderBottom: '1px solid #252525',
   display: 'flex',
@@ -107,64 +110,64 @@ const ToolbarSection = styled(Box)({
   borderTop: '1px solid #252525',
 });
 
-const FilterSection = styled(Box)({
-  padding: '8px 12px',
+
+// Inspector Panel Styled Components (matching Image Tool)
+const InspectorSection = styled(Box)({
   borderBottom: '1px solid #252525',
 });
 
-const SectionTitle = styled(Typography)({
+const InspectorSectionHeader = styled(Box)({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: '8px 12px',
+  cursor: 'pointer',
+  backgroundColor: '#1a1a1a',
+  '&:hover': {
+    backgroundColor: '#1e1e1e',
+  },
+});
+
+const InspectorSectionTitle = styled(Typography)({
   fontSize: 10,
   fontWeight: 600,
   color: '#666',
   textTransform: 'uppercase',
-  marginBottom: 8,
 });
 
-const FilterBar = styled(Box)({
-  height: 72,
-  backgroundColor: '#1a1a1a',
-  borderBottom: '1px solid #252525',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  padding: '8px 16px',
-  gap: 20,
+const InspectorSectionContent = styled(Box)({
+  padding: '8px 12px',
 });
 
-const FilterItem = styled(Box)({
+// Filter slider for inspector panel - matching Image Tool style
+const FilterRow = styled(Box)({
   display: 'flex',
   flexDirection: 'column',
-  gap: 6,
-  flex: 1,
-  maxWidth: 180,
-  padding: '0 8px',
+  gap: 4,
+  marginBottom: 12,
 });
 
-const FilterSliderHeader = styled(Box)({
+const FilterRowHeader = styled(Box)({
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
 });
 
-const FilterItemLabel = styled(Typography)({
-  fontSize: 10,
+const FilterRowLabel = styled(Typography)({
+  fontSize: 11,
   color: '#888',
-  whiteSpace: 'nowrap',
-  textTransform: 'uppercase',
-  fontWeight: 500,
-  letterSpacing: '0.5px',
 });
 
-const FilterSliderValue = styled(Typography)({
+const FilterRowValue = styled(Typography)({
   fontSize: 11,
-  color: '#fff',
+  color: '#ccc',
   fontFamily: '"JetBrains Mono", monospace',
 });
 
-const MiniSlider = styled(Slider)({
+const InspectorSlider = styled(Slider)({
   color: '#19abb5',
   height: 4,
-  padding: '8px 0',
+  padding: '4px 0',
   '& .MuiSlider-rail': {
     backgroundColor: '#333',
     borderRadius: 2,
@@ -176,23 +179,16 @@ const MiniSlider = styled(Slider)({
     border: 'none',
   },
   '& .MuiSlider-thumb': {
-    width: 14,
-    height: 14,
+    width: 12,
+    height: 12,
     backgroundColor: '#fff',
     border: 'none',
     boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)',
     '&:hover': {
       boxShadow: '0 0 0 4px rgba(25, 171, 181, 0.2), 0 1px 3px rgba(0, 0, 0, 0.3)',
     },
-    '&:focus, &.Mui-focusVisible': {
-      boxShadow: '0 0 0 4px rgba(25, 171, 181, 0.3), 0 1px 3px rgba(0, 0, 0, 0.3)',
-    },
-    '&.Mui-active': {
-      boxShadow: '0 0 0 6px rgba(25, 171, 181, 0.3), 0 1px 3px rgba(0, 0, 0, 0.3)',
-    },
   },
 });
-
 
 // File drop zone for center canvas when no file loaded
 const FileDropZone = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
@@ -987,7 +983,8 @@ interface AudioToolProps {
 export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [selectedEvidence, setSelectedEvidence] = useState<typeof audioEvidence[0] | null>(null);
   const [loadedAudio, setLoadedAudio] = useState<typeof audioEvidence[0] | null>(null);
-  const [videoRefVisible, setVideoRefVisible] = useState(true);
+  const [videoRefCollapsed, setVideoRefCollapsed] = useState(true); // collapsed by default, expands when video exists
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
   const [flags, setFlags] = useState<Flag[]>(mockFlags);
 
   // File drop zone state
@@ -1063,6 +1060,15 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       }
     }
   }, [loadedFileId]);
+
+  // Auto-expand video reference when video exists
+  useEffect(() => {
+    if (loadedAudio?.hasVideo) {
+      setVideoRefCollapsed(false);
+    } else {
+      setVideoRefCollapsed(true);
+    }
+  }, [loadedAudio?.hasVideo]);
 
   const handleDoubleClick = useCallback((item: typeof audioEvidence[0]) => {
     setLoadedAudio(item);
@@ -1295,60 +1301,184 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     console.log('Waveform selection:', startTime, '-', endTime, 'seconds');
   }, []);
 
-  // Right panel content - Video Reference (if applicable) + Flags
+  // Right panel content - Video Reference + Filters + Flags
   const inspectorContent = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      {/* Video Reference - only show if audio is from video */}
-      {loadedAudio?.hasVideo && (
-        <Box sx={{
-          height: 150,
-          flexShrink: 0,
-          borderBottom: '1px solid #252525',
-          display: 'flex',
-          flexDirection: 'column',
-        }}>
-          <Box sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '4px 12px',
-            backgroundColor: '#1e1e1e',
-          }}>
-            <Typography sx={{ fontSize: 9, color: '#666', textTransform: 'uppercase', fontWeight: 600 }}>
-              Video Reference
-            </Typography>
-            <IconButton
-              size="small"
-              onClick={() => setVideoRefVisible(!videoRefVisible)}
-              sx={{ padding: '2px', color: '#555' }}
-            >
-              {videoRefVisible ? <CloseIcon sx={{ fontSize: 12 }} /> : <VideocamIcon sx={{ fontSize: 12 }} />}
-            </IconButton>
+      {/* Video Reference - collapsible section (always show header) */}
+      <InspectorSection sx={{ flexShrink: 0 }}>
+        <InspectorSectionHeader onClick={() => setVideoRefCollapsed(!videoRefCollapsed)}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <InspectorSectionTitle>Video Reference</InspectorSectionTitle>
+            {loadedAudio?.hasVideo && (
+              <VideocamIcon sx={{ fontSize: 12, color: '#19abb5' }} />
+            )}
           </Box>
-          {videoRefVisible ? (
-            <>
-              <Box sx={{ flex: 1, backgroundColor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Typography sx={{ color: '#333', fontSize: 10 }}>Synced video</Typography>
-              </Box>
-              <Button
-                fullWidth
-                size="small"
-                onClick={() => navigateToTool('video', loadedAudio?.id)}
-                sx={{ fontSize: 9, color: '#19abb5', borderRadius: 0, py: 0.5, borderTop: '1px solid #252525' }}
-              >
-                Open in Video Tool
-              </Button>
-            </>
+          {videoRefCollapsed ? (
+            <ChevronRightIcon sx={{ fontSize: 16, color: '#666' }} />
           ) : (
-            <Box
-              sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backgroundColor: '#0d0d0d' }}
-              onClick={() => setVideoRefVisible(true)}
-            >
-              <Typography sx={{ color: '#444', fontSize: 10 }}>Click to show</Typography>
-            </Box>
+            <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} />
           )}
-        </Box>
-      )}
+        </InspectorSectionHeader>
+        {!videoRefCollapsed && (
+          <InspectorSectionContent sx={{ p: 0 }}>
+            {loadedAudio?.hasVideo ? (
+              <>
+                <Box sx={{
+                  height: 100,
+                  backgroundColor: '#000',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Typography sx={{ color: '#333', fontSize: 10 }}>Synced video preview</Typography>
+                </Box>
+                <Box sx={{ padding: '8px 12px' }}>
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    size="small"
+                    onClick={() => navigateToTool('video', loadedAudio?.id)}
+                    sx={{
+                      fontSize: 10,
+                      color: '#888',
+                      borderColor: '#333',
+                      py: 0.75,
+                      '&:hover': {
+                        borderColor: '#19abb5',
+                        color: '#19abb5',
+                        backgroundColor: 'rgba(25, 171, 181, 0.05)',
+                      },
+                    }}
+                  >
+                    Open in Video Tool
+                  </Button>
+                </Box>
+              </>
+            ) : (
+              <Box sx={{
+                padding: '16px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <Typography sx={{ color: '#444', fontSize: 10 }}>
+                  No video linked to this audio
+                </Typography>
+              </Box>
+            )}
+          </InspectorSectionContent>
+        )}
+      </InspectorSection>
+
+      {/* Filters - collapsible section */}
+      <InspectorSection sx={{ flexShrink: 0 }}>
+        <InspectorSectionHeader onClick={() => setFiltersCollapsed(!filtersCollapsed)}>
+          <InspectorSectionTitle>Filters</InspectorSectionTitle>
+          {filtersCollapsed ? (
+            <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} />
+          ) : (
+            <ExpandLessIcon sx={{ fontSize: 16, color: '#666' }} />
+          )}
+        </InspectorSectionHeader>
+        {!filtersCollapsed && (
+          <InspectorSectionContent>
+            {/* De-Noise */}
+            <FilterRow>
+              <FilterRowHeader>
+                <FilterRowLabel>De-Noise</FilterRowLabel>
+                <FilterRowValue>{formatFilterValue('deNoise', filters.deNoise)}</FilterRowValue>
+              </FilterRowHeader>
+              <InspectorSlider
+                value={filters.deNoise}
+                onChange={(_, v) => setFilters(prev => ({ ...prev, deNoise: v as number }))}
+                min={0}
+                max={100}
+                disabled={!loadedAudio}
+              />
+            </FilterRow>
+
+            {/* De-Hum */}
+            <FilterRow>
+              <FilterRowHeader>
+                <FilterRowLabel>De-Hum</FilterRowLabel>
+                <FilterRowValue>{formatFilterValue('deHum', filters.deHum)}</FilterRowValue>
+              </FilterRowHeader>
+              <InspectorSlider
+                value={filters.deHum}
+                onChange={(_, v) => setFilters(prev => ({ ...prev, deHum: v as number }))}
+                min={0}
+                max={100}
+                disabled={!loadedAudio}
+              />
+            </FilterRow>
+
+            {/* Low Cut */}
+            <FilterRow>
+              <FilterRowHeader>
+                <FilterRowLabel>Low Cut</FilterRowLabel>
+                <FilterRowValue>{formatFilterValue('lowCut', filters.lowCut)}</FilterRowValue>
+              </FilterRowHeader>
+              <InspectorSlider
+                value={filters.lowCut}
+                onChange={(_, v) => setFilters(prev => ({ ...prev, lowCut: v as number }))}
+                min={20}
+                max={500}
+                disabled={!loadedAudio}
+              />
+            </FilterRow>
+
+            {/* High Cut */}
+            <FilterRow>
+              <FilterRowHeader>
+                <FilterRowLabel>High Cut</FilterRowLabel>
+                <FilterRowValue>{formatFilterValue('highCut', filters.highCut)}</FilterRowValue>
+              </FilterRowHeader>
+              <InspectorSlider
+                value={filters.highCut}
+                onChange={(_, v) => setFilters(prev => ({ ...prev, highCut: v as number }))}
+                min={2000}
+                max={20000}
+                step={100}
+                disabled={!loadedAudio}
+              />
+            </FilterRow>
+
+            {/* Clarity */}
+            <FilterRow sx={{ mb: 1 }}>
+              <FilterRowHeader>
+                <FilterRowLabel>Clarity</FilterRowLabel>
+                <FilterRowValue>{formatFilterValue('clarity', filters.clarity)}</FilterRowValue>
+              </FilterRowHeader>
+              <InspectorSlider
+                value={filters.clarity}
+                onChange={(_, v) => setFilters(prev => ({ ...prev, clarity: v as number }))}
+                min={-12}
+                max={12}
+                disabled={!loadedAudio}
+              />
+            </FilterRow>
+
+            {/* Reset All Button */}
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                size="small"
+                onClick={resetAllFilters}
+                disabled={!loadedAudio}
+                sx={{
+                  fontSize: 10,
+                  color: '#666',
+                  textTransform: 'none',
+                  py: 0.25,
+                  px: 1,
+                  '&:hover': { color: '#19abb5' },
+                }}
+              >
+                Reset All
+              </Button>
+            </Box>
+          </InspectorSectionContent>
+        )}
+      </InspectorSection>
 
       {/* Flags - takes all remaining space */}
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -1447,98 +1577,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
           />
         </Box>
       </EQSection>
-
-      {/* Filter Bar - 5 filters evenly spaced */}
-      <FilterBar>
-        <FilterItem>
-          <FilterSliderHeader>
-            <FilterItemLabel>DE-NOISE</FilterItemLabel>
-            <FilterSliderValue>{formatFilterValue('deNoise', filters.deNoise)}</FilterSliderValue>
-          </FilterSliderHeader>
-          <MiniSlider
-            value={filters.deNoise}
-            onChange={(_, v) => setFilters(prev => ({ ...prev, deNoise: v as number }))}
-            min={0}
-            max={100}
-            disabled={!loadedAudio}
-          />
-        </FilterItem>
-
-        <FilterItem>
-          <FilterSliderHeader>
-            <FilterItemLabel>DE-HUM</FilterItemLabel>
-            <FilterSliderValue>{formatFilterValue('deHum', filters.deHum)}</FilterSliderValue>
-          </FilterSliderHeader>
-          <MiniSlider
-            value={filters.deHum}
-            onChange={(_, v) => setFilters(prev => ({ ...prev, deHum: v as number }))}
-            min={0}
-            max={100}
-            disabled={!loadedAudio}
-          />
-        </FilterItem>
-
-        <FilterItem>
-          <FilterSliderHeader>
-            <FilterItemLabel>LOW CUT</FilterItemLabel>
-            <FilterSliderValue>{formatFilterValue('lowCut', filters.lowCut)}</FilterSliderValue>
-          </FilterSliderHeader>
-          <MiniSlider
-            value={filters.lowCut}
-            onChange={(_, v) => setFilters(prev => ({ ...prev, lowCut: v as number }))}
-            min={20}
-            max={500}
-            disabled={!loadedAudio}
-          />
-        </FilterItem>
-
-        <FilterItem>
-          <FilterSliderHeader>
-            <FilterItemLabel>HIGH CUT</FilterItemLabel>
-            <FilterSliderValue>{formatFilterValue('highCut', filters.highCut)}</FilterSliderValue>
-          </FilterSliderHeader>
-          <MiniSlider
-            value={filters.highCut}
-            onChange={(_, v) => setFilters(prev => ({ ...prev, highCut: v as number }))}
-            min={2000}
-            max={20000}
-            step={100}
-            disabled={!loadedAudio}
-          />
-        </FilterItem>
-
-        <FilterItem>
-          <FilterSliderHeader>
-            <FilterItemLabel>CLARITY</FilterItemLabel>
-            <FilterSliderValue>{formatFilterValue('clarity', filters.clarity)}</FilterSliderValue>
-          </FilterSliderHeader>
-          <MiniSlider
-            value={filters.clarity}
-            onChange={(_, v) => setFilters(prev => ({ ...prev, clarity: v as number }))}
-            min={-12}
-            max={12}
-            disabled={!loadedAudio}
-          />
-        </FilterItem>
-
-        <Button
-          size="small"
-          onClick={resetAllFilters}
-          disabled={!loadedAudio}
-          sx={{
-            fontSize: 10,
-            color: '#666',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-            minWidth: 'auto',
-            px: 2,
-            alignSelf: 'center',
-            '&:hover': { color: '#19abb5' },
-          }}
-        >
-          Reset All
-        </Button>
-      </FilterBar>
 
       {/* Audio Transport - Professional Pro Tools-inspired design */}
       <AudioTransport disabled={!loadedAudio} />
