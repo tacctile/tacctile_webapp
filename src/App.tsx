@@ -429,7 +429,7 @@ const App: React.FC = () => {
           sx={{
             display: 'flex',
             flexDirection: 'column',
-            height: '100vh',
+            height: 'calc(100vh - 52px)',
             width: '100vw',
             bgcolor: 'background.default',
             overflow: 'hidden',
