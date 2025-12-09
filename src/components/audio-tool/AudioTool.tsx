@@ -121,73 +121,78 @@ const SectionTitle = styled(Typography)({
 });
 
 const FilterBar = styled(Box)({
-  height: 64,
+  height: 72,
   backgroundColor: '#1a1a1a',
   borderBottom: '1px solid #252525',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
   padding: '8px 16px',
-  gap: 16,
+  gap: 20,
 });
 
 const FilterItem = styled(Box)({
   display: 'flex',
   flexDirection: 'column',
-  gap: 4,
+  gap: 6,
   flex: 1,
-  maxWidth: 200,
+  maxWidth: 180,
+  padding: '0 8px',
+});
+
+const FilterSliderHeader = styled(Box)({
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
 });
 
 const FilterItemLabel = styled(Typography)({
-  fontSize: 9,
-  color: '#666',
+  fontSize: 10,
+  color: '#888',
   whiteSpace: 'nowrap',
   textTransform: 'uppercase',
-  fontWeight: 600,
+  fontWeight: 500,
+  letterSpacing: '0.5px',
+});
+
+const FilterSliderValue = styled(Typography)({
+  fontSize: 11,
+  color: '#fff',
+  fontFamily: '"JetBrains Mono", monospace',
 });
 
 const MiniSlider = styled(Slider)({
   color: '#19abb5',
-  height: 3,
-  '& .MuiSlider-thumb': {
-    width: 10,
-    height: 10,
-  },
+  height: 4,
+  padding: '8px 0',
   '& .MuiSlider-rail': {
     backgroundColor: '#333',
+    borderRadius: 2,
+    opacity: 1,
+  },
+  '& .MuiSlider-track': {
+    backgroundColor: '#19abb5',
+    borderRadius: 2,
+    border: 'none',
+  },
+  '& .MuiSlider-thumb': {
+    width: 14,
+    height: 14,
+    backgroundColor: '#fff',
+    border: 'none',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)',
+    '&:hover': {
+      boxShadow: '0 0 0 4px rgba(25, 171, 181, 0.2), 0 1px 3px rgba(0, 0, 0, 0.3)',
+    },
+    '&:focus, &.Mui-focusVisible': {
+      boxShadow: '0 0 0 4px rgba(25, 171, 181, 0.3), 0 1px 3px rgba(0, 0, 0, 0.3)',
+    },
+    '&.Mui-active': {
+      boxShadow: '0 0 0 6px rgba(25, 171, 181, 0.3), 0 1px 3px rgba(0, 0, 0, 0.3)',
+    },
   },
 });
 
-const FilterValue = styled(Typography)({
-  fontSize: 9,
-  color: '#888',
-  textAlign: 'center',
-  fontFamily: '"JetBrains Mono", monospace',
-});
-
-const FilterButton = styled(Button)({
-  fontSize: 9,
-  color: '#666',
-  borderColor: '#333',
-  padding: '4px 10px',
-  minWidth: 'auto',
-  '&:hover': {
-    borderColor: '#19abb5',
-    color: '#19abb5',
-  },
-});
-
-const FilterResetButton = styled(IconButton)({
-  padding: 2,
-  width: 16,
-  height: 16,
-  color: '#666',
-  '&:hover': {
-    color: '#19abb5',
-    backgroundColor: 'rgba(25, 171, 181, 0.1)',
-  },
-});
 
 // File drop zone for center canvas when no file loaded
 const FileDropZone = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
@@ -443,7 +448,7 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
           />
         </svg>
 
-        {/* Draggable nodes */}
+        {/* Draggable nodes (EQ dots) */}
         {values.map((value, i) => {
           const x = 5 + (i / (values.length - 1)) * 90;
           const y = dbToY(value);
@@ -457,18 +462,33 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
                 left: `${x}%`,
                 top: `${y}%`,
                 transform: 'translate(-50%, -50%)',
-                width: 14,
-                height: 14,
+                width: 12,
+                height: 12,
                 borderRadius: '50%',
-                backgroundColor: disabled ? '#333' : value === 0 ? '#19abb5' : '#4dd4df',
-                border: '2px solid #0a0a0a',
-                cursor: disabled ? 'default' : 'ns-resize',
+                backgroundColor: disabled ? '#333' : '#19abb5',
+                border: '2px solid rgba(255, 255, 255, 0.8)',
+                cursor: disabled ? 'default' : 'grab',
                 zIndex: draggingIndex === i ? 10 : 1,
-                transition: draggingIndex === i ? 'none' : 'top 0.05s ease-out',
-                boxShadow: value !== 0 ? '0 0 8px rgba(25, 171, 181, 0.5)' : 'none',
+                transition: draggingIndex === i ? 'none' : 'transform 0.15s, box-shadow 0.15s, top 0.05s ease-out',
+                boxShadow: 'none',
+                // Larger hit area via pseudo-element
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  width: 24,
+                  height: 24,
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  borderRadius: '50%',
+                },
                 '&:hover': {
-                  backgroundColor: disabled ? '#333' : '#6ee4ec',
-                  transform: 'translate(-50%, -50%) scale(1.15)',
+                  transform: disabled ? 'translate(-50%, -50%)' : 'translate(-50%, -50%) scale(1.2)',
+                  boxShadow: disabled ? 'none' : '0 0 8px rgba(25, 171, 181, 0.6)',
+                },
+                '&:active': {
+                  cursor: disabled ? 'default' : 'grabbing',
+                  boxShadow: disabled ? 'none' : '0 0 12px rgba(25, 171, 181, 0.8)',
                 },
               }}
             />
@@ -969,7 +989,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [loadedAudio, setLoadedAudio] = useState<typeof audioEvidence[0] | null>(null);
   const [videoRefVisible, setVideoRefVisible] = useState(true);
   const [flags, setFlags] = useState<Flag[]>(mockFlags);
-  const [hoveredFilter, setHoveredFilter] = useState<string | null>(null);
 
   // File drop zone state
   const [isFileDragOver, setIsFileDragOver] = useState(false);
@@ -1062,17 +1081,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     setEqValues([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
   }, []);
 
-  const resetFilter = useCallback((filterName: keyof typeof filters) => {
-    const defaults = {
-      deNoise: 0,
-      deHum: 0,
-      lowCut: 20,
-      highCut: 20000,
-      clarity: 0,
-    };
-    setFilters(prev => ({ ...prev, [filterName]: defaults[filterName] }));
-  }, []);
-
   const resetAllFilters = useCallback(() => {
     setFilters({ deNoise: 0, deHum: 0, lowCut: 20, highCut: 20000, clarity: 0 });
   }, []);
@@ -1091,17 +1099,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       default:
         return String(value);
     }
-  };
-
-  const isFilterAtDefault = (filterName: keyof typeof filters) => {
-    const defaults = {
-      deNoise: 0,
-      deHum: 0,
-      lowCut: 20,
-      highCut: 20000,
-      clarity: 0,
-    };
-    return filters[filterName] === defaults[filterName];
   };
 
   // ============================================================================
@@ -1453,18 +1450,11 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
 
       {/* Filter Bar - 5 filters evenly spaced */}
       <FilterBar>
-        <FilterItem
-          onMouseEnter={() => setHoveredFilter('deNoise')}
-          onMouseLeave={() => setHoveredFilter(null)}
-        >
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 16 }}>
-            <FilterItemLabel>De-noise</FilterItemLabel>
-            {hoveredFilter === 'deNoise' && !isFilterAtDefault('deNoise') && (
-              <FilterResetButton onClick={() => resetFilter('deNoise')} disabled={!loadedAudio}>
-                <CloseIcon sx={{ fontSize: 10 }} />
-              </FilterResetButton>
-            )}
-          </Box>
+        <FilterItem>
+          <FilterSliderHeader>
+            <FilterItemLabel>DE-NOISE</FilterItemLabel>
+            <FilterSliderValue>{formatFilterValue('deNoise', filters.deNoise)}</FilterSliderValue>
+          </FilterSliderHeader>
           <MiniSlider
             value={filters.deNoise}
             onChange={(_, v) => setFilters(prev => ({ ...prev, deNoise: v as number }))}
@@ -1472,21 +1462,13 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             max={100}
             disabled={!loadedAudio}
           />
-          <FilterValue>{formatFilterValue('deNoise', filters.deNoise)}</FilterValue>
         </FilterItem>
 
-        <FilterItem
-          onMouseEnter={() => setHoveredFilter('deHum')}
-          onMouseLeave={() => setHoveredFilter(null)}
-        >
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 16 }}>
-            <FilterItemLabel>De-hum</FilterItemLabel>
-            {hoveredFilter === 'deHum' && !isFilterAtDefault('deHum') && (
-              <FilterResetButton onClick={() => resetFilter('deHum')} disabled={!loadedAudio}>
-                <CloseIcon sx={{ fontSize: 10 }} />
-              </FilterResetButton>
-            )}
-          </Box>
+        <FilterItem>
+          <FilterSliderHeader>
+            <FilterItemLabel>DE-HUM</FilterItemLabel>
+            <FilterSliderValue>{formatFilterValue('deHum', filters.deHum)}</FilterSliderValue>
+          </FilterSliderHeader>
           <MiniSlider
             value={filters.deHum}
             onChange={(_, v) => setFilters(prev => ({ ...prev, deHum: v as number }))}
@@ -1494,21 +1476,13 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             max={100}
             disabled={!loadedAudio}
           />
-          <FilterValue>{formatFilterValue('deHum', filters.deHum)}</FilterValue>
         </FilterItem>
 
-        <FilterItem
-          onMouseEnter={() => setHoveredFilter('lowCut')}
-          onMouseLeave={() => setHoveredFilter(null)}
-        >
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 16 }}>
-            <FilterItemLabel>Low Cut</FilterItemLabel>
-            {hoveredFilter === 'lowCut' && !isFilterAtDefault('lowCut') && (
-              <FilterResetButton onClick={() => resetFilter('lowCut')} disabled={!loadedAudio}>
-                <CloseIcon sx={{ fontSize: 10 }} />
-              </FilterResetButton>
-            )}
-          </Box>
+        <FilterItem>
+          <FilterSliderHeader>
+            <FilterItemLabel>LOW CUT</FilterItemLabel>
+            <FilterSliderValue>{formatFilterValue('lowCut', filters.lowCut)}</FilterSliderValue>
+          </FilterSliderHeader>
           <MiniSlider
             value={filters.lowCut}
             onChange={(_, v) => setFilters(prev => ({ ...prev, lowCut: v as number }))}
@@ -1516,21 +1490,13 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             max={500}
             disabled={!loadedAudio}
           />
-          <FilterValue>{formatFilterValue('lowCut', filters.lowCut)}</FilterValue>
         </FilterItem>
 
-        <FilterItem
-          onMouseEnter={() => setHoveredFilter('highCut')}
-          onMouseLeave={() => setHoveredFilter(null)}
-        >
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 16 }}>
-            <FilterItemLabel>High Cut</FilterItemLabel>
-            {hoveredFilter === 'highCut' && !isFilterAtDefault('highCut') && (
-              <FilterResetButton onClick={() => resetFilter('highCut')} disabled={!loadedAudio}>
-                <CloseIcon sx={{ fontSize: 10 }} />
-              </FilterResetButton>
-            )}
-          </Box>
+        <FilterItem>
+          <FilterSliderHeader>
+            <FilterItemLabel>HIGH CUT</FilterItemLabel>
+            <FilterSliderValue>{formatFilterValue('highCut', filters.highCut)}</FilterSliderValue>
+          </FilterSliderHeader>
           <MiniSlider
             value={filters.highCut}
             onChange={(_, v) => setFilters(prev => ({ ...prev, highCut: v as number }))}
@@ -1539,21 +1505,13 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             step={100}
             disabled={!loadedAudio}
           />
-          <FilterValue>{formatFilterValue('highCut', filters.highCut)}</FilterValue>
         </FilterItem>
 
-        <FilterItem
-          onMouseEnter={() => setHoveredFilter('clarity')}
-          onMouseLeave={() => setHoveredFilter(null)}
-        >
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 16 }}>
-            <FilterItemLabel>Clarity</FilterItemLabel>
-            {hoveredFilter === 'clarity' && !isFilterAtDefault('clarity') && (
-              <FilterResetButton onClick={() => resetFilter('clarity')} disabled={!loadedAudio}>
-                <CloseIcon sx={{ fontSize: 10 }} />
-              </FilterResetButton>
-            )}
-          </Box>
+        <FilterItem>
+          <FilterSliderHeader>
+            <FilterItemLabel>CLARITY</FilterItemLabel>
+            <FilterSliderValue>{formatFilterValue('clarity', filters.clarity)}</FilterSliderValue>
+          </FilterSliderHeader>
           <MiniSlider
             value={filters.clarity}
             onChange={(_, v) => setFilters(prev => ({ ...prev, clarity: v as number }))}
@@ -1561,14 +1519,22 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             max={12}
             disabled={!loadedAudio}
           />
-          <FilterValue>{formatFilterValue('clarity', filters.clarity)}</FilterValue>
         </FilterItem>
 
         <Button
           size="small"
           onClick={resetAllFilters}
           disabled={!loadedAudio}
-          sx={{ fontSize: 9, color: '#555', alignSelf: 'center', '&:hover': { color: '#19abb5' } }}
+          sx={{
+            fontSize: 10,
+            color: '#666',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            minWidth: 'auto',
+            px: 2,
+            alignSelf: 'center',
+            '&:hover': { color: '#19abb5' },
+          }}
         >
           Reset All
         </Button>
