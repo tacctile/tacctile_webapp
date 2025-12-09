@@ -27,6 +27,7 @@ import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
 import { MetadataPanel, FlagsPanel, type Flag } from '@/components/common';
 import { ProfessionalWaveform } from './ProfessionalWaveform';
+import { ExpandVideoModal } from './ExpandVideoModal';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
 import { useNavigationStore } from '@/stores/useNavigationStore';
 import {
@@ -88,8 +89,8 @@ const TimeScale = styled(Box)({
 });
 
 const WaveformSection = styled(Box)({
-  flex: '1 1 35%',
-  minHeight: 140,
+  flex: '1 1 26%',
+  minHeight: 105,
   backgroundColor: '#0d0d0d',
   borderBottom: '1px solid #252525',
   display: 'flex',
@@ -1387,6 +1388,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [spectralToolsCollapsed, setSpectralToolsCollapsed] = useState(false);
   const [activeSpectralTool, setActiveSpectralTool] = useState<SpectralToolType>('selection');
   const [flags, setFlags] = useState<Flag[]>(mockFlags);
+  const [expandVideoModalOpen, setExpandVideoModalOpen] = useState(false);
 
   // File drop zone state
   const [isFileDragOver, setIsFileDragOver] = useState(false);
@@ -1753,7 +1755,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
                 }}>
                   <Typography sx={{ color: '#333', fontSize: 10 }}>Synced video preview</Typography>
                 </Box>
-                <Box sx={{ padding: '8px 12px' }}>
+                <Box sx={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 1 }}>
                   <Button
                     fullWidth
                     variant="outlined"
@@ -1772,6 +1774,25 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
                     }}
                   >
                     Open in Video Tool
+                  </Button>
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    size="small"
+                    onClick={() => setExpandVideoModalOpen(true)}
+                    sx={{
+                      fontSize: 10,
+                      color: '#888',
+                      borderColor: '#333',
+                      py: 0.75,
+                      '&:hover': {
+                        borderColor: '#19abb5',
+                        color: '#19abb5',
+                        backgroundColor: 'rgba(25, 171, 181, 0.05)',
+                      },
+                    }}
+                  >
+                    Expand Video
                   </Button>
                 </Box>
               </>
@@ -2200,6 +2221,30 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
           {toast.message}
         </Alert>
       </Snackbar>
+
+      {/* Expand Video Modal */}
+      <ExpandVideoModal
+        open={expandVideoModalOpen}
+        onClose={() => setExpandVideoModalOpen(false)}
+        fileName={loadedAudio?.fileName || 'Unknown File'}
+        duration={loadedAudio?.duration || 0}
+        flags={flags}
+        onFlagClick={(flag) => {
+          console.log('Jump to:', flag.timestamp);
+          setTimestamp(flag.timestamp);
+        }}
+        onFlagAdd={() => {
+          const newFlag: Flag = {
+            id: `f${Date.now()}`,
+            timestamp: timestamp,
+            label: 'New Flag',
+            note: '',
+            createdBy: 'User',
+            createdAt: Date.now(),
+          };
+          setFlags(prev => [...prev, newFlag].sort((a, b) => a.timestamp - b.timestamp));
+        }}
+      />
     </>
   );
 };
