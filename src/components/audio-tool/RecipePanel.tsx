@@ -461,7 +461,7 @@ const RecipePanel: React.FC<RecipePanelProps> = ({
             label="Tags (comma-separated)"
             fullWidth
             variant="outlined"
-            placeholder="evp, voice, cleanup"
+            placeholder="audio, voice, cleanup"
             value={recipeTags}
             onChange={(e) => setRecipeTags(e.target.value)}
           />

@@ -23,7 +23,7 @@ export const PRICING_PLANS: PricingPlan[] = [
   {
     tier: 'free',
     name: 'Free',
-    description: 'Perfect for getting started with paranormal investigations',
+    description: 'Perfect for getting started with evidence analysis',
     priceMonthly: 0,
     priceYearly: 0,
     stripePriceIdMonthly: null,

@@ -166,13 +166,6 @@ const SectionTitle = styled(Box)({
   gap: 8,
 });
 
-const EvidenceList = styled(Box)({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 2,
-  paddingBottom: 4,
-});
-
 const ImageGrid = styled(Box)({
   display: 'grid',
   gridTemplateColumns: 'repeat(2, 1fr)',
@@ -202,6 +195,22 @@ const ListItem = styled(Box)<{ selected?: boolean; borderColor: string }>(({ sel
     backgroundColor: selected ? 'rgba(25, 171, 181, 0.12)' : '#1e1e1e',
   },
 }));
+
+// EvidenceList with zebra striping applied via nth-child
+const EvidenceList = styled(Box)({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 2,
+  paddingBottom: 4,
+  // Zebra striping - even rows get subtle background
+  '& > *:nth-of-type(even)': {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+  },
+  // Ensure selected state overrides zebra striping
+  '& > *[data-selected="true"]': {
+    backgroundColor: 'rgba(25, 171, 181, 0.1)',
+  },
+});
 
 const GridItem = styled(Box)<{ selected?: boolean; hasFindings?: boolean }>(({ selected, hasFindings }) => ({
   position: 'relative',
@@ -402,6 +411,7 @@ export const EvidenceBank: React.FC<EvidenceBankProps> = ({
       key={item.id}
       ref={(el: HTMLDivElement | null) => { itemRefs.current[item.id] = el; }}
       selected={item.id === selectedId}
+      data-selected={item.id === selectedId ? 'true' : undefined}
       borderColor={TYPE_COLORS[item.type]}
       onClick={() => handleClick(item)}
       onDoubleClick={() => handleDoubleClick(item)}

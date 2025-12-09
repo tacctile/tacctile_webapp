@@ -204,15 +204,16 @@ const FileDropZone = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
   cursor: 'pointer',
 }));
 
-// Import button for left panel
+// Import button for left panel - full width
 const ImportButton = styled(Button)({
   fontSize: 9,
   color: '#888',
   backgroundColor: '#252525',
   border: '1px solid #333',
-  padding: '4px 8px',
+  padding: '6px 8px',
   textTransform: 'none',
-  minWidth: 'auto',
+  width: '100%',
+  justifyContent: 'center',
   '&:hover': {
     backgroundColor: '#333',
     borderColor: '#19abb5',
@@ -840,7 +841,7 @@ const AudioTransport: React.FC<AudioTransportProps> = ({ disabled = false }) => 
         </Tooltip>
 
         {/* Reverse Play */}
-        <Tooltip title="Reverse play (R) - for EVP analysis">
+        <Tooltip title="Reverse play (R) - for reverse audio analysis">
           <ReverseBtn $disabled={disabled} $active={isReversePlaying} onClick={() => !disabled && toggleReversePlayback()}>
             <ReversePlaySvg />
           </ReverseBtn>
@@ -1587,12 +1588,10 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       <WorkspaceLayout
         evidencePanel={
           <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            {/* Import button header */}
+            {/* Import button header - full width */}
             <Box sx={{
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-              padding: '4px 8px',
+              padding: '6px',
               borderBottom: '1px solid #252525',
               backgroundColor: '#1a1a1a',
             }}>

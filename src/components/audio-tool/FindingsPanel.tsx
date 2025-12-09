@@ -468,7 +468,7 @@ const FindingsPanel: React.FC<FindingsPanelProps> = ({
             variant="outlined"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g., Possible EVP - whisper"
+            placeholder="e.g., Audio anomaly - whisper"
             sx={{ mb: 2 }}
           />
           <TextField

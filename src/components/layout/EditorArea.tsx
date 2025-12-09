@@ -348,7 +348,7 @@ const EditorArea: React.FC<EditorAreaProps> = ({
               Welcome to Tacctile
             </Typography>
             <Typography variant="body2" sx={{ mb: 3 }}>
-              Professional Paranormal Investigation Platform
+              Professional Evidence Analysis Platform
             </Typography>
             <Typography variant="caption" display="block" sx={{ mb: 1 }}>
               • Select a tool from the activity bar to begin
