@@ -3,7 +3,6 @@ import { ThemeProvider, createTheme, keyframes } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
-import { TopHeaderBar } from '@/components/layout/TopHeaderBar';
 import { BottomBar } from '@/components/layout/BottomBar';
 import { IconRail } from '@/components/layout/IconRail';
 import { LayoutProvider } from '@/contexts/LayoutContext';
@@ -446,14 +445,6 @@ const App: React.FC = () => {
             paddingRight: 'env(safe-area-inset-right)',
           }}
         >
-          {/* Top Header Bar - Fixed, icons only with tooltips */}
-          <TopHeaderBar
-            selectedTool={selectedTool}
-            onToolSelect={handleToolSelect}
-            notificationCount={3}
-            userName="Nina Vance"
-          />
-
           {/* Main Content Area */}
           <Box sx={{
             display: 'flex',
