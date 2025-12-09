@@ -8,6 +8,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Tooltip } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { useNavigationStore, ToolType } from '@/stores/useNavigationStore';
+import { MultiViewLayoutPicker } from './MultiViewLayoutPicker';
 
 // Navigation tool configuration (same as TopHeaderBar)
 interface NavTool {
@@ -111,6 +112,7 @@ export const IconRail: React.FC = () => {
   const activeTool = useNavigationStore((state) => state.activeTool);
   const setActiveTool = useNavigationStore((state) => state.setActiveTool);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isMultiViewOpen, setIsMultiViewOpen] = useState(false);
 
   // Listen for fullscreen changes (including Escape key)
   useEffect(() => {
@@ -161,7 +163,7 @@ export const IconRail: React.FC = () => {
         ))}
       </IconsContainer>
 
-      {/* Bottom icons - Fullscreen and Settings */}
+      {/* Bottom icons - Fullscreen, Multi-View, and Settings */}
       <BottomContainer>
         {/* Fullscreen toggle */}
         <Tooltip
@@ -174,6 +176,23 @@ export const IconRail: React.FC = () => {
           >
             <MaterialSymbol
               icon={isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
+              size={24}
+            />
+          </IconButton>
+        </Tooltip>
+
+        {/* Multi-View toggle */}
+        <Tooltip
+          title="Multi-View"
+          placement="right"
+          arrow
+        >
+          <IconButton
+            active={isMultiViewOpen}
+            onClick={() => setIsMultiViewOpen(true)}
+          >
+            <MaterialSymbol
+              icon="grid_view"
               size={24}
             />
           </IconButton>
@@ -197,6 +216,12 @@ export const IconRail: React.FC = () => {
           </IconButton>
         </Tooltip>
       </BottomContainer>
+
+      {/* Multi-View Layout Picker Modal */}
+      <MultiViewLayoutPicker
+        open={isMultiViewOpen}
+        onClose={() => setIsMultiViewOpen(false)}
+      />
     </RailContainer>
   );
 };
