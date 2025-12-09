@@ -5,6 +5,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
 import { TopHeaderBar } from '@/components/layout/TopHeaderBar';
 import { BottomBar } from '@/components/layout/BottomBar';
+import { IconRail } from '@/components/layout/IconRail';
 import { LayoutProvider } from '@/contexts/LayoutContext';
 import { ErrorBoundary, LoadingSkeleton } from '@/components/common';
 import { useKeyboardShortcuts, createNavigationShortcuts, createViewShortcuts, createEditingShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -424,12 +425,16 @@ const App: React.FC = () => {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <LayoutProvider>
+        {/* Left Icon Rail - Fixed position navigation */}
+        <IconRail />
+
         <Box
           sx={{
             display: 'flex',
             flexDirection: 'column',
             height: 'calc(100vh - 52px)',
-            width: '100vw',
+            width: 'calc(100vw - 56px)',
+            marginLeft: '56px',
             bgcolor: 'background.default',
             overflow: 'hidden',
             // Prevent pull-to-refresh on mobile
