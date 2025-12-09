@@ -152,8 +152,9 @@ const CollapsedContent = styled(Box)({
   justifyContent: 'center',
   height: '100%',
   cursor: 'pointer',
+  transition: 'background-color 0.15s ease',
   '&:hover': {
-    backgroundColor: '#1e1e1e',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
 });
 

@@ -98,7 +98,12 @@ const CollapsedPanel = styled(Box)({
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  paddingTop: 6,
+  justifyContent: 'center',
+  cursor: 'pointer',
+  transition: 'background-color 0.15s ease',
+  '&:hover': {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
 });
 
 const CollapseButton = styled(IconButton)({
@@ -304,13 +309,16 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
         {/* Left Panel - Evidence Bank + Metadata */}
         {(evidencePanel || metadataPanel) && (
           evidenceCollapsed ? (
-            <CollapsedPanel sx={{ borderRight: '1px solid #252525' }}>
-              <Tooltip title="Show panel" placement="right">
-                <CollapseButton onClick={toggleEvidence} size="small">
+            <Tooltip title="Show panel" placement="right">
+              <CollapsedPanel
+                sx={{ borderRight: '1px solid #252525' }}
+                onClick={toggleEvidence}
+              >
+                <CollapseButton size="small" sx={{ pointerEvents: 'none' }}>
                   <ChevronRightIcon fontSize="small" />
                 </CollapseButton>
-              </Tooltip>
-            </CollapsedPanel>
+              </CollapsedPanel>
+            </Tooltip>
           ) : (
             <LeftPanel width={EVIDENCE_PANEL_WIDTH}>
               {/* Evidence Bank - flexible top section */}
@@ -380,13 +388,16 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
         {/* Right Panel - Inspector */}
         {inspectorPanel && (
           inspectorCollapsed ? (
-            <CollapsedPanel sx={{ borderLeft: '1px solid #2b2b2b' }}>
-              <Tooltip title={`Show ${inspectorTitle}`} placement="left">
-                <CollapseButton onClick={toggleInspector} size="small">
+            <Tooltip title={`Show ${inspectorTitle}`} placement="left">
+              <CollapsedPanel
+                sx={{ borderLeft: '1px solid #2b2b2b' }}
+                onClick={toggleInspector}
+              >
+                <CollapseButton size="small" sx={{ pointerEvents: 'none' }}>
                   <ChevronLeftIcon fontSize="small" />
                 </CollapseButton>
-              </Tooltip>
-            </CollapsedPanel>
+              </CollapsedPanel>
+            </Tooltip>
           ) : (
             <RightPanel width={INSPECTOR_PANEL_WIDTH}>
               <PanelHeader>
