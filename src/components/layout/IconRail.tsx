@@ -1,0 +1,164 @@
+/**
+ * IconRail Component
+ * Vertical navigation rail on the left edge of the viewport
+ * Contains all tool/navigation icons with tooltips
+ */
+
+import React from 'react';
+import { Box, Tooltip } from '@mui/material';
+import { styled } from '@mui/material/styles';
+import { useNavigationStore, ToolType } from '@/stores/useNavigationStore';
+
+// Navigation tool configuration (same as TopHeaderBar)
+interface NavTool {
+  id: ToolType;
+  icon: string;
+  label: string;
+  tooltip: string;
+}
+
+const NAV_TOOLS: NavTool[] = [
+  { id: 'home', icon: 'home', label: 'Home', tooltip: 'Home - Sessions & Storage' },
+  { id: 'session', icon: 'calendar_month', label: 'Session', tooltip: 'Session Timeline' },
+  { id: 'video', icon: 'movie', label: 'Video', tooltip: 'Video Analysis' },
+  { id: 'audio', icon: 'graphic_eq', label: 'Audio', tooltip: 'Audio Analysis' },
+  { id: 'images', icon: 'photo_library', label: 'Images', tooltip: 'Image Analysis' },
+  { id: 'streaming', icon: 'cell_tower', label: 'Streaming', tooltip: 'Live Streaming' },
+  { id: 'export', icon: 'download', label: 'Export', tooltip: 'Export Data' },
+  { id: 'notes', icon: 'sticky_note_2', label: 'Notes', tooltip: 'Case Notes' },
+  { id: 'team', icon: 'group', label: 'Team', tooltip: 'Team Collaboration' },
+];
+
+// Settings is separate - pushed to bottom
+const SETTINGS_TOOL: NavTool = {
+  id: 'settings',
+  icon: 'settings',
+  label: 'Settings',
+  tooltip: 'Settings',
+};
+
+// Material Symbol component for Google Material Symbols
+interface MaterialSymbolProps {
+  icon: string;
+  filled?: boolean;
+  size?: number;
+}
+
+const MaterialSymbol: React.FC<MaterialSymbolProps> = ({ icon, filled = false, size = 24 }) => (
+  <span
+    className="material-symbols-outlined"
+    style={{
+      fontSize: size,
+      fontVariationSettings: `'FILL' ${filled ? 1 : 0}, 'wght' 400, 'GRAD' 0, 'opsz' 24`,
+    }}
+  >
+    {icon}
+  </span>
+);
+
+// Styled components
+const RailContainer = styled(Box)({
+  position: 'fixed',
+  left: 0,
+  top: 0,
+  width: 56,
+  height: 'calc(100vh - 52px)',
+  backgroundColor: '#1a1a1a',
+  borderRight: '1px solid #2a2a2a',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  paddingTop: 12,
+  zIndex: 1000,
+});
+
+const IconsContainer = styled(Box)({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: 8,
+  width: '100%',
+});
+
+const SettingsContainer = styled(Box)({
+  marginTop: 'auto',
+  paddingBottom: 12,
+  width: '100%',
+  display: 'flex',
+  justifyContent: 'center',
+});
+
+const IconButton = styled(Box)<{ active?: boolean }>(({ active }) => ({
+  width: 40,
+  height: 40,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: 8,
+  cursor: 'pointer',
+  color: active ? '#19abb5' : '#888',
+  backgroundColor: active ? 'rgba(25, 171, 181, 0.15)' : 'transparent',
+  transition: 'all 0.15s ease',
+  '&:hover': {
+    backgroundColor: active ? 'rgba(25, 171, 181, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+    color: active ? '#19abb5' : '#fff',
+  },
+}));
+
+export const IconRail: React.FC = () => {
+  const activeTool = useNavigationStore((state) => state.activeTool);
+  const setActiveTool = useNavigationStore((state) => state.setActiveTool);
+
+  const handleToolClick = (toolId: ToolType) => {
+    setActiveTool(toolId);
+  };
+
+  return (
+    <RailContainer>
+      {/* Main navigation icons */}
+      <IconsContainer>
+        {NAV_TOOLS.map((tool) => (
+          <Tooltip
+            key={tool.id}
+            title={tool.tooltip}
+            placement="right"
+            arrow
+          >
+            <IconButton
+              active={activeTool === tool.id}
+              onClick={() => handleToolClick(tool.id)}
+            >
+              <MaterialSymbol
+                icon={tool.icon}
+                filled={activeTool === tool.id}
+                size={24}
+              />
+            </IconButton>
+          </Tooltip>
+        ))}
+      </IconsContainer>
+
+      {/* Settings icon pushed to bottom */}
+      <SettingsContainer>
+        <Tooltip
+          title={SETTINGS_TOOL.tooltip}
+          placement="right"
+          arrow
+        >
+          <IconButton
+            active={activeTool === SETTINGS_TOOL.id}
+            onClick={() => handleToolClick(SETTINGS_TOOL.id)}
+          >
+            <MaterialSymbol
+              icon={SETTINGS_TOOL.icon}
+              filled={activeTool === SETTINGS_TOOL.id}
+              size={24}
+            />
+          </IconButton>
+        </Tooltip>
+      </SettingsContainer>
+    </RailContainer>
+  );
+};
+
+export default IconRail;
