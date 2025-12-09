@@ -395,7 +395,7 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
         </Tooltip>
 
         {/* Reverse Play */}
-        <Tooltip title="Reverse play (R) - for EVP analysis">
+        <Tooltip title="Reverse play (R) - for reverse audio analysis">
           <ReversePlayButton
             onClick={toggleReversePlayback}
             $active={isReversePlaying}

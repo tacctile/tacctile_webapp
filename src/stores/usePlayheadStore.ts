@@ -13,7 +13,7 @@ interface PlayheadState {
 
   // Playback state
   isPlaying: boolean;
-  isReversePlaying: boolean; // For EVP analysis - play backwards
+  isReversePlaying: boolean; // Play backwards for reverse audio analysis
   playbackSpeed: number; // 0.25, 0.5, 1, 1.5, 2
 
   // Session time boundaries (set when session loads)

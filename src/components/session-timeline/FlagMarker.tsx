@@ -97,12 +97,12 @@ const FLAG_TYPE_CONFIG: Record<FlagType, FlagTypeConfig> = {
   evp: {
     icon: <RecordVoiceOverIcon />,
     color: '#ec4899',
-    label: 'EVP',
+    label: 'Voice',
   },
   apparition: {
     icon: <VisibilityIcon />,
     color: '#8b5cf6',
-    label: 'Apparition',
+    label: 'Visual',
   },
   emf_spike: {
     icon: <BoltIcon />,
@@ -132,7 +132,7 @@ const FLAG_TYPE_CONFIG: Record<FlagType, FlagTypeConfig> = {
   shadow_figure: {
     icon: <PersonIcon />,
     color: '#6b7280',
-    label: 'Shadow Figure',
+    label: 'Figure',
   },
   equipment_malfunction: {
     icon: <BuildIcon />,

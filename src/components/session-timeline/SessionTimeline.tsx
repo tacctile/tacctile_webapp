@@ -61,6 +61,7 @@ import FastForwardIcon from '@mui/icons-material/FastForward';
 import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
+import FileUploadIcon from '@mui/icons-material/FileUpload';
 
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
@@ -277,7 +278,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
       flagCount: 4,
       hasEdits: true,
       flags: [
-        { id: 'f8', timestamp: 482, absoluteTimestamp: sessionStart + 5 * 60 * 1000 + 482 * 1000, title: 'Class A EVP - Voice', note: 'Clear voice saying "help me"', confidence: 'high', userId: 'sarah', userDisplayName: 'Sarah', color: '#ff6b6b' },
+        { id: 'f8', timestamp: 482, absoluteTimestamp: sessionStart + 5 * 60 * 1000 + 482 * 1000, title: 'Voice anomaly - Clear voice', note: 'Clear voice detected in recording', confidence: 'high', userId: 'sarah', userDisplayName: 'Sarah', color: '#ff6b6b' },
         { id: 'f9', timestamp: 1256, absoluteTimestamp: sessionStart + 5 * 60 * 1000 + 1256 * 1000, title: 'Whisper detected', confidence: 'medium', userId: 'sarah', userDisplayName: 'Sarah', color: '#ff6b6b' },
         { id: 'f10', timestamp: 1890, absoluteTimestamp: sessionStart + 5 * 60 * 1000 + 1890 * 1000, title: 'Unexplained knock', confidence: 'medium', userId: 'mike', userDisplayName: 'Mike', color: '#4ecdc4' },
         { id: 'f11', timestamp: 2400, absoluteTimestamp: sessionStart + 5 * 60 * 1000 + 2400 * 1000, title: 'Breathing sound', note: 'Heavy breathing, no one present', confidence: 'high', userId: 'jen', userDisplayName: 'Jen', color: '#a855f7' },
@@ -288,12 +289,12 @@ const generateDummyData = (): TimelineMediaItem[] => {
       id: 'a2',
       evidenceId: 'ev-a2',
       type: 'audio',
-      fileName: 'mike_spirit_box_session.wav',
+      fileName: 'mike_radio_sweep_session.wav',
       capturedAt: sessionStart + 60 * 60 * 1000, // 1 hour in
       duration: 900, // 15 min
       endAt: sessionStart + 60 * 60 * 1000 + 900 * 1000,
       user: 'Mike',
-      deviceInfo: 'SB7 Spirit Box',
+      deviceInfo: 'Radio Sweep Device',
       format: 'WAV / 48kHz',
       gps: null,
       flagCount: 2,
@@ -782,7 +783,7 @@ const FileDropOverlay = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
   zIndex: isActive ? 50 : -1,
 }));
 
-// Import button styled component
+// Import button styled component (for toolbar)
 const ImportButton = styled(Button)({
   fontSize: 10,
   color: '#888',
@@ -791,6 +792,26 @@ const ImportButton = styled(Button)({
   padding: '4px 10px',
   textTransform: 'none',
   marginLeft: 'auto',
+  '&:hover': {
+    backgroundColor: '#333',
+    borderColor: '#19abb5',
+    color: '#19abb5',
+  },
+  '& .MuiButton-startIcon': {
+    marginRight: 4,
+  },
+});
+
+// Import button for left panel - full width
+const PanelImportButton = styled(Button)({
+  fontSize: 9,
+  color: '#888',
+  backgroundColor: '#252525',
+  border: '1px solid #333',
+  padding: '6px 8px',
+  textTransform: 'none',
+  width: '100%',
+  justifyContent: 'center',
   '&:hover': {
     backgroundColor: '#333',
     borderColor: '#19abb5',
@@ -3003,28 +3024,46 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     <>
       <WorkspaceLayout
         evidencePanel={
-          <EvidenceBank
-            items={evidenceItems}
-            selectedId={activeFileId}
-            onSelect={(item) => {
-              // When clicking an item in Evidence Bank, also select it on timeline
-              setActiveFileId(item.id);
-              setSelectedEvidence(item);
-            }}
-            onDoubleClick={(item) => {
-              const toolMap: Record<string, 'video' | 'audio' | 'images'> = {
-                video: 'video',
-                audio: 'audio',
-                image: 'images',
-              };
-              const tool = toolMap[item.type];
-              if (tool) {
-                navigateToTool(tool, item.id);
-              }
-            }}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          />
+          <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            {/* Import button header - full width */}
+            <Box sx={{
+              display: 'flex',
+              padding: '6px',
+              borderBottom: '1px solid #252525',
+              backgroundColor: '#1a1a1a',
+            }}>
+              <PanelImportButton
+                startIcon={<FileUploadIcon sx={{ fontSize: 12 }} />}
+                onClick={handleImportButtonClick}
+              >
+                Import
+              </PanelImportButton>
+            </Box>
+            <Box sx={{ flex: 1, minHeight: 0 }}>
+              <EvidenceBank
+                items={evidenceItems}
+                selectedId={activeFileId}
+                onSelect={(item) => {
+                  // When clicking an item in Evidence Bank, also select it on timeline
+                  setActiveFileId(item.id);
+                  setSelectedEvidence(item);
+                }}
+                onDoubleClick={(item) => {
+                  const toolMap: Record<string, 'video' | 'audio' | 'images'> = {
+                    video: 'video',
+                    audio: 'audio',
+                    image: 'images',
+                  };
+                  const tool = toolMap[item.type];
+                  if (tool) {
+                    navigateToTool(tool, item.id);
+                  }
+                }}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+              />
+            </Box>
+          </Box>
         }
         metadataPanel={
           <MetadataPanel

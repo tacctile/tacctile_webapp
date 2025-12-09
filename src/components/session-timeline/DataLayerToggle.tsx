@@ -133,13 +133,13 @@ const getLayerIcon = (layerId: DataLayerType): React.ReactNode => {
       return <MaterialSymbol icon="mic" />;
     case 'photo':
       return <MaterialSymbol icon="photo_camera" />;
-    case 'emf':
+    case 'sensor':
       return <MaterialSymbol icon="sensors" />;
     case 'thermal':
       return <MaterialSymbol icon="thermostat" />;
     case 'motion':
       return <MaterialSymbol icon="motion_sensor_active" />;
-    case 'spirit_box':
+    case 'radio_sweep':
       return <MaterialSymbol icon="radio" />;
     case 'flags':
       return <MaterialSymbol icon="flag" />;

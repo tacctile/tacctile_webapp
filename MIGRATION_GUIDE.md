@@ -31,7 +31,7 @@ Components that use Electron APIs need updates:
 **Before (Electron):**
 ```typescript
 // Using Electron IPC
-const result = await window.ghostHunterAPI.investigation.load(id);
+const result = await window.desktopAPI.investigation.load(id);
 ```
 
 **After (Browser):**
@@ -321,9 +321,9 @@ All IPC calls must be replaced with direct service calls.
 **Before:**
 ```typescript
 // In renderer
-const result = await window.ghostHunterAPI.investigation.load(id);
-const files = await window.ghostHunterAPI.file.open();
-await window.ghostHunterAPI.settings.set('key', value);
+const result = await window.desktopAPI.investigation.load(id);
+const files = await window.desktopAPI.file.open();
+await window.desktopAPI.settings.set('key', value);
 ```
 
 **After:**
