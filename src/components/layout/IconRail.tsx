@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Tooltip } from '@mui/material';
+import { Box, Tooltip, Snackbar, Alert } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { useNavigationStore, ToolType } from '@/stores/useNavigationStore';
 import { MultiViewLayoutPicker } from './MultiViewLayoutPicker';
@@ -113,6 +113,7 @@ export const IconRail: React.FC = () => {
   const setActiveTool = useNavigationStore((state) => state.setActiveTool);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMultiViewOpen, setIsMultiViewOpen] = useState(false);
+  const [liveSyncToast, setLiveSyncToast] = useState(false);
 
   // Listen for fullscreen changes (including Escape key)
   useEffect(() => {
@@ -161,6 +162,22 @@ export const IconRail: React.FC = () => {
             </IconButton>
           </Tooltip>
         ))}
+
+        {/* Live Sync - placeholder for collaboration feature */}
+        <Tooltip
+          title="Live Sync (Coming Soon)"
+          placement="right"
+          arrow
+        >
+          <IconButton
+            onClick={() => setLiveSyncToast(true)}
+          >
+            <MaterialSymbol
+              icon="wifi_tethering"
+              size={24}
+            />
+          </IconButton>
+        </Tooltip>
       </IconsContainer>
 
       {/* Bottom icons - Fullscreen, Multi-View, and Settings */}
@@ -222,6 +239,28 @@ export const IconRail: React.FC = () => {
         open={isMultiViewOpen}
         onClose={() => setIsMultiViewOpen(false)}
       />
+
+      {/* Live Sync coming soon toast */}
+      <Snackbar
+        open={liveSyncToast}
+        autoHideDuration={4000}
+        onClose={() => setLiveSyncToast(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setLiveSyncToast(false)}
+          severity="info"
+          sx={{
+            backgroundColor: '#1e3a3c',
+            color: '#fff',
+            '& .MuiAlert-icon': {
+              color: '#19abb5',
+            },
+          }}
+        >
+          Live Sync is coming soon! Real-time collaboration and follow mode will be available in a future update.
+        </Alert>
+      </Snackbar>
     </RailContainer>
   );
 };
