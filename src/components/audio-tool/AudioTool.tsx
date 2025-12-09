@@ -13,14 +13,6 @@ import { styled } from '@mui/material/styles';
 import MicIcon from '@mui/icons-material/Mic';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import CloseIcon from '@mui/icons-material/Close';
-import ReplayIcon from '@mui/icons-material/Replay';
-import LoopIcon from '@mui/icons-material/Loop';
-import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
-import SkipNextIcon from '@mui/icons-material/SkipNext';
-import FastRewindIcon from '@mui/icons-material/FastRewind';
-import FastForwardIcon from '@mui/icons-material/FastForward';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 
 import { WorkspaceLayout } from '@/components/layout';
@@ -532,6 +524,371 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
 };
 
 // ============================================================================
+// AUDIO TRANSPORT COMPONENT (Pro Tools-inspired design)
+// ============================================================================
+
+const AudioTransportContainer = styled(Box)({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  height: 52,
+  padding: '0 16px',
+  backgroundColor: '#161616',
+  borderTop: '1px solid #2a2a2a',
+  position: 'relative',
+});
+
+const TransportSection = styled(Box)({
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+});
+
+const TransportCenter = styled(Box)({
+  display: 'flex',
+  alignItems: 'center',
+  gap: 4,
+  position: 'absolute',
+  left: '50%',
+  transform: 'translateX(-50%)',
+});
+
+const TimecodeDisplay = styled('div')({
+  fontFamily: '"JetBrains Mono", "Roboto Mono", "Consolas", monospace',
+  fontSize: '15px',
+  fontWeight: 500,
+  color: '#e0e0e0',
+  letterSpacing: '-0.3px',
+  minWidth: 80,
+  userSelect: 'none',
+});
+
+// SVG Icons for transport
+const SkipStartSvg = () => (
+  <svg viewBox="0 0 24 24" style={{ width: 20, height: 20, fill: 'currentColor' }}>
+    <path d="M6 6h2v12H6V6zm3.5 6 8.5 6V6l-8.5 6z" />
+  </svg>
+);
+
+const StepBackSvg = () => (
+  <svg viewBox="0 0 24 24" style={{ width: 20, height: 20, fill: 'currentColor' }}>
+    <path d="M11 18V6l-8.5 6 8.5 6zm.5-6 8.5 6V6l-8.5 6z" />
+  </svg>
+);
+
+const ReversePlaySvg = () => (
+  <svg viewBox="0 0 24 24" style={{ width: 20, height: 20, fill: 'currentColor' }}>
+    <path d="M19 12 8 5v14l11-7z" transform="rotate(180 12 12)" />
+  </svg>
+);
+
+const PlaySvg = () => (
+  <svg viewBox="0 0 24 24" style={{ width: 22, height: 22, fill: 'currentColor' }}>
+    <path d="M8 5v14l11-7L8 5z" />
+  </svg>
+);
+
+const PauseSvg = () => (
+  <svg viewBox="0 0 24 24" style={{ width: 22, height: 22, fill: 'currentColor' }}>
+    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+  </svg>
+);
+
+const StepForwardSvg = () => (
+  <svg viewBox="0 0 24 24" style={{ width: 20, height: 20, fill: 'currentColor' }}>
+    <path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z" />
+  </svg>
+);
+
+const SkipEndSvg = () => (
+  <svg viewBox="0 0 24 24" style={{ width: 20, height: 20, fill: 'currentColor' }}>
+    <path d="M6 18l8.5-6L6 6v12zm10-12v12h2V6h-2z" />
+  </svg>
+);
+
+const LoopSvg = () => (
+  <svg viewBox="0 0 24 24" style={{ width: 18, height: 18, fill: 'currentColor' }}>
+    <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" />
+  </svg>
+);
+
+const ChevronDownSvg = () => (
+  <svg viewBox="0 0 24 24" style={{ width: 12, height: 12, fill: 'currentColor', opacity: 0.7 }}>
+    <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z" />
+  </svg>
+);
+
+// Format timestamp to HH:MM:SS
+const formatTimecode = (ms: number): string => {
+  const totalSeconds = Math.floor(Math.max(0, ms) / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+};
+
+interface AudioTransportProps {
+  disabled?: boolean;
+}
+
+const AudioTransport: React.FC<AudioTransportProps> = ({ disabled = false }) => {
+  const timestamp = usePlayheadStore((state) => state.timestamp);
+  const isPlaying = usePlayheadStore((state) => state.isPlaying);
+  const isReversePlaying = usePlayheadStore((state) => state.isReversePlaying);
+  const playbackSpeed = usePlayheadStore((state) => state.playbackSpeed);
+  const togglePlayback = usePlayheadStore((state) => state.togglePlayback);
+  const toggleReversePlayback = usePlayheadStore((state) => state.toggleReversePlayback);
+  const setPlaybackSpeed = usePlayheadStore((state) => state.setPlaybackSpeed);
+  const stepForward = usePlayheadStore((state) => state.stepForward);
+  const stepBackward = usePlayheadStore((state) => state.stepBackward);
+  const jumpToStart = usePlayheadStore((state) => state.jumpToStart);
+  const jumpToEnd = usePlayheadStore((state) => state.jumpToEnd);
+
+  const [loopEnabled, setLoopEnabled] = useState(false);
+  const [speedAnchorEl, setSpeedAnchorEl] = useState<HTMLElement | null>(null);
+  const speedMenuOpen = Boolean(speedAnchorEl);
+
+  const speeds = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
+
+  // Base button styles
+  const buttonBase = {
+    width: 36,
+    height: 36,
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'transparent',
+    border: 'none',
+    cursor: disabled ? 'default' : 'pointer',
+    transition: 'all 0.15s ease',
+    color: disabled ? '#444' : '#888',
+    opacity: disabled ? 0.5 : 1,
+    '&:hover': disabled ? {} : {
+      background: 'rgba(255, 255, 255, 0.1)',
+      color: '#fff',
+    },
+  };
+
+  // Play button (hero)
+  const playButtonStyle = {
+    width: 44,
+    height: 44,
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: disabled ? '#333' : '#19abb5',
+    border: 'none',
+    cursor: disabled ? 'default' : 'pointer',
+    transition: 'all 0.15s ease',
+    color: '#fff',
+    boxShadow: disabled ? 'none' : '0 2px 8px rgba(25, 171, 181, 0.3)',
+    opacity: disabled ? 0.5 : 1,
+    '&:hover': disabled ? {} : {
+      background: '#1bc4d0',
+      boxShadow: '0 4px 12px rgba(25, 171, 181, 0.4)',
+    },
+    '&:active': disabled ? {} : {
+      transform: 'scale(0.95)',
+    },
+    '& svg': {
+      marginLeft: isPlaying ? 0 : 2,
+    },
+  };
+
+  // Reverse button
+  const reverseButtonStyle = {
+    ...buttonBase,
+    background: isReversePlaying && !disabled ? 'rgba(25, 171, 181, 0.2)' : 'transparent',
+    border: isReversePlaying && !disabled ? '1px solid #19abb5' : 'none',
+    color: isReversePlaying && !disabled ? '#19abb5' : (disabled ? '#444' : '#888'),
+  };
+
+  // Loop button
+  const loopButtonStyle = {
+    width: 32,
+    height: 32,
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'transparent',
+    border: 'none',
+    cursor: disabled ? 'default' : 'pointer',
+    transition: 'all 0.15s ease',
+    color: loopEnabled && !disabled ? '#19abb5' : (disabled ? '#444' : '#888'),
+    opacity: disabled ? 0.5 : 1,
+    '&:hover': disabled ? {} : {
+      background: 'rgba(255, 255, 255, 0.1)',
+    },
+  };
+
+  // Speed button
+  const speedButtonStyle = {
+    height: 28,
+    padding: '0 10px',
+    borderRadius: 4,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    background: '#1e1e1e',
+    border: '1px solid #303030',
+    cursor: disabled ? 'default' : 'pointer',
+    transition: 'all 0.15s ease',
+    color: disabled ? '#555' : '#ccc',
+    fontFamily: '"Inter", sans-serif',
+    fontSize: '12px',
+    fontWeight: 500,
+    opacity: disabled ? 0.5 : 1,
+    '&:hover': disabled ? {} : {
+      borderColor: '#19abb5',
+      color: '#fff',
+    },
+  };
+
+  return (
+    <AudioTransportContainer>
+      {/* Left: Timecode */}
+      <TransportSection>
+        <Tooltip title="Playback position">
+          <TimecodeDisplay style={{ color: disabled ? '#555' : '#e0e0e0' }}>
+            {disabled ? '--:--:--' : formatTimecode(timestamp)}
+          </TimecodeDisplay>
+        </Tooltip>
+      </TransportSection>
+
+      {/* Center: Transport Controls */}
+      <TransportCenter>
+        <Tooltip title="Jump to start (Home)">
+          <Box component="button" sx={buttonBase} onClick={jumpToStart} disabled={disabled}>
+            <SkipStartSvg />
+          </Box>
+        </Tooltip>
+
+        <Tooltip title="Step back 5s">
+          <Box component="button" sx={buttonBase} onClick={() => stepBackward(5000)} disabled={disabled}>
+            <StepBackSvg />
+          </Box>
+        </Tooltip>
+
+        <Tooltip title="Reverse play (R) - for EVP analysis">
+          <Box component="button" sx={reverseButtonStyle} onClick={toggleReversePlayback} disabled={disabled}>
+            <ReversePlaySvg />
+          </Box>
+        </Tooltip>
+
+        <Tooltip title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}>
+          <Box component="button" sx={playButtonStyle} onClick={togglePlayback} disabled={disabled}>
+            {isPlaying ? <PauseSvg /> : <PlaySvg />}
+          </Box>
+        </Tooltip>
+
+        <Tooltip title="Step forward 5s">
+          <Box component="button" sx={buttonBase} onClick={() => stepForward(5000)} disabled={disabled}>
+            <StepForwardSvg />
+          </Box>
+        </Tooltip>
+
+        <Tooltip title="Jump to end (End)">
+          <Box component="button" sx={buttonBase} onClick={jumpToEnd} disabled={disabled}>
+            <SkipEndSvg />
+          </Box>
+        </Tooltip>
+      </TransportCenter>
+
+      {/* Right: Loop + Speed */}
+      <TransportSection>
+        <Tooltip title={loopEnabled ? 'Loop enabled (L)' : 'Enable loop (L)'}>
+          <Box
+            component="button"
+            sx={loopButtonStyle}
+            onClick={() => !disabled && setLoopEnabled(!loopEnabled)}
+            disabled={disabled}
+          >
+            <LoopSvg />
+          </Box>
+        </Tooltip>
+
+        <Tooltip title="Playback speed">
+          <Box
+            component="button"
+            sx={speedButtonStyle}
+            onClick={(e) => !disabled && setSpeedAnchorEl(e.currentTarget as HTMLElement)}
+            disabled={disabled}
+          >
+            {playbackSpeed}x
+            <ChevronDownSvg />
+          </Box>
+        </Tooltip>
+
+        {/* Speed Menu */}
+        <Box
+          component="div"
+          sx={{
+            position: 'fixed',
+            display: speedMenuOpen ? 'block' : 'none',
+            backgroundColor: '#1e1e1e',
+            border: '1px solid #303030',
+            borderRadius: 1,
+            minWidth: 80,
+            zIndex: 9999,
+            top: speedAnchorEl ? speedAnchorEl.getBoundingClientRect().top - (speeds.length * 30) - 8 : 0,
+            left: speedAnchorEl ? speedAnchorEl.getBoundingClientRect().left : 0,
+          }}
+        >
+          {speeds.map((speed) => (
+            <Box
+              key={speed}
+              component="button"
+              onClick={() => {
+                setPlaybackSpeed(speed);
+                setSpeedAnchorEl(null);
+              }}
+              sx={{
+                display: 'block',
+                width: '100%',
+                padding: '6px 12px',
+                background: playbackSpeed === speed ? 'rgba(25, 171, 181, 0.1)' : 'transparent',
+                border: 'none',
+                color: playbackSpeed === speed ? '#19abb5' : '#ccc',
+                fontFamily: '"Inter", sans-serif',
+                fontSize: '12px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                textAlign: 'left',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  color: '#fff',
+                },
+              }}
+            >
+              {speed}x
+            </Box>
+          ))}
+        </Box>
+
+        {/* Click-away listener for speed menu */}
+        {speedMenuOpen && (
+          <Box
+            sx={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 9998,
+            }}
+            onClick={() => setSpeedAnchorEl(null)}
+          />
+        )}
+      </TransportSection>
+    </AudioTransportContainer>
+  );
+};
+
+// ============================================================================
 // MOCK DATA
 // ============================================================================
 
@@ -565,8 +922,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [loadedAudio, setLoadedAudio] = useState<typeof audioEvidence[0] | null>(null);
   const [videoRefVisible, setVideoRefVisible] = useState(true);
   const [flags, setFlags] = useState<Flag[]>(mockFlags);
-  const [reverseEnabled, setReverseEnabled] = useState(false);
-  const [loopEnabled, setLoopEnabled] = useState(false);
   const [hoveredFilter, setHoveredFilter] = useState<string | null>(null);
 
   // File drop zone state
@@ -1168,102 +1523,8 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         </Button>
       </FilterBar>
 
-      {/* Audio Transport - centered with Rev/Loop toggle buttons */}
-      <Box sx={{
-        height: 96,
-        backgroundColor: '#161616',
-        borderTop: '1px solid #252525',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 4,
-        px: 3,
-      }}>
-        {/* Timecode */}
-        <Typography sx={{
-          fontSize: 24,
-          color: '#19abb5',
-          fontFamily: '"JetBrains Mono", monospace',
-          minWidth: 160,
-        }}>
-          {loadedAudio ? '00:00:00' : '--:--:--'}
-        </Typography>
-
-        {/* Playback controls */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <IconButton disabled={!loadedAudio} sx={{ color: '#888', p: 1.5 }}>
-            <SkipPreviousIcon sx={{ fontSize: 40 }} />
-          </IconButton>
-          <IconButton disabled={!loadedAudio} sx={{ color: '#888', p: 1.5 }}>
-            <FastRewindIcon sx={{ fontSize: 40 }} />
-          </IconButton>
-          <IconButton
-            disabled={!loadedAudio}
-            sx={{
-              color: '#19abb5',
-              backgroundColor: 'rgba(25, 171, 181, 0.15)',
-              mx: 1.5,
-              p: 2,
-              border: '2px solid rgba(25, 171, 181, 0.4)',
-              '&:hover': {
-                backgroundColor: 'rgba(25, 171, 181, 0.25)',
-                border: '2px solid rgba(25, 171, 181, 0.6)',
-              }
-            }}
-          >
-            <PlayArrowIcon sx={{ fontSize: 56 }} />
-          </IconButton>
-          <IconButton disabled={!loadedAudio} sx={{ color: '#888', p: 1.5 }}>
-            <FastForwardIcon sx={{ fontSize: 40 }} />
-          </IconButton>
-          <IconButton disabled={!loadedAudio} sx={{ color: '#888', p: 1.5 }}>
-            <SkipNextIcon sx={{ fontSize: 40 }} />
-          </IconButton>
-
-          {/* Reverse toggle button */}
-          <IconButton
-            disabled={!loadedAudio}
-            onClick={() => setReverseEnabled(!reverseEnabled)}
-            sx={{
-              color: reverseEnabled ? '#19abb5' : '#666',
-              backgroundColor: reverseEnabled ? 'rgba(25, 171, 181, 0.15)' : 'transparent',
-              border: '2px solid',
-              borderColor: reverseEnabled ? '#19abb5' : '#333',
-              ml: 2,
-              p: 1.5,
-              '&:hover': {
-                backgroundColor: reverseEnabled ? 'rgba(25, 171, 181, 0.25)' : 'rgba(25, 171, 181, 0.1)',
-                borderColor: '#19abb5',
-              }
-            }}
-          >
-            <Tooltip title="Reverse">
-              <ReplayIcon sx={{ fontSize: 36 }} />
-            </Tooltip>
-          </IconButton>
-
-          {/* Loop toggle button */}
-          <IconButton
-            disabled={!loadedAudio}
-            onClick={() => setLoopEnabled(!loopEnabled)}
-            sx={{
-              color: loopEnabled ? '#19abb5' : '#666',
-              backgroundColor: loopEnabled ? 'rgba(25, 171, 181, 0.15)' : 'transparent',
-              border: '2px solid',
-              borderColor: loopEnabled ? '#19abb5' : '#333',
-              p: 1.5,
-              '&:hover': {
-                backgroundColor: loopEnabled ? 'rgba(25, 171, 181, 0.25)' : 'rgba(25, 171, 181, 0.1)',
-                borderColor: '#19abb5',
-              }
-            }}
-          >
-            <Tooltip title="Loop">
-              <LoopIcon sx={{ fontSize: 36 }} />
-            </Tooltip>
-          </IconButton>
-        </Box>
-      </Box>
+      {/* Audio Transport - Professional Pro Tools-inspired design */}
+      <AudioTransport disabled={!loadedAudio} />
     </MainContainer>
   );
 
