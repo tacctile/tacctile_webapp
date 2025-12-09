@@ -62,6 +62,8 @@ import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
+import FolderCopyIcon from '@mui/icons-material/FolderCopy';
+import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank, type EvidenceItem, type MediaFilter } from '@/components/evidence-bank';
@@ -125,6 +127,9 @@ const LANE_HEIGHT_MULTIPLIERS: Record<LaneHeightSize, number> = {
 };
 const BASE_LANE_HEIGHT = 36;
 
+// Group by mode (type vs user)
+type GroupByMode = 'type' | 'user';
+
 // LocalStorage keys
 const STORAGE_KEY_LANE_HEIGHT = 'sessionTimeline_laneHeight';
 const STORAGE_KEY_DIVIDER_POSITION = 'sessionTimeline_dividerPosition';
@@ -134,6 +139,7 @@ const STORAGE_KEY_LOCKED_ITEMS = 'sessionTimeline_lockedItems';
 const STORAGE_KEY_UNLOCKED_ITEMS = 'sessionTimeline_unlockedItems';
 const STORAGE_KEY_TIME_OFFSETS = 'sessionTimeline_timeOffsets';
 const STORAGE_KEY_LANE_ASSIGNMENTS = 'sessionTimeline_laneAssignments';
+const STORAGE_KEY_GROUP_BY_MODE = 'sessionTimeline_groupByMode';
 
 // Movement constants
 const SHIFT_1_SECOND = 1000; // 1 second in ms
@@ -822,6 +828,33 @@ const PanelImportButton = styled(Button)({
   },
 });
 
+// Group By toggle button group container
+const GroupByToggleContainer = styled(Box)({
+  display: 'flex',
+  alignItems: 'center',
+  marginLeft: 'auto',
+  border: '1px solid #333',
+  borderRadius: 4,
+  overflow: 'hidden',
+});
+
+// Individual Group By toggle button
+const GroupByToggleButton = styled(IconButton)<{ isActive?: boolean }>(({ isActive }) => ({
+  width: 34,
+  height: 28,
+  borderRadius: 0,
+  padding: 0,
+  backgroundColor: isActive ? 'rgba(25, 171, 181, 0.15)' : 'transparent',
+  color: isActive ? '#19abb5' : '#888',
+  '&:hover': {
+    backgroundColor: isActive ? 'rgba(25, 171, 181, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+    color: isActive ? '#19abb5' : '#fff',
+  },
+  '& .MuiSvgIcon-root': {
+    fontSize: 16,
+  },
+}));
+
 
 // Flag markers - vertical lines spanning the height of the clip
 const FlagLine = styled(Box)<{ color?: string; clipHeight?: number }>(({ color, clipHeight = 28 }) => ({
@@ -884,6 +917,20 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     }
     return 'medium';
   });
+
+  // Group by mode (type vs user) - persisted to localStorage
+  const [groupByMode, setGroupByMode] = useState<GroupByMode>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEY_GROUP_BY_MODE);
+      if (saved && (saved === 'type' || saved === 'user')) {
+        return saved as GroupByMode;
+      }
+    }
+    return 'type';
+  });
+
+  // User section collapse state (for Group by User mode)
+  const [userSectionCollapsed, setUserSectionCollapsed] = useState<Record<string, boolean>>({});
 
   // Resizable divider position (percentage of container height for video preview)
   // Default is 50% for video preview area
@@ -1111,6 +1158,11 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     localStorage.setItem(STORAGE_KEY_LANE_HEIGHT, laneHeightSize);
   }, [laneHeightSize]);
 
+  // Persist group by mode to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_GROUP_BY_MODE, groupByMode);
+  }, [groupByMode]);
+
   // Persist divider position to localStorage
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_DIVIDER_POSITION, dividerPosition.toString());
@@ -1267,6 +1319,60 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       videoCatchAll,
       audioCatchAll,
       imagesCatchAll,
+    };
+  }, [items, visibleItems, getEffectiveLane]);
+
+  // Compute user-grouped lane data for "Group by User" mode
+  const userGroupedLaneData = useMemo(() => {
+    // Build a map of user -> items grouped by type
+    const userMap: Record<string, { video: TimelineMediaItem[]; audio: TimelineMediaItem[]; photo: TimelineMediaItem[] }> = {};
+    const unassigned: { video: TimelineMediaItem[]; audio: TimelineMediaItem[]; photo: TimelineMediaItem[] } = {
+      video: [],
+      audio: [],
+      photo: [],
+    };
+
+    // Initialize all known users
+    USERS.forEach((user) => {
+      userMap[user] = { video: [], audio: [], photo: [] };
+    });
+
+    // Also add any users found in items
+    items.forEach((item) => {
+      if (item.user && !userMap[item.user]) {
+        userMap[item.user] = { video: [], audio: [], photo: [] };
+      }
+    });
+
+    // Group visible items by user and type
+    visibleItems.forEach((item) => {
+      const effectiveUser = getEffectiveLane(item);
+      const type = item.type;
+      if (effectiveUser && userMap[effectiveUser]) {
+        userMap[effectiveUser][type].push(item);
+      } else {
+        unassigned[type].push(item);
+      }
+    });
+
+    // Build ordered list of users with their items
+    const usersWithItems = Object.entries(userMap)
+      .filter(([_, data]) => data.video.length > 0 || data.audio.length > 0 || data.photo.length > 0)
+      .map(([user, data]) => ({
+        user,
+        items: data,
+        totalCount: data.video.length + data.audio.length + data.photo.length,
+      }));
+
+    // Add unassigned if it has items
+    const unassignedCount = unassigned.video.length + unassigned.audio.length + unassigned.photo.length;
+    const hasUnassigned = unassignedCount > 0;
+
+    return {
+      usersWithItems,
+      unassigned,
+      unassignedCount,
+      hasUnassigned,
     };
   }, [items, visibleItems, getEffectiveLane]);
 
@@ -1964,6 +2070,13 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     },
     []
   );
+
+  // Handle group by mode change
+  const handleGroupByModeChange = useCallback((mode: GroupByMode) => {
+    setGroupByMode(mode);
+    // Reset user section collapse state when switching modes
+    setUserSectionCollapsed({});
+  }, []);
 
   // ============================================================================
   // FILE DROP ZONE HANDLERS
@@ -2688,13 +2801,25 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
             {laneHeightSize === 'small' ? '0.5x' : laneHeightSize === 'medium' ? '1x' : '1.5x'}
           </Typography>
 
-          {/* Import Files Button */}
-          <ImportButton
-            startIcon={<FolderOpenIcon sx={{ fontSize: 14 }} />}
-            onClick={handleImportButtonClick}
-          >
-            Import Files
-          </ImportButton>
+          {/* Group By Toggle */}
+          <GroupByToggleContainer>
+            <Tooltip title="Group by Type" placement="top">
+              <GroupByToggleButton
+                isActive={groupByMode === 'type'}
+                onClick={() => handleGroupByModeChange('type')}
+              >
+                <FolderCopyIcon />
+              </GroupByToggleButton>
+            </Tooltip>
+            <Tooltip title="Group by User" placement="top">
+              <GroupByToggleButton
+                isActive={groupByMode === 'user'}
+                onClick={() => handleGroupByModeChange('user')}
+              >
+                <PersonOutlineIcon />
+              </GroupByToggleButton>
+            </Tooltip>
+          </GroupByToggleContainer>
         </LaneHeightToolbar>
 
         {/* Time Ruler */}
@@ -2702,241 +2827,472 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
 
         {/* Swim Lanes */}
         <SwimLanesContainer ref={lanesContainerRef}>
-          {/* VIDEO Section */}
-          <SwimLaneSection>
-            <SwimLaneSectionHeader
-              color="#c45c5c"
-              onClick={() => setVideoSectionCollapsed(!videoSectionCollapsed)}
-            >
-              <VideocamIcon sx={{ fontSize: 14, color: '#c45c5c' }} />
-              <SectionTitle>Video</SectionTitle>
-              <Typography sx={{ fontSize: 10, color: '#555' }}>
-                ({items.filter((i) => i.type === 'video').length})
-              </Typography>
-              {videoSectionCollapsed ? (
-                <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} />
-              ) : (
-                <ExpandLessIcon sx={{ fontSize: 16, color: '#666' }} />
-              )}
-            </SwimLaneSectionHeader>
-            {!videoSectionCollapsed && (
-              <>
-                {/* Per-user lanes (permanent) - ordered by user preference */}
-                {getOrderedUsers('video').map((user) => (
-                  <SwimLane key={`video-${user}`} laneHeight={laneHeight}>
-                    <LaneLabel
-                      laneHeight={laneHeight}
-                      isDragging={draggedLane?.user === user && draggedLane?.type === 'video'}
-                      isDragOver={laneDragOverUser?.user === user && laneDragOverUser?.type === 'video'}
-                      draggable
-                      onDragStart={(e) => handleLaneDragStart(e, user, 'video')}
-                      onDragOver={(e) => handleLaneDragOver(e, user, 'video')}
-                      onDragLeave={handleLaneDragLeave}
-                      onDrop={(e) => handleLaneDrop(e, user, 'video')}
-                      onDragEnd={handleLaneDragEnd}
-                    >
-                      <PersonIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: '#555' }} />
-                      <Typography
-                        sx={{
-                          fontSize: laneHeight < 24 ? 8 : 10,
-                          color: '#888',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          flex: 1,
-                        }}
-                      >
-                        {user}
-                      </Typography>
-                    </LaneLabel>
-                    <LaneContent
-                      isDragOver={isLaneDragOver(user, 'video')}
-                      canDrop={canDropInLane(user)}
-                      onDragOver={(e) => handleDragOverLane(e, user, 'video')}
-                      onDragLeave={handleDragLeaveLane}
-                      onDrop={(e) => handleDropOnTimeline(e, user, 'video')}
-                    >
-                      {renderLane(laneData.videoByUser[user] || [], 'video')}
-                    </LaneContent>
-                  </SwimLane>
-                ))}
-                {/* Catch-all lane (always show when dragging for drop target) */}
-                {(laneData.videoCatchAll.length > 0 || draggedEvidenceId) && (
-                  <SwimLane laneHeight={laneHeight}>
-                    <LaneLabel laneHeight={laneHeight}>
-                      <Typography sx={{ fontSize: laneHeight < 24 ? 8 : 10, color: '#666', fontStyle: 'italic' }}>
-                        Unassigned
-                      </Typography>
-                    </LaneLabel>
-                    <LaneContent
-                      isDragOver={isLaneDragOver('', 'video')}
-                      canDrop={canDropInLane('')}
-                      onDragOver={(e) => handleDragOverLane(e, '', 'video')}
-                      onDragLeave={handleDragLeaveLane}
-                      onDrop={(e) => handleDropOnTimeline(e, '', 'video')}
-                    >
-                      {renderLane(laneData.videoCatchAll, 'video')}
-                    </LaneContent>
-                  </SwimLane>
+          {/* GROUP BY TYPE MODE */}
+          {groupByMode === 'type' && (
+            <>
+              {/* VIDEO Section */}
+              <SwimLaneSection>
+                <SwimLaneSectionHeader
+                  color="#c45c5c"
+                  onClick={() => setVideoSectionCollapsed(!videoSectionCollapsed)}
+                >
+                  <VideocamIcon sx={{ fontSize: 14, color: '#c45c5c' }} />
+                  <SectionTitle>Video</SectionTitle>
+                  <Typography sx={{ fontSize: 10, color: '#555' }}>
+                    ({items.filter((i) => i.type === 'video').length})
+                  </Typography>
+                  {videoSectionCollapsed ? (
+                    <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} />
+                  ) : (
+                    <ExpandLessIcon sx={{ fontSize: 16, color: '#666' }} />
+                  )}
+                </SwimLaneSectionHeader>
+                {!videoSectionCollapsed && (
+                  <>
+                    {/* Per-user lanes (permanent) - ordered by user preference */}
+                    {getOrderedUsers('video').map((user) => (
+                      <SwimLane key={`video-${user}`} laneHeight={laneHeight}>
+                        <LaneLabel
+                          laneHeight={laneHeight}
+                          isDragging={draggedLane?.user === user && draggedLane?.type === 'video'}
+                          isDragOver={laneDragOverUser?.user === user && laneDragOverUser?.type === 'video'}
+                          draggable
+                          onDragStart={(e) => handleLaneDragStart(e, user, 'video')}
+                          onDragOver={(e) => handleLaneDragOver(e, user, 'video')}
+                          onDragLeave={handleLaneDragLeave}
+                          onDrop={(e) => handleLaneDrop(e, user, 'video')}
+                          onDragEnd={handleLaneDragEnd}
+                        >
+                          <PersonIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: '#555' }} />
+                          <Typography
+                            sx={{
+                              fontSize: laneHeight < 24 ? 8 : 10,
+                              color: '#888',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              flex: 1,
+                            }}
+                          >
+                            {user}
+                          </Typography>
+                        </LaneLabel>
+                        <LaneContent
+                          isDragOver={isLaneDragOver(user, 'video')}
+                          canDrop={canDropInLane(user)}
+                          onDragOver={(e) => handleDragOverLane(e, user, 'video')}
+                          onDragLeave={handleDragLeaveLane}
+                          onDrop={(e) => handleDropOnTimeline(e, user, 'video')}
+                        >
+                          {renderLane(laneData.videoByUser[user] || [], 'video')}
+                        </LaneContent>
+                      </SwimLane>
+                    ))}
+                    {/* Catch-all lane (always show when dragging for drop target) */}
+                    {(laneData.videoCatchAll.length > 0 || draggedEvidenceId) && (
+                      <SwimLane laneHeight={laneHeight}>
+                        <LaneLabel laneHeight={laneHeight}>
+                          <Typography sx={{ fontSize: laneHeight < 24 ? 8 : 10, color: '#666', fontStyle: 'italic' }}>
+                            Unassigned
+                          </Typography>
+                        </LaneLabel>
+                        <LaneContent
+                          isDragOver={isLaneDragOver('', 'video')}
+                          canDrop={canDropInLane('')}
+                          onDragOver={(e) => handleDragOverLane(e, '', 'video')}
+                          onDragLeave={handleDragLeaveLane}
+                          onDrop={(e) => handleDropOnTimeline(e, '', 'video')}
+                        >
+                          {renderLane(laneData.videoCatchAll, 'video')}
+                        </LaneContent>
+                      </SwimLane>
+                    )}
+                  </>
                 )}
-              </>
-            )}
-          </SwimLaneSection>
+              </SwimLaneSection>
 
-          {/* AUDIO Section */}
-          <SwimLaneSection>
-            <SwimLaneSectionHeader
-              color="#5a9a6b"
-              onClick={() => setAudioSectionCollapsed(!audioSectionCollapsed)}
-            >
-              <MicIcon sx={{ fontSize: 14, color: '#5a9a6b' }} />
-              <SectionTitle>Audio</SectionTitle>
-              <Typography sx={{ fontSize: 10, color: '#555' }}>
-                ({items.filter((i) => i.type === 'audio').length})
-              </Typography>
-              {audioSectionCollapsed ? (
-                <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} />
-              ) : (
-                <ExpandLessIcon sx={{ fontSize: 16, color: '#666' }} />
-              )}
-            </SwimLaneSectionHeader>
-            {!audioSectionCollapsed && (
-              <>
-                {getOrderedUsers('audio').map((user) => (
-                  <SwimLane key={`audio-${user}`} laneHeight={laneHeight}>
-                    <LaneLabel
-                      laneHeight={laneHeight}
-                      isDragging={draggedLane?.user === user && draggedLane?.type === 'audio'}
-                      isDragOver={laneDragOverUser?.user === user && laneDragOverUser?.type === 'audio'}
-                      draggable
-                      onDragStart={(e) => handleLaneDragStart(e, user, 'audio')}
-                      onDragOver={(e) => handleLaneDragOver(e, user, 'audio')}
-                      onDragLeave={handleLaneDragLeave}
-                      onDrop={(e) => handleLaneDrop(e, user, 'audio')}
-                      onDragEnd={handleLaneDragEnd}
-                    >
-                      <PersonIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: '#555' }} />
-                      <Typography
-                        sx={{
-                          fontSize: laneHeight < 24 ? 8 : 10,
-                          color: '#888',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          flex: 1,
-                        }}
-                      >
-                        {user}
-                      </Typography>
-                    </LaneLabel>
-                    <LaneContent
-                      isDragOver={isLaneDragOver(user, 'audio')}
-                      canDrop={canDropInLane(user)}
-                      onDragOver={(e) => handleDragOverLane(e, user, 'audio')}
-                      onDragLeave={handleDragLeaveLane}
-                      onDrop={(e) => handleDropOnTimeline(e, user, 'audio')}
-                    >
-                      {renderLane(laneData.audioByUser[user] || [], 'audio')}
-                    </LaneContent>
-                  </SwimLane>
-                ))}
-                {(laneData.audioCatchAll.length > 0 || draggedEvidenceId) && (
-                  <SwimLane laneHeight={laneHeight}>
-                    <LaneLabel laneHeight={laneHeight}>
-                      <Typography sx={{ fontSize: laneHeight < 24 ? 8 : 10, color: '#666', fontStyle: 'italic' }}>
-                        Unassigned
-                      </Typography>
-                    </LaneLabel>
-                    <LaneContent
-                      isDragOver={isLaneDragOver('', 'audio')}
-                      canDrop={canDropInLane('')}
-                      onDragOver={(e) => handleDragOverLane(e, '', 'audio')}
-                      onDragLeave={handleDragLeaveLane}
-                      onDrop={(e) => handleDropOnTimeline(e, '', 'audio')}
-                    >
-                      {renderLane(laneData.audioCatchAll, 'audio')}
-                    </LaneContent>
-                  </SwimLane>
+              {/* AUDIO Section */}
+              <SwimLaneSection>
+                <SwimLaneSectionHeader
+                  color="#5a9a6b"
+                  onClick={() => setAudioSectionCollapsed(!audioSectionCollapsed)}
+                >
+                  <MicIcon sx={{ fontSize: 14, color: '#5a9a6b' }} />
+                  <SectionTitle>Audio</SectionTitle>
+                  <Typography sx={{ fontSize: 10, color: '#555' }}>
+                    ({items.filter((i) => i.type === 'audio').length})
+                  </Typography>
+                  {audioSectionCollapsed ? (
+                    <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} />
+                  ) : (
+                    <ExpandLessIcon sx={{ fontSize: 16, color: '#666' }} />
+                  )}
+                </SwimLaneSectionHeader>
+                {!audioSectionCollapsed && (
+                  <>
+                    {getOrderedUsers('audio').map((user) => (
+                      <SwimLane key={`audio-${user}`} laneHeight={laneHeight}>
+                        <LaneLabel
+                          laneHeight={laneHeight}
+                          isDragging={draggedLane?.user === user && draggedLane?.type === 'audio'}
+                          isDragOver={laneDragOverUser?.user === user && laneDragOverUser?.type === 'audio'}
+                          draggable
+                          onDragStart={(e) => handleLaneDragStart(e, user, 'audio')}
+                          onDragOver={(e) => handleLaneDragOver(e, user, 'audio')}
+                          onDragLeave={handleLaneDragLeave}
+                          onDrop={(e) => handleLaneDrop(e, user, 'audio')}
+                          onDragEnd={handleLaneDragEnd}
+                        >
+                          <PersonIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: '#555' }} />
+                          <Typography
+                            sx={{
+                              fontSize: laneHeight < 24 ? 8 : 10,
+                              color: '#888',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              flex: 1,
+                            }}
+                          >
+                            {user}
+                          </Typography>
+                        </LaneLabel>
+                        <LaneContent
+                          isDragOver={isLaneDragOver(user, 'audio')}
+                          canDrop={canDropInLane(user)}
+                          onDragOver={(e) => handleDragOverLane(e, user, 'audio')}
+                          onDragLeave={handleDragLeaveLane}
+                          onDrop={(e) => handleDropOnTimeline(e, user, 'audio')}
+                        >
+                          {renderLane(laneData.audioByUser[user] || [], 'audio')}
+                        </LaneContent>
+                      </SwimLane>
+                    ))}
+                    {(laneData.audioCatchAll.length > 0 || draggedEvidenceId) && (
+                      <SwimLane laneHeight={laneHeight}>
+                        <LaneLabel laneHeight={laneHeight}>
+                          <Typography sx={{ fontSize: laneHeight < 24 ? 8 : 10, color: '#666', fontStyle: 'italic' }}>
+                            Unassigned
+                          </Typography>
+                        </LaneLabel>
+                        <LaneContent
+                          isDragOver={isLaneDragOver('', 'audio')}
+                          canDrop={canDropInLane('')}
+                          onDragOver={(e) => handleDragOverLane(e, '', 'audio')}
+                          onDragLeave={handleDragLeaveLane}
+                          onDrop={(e) => handleDropOnTimeline(e, '', 'audio')}
+                        >
+                          {renderLane(laneData.audioCatchAll, 'audio')}
+                        </LaneContent>
+                      </SwimLane>
+                    )}
+                  </>
                 )}
-              </>
-            )}
-          </SwimLaneSection>
+              </SwimLaneSection>
 
-          {/* IMAGES Section */}
-          <SwimLaneSection>
-            <SwimLaneSectionHeader
-              color="#5a7fbf"
-              onClick={() => setImagesSectionCollapsed(!imagesSectionCollapsed)}
-            >
-              <PhotoIcon sx={{ fontSize: 14, color: '#5a7fbf' }} />
-              <SectionTitle>Images</SectionTitle>
-              <Typography sx={{ fontSize: 10, color: '#555' }}>
-                ({items.filter((i) => i.type === 'photo').length})
-              </Typography>
-              {imagesSectionCollapsed ? (
-                <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} />
-              ) : (
-                <ExpandLessIcon sx={{ fontSize: 16, color: '#666' }} />
-              )}
-            </SwimLaneSectionHeader>
-            {!imagesSectionCollapsed && (
-              <>
-                {getOrderedUsers('image').map((user) => (
-                  <SwimLane key={`images-${user}`} laneHeight={laneHeight}>
-                    <LaneLabel
-                      laneHeight={laneHeight}
-                      isDragging={draggedLane?.user === user && draggedLane?.type === 'image'}
-                      isDragOver={laneDragOverUser?.user === user && laneDragOverUser?.type === 'image'}
-                      draggable
-                      onDragStart={(e) => handleLaneDragStart(e, user, 'image')}
-                      onDragOver={(e) => handleLaneDragOver(e, user, 'image')}
-                      onDragLeave={handleLaneDragLeave}
-                      onDrop={(e) => handleLaneDrop(e, user, 'image')}
-                      onDragEnd={handleLaneDragEnd}
-                    >
-                      <PersonIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: '#555' }} />
-                      <Typography
-                        sx={{
-                          fontSize: laneHeight < 24 ? 8 : 10,
-                          color: '#888',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          flex: 1,
-                        }}
-                      >
-                        {user}
-                      </Typography>
-                    </LaneLabel>
-                    <LaneContent
-                      isDragOver={isLaneDragOver(user, 'image')}
-                      canDrop={canDropInLane(user)}
-                      onDragOver={(e) => handleDragOverLane(e, user, 'image')}
-                      onDragLeave={handleDragLeaveLane}
-                      onDrop={(e) => handleDropOnTimeline(e, user, 'image')}
-                    >
-                      {renderLane(laneData.imagesByUser[user] || [], 'image')}
-                    </LaneContent>
-                  </SwimLane>
-                ))}
-                {(laneData.imagesCatchAll.length > 0 || draggedEvidenceId) && (
-                  <SwimLane laneHeight={laneHeight}>
-                    <LaneLabel laneHeight={laneHeight}>
-                      <Typography sx={{ fontSize: laneHeight < 24 ? 8 : 10, color: '#666', fontStyle: 'italic' }}>
-                        Unassigned
-                      </Typography>
-                    </LaneLabel>
-                    <LaneContent
-                      isDragOver={isLaneDragOver('', 'image')}
-                      canDrop={canDropInLane('')}
-                      onDragOver={(e) => handleDragOverLane(e, '', 'image')}
-                      onDragLeave={handleDragLeaveLane}
-                      onDrop={(e) => handleDropOnTimeline(e, '', 'image')}
-                    >
-                      {renderLane(laneData.imagesCatchAll, 'image')}
-                    </LaneContent>
-                  </SwimLane>
+              {/* IMAGES Section */}
+              <SwimLaneSection>
+                <SwimLaneSectionHeader
+                  color="#5a7fbf"
+                  onClick={() => setImagesSectionCollapsed(!imagesSectionCollapsed)}
+                >
+                  <PhotoIcon sx={{ fontSize: 14, color: '#5a7fbf' }} />
+                  <SectionTitle>Images</SectionTitle>
+                  <Typography sx={{ fontSize: 10, color: '#555' }}>
+                    ({items.filter((i) => i.type === 'photo').length})
+                  </Typography>
+                  {imagesSectionCollapsed ? (
+                    <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} />
+                  ) : (
+                    <ExpandLessIcon sx={{ fontSize: 16, color: '#666' }} />
+                  )}
+                </SwimLaneSectionHeader>
+                {!imagesSectionCollapsed && (
+                  <>
+                    {getOrderedUsers('image').map((user) => (
+                      <SwimLane key={`images-${user}`} laneHeight={laneHeight}>
+                        <LaneLabel
+                          laneHeight={laneHeight}
+                          isDragging={draggedLane?.user === user && draggedLane?.type === 'image'}
+                          isDragOver={laneDragOverUser?.user === user && laneDragOverUser?.type === 'image'}
+                          draggable
+                          onDragStart={(e) => handleLaneDragStart(e, user, 'image')}
+                          onDragOver={(e) => handleLaneDragOver(e, user, 'image')}
+                          onDragLeave={handleLaneDragLeave}
+                          onDrop={(e) => handleLaneDrop(e, user, 'image')}
+                          onDragEnd={handleLaneDragEnd}
+                        >
+                          <PersonIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: '#555' }} />
+                          <Typography
+                            sx={{
+                              fontSize: laneHeight < 24 ? 8 : 10,
+                              color: '#888',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              flex: 1,
+                            }}
+                          >
+                            {user}
+                          </Typography>
+                        </LaneLabel>
+                        <LaneContent
+                          isDragOver={isLaneDragOver(user, 'image')}
+                          canDrop={canDropInLane(user)}
+                          onDragOver={(e) => handleDragOverLane(e, user, 'image')}
+                          onDragLeave={handleDragLeaveLane}
+                          onDrop={(e) => handleDropOnTimeline(e, user, 'image')}
+                        >
+                          {renderLane(laneData.imagesByUser[user] || [], 'image')}
+                        </LaneContent>
+                      </SwimLane>
+                    ))}
+                    {(laneData.imagesCatchAll.length > 0 || draggedEvidenceId) && (
+                      <SwimLane laneHeight={laneHeight}>
+                        <LaneLabel laneHeight={laneHeight}>
+                          <Typography sx={{ fontSize: laneHeight < 24 ? 8 : 10, color: '#666', fontStyle: 'italic' }}>
+                            Unassigned
+                          </Typography>
+                        </LaneLabel>
+                        <LaneContent
+                          isDragOver={isLaneDragOver('', 'image')}
+                          canDrop={canDropInLane('')}
+                          onDragOver={(e) => handleDragOverLane(e, '', 'image')}
+                          onDragLeave={handleDragLeaveLane}
+                          onDrop={(e) => handleDropOnTimeline(e, '', 'image')}
+                        >
+                          {renderLane(laneData.imagesCatchAll, 'image')}
+                        </LaneContent>
+                      </SwimLane>
+                    )}
+                  </>
                 )}
-              </>
-            )}
-          </SwimLaneSection>
+              </SwimLaneSection>
+            </>
+          )}
+
+          {/* GROUP BY USER MODE */}
+          {groupByMode === 'user' && (
+            <>
+              {/* User sections */}
+              {userGroupedLaneData.usersWithItems.map(({ user, items: userItems, totalCount }) => (
+                <SwimLaneSection key={`user-section-${user}`}>
+                  <SwimLaneSectionHeader
+                    color="#19abb5"
+                    onClick={() => setUserSectionCollapsed(prev => ({ ...prev, [user]: !prev[user] }))}
+                  >
+                    <PersonIcon sx={{ fontSize: 14, color: '#19abb5' }} />
+                    <SectionTitle>{user.toUpperCase()}</SectionTitle>
+                    <Typography sx={{ fontSize: 10, color: '#555' }}>
+                      ({totalCount})
+                    </Typography>
+                    {userSectionCollapsed[user] ? (
+                      <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} />
+                    ) : (
+                      <ExpandLessIcon sx={{ fontSize: 16, color: '#666' }} />
+                    )}
+                  </SwimLaneSectionHeader>
+                  {!userSectionCollapsed[user] && (
+                    <>
+                      {/* Video lane for this user */}
+                      {userItems.video.length > 0 && (
+                        <SwimLane laneHeight={laneHeight}>
+                          <LaneLabel laneHeight={laneHeight}>
+                            <VideocamIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: '#c45c5c' }} />
+                            <Typography
+                              sx={{
+                                fontSize: laneHeight < 24 ? 8 : 10,
+                                color: '#888',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                flex: 1,
+                              }}
+                            >
+                              Video
+                            </Typography>
+                          </LaneLabel>
+                          <LaneContent
+                            isDragOver={isLaneDragOver(user, 'video')}
+                            canDrop={canDropInLane(user)}
+                            onDragOver={(e) => handleDragOverLane(e, user, 'video')}
+                            onDragLeave={handleDragLeaveLane}
+                            onDrop={(e) => handleDropOnTimeline(e, user, 'video')}
+                          >
+                            {renderLane(userItems.video, 'video')}
+                          </LaneContent>
+                        </SwimLane>
+                      )}
+                      {/* Audio lane for this user */}
+                      {userItems.audio.length > 0 && (
+                        <SwimLane laneHeight={laneHeight}>
+                          <LaneLabel laneHeight={laneHeight}>
+                            <MicIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: '#5a9a6b' }} />
+                            <Typography
+                              sx={{
+                                fontSize: laneHeight < 24 ? 8 : 10,
+                                color: '#888',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                flex: 1,
+                              }}
+                            >
+                              Audio
+                            </Typography>
+                          </LaneLabel>
+                          <LaneContent
+                            isDragOver={isLaneDragOver(user, 'audio')}
+                            canDrop={canDropInLane(user)}
+                            onDragOver={(e) => handleDragOverLane(e, user, 'audio')}
+                            onDragLeave={handleDragLeaveLane}
+                            onDrop={(e) => handleDropOnTimeline(e, user, 'audio')}
+                          >
+                            {renderLane(userItems.audio, 'audio')}
+                          </LaneContent>
+                        </SwimLane>
+                      )}
+                      {/* Photo lane for this user */}
+                      {userItems.photo.length > 0 && (
+                        <SwimLane laneHeight={laneHeight}>
+                          <LaneLabel laneHeight={laneHeight}>
+                            <PhotoIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: '#5a7fbf' }} />
+                            <Typography
+                              sx={{
+                                fontSize: laneHeight < 24 ? 8 : 10,
+                                color: '#888',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                flex: 1,
+                              }}
+                            >
+                              Images
+                            </Typography>
+                          </LaneLabel>
+                          <LaneContent
+                            isDragOver={isLaneDragOver(user, 'image')}
+                            canDrop={canDropInLane(user)}
+                            onDragOver={(e) => handleDragOverLane(e, user, 'image')}
+                            onDragLeave={handleDragLeaveLane}
+                            onDrop={(e) => handleDropOnTimeline(e, user, 'image')}
+                          >
+                            {renderLane(userItems.photo, 'image')}
+                          </LaneContent>
+                        </SwimLane>
+                      )}
+                    </>
+                  )}
+                </SwimLaneSection>
+              ))}
+
+              {/* Unassigned section */}
+              {(userGroupedLaneData.hasUnassigned || draggedEvidenceId) && (
+                <SwimLaneSection>
+                  <SwimLaneSectionHeader
+                    color="#666"
+                    onClick={() => setUserSectionCollapsed(prev => ({ ...prev, unassigned: !prev.unassigned }))}
+                  >
+                    <PersonOutlineIcon sx={{ fontSize: 14, color: '#666' }} />
+                    <SectionTitle sx={{ fontStyle: 'italic' }}>UNASSIGNED</SectionTitle>
+                    <Typography sx={{ fontSize: 10, color: '#555' }}>
+                      ({userGroupedLaneData.unassignedCount})
+                    </Typography>
+                    {userSectionCollapsed.unassigned ? (
+                      <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} />
+                    ) : (
+                      <ExpandLessIcon sx={{ fontSize: 16, color: '#666' }} />
+                    )}
+                  </SwimLaneSectionHeader>
+                  {!userSectionCollapsed.unassigned && (
+                    <>
+                      {/* Video lane for unassigned */}
+                      {(userGroupedLaneData.unassigned.video.length > 0 || draggedEvidenceId) && (
+                        <SwimLane laneHeight={laneHeight}>
+                          <LaneLabel laneHeight={laneHeight}>
+                            <VideocamIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: '#c45c5c' }} />
+                            <Typography
+                              sx={{
+                                fontSize: laneHeight < 24 ? 8 : 10,
+                                color: '#666',
+                                fontStyle: 'italic',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                flex: 1,
+                              }}
+                            >
+                              Video
+                            </Typography>
+                          </LaneLabel>
+                          <LaneContent
+                            isDragOver={isLaneDragOver('', 'video')}
+                            canDrop={canDropInLane('')}
+                            onDragOver={(e) => handleDragOverLane(e, '', 'video')}
+                            onDragLeave={handleDragLeaveLane}
+                            onDrop={(e) => handleDropOnTimeline(e, '', 'video')}
+                          >
+                            {renderLane(userGroupedLaneData.unassigned.video, 'video')}
+                          </LaneContent>
+                        </SwimLane>
+                      )}
+                      {/* Audio lane for unassigned */}
+                      {(userGroupedLaneData.unassigned.audio.length > 0 || draggedEvidenceId) && (
+                        <SwimLane laneHeight={laneHeight}>
+                          <LaneLabel laneHeight={laneHeight}>
+                            <MicIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: '#5a9a6b' }} />
+                            <Typography
+                              sx={{
+                                fontSize: laneHeight < 24 ? 8 : 10,
+                                color: '#666',
+                                fontStyle: 'italic',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                flex: 1,
+                              }}
+                            >
+                              Audio
+                            </Typography>
+                          </LaneLabel>
+                          <LaneContent
+                            isDragOver={isLaneDragOver('', 'audio')}
+                            canDrop={canDropInLane('')}
+                            onDragOver={(e) => handleDragOverLane(e, '', 'audio')}
+                            onDragLeave={handleDragLeaveLane}
+                            onDrop={(e) => handleDropOnTimeline(e, '', 'audio')}
+                          >
+                            {renderLane(userGroupedLaneData.unassigned.audio, 'audio')}
+                          </LaneContent>
+                        </SwimLane>
+                      )}
+                      {/* Photo lane for unassigned */}
+                      {(userGroupedLaneData.unassigned.photo.length > 0 || draggedEvidenceId) && (
+                        <SwimLane laneHeight={laneHeight}>
+                          <LaneLabel laneHeight={laneHeight}>
+                            <PhotoIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: '#5a7fbf' }} />
+                            <Typography
+                              sx={{
+                                fontSize: laneHeight < 24 ? 8 : 10,
+                                color: '#666',
+                                fontStyle: 'italic',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                flex: 1,
+                              }}
+                            >
+                              Images
+                            </Typography>
+                          </LaneLabel>
+                          <LaneContent
+                            isDragOver={isLaneDragOver('', 'image')}
+                            canDrop={canDropInLane('')}
+                            onDragOver={(e) => handleDragOverLane(e, '', 'image')}
+                            onDragLeave={handleDragLeaveLane}
+                            onDrop={(e) => handleDropOnTimeline(e, '', 'image')}
+                          >
+                            {renderLane(userGroupedLaneData.unassigned.photo, 'image')}
+                          </LaneContent>
+                        </SwimLane>
+                      )}
+                    </>
+                  )}
+                </SwimLaneSection>
+              )}
+            </>
+          )}
         </SwimLanesContainer>
       </TimelineSection>
     </MainContainer>
