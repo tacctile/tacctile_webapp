@@ -4,6 +4,8 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
 import BottomBar from '@/components/layout/BottomBar';
+import ToolIconBar from '@/components/layout/ToolIconBar';
+import RightPanelContainer from '@/components/layout/RightPanelContainer';
 import { LayoutProvider } from '@/contexts/LayoutContext';
 import { ErrorBoundary, LoadingSkeleton } from '@/components/common';
 import { useKeyboardShortcuts, createNavigationShortcuts, createViewShortcuts, createEditingShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -31,7 +33,6 @@ const AudioTool = lazy(() => import('@/components/audio-tool/AudioTool'));
 const ImageTool = lazy(() => import('@/components/image-tool/ImageTool'));
 const VideoTool = lazy(() => import('@/components/video-tool/VideoTool'));
 const WorkspaceDemo = lazy(() => import('@/pages/WorkspaceDemo'));
-const AISidekickPanel = lazy(() => import('@/components/ai-sidekick/AISidekickPanel'));
 
 // Tool IDs for navigation
 const TOOLS = ['home', 'session', 'video', 'audio', 'images', 'streaming', 'export', 'notes', 'team', 'settings', 'workspace-demo'] as const;
@@ -448,7 +449,7 @@ const App: React.FC = () => {
             minWidth: 0,
             overflow: 'hidden',
           }}>
-            {/* Tool Content with crossfade transition */}
+            {/* Center content area (icon bar + tool content) */}
             <Box sx={{
               display: 'flex',
               flexDirection: 'column',
@@ -456,6 +457,15 @@ const App: React.FC = () => {
               minWidth: 0,
               overflow: 'hidden',
             }}>
+              {/* Tool Icon Bar - shown for all tools except 'home' */}
+              {selectedTool !== 'home' && (
+                <ToolIconBar
+                  selectedTool={selectedTool}
+                  onToolSelect={handleToolSelect}
+                />
+              )}
+
+              {/* Tool Content with crossfade transition */}
               <Box
                 key={displayedTool}
                 sx={{
@@ -472,11 +482,12 @@ const App: React.FC = () => {
               </Box>
             </Box>
 
-            {/* AI Sidekick Panel - shown for all tools except 'home' */}
+            {/* Right Panel (Flags + Knox) - shown for all tools except 'home' */}
             {selectedTool !== 'home' && (
-              <Suspense fallback={null}>
-                <AISidekickPanel />
-              </Suspense>
+              <RightPanelContainer
+                showFlags={true}
+                showKnox={true}
+              />
             )}
           </Box>
 
