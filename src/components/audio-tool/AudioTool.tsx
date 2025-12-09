@@ -16,7 +16,7 @@ import FileUploadIcon from '@mui/icons-material/FileUpload';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import NearMeIcon from '@mui/icons-material/NearMe';
+import NorthWestIcon from '@mui/icons-material/NorthWest';
 import CropFreeIcon from '@mui/icons-material/CropFree';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver';
@@ -196,18 +196,34 @@ const InspectorSlider = styled(Slider)({
   },
 });
 
-// Spectral tool row styling
-const SpectralToolRow = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
+// Spectral tools grid container
+const SpectralToolsGrid = styled(Box)({
+  display: 'grid',
+  gridTemplateColumns: 'repeat(3, 1fr)',
+  gap: 8,
+  padding: '4px 12px 8px 12px',
+});
+
+// Spectral tool button styling
+const SpectralToolButton = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
   display: 'flex',
   alignItems: 'center',
-  gap: 8,
-  height: 34,
-  padding: '0 12px',
+  justifyContent: 'center',
+  gap: 6,
+  height: 30,
+  padding: '0 8px',
   cursor: 'pointer',
-  backgroundColor: isActive ? 'rgba(25, 171, 181, 0.15)' : 'transparent',
-  borderLeft: isActive ? '2px solid #19abb5' : '2px solid transparent',
+  backgroundColor: isActive ? 'rgba(25, 171, 181, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+  border: isActive ? '1px solid #19abb5' : '1px solid #333',
+  borderRadius: 5,
   '&:hover': {
-    backgroundColor: isActive ? 'rgba(25, 171, 181, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: isActive ? 'rgba(25, 171, 181, 0.15)' : 'rgba(255, 255, 255, 0.1)',
+    '& .spectral-tool-icon': {
+      color: isActive ? '#19abb5' : '#fff',
+    },
+    '& .spectral-tool-name': {
+      color: isActive ? '#19abb5' : '#fff',
+    },
   },
 }));
 
@@ -215,17 +231,18 @@ const SpectralToolIcon = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  width: 20,
-  height: 20,
+  width: 16,
+  height: 16,
   color: isActive ? '#19abb5' : '#888',
   '& svg': {
-    fontSize: 18,
+    fontSize: 16,
   },
 }));
 
 const SpectralToolName = styled(Typography)<{ isActive: boolean }>(({ isActive }) => ({
   fontSize: 11,
   color: isActive ? '#19abb5' : '#999',
+  whiteSpace: 'nowrap',
 }));
 
 // Spectral tool type
@@ -1424,91 +1441,91 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
           )}
         </InspectorSectionHeader>
         {!spectralToolsCollapsed && (
-          <Box sx={{ py: 0.5 }}>
-            <Tooltip title="Default selection tool" placement="left" arrow>
-              <SpectralToolRow
+          <SpectralToolsGrid>
+            <Tooltip title="Default selection tool" placement="top" arrow>
+              <SpectralToolButton
                 isActive={activeSpectralTool === 'selection'}
                 onClick={() => setActiveSpectralTool('selection')}
               >
-                <SpectralToolIcon isActive={activeSpectralTool === 'selection'}>
-                  <NearMeIcon />
+                <SpectralToolIcon className="spectral-tool-icon" isActive={activeSpectralTool === 'selection'}>
+                  <NorthWestIcon />
                 </SpectralToolIcon>
-                <SpectralToolName isActive={activeSpectralTool === 'selection'}>
+                <SpectralToolName className="spectral-tool-name" isActive={activeSpectralTool === 'selection'}>
                   Selection
                 </SpectralToolName>
-              </SpectralToolRow>
+              </SpectralToolButton>
             </Tooltip>
 
-            <Tooltip title="Draw rectangle to select time + frequency range" placement="left" arrow>
-              <SpectralToolRow
+            <Tooltip title="Draw rectangle to select time + frequency range" placement="top" arrow>
+              <SpectralToolButton
                 isActive={activeSpectralTool === 'marquee'}
                 onClick={() => setActiveSpectralTool('marquee')}
               >
-                <SpectralToolIcon isActive={activeSpectralTool === 'marquee'}>
+                <SpectralToolIcon className="spectral-tool-icon" isActive={activeSpectralTool === 'marquee'}>
                   <CropFreeIcon />
                 </SpectralToolIcon>
-                <SpectralToolName isActive={activeSpectralTool === 'marquee'}>
-                  Marquee Select
+                <SpectralToolName className="spectral-tool-name" isActive={activeSpectralTool === 'marquee'}>
+                  Marquee
                 </SpectralToolName>
-              </SpectralToolRow>
+              </SpectralToolButton>
             </Tooltip>
 
-            <Tooltip title="Paint over unwanted sounds to remove them" placement="left" arrow>
-              <SpectralToolRow
+            <Tooltip title="Paint over unwanted sounds to remove them" placement="top" arrow>
+              <SpectralToolButton
                 isActive={activeSpectralTool === 'repair'}
                 onClick={() => setActiveSpectralTool('repair')}
               >
-                <SpectralToolIcon isActive={activeSpectralTool === 'repair'}>
+                <SpectralToolIcon className="spectral-tool-icon" isActive={activeSpectralTool === 'repair'}>
                   <AutoFixHighIcon />
                 </SpectralToolIcon>
-                <SpectralToolName isActive={activeSpectralTool === 'repair'}>
-                  Spectral Repair
+                <SpectralToolName className="spectral-tool-name" isActive={activeSpectralTool === 'repair'}>
+                  Repair
                 </SpectralToolName>
-              </SpectralToolRow>
+              </SpectralToolButton>
             </Tooltip>
 
-            <Tooltip title="AI-powered voice extraction" placement="left" arrow>
-              <SpectralToolRow
+            <Tooltip title="AI-powered voice extraction" placement="bottom" arrow>
+              <SpectralToolButton
                 isActive={activeSpectralTool === 'voiceIsolate'}
                 onClick={() => setActiveSpectralTool('voiceIsolate')}
               >
-                <SpectralToolIcon isActive={activeSpectralTool === 'voiceIsolate'}>
+                <SpectralToolIcon className="spectral-tool-icon" isActive={activeSpectralTool === 'voiceIsolate'}>
                   <RecordVoiceOverIcon />
                 </SpectralToolIcon>
-                <SpectralToolName isActive={activeSpectralTool === 'voiceIsolate'}>
-                  Voice Isolate
+                <SpectralToolName className="spectral-tool-name" isActive={activeSpectralTool === 'voiceIsolate'}>
+                  Voice Iso
                 </SpectralToolName>
-              </SpectralToolRow>
+              </SpectralToolButton>
             </Tooltip>
 
-            <Tooltip title="Paint to boost audio in selected region" placement="left" arrow>
-              <SpectralToolRow
+            <Tooltip title="Paint to boost audio in selected region" placement="bottom" arrow>
+              <SpectralToolButton
                 isActive={activeSpectralTool === 'gain'}
                 onClick={() => setActiveSpectralTool('gain')}
               >
-                <SpectralToolIcon isActive={activeSpectralTool === 'gain'}>
+                <SpectralToolIcon className="spectral-tool-icon" isActive={activeSpectralTool === 'gain'}>
                   <VolumeUpIcon />
                 </SpectralToolIcon>
-                <SpectralToolName isActive={activeSpectralTool === 'gain'}>
+                <SpectralToolName className="spectral-tool-name" isActive={activeSpectralTool === 'gain'}>
                   Gain
                 </SpectralToolName>
-              </SpectralToolRow>
+              </SpectralToolButton>
             </Tooltip>
 
-            <Tooltip title="Paint to reduce audio in selected region" placement="left" arrow>
-              <SpectralToolRow
+            <Tooltip title="Paint to reduce audio in selected region" placement="bottom" arrow>
+              <SpectralToolButton
                 isActive={activeSpectralTool === 'attenuate'}
                 onClick={() => setActiveSpectralTool('attenuate')}
               >
-                <SpectralToolIcon isActive={activeSpectralTool === 'attenuate'}>
+                <SpectralToolIcon className="spectral-tool-icon" isActive={activeSpectralTool === 'attenuate'}>
                   <VolumeDownIcon />
                 </SpectralToolIcon>
-                <SpectralToolName isActive={activeSpectralTool === 'attenuate'}>
+                <SpectralToolName className="spectral-tool-name" isActive={activeSpectralTool === 'attenuate'}>
                   Attenuate
                 </SpectralToolName>
-              </SpectralToolRow>
+              </SpectralToolButton>
             </Tooltip>
-          </Box>
+          </SpectralToolsGrid>
         )}
       </InspectorSection>
 
