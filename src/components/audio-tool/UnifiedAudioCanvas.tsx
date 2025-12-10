@@ -425,7 +425,7 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
 
     // Calculate zoom change
     const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1; // Scroll down = zoom out, up = zoom in
-    const newZoom = Math.max(1, Math.min(100, zoom * zoomFactor)); // Clamp between 1x and 100x
+    const newZoom = Math.max(1, Math.min(10, zoom * zoomFactor)); // Clamp between 1x and 10x
 
     if (newZoom !== zoom) {
       // Adjust scroll offset to keep mouse position stable
@@ -484,7 +484,7 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
           <Slider
             value={zoom}
             min={1}
-            max={100}
+            max={10}
             onChange={(_, value) => setZoom(value as number)}
             sx={{
               width: 80,
@@ -498,15 +498,15 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
           {/* Zoom in button */}
           <IconButton
             size="small"
-            onClick={() => setZoom(Math.min(100, zoom * 1.5))}
+            onClick={() => setZoom(Math.min(10, zoom * 1.5))}
             sx={{ color: '#888', padding: '2px', '&:hover': { color: '#19abb5' } }}
           >
             <AddIcon sx={{ fontSize: 16 }} />
           </IconButton>
 
-          {/* Zoom percentage display */}
+          {/* Zoom level display */}
           <Typography sx={{ color: '#888', fontSize: 10, minWidth: 35, textAlign: 'right' }}>
-            {Math.round(zoom * 100)}%
+            {zoom.toFixed(1)}x
           </Typography>
         </Box>
       )}
