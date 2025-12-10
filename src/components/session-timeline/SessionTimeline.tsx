@@ -52,12 +52,6 @@ import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 import GraphicEqIcon from '@mui/icons-material/GraphicEq';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import PauseIcon from '@mui/icons-material/Pause';
-import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
-import SkipNextIcon from '@mui/icons-material/SkipNext';
-import FastRewindIcon from '@mui/icons-material/FastRewind';
-import FastForwardIcon from '@mui/icons-material/FastForward';
 import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
@@ -67,7 +61,7 @@ import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank, type EvidenceItem, type MediaFilter } from '@/components/evidence-bank';
-import { MetadataPanel, FlagsPanel, type Flag } from '@/components/common';
+import { MetadataPanel, FlagsPanel, TransportControls, type Flag } from '@/components/common';
 
 import { usePlayheadStore } from '../../stores/usePlayheadStore';
 import { useNavigationStore } from '../../stores/useNavigationStore';
@@ -475,34 +469,6 @@ const PreviewPlaceholder = styled(Box)({
   color: '#444',
 });
 
-// Embedded Transport Controls (directly under preview)
-const EmbeddedTransportControls = styled(Box)({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 8,
-  padding: '8px 16px',
-  backgroundColor: '#161616',
-  borderBottom: '1px solid #252525',
-});
-
-const TransportButton = styled(IconButton)({
-  color: '#888',
-  padding: 6,
-  '&:hover': {
-    color: '#19abb5',
-    backgroundColor: 'rgba(25, 171, 181, 0.1)',
-  },
-});
-
-const PlayButton = styled(IconButton)({
-  color: '#fff',
-  backgroundColor: '#19abb5',
-  padding: 8,
-  '&:hover': {
-    backgroundColor: '#147a82',
-  },
-});
 
 // Resizable divider between video preview and timeline
 const ResizeDivider = styled(Box)({
@@ -2717,39 +2683,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
         )}
       </UnifiedPreviewSection>
 
-      {/* Embedded Transport Controls - directly under preview */}
-      <EmbeddedTransportControls>
-        <Tooltip title="Jump to start (Home)">
-          <TransportButton onClick={jumpToStart} size="small">
-            <SkipPreviousIcon sx={{ fontSize: 18 }} />
-          </TransportButton>
-        </Tooltip>
-        <Tooltip title="Step back (←)">
-          <TransportButton onClick={stepBackward} size="small">
-            <FastRewindIcon sx={{ fontSize: 18 }} />
-          </TransportButton>
-        </Tooltip>
-        <Tooltip title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}>
-          <PlayButton onClick={togglePlayback} size="small">
-            {isPlaying ? <PauseIcon sx={{ fontSize: 20 }} /> : <PlayArrowIcon sx={{ fontSize: 20 }} />}
-          </PlayButton>
-        </Tooltip>
-        <Tooltip title="Step forward (→)">
-          <TransportButton onClick={stepForward} size="small">
-            <FastForwardIcon sx={{ fontSize: 18 }} />
-          </TransportButton>
-        </Tooltip>
-        <Tooltip title="Jump to end (End)">
-          <TransportButton onClick={jumpToEnd} size="small">
-            <SkipNextIcon sx={{ fontSize: 18 }} />
-          </TransportButton>
-        </Tooltip>
-        <Box sx={{ ml: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography sx={{ color: '#19abb5', fontSize: 12, fontFamily: '"JetBrains Mono", monospace' }}>
-            {formatTimecode(globalTimestamp)}
-          </Typography>
-        </Box>
-      </EmbeddedTransportControls>
+      {/* Shared Transport Controls */}
+      <TransportControls />
 
       {/* Resizable Divider */}
       <ResizeDivider onMouseDown={handleDividerDrag}>
