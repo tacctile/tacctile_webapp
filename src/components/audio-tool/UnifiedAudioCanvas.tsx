@@ -3,7 +3,7 @@
  * Displays spectral visualization with teal waveform overlay
  */
 
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
 import Box from '@mui/material/Box';
 import { styled } from '@mui/material/styles';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
@@ -31,10 +31,6 @@ interface UnifiedAudioCanvasProps {
   duration: number;
   /** Current playback position in seconds */
   currentTime: number;
-  /** Zoom level (1 = fit to view) */
-  zoom?: number;
-  /** Scroll offset (0-1) */
-  scrollOffset?: number;
   /** Callback when user clicks to seek */
   onSeek?: (timeInSeconds: number) => void;
 }
@@ -47,14 +43,17 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
   isLoaded,
   duration,
   currentTime,
-  zoom = 1,
-  scrollOffset = 0,
   onSeek,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const timestamp = usePlayheadStore((state) => state.timestamp);
   const setTimestamp = usePlayheadStore((state) => state.setTimestamp);
+
+  // Zoom state: 1 = full duration visible, higher = zoomed in
+  const [zoom, setZoom] = useState(1);
+  // Scroll offset: 0-1, portion of timeline scrolled
+  const [scrollOffset, setScrollOffset] = useState(0);
 
   // Draw function - renders spectral visualization and waveform overlay
   const draw = useCallback(() => {
@@ -82,6 +81,11 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
     ctx.fillRect(0, 0, width, height);
 
     if (!isLoaded) return;
+
+    // Calculate visible time range based on zoom and scroll
+    const visibleDuration = duration / zoom;
+    const startTime = scrollOffset * duration;
+    const endTime = startTime + visibleDuration;
 
     // ========================================================================
     // Draw Spectral Visualization (gradient bars with noise)
@@ -179,31 +183,36 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
     // ========================================================================
 
     if (isLoaded && duration > 0) {
-      const playheadX = (timestamp / 1000 / duration) * width;
+      // Calculate playhead position based on visible time range
+      const playheadTime = timestamp / 1000;
+      const playheadX = ((playheadTime - startTime) / visibleDuration) * width;
 
-      // Glow effect
-      ctx.shadowColor = '#19abb5';
-      ctx.shadowBlur = 8;
+      // Only draw if playhead is in visible range
+      if (playheadX >= 0 && playheadX <= width) {
+        // Glow effect
+        ctx.shadowColor = '#19abb5';
+        ctx.shadowBlur = 8;
 
-      // Playhead line
-      ctx.strokeStyle = '#19abb5';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(playheadX, 0);
-      ctx.lineTo(playheadX, height);
-      ctx.stroke();
+        // Playhead line
+        ctx.strokeStyle = '#19abb5';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(playheadX, 0);
+        ctx.lineTo(playheadX, height);
+        ctx.stroke();
 
-      // Reset shadow
-      ctx.shadowBlur = 0;
+        // Reset shadow
+        ctx.shadowBlur = 0;
 
-      // Triangle at top
-      ctx.fillStyle = '#19abb5';
-      ctx.beginPath();
-      ctx.moveTo(playheadX - 6, 0);
-      ctx.lineTo(playheadX + 6, 0);
-      ctx.lineTo(playheadX, 8);
-      ctx.closePath();
-      ctx.fill();
+        // Triangle at top
+        ctx.fillStyle = '#19abb5';
+        ctx.beginPath();
+        ctx.moveTo(playheadX - 6, 0);
+        ctx.lineTo(playheadX + 6, 0);
+        ctx.lineTo(playheadX, 8);
+        ctx.closePath();
+        ctx.fill();
+      }
     }
 
     // ========================================================================
@@ -217,18 +226,22 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
       ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
       ctx.fillRect(0, height - timeScaleHeight, width, timeScaleHeight);
 
-      // Determine appropriate time interval based on duration
+      // Adjust interval based on visible duration (zoom level)
       let interval: number; // in seconds
-      if (duration <= 60) {
-        interval = 10; // 10 second marks for short clips
-      } else if (duration <= 300) {
-        interval = 30; // 30 second marks
-      } else if (duration <= 600) {
-        interval = 60; // 1 minute marks
-      } else if (duration <= 1800) {
-        interval = 120; // 2 minute marks
+      if (visibleDuration <= 10) {
+        interval = 1;
+      } else if (visibleDuration <= 30) {
+        interval = 5;
+      } else if (visibleDuration <= 60) {
+        interval = 10;
+      } else if (visibleDuration <= 300) {
+        interval = 30;
+      } else if (visibleDuration <= 600) {
+        interval = 60;
+      } else if (visibleDuration <= 1800) {
+        interval = 120;
       } else {
-        interval = 300; // 5 minute marks for long recordings
+        interval = 300;
       }
 
       // Draw time markers
@@ -236,14 +249,15 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
       ctx.font = '10px Inter, system-ui, sans-serif';
       ctx.textAlign = 'center';
 
-      const numMarkers = Math.floor(duration / interval);
+      // Calculate first and last marker in visible range
+      const firstMarker = Math.ceil(startTime / interval) * interval;
+      const lastMarker = Math.floor(endTime / interval) * interval;
 
-      for (let i = 0; i <= numMarkers; i++) {
-        const time = i * interval;
-        const x = (time / duration) * width;
+      for (let time = firstMarker; time <= lastMarker; time += interval) {
+        const x = ((time - startTime) / visibleDuration) * width;
 
-        // Skip if too close to end (within 50px)
-        if (width - x < 50 && i !== 0) continue;
+        // Skip if too close to edges
+        if (x < 30 || x > width - 50) continue;
 
         // Tick mark
         ctx.strokeStyle = '#555';
@@ -260,13 +274,14 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
         ctx.fillText(label, x, height - 5);
       }
 
-      // Draw end time
-      const endX = width - 2;
-      const endMinutes = Math.floor(duration / 60);
-      const endSeconds = Math.floor(duration % 60);
+      // Draw end time marker (visible end of range)
+      const visibleEndX = width - 2;
+      const visibleEndTime = endTime;
+      const endMinutes = Math.floor(visibleEndTime / 60);
+      const endSeconds = Math.floor(visibleEndTime % 60);
       const endLabel = `${endMinutes}:${endSeconds.toString().padStart(2, '0')}`;
       ctx.textAlign = 'right';
-      ctx.fillText(endLabel, endX, height - 5);
+      ctx.fillText(endLabel, visibleEndX, height - 5);
     }
 
     // ========================================================================
@@ -362,7 +377,7 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
       ctx.font = '8px Inter, system-ui, sans-serif';
       ctx.fillText('dB', 3, 12);
     }
-  }, [isLoaded, duration, timestamp]);
+  }, [isLoaded, duration, timestamp, zoom, scrollOffset]);
 
   // Redraw on mount and when dependencies change
   useEffect(() => {
@@ -376,16 +391,51 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, [draw]);
 
-  // Handle click to seek
+  // Handle click to seek (adjusted for zoom)
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isLoaded || !canvasRef.current || duration <= 0) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const clickRatio = x / rect.width;
-    const newTimeMs = clickRatio * duration * 1000;
+
+    // Calculate time based on visible range
+    const visibleDuration = duration / zoom;
+    const startTime = scrollOffset * duration;
+    const clickTime = startTime + clickRatio * visibleDuration;
+    const newTimeMs = clickTime * 1000;
 
     setTimestamp(newTimeMs);
+  };
+
+  // Handle wheel to zoom (centered on cursor position)
+  const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
+    if (!isLoaded || !canvasRef.current) return;
+
+    e.preventDefault();
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseRatio = mouseX / rect.width; // 0-1 position of mouse on canvas
+
+    // Calculate zoom change
+    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1; // Scroll down = zoom out, up = zoom in
+    const newZoom = Math.max(1, Math.min(100, zoom * zoomFactor)); // Clamp between 1x and 100x
+
+    if (newZoom !== zoom) {
+      // Adjust scroll offset to keep mouse position stable
+      const visibleDuration = duration / zoom;
+      const mouseTime = scrollOffset * duration + mouseRatio * visibleDuration;
+
+      const newVisibleDuration = duration / newZoom;
+      const newScrollOffset = Math.max(
+        0,
+        Math.min(1 - 1 / newZoom, (mouseTime - mouseRatio * newVisibleDuration) / duration)
+      );
+
+      setZoom(newZoom);
+      setScrollOffset(newScrollOffset);
+    }
   };
 
   return (
@@ -393,6 +443,7 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
       <canvas
         ref={canvasRef}
         onClick={handleCanvasClick}
+        onWheel={handleWheel}
         style={{
           position: 'absolute',
           top: 0,
