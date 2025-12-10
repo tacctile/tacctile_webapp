@@ -145,45 +145,78 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
     const endTime = startTime + visibleDuration;
 
     // ========================================================================
-    // Draw Spectral Visualization (gradient bars with noise)
+    // Draw Spectral Visualization (iZotope RX style - vertical frequency bands)
     // ========================================================================
 
     if (showSpectral && isLoaded) {
-      const numBars = Math.floor(width / 3);
-      for (let i = 0; i < numBars; i++) {
-        const x = (i / numBars) * width;
-        const barWidth = width / numBars;
+      const numColumns = Math.floor(width / 2); // One column every 2 pixels
+      const numFreqBins = 128; // Frequency resolution
 
-        // Create varying intensity based on position
-        const t = i / numBars;
-        const intensity = 0.3 +
-          Math.sin(t * Math.PI * 4) * 0.2 +
-          Math.sin(t * Math.PI * 12) * 0.1 +
-          Math.cos(t * Math.PI * 7 + 0.5) * 0.15;
+      for (let col = 0; col < numColumns; col++) {
+        const x = (col / numColumns) * width;
+        const colWidth = width / numColumns + 1; // +1 to avoid gaps
 
-        // Add some randomness for organic feel
-        const noise = (Math.random() - 0.5) * 0.1;
-        const finalIntensity = Math.max(0.1, Math.min(1, intensity + noise));
+        // Time position for this column (accounting for zoom/scroll)
+        const colTime = startTime + (col / numColumns) * visibleDuration;
+        const timeRatio = colTime / duration;
 
-        // Create spectral gradient (purple at top to green at bottom)
-        const gradient = ctx.createLinearGradient(x, 0, x, height);
-        gradient.addColorStop(0, `rgba(80, 40, 120, ${finalIntensity * 0.7})`);     // Purple
-        gradient.addColorStop(0.3, `rgba(60, 80, 140, ${finalIntensity * 0.8})`);   // Blue-purple
-        gradient.addColorStop(0.5, `rgba(40, 100, 80, ${finalIntensity * 0.9})`);   // Teal-green
-        gradient.addColorStop(0.7, `rgba(60, 120, 60, ${finalIntensity * 0.7})`);   // Green
-        gradient.addColorStop(1, `rgba(40, 60, 40, ${finalIntensity * 0.4})`);      // Dark green
+        // Generate frequency data for this time slice (mock data)
+        for (let freqBin = 0; freqBin < numFreqBins; freqBin++) {
+          const freqRatio = freqBin / numFreqBins; // 0 = low freq, 1 = high freq
+          const y = height - 20 - (freqRatio * (height - 20)); // Bottom to top, above time scale
+          const binHeight = (height - 20) / numFreqBins + 1;
 
-        ctx.fillStyle = gradient;
-        ctx.fillRect(x, 0, barWidth + 1, height);
-      }
+          // Generate intensity based on mock audio patterns
+          // Combine multiple sine waves for realistic-looking content
+          const t = timeRatio * Math.PI * 20;
+          const f = freqRatio * Math.PI * 4;
 
-      // Add noise texture overlay for more organic spectrogram look
-      for (let i = 0; i < 500; i++) {
-        const x = Math.random() * width;
-        const y = Math.random() * height;
-        const alpha = Math.random() * 0.15;
-        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
-        ctx.fillRect(x, y, 1, 1);
+          // More energy in low-mid frequencies, less in highs
+          const freqFalloff = 1 - freqRatio * 0.7;
+
+          // Create some variation over time
+          const timeVariation =
+            Math.sin(t) * 0.3 +
+            Math.sin(t * 2.5 + 1) * 0.2 +
+            Math.sin(t * 0.5 + freqRatio * 10) * 0.25;
+
+          // Frequency-dependent patterns (harmonics simulation)
+          const freqPattern =
+            Math.sin(f + t * 0.5) * 0.3 +
+            Math.cos(f * 2 + t) * 0.2;
+
+          // Combine for final intensity
+          let intensity = (0.3 + timeVariation + freqPattern) * freqFalloff;
+          intensity = Math.max(0, Math.min(1, intensity));
+
+          // Add some noise for texture
+          intensity += (Math.random() - 0.5) * 0.1;
+          intensity = Math.max(0, Math.min(1, intensity));
+
+          // Color based on intensity (purple -> teal -> yellow for peaks)
+          let r, g, b;
+          if (intensity < 0.3) {
+            // Low: dark purple
+            r = Math.floor(30 + intensity * 100);
+            g = Math.floor(10 + intensity * 50);
+            b = Math.floor(60 + intensity * 80);
+          } else if (intensity < 0.6) {
+            // Mid: teal/cyan
+            const tt = (intensity - 0.3) / 0.3;
+            r = Math.floor(60 - tt * 40);
+            g = Math.floor(40 + tt * 120);
+            b = Math.floor(100 + tt * 50);
+          } else {
+            // High: yellow/green peaks
+            const tt = (intensity - 0.6) / 0.4;
+            r = Math.floor(20 + tt * 180);
+            g = Math.floor(160 + tt * 60);
+            b = Math.floor(150 - tt * 100);
+          }
+
+          ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+          ctx.fillRect(x, y - binHeight, colWidth, binHeight);
+        }
       }
     }
 
