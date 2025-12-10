@@ -50,6 +50,10 @@ interface UnifiedAudioCanvasProps {
   onScrollOffsetChange?: (newOffset: number) => void;
   /** Callback when user clicks to seek */
   onSeek?: (timeInSeconds: number) => void;
+  /** Real waveform data from audio decoding */
+  waveformData?: Float32Array | null;
+  /** Real spectral data (FFT frames) from audio analysis */
+  spectralData?: Float32Array[] | null;
 }
 
 // ============================================================================
@@ -65,6 +69,8 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
   onZoomChange,
   onScrollOffsetChange,
   onSeek,
+  waveformData,
+  spectralData,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -156,72 +162,123 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
 
     if (showSpectral && isLoaded) {
       const numColumns = Math.floor(width / 2); // One column every 2 pixels
-      const numFreqBins = 128; // Frequency resolution
 
-      for (let col = 0; col < numColumns; col++) {
-        const x = (col / numColumns) * width;
-        const colWidth = width / numColumns + 1; // +1 to avoid gaps
+      // Use real spectral data if available
+      if (spectralData && spectralData.length > 0) {
+        const numBins = spectralData[0].length;
 
-        // Time position for this column (accounting for zoom/scroll)
-        const colTime = startTime + (col / numColumns) * visibleDuration;
-        const timeRatio = colTime / duration;
+        for (let col = 0; col < numColumns; col++) {
+          const x = (col / numColumns) * width;
+          const colWidth = width / numColumns + 1;
 
-        // Generate frequency data for this time slice (mock data)
-        for (let freqBin = 0; freqBin < numFreqBins; freqBin++) {
-          const freqRatio = freqBin / numFreqBins; // 0 = low freq, 1 = high freq
-          const y = height - 20 - (freqRatio * (height - 20)); // Bottom to top, above time scale
-          const binHeight = (height - 20) / numFreqBins + 1;
+          // Time position for this column (accounting for zoom/scroll)
+          const colTime = startTime + (col / numColumns) * visibleDuration;
+          const frameIndex = Math.floor((colTime / duration) * spectralData.length);
 
-          // Generate intensity based on mock audio patterns
-          // Combine multiple sine waves for realistic-looking content
-          const t = timeRatio * Math.PI * 20;
-          const f = freqRatio * Math.PI * 4;
+          if (frameIndex >= 0 && frameIndex < spectralData.length) {
+            const frame = spectralData[frameIndex];
 
-          // More energy in low-mid frequencies, less in highs
-          const freqFalloff = 1 - freqRatio * 0.7;
+            for (let bin = 0; bin < numBins; bin++) {
+              const freqRatio = bin / numBins;
+              const y = height - 20 - (freqRatio * (height - 20));
+              const binHeight = (height - 20) / numBins + 1;
 
-          // Create some variation over time
-          const timeVariation =
-            Math.sin(t) * 0.3 +
-            Math.sin(t * 2.5 + 1) * 0.2 +
-            Math.sin(t * 0.5 + freqRatio * 10) * 0.25;
+              // Normalize and apply log scale for better visualization
+              const magnitude = frame[bin];
+              const intensity = Math.min(1, Math.log10(1 + magnitude * 100) / 2);
 
-          // Frequency-dependent patterns (harmonics simulation)
-          const freqPattern =
-            Math.sin(f + t * 0.5) * 0.3 +
-            Math.cos(f * 2 + t) * 0.2;
+              // Color mapping (purple -> teal -> yellow)
+              let r, g, b;
+              if (intensity < 0.3) {
+                r = Math.floor(30 + intensity * 100);
+                g = Math.floor(10 + intensity * 50);
+                b = Math.floor(60 + intensity * 80);
+              } else if (intensity < 0.6) {
+                const t = (intensity - 0.3) / 0.3;
+                r = Math.floor(60 - t * 40);
+                g = Math.floor(40 + t * 120);
+                b = Math.floor(100 + t * 50);
+              } else {
+                const t = (intensity - 0.6) / 0.4;
+                r = Math.floor(20 + t * 180);
+                g = Math.floor(160 + t * 60);
+                b = Math.floor(150 - t * 100);
+              }
 
-          // Combine for final intensity
-          let intensity = (0.3 + timeVariation + freqPattern) * freqFalloff;
-          intensity = Math.max(0, Math.min(1, intensity));
-
-          // Add some noise for texture
-          intensity += (Math.random() - 0.5) * 0.1;
-          intensity = Math.max(0, Math.min(1, intensity));
-
-          // Color based on intensity (purple -> teal -> yellow for peaks)
-          let r, g, b;
-          if (intensity < 0.3) {
-            // Low: dark purple
-            r = Math.floor(30 + intensity * 100);
-            g = Math.floor(10 + intensity * 50);
-            b = Math.floor(60 + intensity * 80);
-          } else if (intensity < 0.6) {
-            // Mid: teal/cyan
-            const tt = (intensity - 0.3) / 0.3;
-            r = Math.floor(60 - tt * 40);
-            g = Math.floor(40 + tt * 120);
-            b = Math.floor(100 + tt * 50);
-          } else {
-            // High: yellow/green peaks
-            const tt = (intensity - 0.6) / 0.4;
-            r = Math.floor(20 + tt * 180);
-            g = Math.floor(160 + tt * 60);
-            b = Math.floor(150 - tt * 100);
+              ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+              ctx.fillRect(x, y - binHeight, colWidth, binHeight);
+            }
           }
+        }
+      } else {
+        // Fall back to mock spectral visualization
+        const numFreqBins = 128; // Frequency resolution
 
-          ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-          ctx.fillRect(x, y - binHeight, colWidth, binHeight);
+        for (let col = 0; col < numColumns; col++) {
+          const x = (col / numColumns) * width;
+          const colWidth = width / numColumns + 1; // +1 to avoid gaps
+
+          // Time position for this column (accounting for zoom/scroll)
+          const colTime = startTime + (col / numColumns) * visibleDuration;
+          const timeRatio = colTime / duration;
+
+          // Generate frequency data for this time slice (mock data)
+          for (let freqBin = 0; freqBin < numFreqBins; freqBin++) {
+            const freqRatio = freqBin / numFreqBins; // 0 = low freq, 1 = high freq
+            const y = height - 20 - (freqRatio * (height - 20)); // Bottom to top, above time scale
+            const binHeight = (height - 20) / numFreqBins + 1;
+
+            // Generate intensity based on mock audio patterns
+            // Combine multiple sine waves for realistic-looking content
+            const t = timeRatio * Math.PI * 20;
+            const f = freqRatio * Math.PI * 4;
+
+            // More energy in low-mid frequencies, less in highs
+            const freqFalloff = 1 - freqRatio * 0.7;
+
+            // Create some variation over time
+            const timeVariation =
+              Math.sin(t) * 0.3 +
+              Math.sin(t * 2.5 + 1) * 0.2 +
+              Math.sin(t * 0.5 + freqRatio * 10) * 0.25;
+
+            // Frequency-dependent patterns (harmonics simulation)
+            const freqPattern =
+              Math.sin(f + t * 0.5) * 0.3 +
+              Math.cos(f * 2 + t) * 0.2;
+
+            // Combine for final intensity
+            let intensity = (0.3 + timeVariation + freqPattern) * freqFalloff;
+            intensity = Math.max(0, Math.min(1, intensity));
+
+            // Add some noise for texture
+            intensity += (Math.random() - 0.5) * 0.1;
+            intensity = Math.max(0, Math.min(1, intensity));
+
+            // Color based on intensity (purple -> teal -> yellow for peaks)
+            let r, g, b;
+            if (intensity < 0.3) {
+              // Low: dark purple
+              r = Math.floor(30 + intensity * 100);
+              g = Math.floor(10 + intensity * 50);
+              b = Math.floor(60 + intensity * 80);
+            } else if (intensity < 0.6) {
+              // Mid: teal/cyan
+              const tt = (intensity - 0.3) / 0.3;
+              r = Math.floor(60 - tt * 40);
+              g = Math.floor(40 + tt * 120);
+              b = Math.floor(100 + tt * 50);
+            } else {
+              // High: yellow/green peaks
+              const tt = (intensity - 0.6) / 0.4;
+              r = Math.floor(20 + tt * 180);
+              g = Math.floor(160 + tt * 60);
+              b = Math.floor(150 - tt * 100);
+            }
+
+            ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+            ctx.fillRect(x, y - binHeight, colWidth, binHeight);
+          }
         }
       }
     }
@@ -233,35 +290,55 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
     if (showWaveform && isLoaded) {
       const centerY = height / 2;
 
-      // Generate mock waveform data
-      const waveformPoints: number[] = [];
-      for (let i = 0; i < width; i++) {
-        const t = i / width;
-        // Create realistic-looking audio waveform with varying amplitude
-        const envelope = 0.3 +
-          Math.sin(t * Math.PI * 2) * 0.15 +
-          Math.sin(t * Math.PI * 8) * 0.1 +
-          Math.cos(t * Math.PI * 4 + 1) * 0.12;
-        const noise = (Math.random() - 0.5) * 0.15;
-        const sample = (Math.sin(t * 150) * 0.3 + Math.sin(t * 80) * 0.2 + noise) * envelope;
-        waveformPoints.push(sample);
-      }
-
-      // Draw filled waveform (mirrored top and bottom)
       ctx.fillStyle = 'rgba(25, 171, 181, 0.6)'; // Teal with transparency
       ctx.beginPath();
       ctx.moveTo(0, centerY);
 
-      // Top half
-      for (let i = 0; i < waveformPoints.length; i++) {
-        const y = centerY - Math.abs(waveformPoints[i]) * height * 0.4;
-        ctx.lineTo(i, y);
-      }
+      if (waveformData && waveformData.length > 0) {
+        // Use real waveform data
+        // Top half
+        for (let x = 0; x < width; x++) {
+          const time = startTime + (x / width) * visibleDuration;
+          const dataIndex = Math.floor((time / duration) * waveformData.length);
+          const amplitude = dataIndex >= 0 && dataIndex < waveformData.length ? waveformData[dataIndex] : 0;
+          const y = centerY - amplitude * (height * 0.4);
+          ctx.lineTo(x, y);
+        }
 
-      // Bottom half (mirror)
-      for (let i = waveformPoints.length - 1; i >= 0; i--) {
-        const y = centerY + Math.abs(waveformPoints[i]) * height * 0.4;
-        ctx.lineTo(i, y);
+        // Bottom half (mirror)
+        for (let x = width - 1; x >= 0; x--) {
+          const time = startTime + (x / width) * visibleDuration;
+          const dataIndex = Math.floor((time / duration) * waveformData.length);
+          const amplitude = dataIndex >= 0 && dataIndex < waveformData.length ? waveformData[dataIndex] : 0;
+          const y = centerY + amplitude * (height * 0.4);
+          ctx.lineTo(x, y);
+        }
+      } else {
+        // Fall back to mock waveform data
+        const waveformPoints: number[] = [];
+        for (let i = 0; i < width; i++) {
+          const t = i / width;
+          // Create realistic-looking audio waveform with varying amplitude
+          const envelope = 0.3 +
+            Math.sin(t * Math.PI * 2) * 0.15 +
+            Math.sin(t * Math.PI * 8) * 0.1 +
+            Math.cos(t * Math.PI * 4 + 1) * 0.12;
+          const noise = (Math.random() - 0.5) * 0.15;
+          const sample = (Math.sin(t * 150) * 0.3 + Math.sin(t * 80) * 0.2 + noise) * envelope;
+          waveformPoints.push(sample);
+        }
+
+        // Top half
+        for (let i = 0; i < waveformPoints.length; i++) {
+          const y = centerY - Math.abs(waveformPoints[i]) * height * 0.4;
+          ctx.lineTo(i, y);
+        }
+
+        // Bottom half (mirror)
+        for (let i = waveformPoints.length - 1; i >= 0; i--) {
+          const y = centerY + Math.abs(waveformPoints[i]) * height * 0.4;
+          ctx.lineTo(i, y);
+        }
       }
 
       ctx.closePath();
@@ -523,7 +600,7 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
       ctx.strokeRect(x1, 0, marqueeWidth, height - 20);
       ctx.setLineDash([]);
     }
-  }, [isLoaded, duration, timestamp, zoom, scrollOffset, showSpectral, showWaveform, zoomToolActive, marqueeStart, marqueeEnd]);
+  }, [isLoaded, duration, timestamp, zoom, scrollOffset, showSpectral, showWaveform, zoomToolActive, marqueeStart, marqueeEnd, waveformData, spectralData]);
 
   // Redraw on mount and when dependencies change
   useEffect(() => {
