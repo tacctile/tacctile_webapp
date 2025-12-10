@@ -777,7 +777,7 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
           width: '100%',
           height: '100%',
           cursor: isLoaded
-            ? (zoomToolActive ? 'zoom-in' : isPanning ? 'grabbing' : isSpaceHeld ? 'grab' : isDragging ? 'ew-resize' : isHoveringPlayhead ? 'ew-resize' : 'default')
+            ? (zoomToolActive ? 'crosshair' : isPanning ? 'grabbing' : isSpaceHeld ? 'grab' : isDragging ? 'ew-resize' : isHoveringPlayhead ? 'ew-resize' : 'default')
             : 'default',
         }}
       />
@@ -895,10 +895,14 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
           </IconButton>
 
           {/* Zoom Tool Button */}
-          <Tooltip title="Zoom Tool (draw to zoom)">
+          <Tooltip title={zoomToolActive ? "Cancel Zoom Tool" : "Zoom Tool - Draw to zoom"}>
             <IconButton
               size="small"
-              onClick={() => setZoomToolActive(!zoomToolActive)}
+              onClick={() => {
+                setZoomToolActive(!zoomToolActive);
+                setMarqueeStart(null);
+                setMarqueeEnd(null);
+              }}
               sx={{
                 color: zoomToolActive ? '#19abb5' : '#888',
                 padding: '4px',
