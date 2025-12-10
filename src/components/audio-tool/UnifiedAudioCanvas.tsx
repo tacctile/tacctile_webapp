@@ -268,6 +268,53 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
       ctx.textAlign = 'right';
       ctx.fillText(endLabel, endX, height - 5);
     }
+
+    // ========================================================================
+    // Draw Frequency Scale
+    // ========================================================================
+
+    if (isLoaded) {
+      const freqScaleWidth = 40;
+
+      // Semi-transparent background for frequency scale
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.fillRect(width - freqScaleWidth, 0, freqScaleWidth, height - 20); // Stop above time scale
+
+      // Frequency markers (logarithmic scale typical for audio)
+      const frequencies = [20, 50, 100, 200, 500, '1k', '2k', '5k', '10k', '20k'];
+      const freqValues = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+
+      ctx.fillStyle = '#888';
+      ctx.font = '9px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'right';
+
+      const usableHeight = height - 20; // Account for time scale
+
+      frequencies.forEach((label, i) => {
+        // Logarithmic positioning (low frequencies at bottom, high at top)
+        const freqRatio = Math.log10(freqValues[i] / 20) / Math.log10(20000 / 20);
+        const y = usableHeight - (freqRatio * usableHeight);
+
+        // Only draw if in visible range
+        if (y > 10 && y < usableHeight - 5) {
+          // Tick mark
+          ctx.strokeStyle = '#555';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(width - freqScaleWidth, y);
+          ctx.lineTo(width - freqScaleWidth + 5, y);
+          ctx.stroke();
+
+          // Frequency label
+          ctx.fillText(String(label), width - 5, y + 3);
+        }
+      });
+
+      // "Hz" label at top
+      ctx.fillStyle = '#666';
+      ctx.font = '8px Inter, system-ui, sans-serif';
+      ctx.fillText('Hz', width - 5, 12);
+    }
   }, [isLoaded, duration, timestamp]);
 
   // Redraw on mount and when dependencies change
