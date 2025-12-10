@@ -7,9 +7,12 @@ import React, { useRef, useEffect, useCallback, useState } from 'react';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Slider from '@mui/material/Slider';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { styled } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
+import GraphicEqIcon from '@mui/icons-material/GraphicEq';
+import GridOnIcon from '@mui/icons-material/GridOn';
 import RemoveIcon from '@mui/icons-material/Remove';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
 
@@ -105,6 +108,10 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
   // Track if mouse is near playhead handle for cursor feedback
   const [isHoveringPlayhead, setIsHoveringPlayhead] = useState(false);
 
+  // Layer visibility state
+  const [showSpectral, setShowSpectral] = useState(true);
+  const [showWaveform, setShowWaveform] = useState(true);
+
   // Draw function - renders spectral visualization and waveform overlay
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -141,48 +148,50 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
     // Draw Spectral Visualization (gradient bars with noise)
     // ========================================================================
 
-    const numBars = Math.floor(width / 3);
-    for (let i = 0; i < numBars; i++) {
-      const x = (i / numBars) * width;
-      const barWidth = width / numBars;
+    if (showSpectral && isLoaded) {
+      const numBars = Math.floor(width / 3);
+      for (let i = 0; i < numBars; i++) {
+        const x = (i / numBars) * width;
+        const barWidth = width / numBars;
 
-      // Create varying intensity based on position
-      const t = i / numBars;
-      const intensity = 0.3 +
-        Math.sin(t * Math.PI * 4) * 0.2 +
-        Math.sin(t * Math.PI * 12) * 0.1 +
-        Math.cos(t * Math.PI * 7 + 0.5) * 0.15;
+        // Create varying intensity based on position
+        const t = i / numBars;
+        const intensity = 0.3 +
+          Math.sin(t * Math.PI * 4) * 0.2 +
+          Math.sin(t * Math.PI * 12) * 0.1 +
+          Math.cos(t * Math.PI * 7 + 0.5) * 0.15;
 
-      // Add some randomness for organic feel
-      const noise = (Math.random() - 0.5) * 0.1;
-      const finalIntensity = Math.max(0.1, Math.min(1, intensity + noise));
+        // Add some randomness for organic feel
+        const noise = (Math.random() - 0.5) * 0.1;
+        const finalIntensity = Math.max(0.1, Math.min(1, intensity + noise));
 
-      // Create spectral gradient (purple at top to green at bottom)
-      const gradient = ctx.createLinearGradient(x, 0, x, height);
-      gradient.addColorStop(0, `rgba(80, 40, 120, ${finalIntensity * 0.7})`);     // Purple
-      gradient.addColorStop(0.3, `rgba(60, 80, 140, ${finalIntensity * 0.8})`);   // Blue-purple
-      gradient.addColorStop(0.5, `rgba(40, 100, 80, ${finalIntensity * 0.9})`);   // Teal-green
-      gradient.addColorStop(0.7, `rgba(60, 120, 60, ${finalIntensity * 0.7})`);   // Green
-      gradient.addColorStop(1, `rgba(40, 60, 40, ${finalIntensity * 0.4})`);      // Dark green
+        // Create spectral gradient (purple at top to green at bottom)
+        const gradient = ctx.createLinearGradient(x, 0, x, height);
+        gradient.addColorStop(0, `rgba(80, 40, 120, ${finalIntensity * 0.7})`);     // Purple
+        gradient.addColorStop(0.3, `rgba(60, 80, 140, ${finalIntensity * 0.8})`);   // Blue-purple
+        gradient.addColorStop(0.5, `rgba(40, 100, 80, ${finalIntensity * 0.9})`);   // Teal-green
+        gradient.addColorStop(0.7, `rgba(60, 120, 60, ${finalIntensity * 0.7})`);   // Green
+        gradient.addColorStop(1, `rgba(40, 60, 40, ${finalIntensity * 0.4})`);      // Dark green
 
-      ctx.fillStyle = gradient;
-      ctx.fillRect(x, 0, barWidth + 1, height);
-    }
+        ctx.fillStyle = gradient;
+        ctx.fillRect(x, 0, barWidth + 1, height);
+      }
 
-    // Add noise texture overlay for more organic spectrogram look
-    for (let i = 0; i < 500; i++) {
-      const x = Math.random() * width;
-      const y = Math.random() * height;
-      const alpha = Math.random() * 0.15;
-      ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
-      ctx.fillRect(x, y, 1, 1);
+      // Add noise texture overlay for more organic spectrogram look
+      for (let i = 0; i < 500; i++) {
+        const x = Math.random() * width;
+        const y = Math.random() * height;
+        const alpha = Math.random() * 0.15;
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.fillRect(x, y, 1, 1);
+      }
     }
 
     // ========================================================================
     // Draw Waveform Overlay
     // ========================================================================
 
-    if (isLoaded) {
+    if (showWaveform && isLoaded) {
       const centerY = height / 2;
 
       // Generate mock waveform data
@@ -454,7 +463,7 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
       ctx.font = '8px Inter, system-ui, sans-serif';
       ctx.fillText('dB', 3, 12);
     }
-  }, [isLoaded, duration, timestamp, zoom, scrollOffset]);
+  }, [isLoaded, duration, timestamp, zoom, scrollOffset, showSpectral, showWaveform]);
 
   // Redraw on mount and when dependencies change
   useEffect(() => {
@@ -654,6 +663,49 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
             : 'default',
         }}
       />
+      {/* Layer Toggle Buttons */}
+      {isLoaded && (
+        <Box sx={{
+          position: 'absolute',
+          top: 8,
+          left: 40, // After dB scale
+          display: 'flex',
+          gap: 0.5,
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          borderRadius: 1,
+          padding: '4px',
+        }}>
+          {/* Spectral toggle */}
+          <Tooltip title={showSpectral ? "Hide Spectral" : "Show Spectral"}>
+            <IconButton
+              size="small"
+              onClick={() => setShowSpectral(!showSpectral)}
+              sx={{
+                color: showSpectral ? '#19abb5' : '#555',
+                padding: '4px',
+                '&:hover': { backgroundColor: 'rgba(25, 171, 181, 0.1)' },
+              }}
+            >
+              <GridOnIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+
+          {/* Waveform toggle */}
+          <Tooltip title={showWaveform ? "Hide Waveform" : "Show Waveform"}>
+            <IconButton
+              size="small"
+              onClick={() => setShowWaveform(!showWaveform)}
+              sx={{
+                color: showWaveform ? '#19abb5' : '#555',
+                padding: '4px',
+                '&:hover': { backgroundColor: 'rgba(25, 171, 181, 0.1)' },
+              }}
+            >
+              <GraphicEqIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      )}
       {/* Zoom Controls */}
       {isLoaded && (
         <Box sx={{
