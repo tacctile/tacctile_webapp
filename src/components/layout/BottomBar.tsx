@@ -11,6 +11,19 @@ import LocationOn from '@mui/icons-material/LocationOn';
 import AccessTime from '@mui/icons-material/AccessTime';
 import Notifications from '@mui/icons-material/Notifications';
 import Search from '@mui/icons-material/Search';
+import { usePlayheadStore } from '@/stores/usePlayheadStore';
+
+// Format timestamp to HH:MM:SS:FF format (30fps)
+const formatTimecode = (ms: number): string => {
+  const totalMs = Math.max(0, ms);
+  const totalSeconds = Math.floor(totalMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const frames = Math.floor((totalMs % 1000) / 33.33);
+
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:${frames.toString().padStart(2, '0')}`;
+};
 
 // Divider component for visual separation
 const Divider: React.FC = () => (
@@ -25,6 +38,8 @@ const Divider: React.FC = () => (
 );
 
 export const BottomBar: React.FC = () => {
+  const timestamp = usePlayheadStore((state) => state.timestamp);
+
   return (
     <Box
       sx={{
@@ -62,9 +77,26 @@ export const BottomBar: React.FC = () => {
           sx={{
             color: '#999',
             fontSize: '13px',
+            whiteSpace: 'nowrap',
           }}
         >
           Session-3
+        </Typography>
+
+        <Divider />
+
+        {/* Timecode display */}
+        <Typography
+          sx={{
+            color: '#19abb5',
+            fontFamily: '"JetBrains Mono", "Roboto Mono", "Consolas", monospace',
+            fontSize: '15px',
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+            letterSpacing: '-0.3px',
+          }}
+        >
+          {formatTimecode(timestamp)}
         </Typography>
 
         <Divider />
