@@ -66,7 +66,6 @@ const OverviewBarContainer = styled(Box)({
   backgroundColor: '#111',
   borderBottom: '1px solid #252525',
   position: 'relative',
-  cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
   padding: 0,
@@ -868,6 +867,7 @@ const OverviewBar: React.FC<OverviewBarProps> = ({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
+        sx={{ cursor: isLoaded ? 'ew-resize' : 'default' }}
       >
         <canvas
           ref={canvasRef}

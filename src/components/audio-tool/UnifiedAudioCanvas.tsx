@@ -528,11 +528,12 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
       return;
     }
 
-    // Left click = start scrubbing
-    if (e.button === 0) {
+    // Left click - only start scrubbing if clicking on/near the playhead
+    if (e.button === 0 && isNearPlayhead(e)) {
       setIsDragging(true);
-      seekToPosition(e);
+      // Don't seek on initial click - just start dragging
     }
+    // Clicking elsewhere on the canvas does nothing
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -575,35 +576,27 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
     setIsHoveringPlayhead(false);
   };
 
-  // Handle wheel to zoom (centered on cursor position)
-  const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
-    if (!isLoaded || !canvasRef.current) return;
+  // Handle wheel to zoom (centered on playhead position)
+  const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
+    if (!isLoaded || duration <= 0) return;
 
     e.preventDefault();
-
-    const rect = canvasRef.current.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseRatio = mouseX / rect.width; // 0-1 position of mouse on canvas
 
     // Calculate zoom change
     const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1; // Scroll down = zoom out, up = zoom in
     const newZoom = Math.max(1, Math.min(10, zoom * zoomFactor)); // Clamp between 1x and 10x
 
     if (newZoom !== zoom) {
-      // Adjust scroll offset to keep mouse position stable
-      const visibleDuration = duration / zoom;
-      const mouseTime = scrollOffset * duration + mouseRatio * visibleDuration;
-
+      // Center on PLAYHEAD, not mouse
+      const playheadTime = timestamp / 1000;
       const newVisibleDuration = duration / newZoom;
-      const newScrollOffset = Math.max(
-        0,
-        Math.min(1 - 1 / newZoom, (mouseTime - mouseRatio * newVisibleDuration) / duration)
-      );
+      const newScrollOffset = Math.max(0, Math.min(1 - 1/newZoom,
+        (playheadTime - newVisibleDuration / 2) / duration));
 
       setZoom(newZoom);
       setScrollOffset(newScrollOffset);
     }
-  };
+  }, [isLoaded, zoom, duration, timestamp]);
 
   return (
     <CanvasContainer ref={containerRef}>
@@ -622,7 +615,7 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
           width: '100%',
           height: '100%',
           cursor: isLoaded
-            ? (isPanning ? 'grabbing' : isSpaceHeld ? 'grab' : isDragging ? 'ew-resize' : isHoveringPlayhead ? 'ew-resize' : 'pointer')
+            ? (isPanning ? 'grabbing' : isSpaceHeld ? 'grab' : isDragging ? 'ew-resize' : isHoveringPlayhead ? 'ew-resize' : 'default')
             : 'default',
         }}
       />
