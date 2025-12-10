@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { Box, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
+import { usePlayheadStore } from '@/stores/usePlayheadStore';
 
 // ============================================================================
 // STYLED COMPONENTS
@@ -205,6 +206,9 @@ export const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
   const spectralDataRef = useRef<Float32Array[] | null>(null);
   const waveformDataRef = useRef<Float32Array | null>(null);
 
+  // Get playhead timestamp from store (in milliseconds)
+  const timestamp = usePlayheadStore((state) => state.timestamp);
+
   // Generate spectral data when loaded
   const getSpectralData = useCallback((width: number, height: number): Float32Array[] => {
     const numTimeSlices = Math.max(width, 200);
@@ -340,7 +344,45 @@ export const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
     ctx.strokeStyle = 'rgba(25, 171, 181, 0.8)';
     ctx.lineWidth = 0.5;
     ctx.stroke();
-  }, [isLoaded, getSpectralData, getWaveformData]);
+
+    // ========================================
+    // LAYER 3: Playhead
+    // ========================================
+    if (duration > 0) {
+      const currentTimeSeconds = timestamp / 1000; // Convert ms to seconds
+      const playheadX = (currentTimeSeconds / duration) * width;
+
+      // Only draw if playhead is within visible range
+      if (playheadX >= 0 && playheadX <= width) {
+        // Draw glow effect (wider semi-transparent line behind)
+        ctx.strokeStyle = 'rgba(25, 171, 181, 0.3)';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(playheadX, 0);
+        ctx.lineTo(playheadX, height);
+        ctx.stroke();
+
+        // Draw main playhead line
+        ctx.strokeStyle = '#19abb5';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(playheadX, 0);
+        ctx.lineTo(playheadX, height);
+        ctx.stroke();
+
+        // Draw triangle indicator at top
+        const triangleWidth = 8;
+        const triangleHeight = 6;
+        ctx.fillStyle = '#19abb5';
+        ctx.beginPath();
+        ctx.moveTo(playheadX - triangleWidth / 2, 0);
+        ctx.lineTo(playheadX + triangleWidth / 2, 0);
+        ctx.lineTo(playheadX, triangleHeight);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+  }, [isLoaded, duration, timestamp, getSpectralData, getWaveformData]);
 
   // Initial draw and resize handling
   useEffect(() => {
