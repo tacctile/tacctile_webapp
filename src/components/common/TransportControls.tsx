@@ -34,17 +34,6 @@ const TransportCenter = styled(Box)({
   transform: 'translateX(-50%)',
 });
 
-// Timecode display - monospace, clean
-const TimecodeDisplay = styled('div')({
-  fontFamily: '"JetBrains Mono", "Roboto Mono", "Consolas", monospace',
-  fontSize: '15px',
-  fontWeight: 500,
-  color: '#e0e0e0',
-  letterSpacing: '-0.3px',
-  minWidth: 80,
-  userSelect: 'none',
-});
-
 // Base transport button - circular with hover states
 const TransportButton = styled('button')<{ $active?: boolean }>(({ $active }) => ({
   width: 36,
@@ -262,16 +251,6 @@ const ChevronDownIcon = () => (
 // HELPERS
 // ============================================================================
 
-// Format timestamp to HH:MM:SS format (simplified for cleaner display)
-const formatTimecode = (ms: number): string => {
-  const totalSeconds = Math.floor(Math.max(0, ms) / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-};
-
 // Speed options
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
 
@@ -280,17 +259,14 @@ const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
 // ============================================================================
 
 interface TransportControlsProps {
-  showTimecode?: boolean;
   showSpeed?: boolean;
   compact?: boolean;
 }
 
 export const TransportControls: React.FC<TransportControlsProps> = ({
-  showTimecode = true,
   showSpeed = true,
 }) => {
   // Playhead store
-  const timestamp = usePlayheadStore((state) => state.timestamp);
   const isPlaying = usePlayheadStore((state) => state.isPlaying);
   const isReversePlaying = usePlayheadStore((state) => state.isReversePlaying);
   const playbackSpeed = usePlayheadStore((state) => state.playbackSpeed);
@@ -369,12 +345,46 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
 
   return (
     <TransportContainer>
-      {/* LEFT SECTION: Timecode Display */}
+      {/* LEFT SECTION: Loop Toggle + Speed Selector */}
       <TransportSection>
-        {showTimecode && (
-          <Tooltip title="Playback position">
-            <TimecodeDisplay>{formatTimecode(timestamp)}</TimecodeDisplay>
-          </Tooltip>
+        {/* Loop Toggle */}
+        <Tooltip title={looping ? 'Loop enabled (L)' : 'Enable loop (L)'}>
+          <LoopButton
+            onClick={toggleLooping}
+            $active={looping}
+            aria-label={looping ? 'Disable loop' : 'Enable loop'}
+          >
+            <LoopIcon />
+          </LoopButton>
+        </Tooltip>
+
+        {/* Speed Selector */}
+        {showSpeed && (
+          <>
+            <Tooltip title="Playback speed">
+              <SpeedButton onClick={handleSpeedClick} aria-label="Playback speed">
+                {playbackSpeed}x
+                <ChevronDownIcon />
+              </SpeedButton>
+            </Tooltip>
+            <SpeedMenu
+              anchorEl={speedAnchor}
+              open={speedMenuOpen}
+              onClose={handleSpeedClose}
+              anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+              transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            >
+              {SPEEDS.map((speed) => (
+                <SpeedMenuItem
+                  key={speed}
+                  onClick={() => handleSpeedSelect(speed)}
+                  $selected={playbackSpeed === speed}
+                >
+                  {speed}x
+                </SpeedMenuItem>
+              ))}
+            </SpeedMenu>
+          </>
         )}
       </TransportSection>
 
@@ -431,48 +441,8 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
         </Tooltip>
       </TransportCenter>
 
-      {/* RIGHT SECTION: Loop Toggle + Speed Selector */}
-      <TransportSection>
-        {/* Loop Toggle */}
-        <Tooltip title={looping ? 'Loop enabled (L)' : 'Enable loop (L)'}>
-          <LoopButton
-            onClick={toggleLooping}
-            $active={looping}
-            aria-label={looping ? 'Disable loop' : 'Enable loop'}
-          >
-            <LoopIcon />
-          </LoopButton>
-        </Tooltip>
-
-        {/* Speed Selector */}
-        {showSpeed && (
-          <>
-            <Tooltip title="Playback speed">
-              <SpeedButton onClick={handleSpeedClick} aria-label="Playback speed">
-                {playbackSpeed}x
-                <ChevronDownIcon />
-              </SpeedButton>
-            </Tooltip>
-            <SpeedMenu
-              anchorEl={speedAnchor}
-              open={speedMenuOpen}
-              onClose={handleSpeedClose}
-              anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-              transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-            >
-              {SPEEDS.map((speed) => (
-                <SpeedMenuItem
-                  key={speed}
-                  onClick={() => handleSpeedSelect(speed)}
-                  $selected={playbackSpeed === speed}
-                >
-                  {speed}x
-                </SpeedMenuItem>
-              ))}
-            </SpeedMenu>
-          </>
-        )}
-      </TransportSection>
+      {/* RIGHT SECTION: Reserved for future tool-specific controls (e.g., volume) */}
+      <TransportSection />
     </TransportContainer>
   );
 };
