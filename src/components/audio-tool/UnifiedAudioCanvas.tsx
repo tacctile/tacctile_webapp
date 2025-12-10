@@ -528,12 +528,14 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
       return;
     }
 
-    // Left click - only start scrubbing if clicking on/near the playhead
+    // Left click on playhead = start scrubbing (don't seek, just enable drag)
     if (e.button === 0 && isNearPlayhead(e)) {
       setIsDragging(true);
-      // Don't seek on initial click - just start dragging
+      return;
     }
-    // Clicking elsewhere on the canvas does nothing
+
+    // Left click elsewhere = seek to that position (single click only, no drag)
+    seekToPosition(e);
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {

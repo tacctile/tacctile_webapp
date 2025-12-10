@@ -620,6 +620,7 @@ const OverviewBar: React.FC<OverviewBarProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDraggingViewport, setIsDraggingViewport] = useState(false);
   const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
+  const [isNearPlayhead, setIsNearPlayhead] = useState(false);
   const [dragStartX, setDragStartX] = useState(0);
   const [dragStartOffset, setDragStartOffset] = useState(0);
   const waveformDataRef = useRef<Float32Array | null>(null);
@@ -778,6 +779,13 @@ const OverviewBar: React.FC<OverviewBarProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Check if mouse is near the playhead (within 10px)
+  const checkNearPlayhead = useCallback((mouseX: number, containerWidth: number): boolean => {
+    if (!duration || duration <= 0) return false;
+    const playheadX = (currentTime / duration) * containerWidth;
+    return Math.abs(mouseX - playheadX) < 10;
+  }, [currentTime, duration]);
+
   // Mouse handlers
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (!isLoaded || !containerRef.current) return;
@@ -821,6 +829,11 @@ const OverviewBar: React.FC<OverviewBarProps> = ({
     const rect = containerRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
 
+    // Update hover state for cursor (only when not dragging)
+    if (!isDraggingViewport && !isDraggingPlayhead) {
+      setIsNearPlayhead(checkNearPlayhead(x, rect.width));
+    }
+
     if (isDraggingViewport) {
       const deltaX = x - dragStartX;
       const deltaRatio = deltaX / rect.width;
@@ -831,7 +844,7 @@ const OverviewBar: React.FC<OverviewBarProps> = ({
       const time = ratio * duration;
       onScrub?.(time, true);
     }
-  }, [isDraggingViewport, isDraggingPlayhead, dragStartX, dragStartOffset, zoom, duration, onViewportDrag, onScrub]);
+  }, [isDraggingViewport, isDraggingPlayhead, dragStartX, dragStartOffset, zoom, duration, onViewportDrag, onScrub, checkNearPlayhead]);
 
   const handleMouseUp = useCallback(() => {
     if (isDraggingPlayhead) {
@@ -847,6 +860,7 @@ const OverviewBar: React.FC<OverviewBarProps> = ({
     }
     setIsDraggingViewport(false);
     setIsDraggingPlayhead(false);
+    setIsNearPlayhead(false);
   }, [isDraggingPlayhead, currentTime, onScrub]);
 
   if (!isLoaded) {
@@ -867,7 +881,7 @@ const OverviewBar: React.FC<OverviewBarProps> = ({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
-        sx={{ cursor: isLoaded ? 'ew-resize' : 'default' }}
+        sx={{ cursor: isLoaded ? (isNearPlayhead || isDraggingPlayhead ? 'ew-resize' : 'pointer') : 'default' }}
       >
         <canvas
           ref={canvasRef}
