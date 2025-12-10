@@ -1294,8 +1294,23 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const handleOverviewScrub = useCallback((timeInSeconds: number, scrubbing: boolean) => {
     setIsScrubbing(scrubbing);
     setTimestamp(timeInSeconds * 1000); // Convert to milliseconds
-    // TODO: In a real implementation, we would play audio snippets during scrubbing
-  }, [setTimestamp]);
+
+    // If zoomed, ensure playhead stays visible in main canvas by scrolling viewport
+    if (overviewZoom > 1 && loadedAudio && loadedAudio.duration > 0) {
+      const duration = loadedAudio.duration;
+      const visibleDuration = duration / overviewZoom;
+      const startTime = overviewScrollOffset * duration;
+      const endTime = startTime + visibleDuration;
+
+      // If playhead moved outside visible range, scroll to keep it visible
+      if (timeInSeconds < startTime || timeInSeconds > endTime) {
+        // Center viewport on playhead
+        const newScrollOffset = Math.max(0, Math.min(1 - 1/overviewZoom,
+          (timeInSeconds - visibleDuration / 2) / duration));
+        setOverviewScrollOffset(newScrollOffset);
+      }
+    }
+  }, [setTimestamp, overviewZoom, overviewScrollOffset, loadedAudio]);
 
   // Zoom/scroll handlers for synchronized Spectral + Waveform
   const handleZoomChange = useCallback((newZoom: number) => {
