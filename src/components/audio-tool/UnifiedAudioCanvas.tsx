@@ -59,6 +59,8 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
   const [zoom, setZoom] = useState(1);
   // Scroll offset: 0-1, portion of timeline scrolled
   const [scrollOffset, setScrollOffset] = useState(0);
+  // Dragging state for scrub functionality
+  const [isDragging, setIsDragging] = useState(false);
 
   // Draw function - renders spectral visualization and waveform overlay
   const draw = useCallback(() => {
@@ -396,21 +398,44 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, [draw]);
 
-  // Handle click to seek (adjusted for zoom)
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isLoaded || !canvasRef.current || duration <= 0) return;
-
-    const rect = canvasRef.current.getBoundingClientRect();
+  // Seek to position helper (used by drag-to-scrub)
+  const seekToPosition = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const rect = canvasRef.current!.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    const clickRatio = x / rect.width;
+    const clickRatio = Math.max(0, Math.min(1, x / rect.width));
 
-    // Calculate time based on visible range
+    // Account for zoom
     const visibleDuration = duration / zoom;
     const startTime = scrollOffset * duration;
-    const clickTime = startTime + clickRatio * visibleDuration;
-    const newTimeMs = clickTime * 1000;
+    const clickTime = startTime + (clickRatio * visibleDuration);
 
+    const newTimeMs = clickTime * 1000;
     setTimestamp(newTimeMs);
+  };
+
+  // Handle mouse down to start dragging/seeking
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isLoaded || !canvasRef.current || duration <= 0) return;
+
+    setIsDragging(true);
+    seekToPosition(e);
+  };
+
+  // Handle mouse move to scrub while dragging
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDragging || !isLoaded || !canvasRef.current || duration <= 0) return;
+
+    seekToPosition(e);
+  };
+
+  // Handle mouse up to stop dragging
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Handle mouse leave to stop dragging
+  const handleMouseLeave = () => {
+    setIsDragging(false);
   };
 
   // Handle wheel to zoom (centered on cursor position)
@@ -447,7 +472,10 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
     <CanvasContainer ref={containerRef}>
       <canvas
         ref={canvasRef}
-        onClick={handleCanvasClick}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
         onWheel={handleWheel}
         style={{
           position: 'absolute',
@@ -455,7 +483,7 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
           left: 0,
           width: '100%',
           height: '100%',
-          cursor: isLoaded ? 'pointer' : 'default',
+          cursor: isLoaded ? (isDragging ? 'grabbing' : 'pointer') : 'default',
         }}
       />
       {/* Zoom Controls */}
