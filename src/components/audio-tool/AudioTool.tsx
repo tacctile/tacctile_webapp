@@ -25,7 +25,7 @@ import VolumeDownIcon from '@mui/icons-material/VolumeDown';
 
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
-import { MetadataPanel, FlagsPanel, TransportControls, type Flag } from '@/components/common';
+import { MetadataPanel, FlagsPanel, TransportControls, PlayheadLine, type Flag } from '@/components/common';
 import { ProfessionalWaveform } from './ProfessionalWaveform';
 import { ExpandVideoModal } from './ExpandVideoModal';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
@@ -985,6 +985,10 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [isFileDragOver, setIsFileDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Waveform container ref and width for PlayheadLine
+  const waveformContainerRef = useRef<HTMLDivElement>(null);
+  const [waveformWidth, setWaveformWidth] = useState(0);
+
   // Toast notification state
   const [toast, setToast] = useState<{
     open: boolean;
@@ -1068,6 +1072,17 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       setVideoRefCollapsed(true);
     }
   }, [loadedAudio?.hasVideo]);
+
+  // Measure waveform container width for PlayheadLine positioning
+  useEffect(() => {
+    if (waveformContainerRef.current) {
+      const resizeObserver = new ResizeObserver((entries) => {
+        setWaveformWidth(entries[0].contentRect.width);
+      });
+      resizeObserver.observe(waveformContainerRef.current);
+      return () => resizeObserver.disconnect();
+    }
+  }, []);
 
   const handleDoubleClick = useCallback((item: typeof audioEvidence[0]) => {
     setLoadedAudio(item);
@@ -1314,6 +1329,17 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     setTimestamp(timeInSeconds * 1000); // Convert to milliseconds
     // TODO: In a real implementation, we would play audio snippets during scrubbing
   }, [setTimestamp]);
+
+  // Click-to-seek handler for waveform container
+  const handleWaveformContainerClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!waveformContainerRef.current || !loadedAudio || loadedAudio.duration <= 0) return;
+    const rect = waveformContainerRef.current.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickRatio = clickX / rect.width;
+    const durationMs = loadedAudio.duration * 1000; // Convert seconds to milliseconds
+    const newTimestamp = Math.max(0, Math.min(durationMs, clickRatio * durationMs));
+    setTimestamp(newTimestamp);
+  }, [loadedAudio, setTimestamp]);
 
   // Right panel content - Video Reference + Filters + Flags
   const inspectorContent = (
@@ -1677,16 +1703,28 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       {/* Waveform */}
       <WaveformSection>
         <Typography sx={{ fontSize: 10, color: '#555', width: 50, flexShrink: 0 }}>WAVE</Typography>
-        <ProfessionalWaveform
-          isLoaded={!!loadedAudio}
-          duration={loadedAudio?.duration || 0}
-          currentTime={timestamp / 1000} // Convert from ms to seconds
-          isPlaying={isPlaying}
-          onSeek={handleWaveformSeek}
-          onSelection={handleWaveformSelection}
-          selectionStart={waveformSelection?.start}
-          selectionEnd={waveformSelection?.end}
-        />
+        <Box
+          ref={waveformContainerRef}
+          onClick={handleWaveformContainerClick}
+          sx={{ flex: 1, position: 'relative', cursor: loadedAudio ? 'pointer' : 'default' }}
+        >
+          <ProfessionalWaveform
+            isLoaded={!!loadedAudio}
+            duration={loadedAudio?.duration || 0}
+            currentTime={timestamp / 1000} // Convert from ms to seconds
+            isPlaying={isPlaying}
+            onSeek={handleWaveformSeek}
+            onSelection={handleWaveformSelection}
+            selectionStart={waveformSelection?.start}
+            selectionEnd={waveformSelection?.end}
+          />
+          {waveformWidth > 0 && loadedAudio && loadedAudio.duration > 0 && (
+            <PlayheadLine
+              containerWidth={waveformWidth}
+              duration={loadedAudio.duration * 1000}
+            />
+          )}
+        </Box>
       </WaveformSection>
 
       {/* EQ Section - thinner header */}
