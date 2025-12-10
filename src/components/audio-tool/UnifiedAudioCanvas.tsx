@@ -54,6 +54,7 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const timestamp = usePlayheadStore((state) => state.timestamp);
+  const setTimestamp = usePlayheadStore((state) => state.setTimestamp);
 
   // Draw function - renders spectral visualization and waveform overlay
   const draw = useCallback(() => {
@@ -219,32 +220,29 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
   }, [draw]);
 
   // Handle click to seek
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    if (!containerRef.current || !isLoaded || duration <= 0) return;
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isLoaded || !canvasRef.current || duration <= 0) return;
 
-    const rect = containerRef.current.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickRatio = clickX / rect.width;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const clickRatio = x / rect.width;
+    const newTimeMs = clickRatio * duration * 1000;
 
-    // Account for zoom and scroll
-    const visibleWidth = 1 / zoom;
-    const visibleStartNormalized = scrollOffset;
-    const clickNormalized = visibleStartNormalized + clickRatio * visibleWidth;
-
-    const seekTime = Math.max(0, Math.min(duration, clickNormalized * duration));
-    onSeek?.(seekTime);
-  }, [isLoaded, duration, zoom, scrollOffset, onSeek]);
+    setTimestamp(newTimeMs);
+  };
 
   return (
-    <CanvasContainer ref={containerRef} onClick={handleClick}>
+    <CanvasContainer ref={containerRef}>
       <canvas
         ref={canvasRef}
+        onClick={handleCanvasClick}
         style={{
           position: 'absolute',
           top: 0,
           left: 0,
           width: '100%',
           height: '100%',
+          cursor: isLoaded ? 'pointer' : 'default',
         }}
       />
     </CanvasContainer>
