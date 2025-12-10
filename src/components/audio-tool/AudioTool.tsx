@@ -8,6 +8,7 @@ import {
   Slider,
   Snackbar,
   Alert,
+  CircularProgress,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import MicIcon from '@mui/icons-material/Mic';
@@ -957,6 +958,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const [waveformData, setWaveformData] = useState<Float32Array | null>(null);
   const [spectralData, setSpectralData] = useState<Float32Array[] | null>(null);
+  const [isLoadingAudio, setIsLoadingAudio] = useState(false);
 
   // Unified container ref and width for PlayheadLine (spans Spectral + TimeScale + Waveform)
   const unifiedContainerRef = useRef<HTMLDivElement>(null);
@@ -1057,13 +1059,57 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     }
   }, []);
 
+  // Generate spectral data using fast energy-based approach (much faster than DFT)
+  const generateSpectralData = useCallback(async (buffer: AudioBuffer): Promise<Float32Array[]> => {
+    const channelData = buffer.getChannelData(0);
+    const sampleRate = buffer.sampleRate;
+
+    // Calculate how many frames we want (limit for performance)
+    const targetFrames = Math.min(500, Math.floor(buffer.duration * 20)); // ~20 frames per second
+    const frameInterval = buffer.duration / targetFrames;
+    const samplesPerFrame = Math.floor(sampleRate * frameInterval);
+
+    const spectralFrames: Float32Array[] = [];
+    const numBins = 128; // Reduced frequency bins for performance
+
+    for (let i = 0; i < targetFrames; i++) {
+      const startSample = i * samplesPerFrame;
+      const frame = new Float32Array(numBins);
+
+      // Simple energy estimation per frequency band
+      const binSize = Math.floor(samplesPerFrame / numBins);
+      for (let bin = 0; bin < numBins; bin++) {
+        let energy = 0;
+        for (let j = 0; j < binSize; j++) {
+          const idx = startSample + bin * binSize + j;
+          if (idx < channelData.length) {
+            energy += Math.abs(channelData[idx]);
+          }
+        }
+        frame[bin] = energy / binSize;
+      }
+
+      spectralFrames.push(frame);
+    }
+
+    return spectralFrames;
+  }, []);
+
   // Load and decode real audio file
   const loadAudioFile = useCallback(async (filePath: string, fileItem: typeof audioEvidence[0]) => {
     try {
-      // Create audio context if needed
+      setIsLoadingAudio(true);
+
+      // Create and resume audio context (needed for user interaction)
       if (!audioContextRef.current) {
         audioContextRef.current = new AudioContext();
       }
+
+      // Must resume after user interaction
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+
       const audioContext = audioContextRef.current;
 
       // Fetch and decode audio
@@ -1091,37 +1137,8 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       }
       setWaveformData(waveform);
 
-      // Generate spectral data (FFT)
-      const fftSize = 2048;
-      const hopSize = fftSize / 4;
-      const numFrames = Math.floor((samples - fftSize) / hopSize);
-      const spectral: Float32Array[] = [];
-
-      // Simple FFT approximation using windowed segments
-      for (let frame = 0; frame < Math.min(numFrames, 500); frame++) { // Limit frames for performance
-        const startSample = frame * hopSize;
-        const frameData = new Float32Array(fftSize);
-
-        for (let i = 0; i < fftSize; i++) {
-          const idx = startSample + i;
-          // Apply Hanning window
-          const window = 0.5 * (1 - Math.cos(2 * Math.PI * i / fftSize));
-          frameData[i] = idx < samples ? channelData[idx] * window : 0;
-        }
-
-        // Simple DFT for frequency magnitudes (not full FFT, but works for visualization)
-        const magnitudes = new Float32Array(fftSize / 2);
-        for (let k = 0; k < fftSize / 2; k++) {
-          let real = 0, imag = 0;
-          for (let n = 0; n < fftSize; n++) {
-            const angle = -2 * Math.PI * k * n / fftSize;
-            real += frameData[n] * Math.cos(angle);
-            imag += frameData[n] * Math.sin(angle);
-          }
-          magnitudes[k] = Math.sqrt(real * real + imag * imag) / fftSize;
-        }
-        spectral.push(magnitudes);
-      }
+      // Generate spectral data using fast energy-based approach
+      const spectral = await generateSpectralData(decodedBuffer);
       setSpectralData(spectral);
 
       // Update loaded audio state with real duration
@@ -1139,8 +1156,10 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       // Fall back to mock data on error
       setLoadedAudio(fileItem);
       setSelectedEvidence(fileItem);
+    } finally {
+      setIsLoadingAudio(false);
     }
-  }, []);
+  }, [generateSpectralData]);
 
   const handleDoubleClick = useCallback((item: typeof audioEvidence[0]) => {
     // Clear previous real audio data
@@ -1756,7 +1775,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       />
 
       {/* Unified Audio Canvas */}
-      <Box sx={{ flex: 1, minHeight: 300 }}>
+      <Box sx={{ flex: 1, minHeight: 300, position: 'relative' }}>
         <UnifiedAudioCanvas
           isLoaded={!!loadedAudio}
           duration={loadedAudio?.duration || 0}
@@ -1769,6 +1788,25 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
           waveformData={waveformData}
           spectralData={spectralData}
         />
+        {/* Loading indicator overlay */}
+        {isLoadingAudio && (
+          <Box sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            zIndex: 10,
+          }}>
+            <CircularProgress size={40} sx={{ color: '#19abb5' }} />
+            <Typography sx={{ color: '#888', mt: 1, fontSize: 12 }}>Loading audio...</Typography>
+          </Box>
+        )}
       </Box>
 
       {/* EQ Section - no header row, Reset button positioned on right near 0dB */}
