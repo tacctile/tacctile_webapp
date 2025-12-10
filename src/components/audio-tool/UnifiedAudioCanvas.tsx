@@ -104,6 +104,62 @@ const generateSpectralData = (
   return data;
 };
 
+// ============================================================================
+// WAVEFORM DATA GENERATION
+// ============================================================================
+
+/**
+ * Generates realistic-looking waveform data
+ * Returns an array of amplitude values (-1 to 1)
+ */
+const generateWaveformData = (numSamples: number): Float32Array => {
+  const data = new Float32Array(numSamples);
+
+  // Create realistic audio-like patterns with varying amplitude
+  let phase = 0;
+  let envelope = 0.3;
+  let envelopeTarget = 0.5;
+
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / numSamples;
+
+    // Slowly vary the envelope (creates loud/quiet sections)
+    if (Math.random() < 0.001) {
+      envelopeTarget = 0.1 + Math.random() * 0.8;
+    }
+    envelope += (envelopeTarget - envelope) * 0.0001;
+
+    // Mix multiple frequencies for realistic audio appearance
+    const f1 = Math.sin(phase * 0.1) * 0.4;
+    const f2 = Math.sin(phase * 0.37) * 0.3;
+    const f3 = Math.sin(phase * 1.3) * 0.2;
+    const f4 = Math.sin(phase * 3.7) * 0.1;
+
+    // Add some noise
+    const noise = (Math.random() - 0.5) * 0.3;
+
+    // Combine and apply envelope
+    let sample = (f1 + f2 + f3 + f4 + noise) * envelope;
+
+    // Add occasional transients (like drum hits)
+    if (Math.random() < 0.0005) {
+      sample += (Math.random() > 0.5 ? 1 : -1) * (0.5 + Math.random() * 0.5);
+    }
+
+    // Add some quiet sections (matching spectral quiet sections)
+    if (t > 0.15 && t < 0.18) sample *= 0.1;
+    if (t > 0.45 && t < 0.47) sample *= 0.05;
+    if (t > 0.72 && t < 0.74) sample *= 0.15;
+
+    // Clamp to -1, 1
+    data[i] = Math.max(-1, Math.min(1, sample));
+
+    phase += 0.01 + Math.random() * 0.02;
+  }
+
+  return data;
+};
+
 /**
  * Converts intensity (0-1) to spectral color (dark purple -> orange -> yellow)
  */
@@ -147,6 +203,7 @@ export const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const spectralDataRef = useRef<Float32Array[] | null>(null);
+  const waveformDataRef = useRef<Float32Array | null>(null);
 
   // Generate spectral data when loaded
   const getSpectralData = useCallback((width: number, height: number): Float32Array[] => {
@@ -165,8 +222,20 @@ export const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
     return spectralDataRef.current;
   }, []);
 
-  // Draw spectral visualization
-  const drawSpectral = useCallback(() => {
+  // Generate waveform data when loaded
+  const getWaveformData = useCallback((width: number): Float32Array => {
+    const numSamples = Math.max(width * 2, 500);
+
+    if (waveformDataRef.current && waveformDataRef.current.length === numSamples) {
+      return waveformDataRef.current;
+    }
+
+    waveformDataRef.current = generateWaveformData(numSamples);
+    return waveformDataRef.current;
+  }, []);
+
+  // Draw canvas (spectral + waveform)
+  const drawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
     if (!canvas || !container) return;
@@ -185,6 +254,7 @@ export const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
 
     const width = rect.width;
     const height = rect.height;
+    const centerY = height / 2;
 
     // Clear canvas
     ctx.fillStyle = '#0a0a0a';
@@ -194,12 +264,12 @@ export const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
       return; // Empty state is handled by overlay
     }
 
-    // Get spectral data
+    // ========================================
+    // LAYER 1: Spectral (background)
+    // ========================================
     const spectralData = getSpectralData(width, height);
     const numTimeSlices = spectralData.length;
     const numFrequencyBins = spectralData[0]?.length || 64;
-
-    // Draw spectral data
     const sliceWidth = width / numTimeSlices;
 
     for (let t = 0; t < numTimeSlices; t++) {
@@ -208,8 +278,6 @@ export const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
 
       for (let f = 0; f < numFrequencyBins; f++) {
         const intensity = slice[f];
-
-        // Frequency bins go from high (top) to low (bottom)
         const binHeight = height / numFrequencyBins;
         const y = f * binHeight;
 
@@ -217,25 +285,81 @@ export const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
         ctx.fillRect(x, y, sliceWidth + 0.5, binHeight + 0.5);
       }
     }
-  }, [isLoaded, getSpectralData]);
+
+    // ========================================
+    // LAYER 2: Waveform (foreground with transparency)
+    // ========================================
+    const waveformData = getWaveformData(width);
+    const waveformColor = 'rgba(25, 171, 181, 0.6)'; // Teal with 60% opacity
+
+    ctx.fillStyle = waveformColor;
+    ctx.beginPath();
+    ctx.moveTo(0, centerY);
+
+    // Draw top half (positive values)
+    for (let i = 0; i < width; i++) {
+      // Sample the waveform data for this pixel
+      const sampleIndex = Math.floor((i / width) * waveformData.length);
+      const nextSampleIndex = Math.floor(((i + 1) / width) * waveformData.length);
+
+      // Get min/max for this pixel column for better rendering
+      let maxVal = 0;
+      for (let j = sampleIndex; j < nextSampleIndex && j < waveformData.length; j++) {
+        const absVal = Math.abs(waveformData[j]);
+        if (absVal > maxVal) maxVal = absVal;
+      }
+
+      // Scale amplitude to fit in canvas (use 80% of half-height for visual appeal)
+      const yOffset = maxVal * (centerY - 4) * 0.8;
+      const yTop = centerY - yOffset;
+
+      ctx.lineTo(i, yTop);
+    }
+
+    // Draw bottom half (mirror)
+    for (let i = width - 1; i >= 0; i--) {
+      const sampleIndex = Math.floor((i / width) * waveformData.length);
+      const nextSampleIndex = Math.floor(((i + 1) / width) * waveformData.length);
+
+      let maxVal = 0;
+      for (let j = sampleIndex; j < nextSampleIndex && j < waveformData.length; j++) {
+        const absVal = Math.abs(waveformData[j]);
+        if (absVal > maxVal) maxVal = absVal;
+      }
+
+      const yOffset = maxVal * (centerY - 4) * 0.8;
+      const yBottom = centerY + yOffset;
+
+      ctx.lineTo(i, yBottom);
+    }
+
+    ctx.closePath();
+    ctx.fill();
+
+    // Add a subtle stroke for definition
+    ctx.strokeStyle = 'rgba(25, 171, 181, 0.8)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+  }, [isLoaded, getSpectralData, getWaveformData]);
 
   // Initial draw and resize handling
   useEffect(() => {
-    drawSpectral();
-  }, [drawSpectral]);
+    drawCanvas();
+  }, [drawCanvas]);
 
   useEffect(() => {
-    const handleResize = () => drawSpectral();
+    const handleResize = () => drawCanvas();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [drawSpectral]);
+  }, [drawCanvas]);
 
   // Redraw when isLoaded changes
   useEffect(() => {
     // Regenerate data when loading state changes
     spectralDataRef.current = null;
-    drawSpectral();
-  }, [isLoaded, drawSpectral]);
+    waveformDataRef.current = null;
+    drawCanvas();
+  }, [isLoaded, drawCanvas]);
 
   return (
     <CanvasContainer ref={containerRef}>
