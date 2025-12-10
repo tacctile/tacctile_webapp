@@ -14,6 +14,7 @@ import AddIcon from '@mui/icons-material/Add';
 import GraphicEqIcon from '@mui/icons-material/GraphicEq';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import RemoveIcon from '@mui/icons-material/Remove';
+import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
 
 // ============================================================================
@@ -111,6 +112,11 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
   // Layer visibility state
   const [showSpectral, setShowSpectral] = useState(true);
   const [showWaveform, setShowWaveform] = useState(true);
+
+  // Zoom marquee tool state
+  const [zoomToolActive, setZoomToolActive] = useState(false);
+  const [marqueeStart, setMarqueeStart] = useState<{ x: number; time: number } | null>(null);
+  const [marqueeEnd, setMarqueeEnd] = useState<{ x: number; time: number } | null>(null);
 
   // Draw function - renders spectral visualization and waveform overlay
   const draw = useCallback(() => {
@@ -496,7 +502,28 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
       ctx.font = '8px Inter, system-ui, sans-serif';
       ctx.fillText('dB', 3, 12);
     }
-  }, [isLoaded, duration, timestamp, zoom, scrollOffset, showSpectral, showWaveform]);
+
+    // ========================================================================
+    // Draw Zoom Marquee Selection
+    // ========================================================================
+
+    if (zoomToolActive && marqueeStart && marqueeEnd) {
+      const x1 = Math.min(marqueeStart.x, marqueeEnd.x);
+      const x2 = Math.max(marqueeStart.x, marqueeEnd.x);
+      const marqueeWidth = x2 - x1;
+
+      // Semi-transparent fill
+      ctx.fillStyle = 'rgba(25, 171, 181, 0.2)';
+      ctx.fillRect(x1, 0, marqueeWidth, height - 20);
+
+      // Border
+      ctx.strokeStyle = '#19abb5';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 3]);
+      ctx.strokeRect(x1, 0, marqueeWidth, height - 20);
+      ctx.setLineDash([]);
+    }
+  }, [isLoaded, duration, timestamp, zoom, scrollOffset, showSpectral, showWaveform, zoomToolActive, marqueeStart, marqueeEnd]);
 
   // Redraw on mount and when dependencies change
   useEffect(() => {
@@ -534,12 +561,18 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
     }
   }, [timestamp, isPlaying, isLoaded, zoom, duration, scrollOffset]);
 
-  // Keyboard listeners for spacebar (pan mode)
+  // Keyboard listeners for spacebar (pan mode) and Escape (cancel zoom tool)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' && !e.repeat) {
         e.preventDefault(); // Prevent page scroll
         setIsSpaceHeld(true);
+      }
+      // Escape key cancels zoom tool
+      if (e.code === 'Escape') {
+        setZoomToolActive(false);
+        setMarqueeStart(null);
+        setMarqueeEnd(null);
       }
     };
 
@@ -594,6 +627,20 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isLoaded || !canvasRef.current || duration <= 0) return;
 
+    const rect = canvasRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+
+    // Zoom tool - start marquee
+    if (zoomToolActive && e.button === 0) {
+      const visibleDuration = duration / zoom;
+      const startTime = scrollOffset * duration;
+      const clickTime = startTime + (mouseX / rect.width) * visibleDuration;
+
+      setMarqueeStart({ x: mouseX, time: clickTime });
+      setMarqueeEnd({ x: mouseX, time: clickTime });
+      return;
+    }
+
     // Middle mouse button OR spacebar held = start panning
     if (e.button === 1 || isSpaceHeld) {
       e.preventDefault();
@@ -616,6 +663,19 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isLoaded || !canvasRef.current || duration <= 0) return;
 
+    const rect = canvasRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+
+    // Zoom tool - update marquee
+    if (zoomToolActive && marqueeStart) {
+      const visibleDuration = duration / zoom;
+      const startTime = scrollOffset * duration;
+      const currentTime = startTime + (mouseX / rect.width) * visibleDuration;
+
+      setMarqueeEnd({ x: mouseX, time: currentTime });
+      return;
+    }
+
     // Update hover state for cursor feedback
     const nearPlayhead = isNearPlayhead(e);
     if (nearPlayhead !== isHoveringPlayhead) {
@@ -624,7 +684,6 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
 
     // Panning (only when zoomed in)
     if (isPanning && zoom > 1) {
-      const rect = canvasRef.current.getBoundingClientRect();
       const deltaX = e.clientX - panStartX;
       const deltaRatio = deltaX / rect.width;
       const visibleFraction = 1 / zoom;
@@ -643,6 +702,27 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
   };
 
   const handleMouseUp = () => {
+    // Zoom tool - complete marquee and zoom
+    if (zoomToolActive && marqueeStart && marqueeEnd) {
+      const timeStart = Math.min(marqueeStart.time, marqueeEnd.time);
+      const timeEnd = Math.max(marqueeStart.time, marqueeEnd.time);
+      const selectedDuration = timeEnd - timeStart;
+
+      // Only zoom if selection is meaningful (> 1 second)
+      if (selectedDuration > 1) {
+        const newZoom = Math.min(10, duration / selectedDuration);
+        const newScrollOffset = Math.max(0, Math.min(1 - 1/newZoom, timeStart / duration));
+
+        setZoom(newZoom);
+        setScrollOffset(newScrollOffset);
+      }
+
+      setMarqueeStart(null);
+      setMarqueeEnd(null);
+      setZoomToolActive(false); // Deactivate after use
+      return;
+    }
+
     setIsDragging(false);
     setIsPanning(false);
   };
@@ -651,6 +731,11 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
     setIsDragging(false);
     setIsPanning(false);
     setIsHoveringPlayhead(false);
+    // Cancel marquee if mouse leaves canvas
+    if (marqueeStart) {
+      setMarqueeStart(null);
+      setMarqueeEnd(null);
+    }
   };
 
   // Handle wheel to zoom (centered on playhead position)
@@ -692,7 +777,7 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
           width: '100%',
           height: '100%',
           cursor: isLoaded
-            ? (isPanning ? 'grabbing' : isSpaceHeld ? 'grab' : isDragging ? 'ew-resize' : isHoveringPlayhead ? 'ew-resize' : 'default')
+            ? (zoomToolActive ? 'zoom-in' : isPanning ? 'grabbing' : isSpaceHeld ? 'grab' : isDragging ? 'ew-resize' : isHoveringPlayhead ? 'ew-resize' : 'default')
             : 'default',
         }}
       />
@@ -808,6 +893,23 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
           >
             <AddIcon sx={{ fontSize: 16 }} />
           </IconButton>
+
+          {/* Zoom Tool Button */}
+          <Tooltip title="Zoom Tool (draw to zoom)">
+            <IconButton
+              size="small"
+              onClick={() => setZoomToolActive(!zoomToolActive)}
+              sx={{
+                color: zoomToolActive ? '#19abb5' : '#888',
+                padding: '4px',
+                marginLeft: '4px',
+                backgroundColor: zoomToolActive ? 'rgba(25, 171, 181, 0.2)' : 'transparent',
+                '&:hover': { backgroundColor: 'rgba(25, 171, 181, 0.1)' },
+              }}
+            >
+              <ZoomInIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
 
           {/* Zoom level display */}
           <Typography sx={{ color: '#888', fontSize: 10, minWidth: 35, textAlign: 'right' }}>
