@@ -61,6 +61,15 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
   // Scroll offset: 0-1, portion of timeline scrolled
   const [scrollOffset, setScrollOffset] = useState(0);
 
+  // Panning state
+  const [isSpaceHeld, setIsSpaceHeld] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStartX, setPanStartX] = useState(0);
+  const [panStartOffset, setPanStartOffset] = useState(0);
+
+  // Scrubbing state (for click+drag to seek)
+  const [isDragging, setIsDragging] = useState(false);
+
   // Draw function - renders spectral visualization and waveform overlay
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -421,9 +430,34 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
     }
   }, [timestamp, isPlaying, isLoaded, zoom, duration, scrollOffset]);
 
-  // Handle click to seek (adjusted for zoom)
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isLoaded || !canvasRef.current || duration <= 0) return;
+  // Keyboard listeners for spacebar (pan mode)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !e.repeat) {
+        e.preventDefault(); // Prevent page scroll
+        setIsSpaceHeld(true);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setIsSpaceHeld(false);
+        setIsPanning(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
+  // Seek to position helper
+  const seekToPosition = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -436,6 +470,59 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
     const newTimeMs = clickTime * 1000;
 
     setTimestamp(newTimeMs);
+  };
+
+  // Mouse handlers for panning and scrubbing
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isLoaded || !canvasRef.current || duration <= 0) return;
+
+    // Middle mouse button OR spacebar held = start panning
+    if (e.button === 1 || isSpaceHeld) {
+      e.preventDefault();
+      setIsPanning(true);
+      setPanStartX(e.clientX);
+      setPanStartOffset(scrollOffset);
+      return;
+    }
+
+    // Left click = start scrubbing
+    if (e.button === 0) {
+      setIsDragging(true);
+      seekToPosition(e);
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isLoaded || !canvasRef.current || duration <= 0) return;
+
+    // Panning (only when zoomed in)
+    if (isPanning && zoom > 1) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const deltaX = e.clientX - panStartX;
+      const deltaRatio = deltaX / rect.width;
+      const visibleFraction = 1 / zoom;
+
+      // Moving mouse right = scrolling left (earlier in timeline)
+      const newOffset = Math.max(0, Math.min(1 - visibleFraction,
+        panStartOffset - deltaRatio * visibleFraction));
+      setScrollOffset(newOffset);
+      return;
+    }
+
+    // Scrubbing
+    if (isDragging) {
+      seekToPosition(e);
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+    setIsPanning(false);
+  };
+
+  const handleMouseLeave = () => {
+    setIsDragging(false);
+    setIsPanning(false);
   };
 
   // Handle wheel to zoom (centered on cursor position)
@@ -472,15 +559,21 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
     <CanvasContainer ref={containerRef}>
       <canvas
         ref={canvasRef}
-        onClick={handleCanvasClick}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
         onWheel={handleWheel}
+        onContextMenu={(e) => e.preventDefault()} // Prevent context menu during pan
         style={{
           position: 'absolute',
           top: 0,
           left: 0,
           width: '100%',
           height: '100%',
-          cursor: isLoaded ? 'pointer' : 'default',
+          cursor: isLoaded
+            ? (isPanning ? 'grabbing' : isSpaceHeld ? 'grab' : isDragging ? 'grabbing' : 'pointer')
+            : 'default',
         }}
       />
       {/* Zoom Controls */}
