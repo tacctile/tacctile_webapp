@@ -95,16 +95,25 @@ const WaveformSection = styled(Box)({
   borderBottom: '1px solid #252525',
   display: 'flex',
   alignItems: 'center',
-  padding: '0 8px',
-  gap: 8,
+  position: 'relative',
 });
 
 const EQSection = styled(Box)({
-  height: 150,
+  height: 140,
   backgroundColor: '#0d0d0d',
   borderBottom: '1px solid #252525',
   display: 'flex',
   flexDirection: 'column',
+  position: 'relative',
+});
+
+// Container that wraps Spectral + TimeScale + Waveform for unified playhead
+const UnifiedPlayheadContainer = styled(Box)({
+  display: 'flex',
+  flexDirection: 'column',
+  flex: 1,
+  minHeight: 0,
+  position: 'relative',
 });
 
 // Overview Bar styled components (iZotope RX-style navigation)
@@ -985,9 +994,9 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [isFileDragOver, setIsFileDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Waveform container ref and width for PlayheadLine
-  const waveformContainerRef = useRef<HTMLDivElement>(null);
-  const [waveformWidth, setWaveformWidth] = useState(0);
+  // Unified container ref and width for PlayheadLine (spans Spectral + TimeScale + Waveform)
+  const unifiedContainerRef = useRef<HTMLDivElement>(null);
+  const [unifiedContainerWidth, setUnifiedContainerWidth] = useState(0);
 
   // Toast notification state
   const [toast, setToast] = useState<{
@@ -1073,13 +1082,13 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     }
   }, [loadedAudio?.hasVideo]);
 
-  // Measure waveform container width for PlayheadLine positioning
+  // Measure unified container width for PlayheadLine positioning
   useEffect(() => {
-    if (waveformContainerRef.current) {
+    if (unifiedContainerRef.current) {
       const resizeObserver = new ResizeObserver((entries) => {
-        setWaveformWidth(entries[0].contentRect.width);
+        setUnifiedContainerWidth(entries[0].contentRect.width);
       });
-      resizeObserver.observe(waveformContainerRef.current);
+      resizeObserver.observe(unifiedContainerRef.current);
       return () => resizeObserver.disconnect();
     }
   }, []);
@@ -1330,16 +1339,32 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     // TODO: In a real implementation, we would play audio snippets during scrubbing
   }, [setTimestamp]);
 
-  // Click-to-seek handler for waveform container
-  const handleWaveformContainerClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!waveformContainerRef.current || !loadedAudio || loadedAudio.duration <= 0) return;
-    const rect = waveformContainerRef.current.getBoundingClientRect();
+  // Zoom/scroll handlers for synchronized Spectral + Waveform
+  const handleZoomChange = useCallback((newZoom: number) => {
+    setOverviewZoom(newZoom);
+  }, []);
+
+  const handleScrollChange = useCallback((newOffset: number) => {
+    setOverviewScrollOffset(newOffset);
+  }, []);
+
+  // Click-to-seek handler for unified container (Spectral + Waveform)
+  // Calculates time position accounting for zoom and scroll
+  const handleUnifiedContainerClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!unifiedContainerRef.current || !loadedAudio || loadedAudio.duration <= 0) return;
+    const rect = unifiedContainerRef.current.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const clickRatio = clickX / rect.width;
+
+    // Account for zoom and scroll
+    const visibleWidth = 1 / overviewZoom;
+    const visibleStartNormalized = overviewScrollOffset;
+    const clickNormalized = visibleStartNormalized + clickRatio * visibleWidth;
+
     const durationMs = loadedAudio.duration * 1000; // Convert seconds to milliseconds
-    const newTimestamp = Math.max(0, Math.min(durationMs, clickRatio * durationMs));
+    const newTimestamp = Math.max(0, Math.min(durationMs, clickNormalized * durationMs));
     setTimestamp(newTimestamp);
-  }, [loadedAudio, setTimestamp]);
+  }, [loadedAudio, setTimestamp, overviewZoom, overviewScrollOffset]);
 
   // Right panel content - Video Reference + Filters + Flags
   const inspectorContent = (
@@ -1652,6 +1677,10 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     </Box>
   );
 
+  // Calculate visible time range for unified playhead
+  const visibleDuration = (loadedAudio?.duration || 0) / overviewZoom;
+  const visibleStartTime = overviewScrollOffset * (loadedAudio?.duration || 0);
+
   // Main content
   const mainContent = (
     <MainContainer>
@@ -1667,47 +1696,47 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         onScrub={handleOverviewScrub}
       />
 
-      {/* Spectrogram */}
-      <SpectrogramSection>
-        {renderSpectrogram()}
+      {/* Unified container for Spectral + TimeScale + Waveform with shared playhead */}
+      <UnifiedPlayheadContainer
+        ref={unifiedContainerRef}
+        onClick={handleUnifiedContainerClick}
+        sx={{ cursor: loadedAudio ? 'pointer' : 'default' }}
+      >
+        {/* Spectrogram */}
+        <SpectrogramSection>
+          {renderSpectrogram()}
 
-        {/* Frequency scale */}
+          {/* Frequency scale */}
+          {loadedAudio && (
+            <FrequencyScale>
+              <span>20k</span>
+              <span>10k</span>
+              <span>5k</span>
+              <span>2k</span>
+              <span>1k</span>
+              <span>500</span>
+              <span>200</span>
+              <span>100</span>
+              <span>Hz</span>
+            </FrequencyScale>
+          )}
+        </SpectrogramSection>
+
+        {/* Time scale - centered between Spectral and Waveform */}
         {loadedAudio && (
-          <FrequencyScale>
-            <span>20k</span>
-            <span>10k</span>
-            <span>5k</span>
-            <span>2k</span>
-            <span>1k</span>
-            <span>500</span>
-            <span>200</span>
-            <span>100</span>
-            <span>Hz</span>
-          </FrequencyScale>
+          <TimeScale>
+            <span>0:00</span>
+            <span>5:00</span>
+            <span>10:00</span>
+            <span>15:00</span>
+            <span>20:00</span>
+            <span>25:00</span>
+            <span>30:00</span>
+          </TimeScale>
         )}
-      </SpectrogramSection>
 
-      {/* Time scale */}
-      {loadedAudio && (
-        <TimeScale>
-          <span>0:00</span>
-          <span>5:00</span>
-          <span>10:00</span>
-          <span>15:00</span>
-          <span>20:00</span>
-          <span>25:00</span>
-          <span>30:00</span>
-        </TimeScale>
-      )}
-
-      {/* Waveform */}
-      <WaveformSection>
-        <Typography sx={{ fontSize: 10, color: '#555', width: 50, flexShrink: 0 }}>WAVE</Typography>
-        <Box
-          ref={waveformContainerRef}
-          onClick={handleWaveformContainerClick}
-          sx={{ flex: 1, position: 'relative', cursor: loadedAudio ? 'pointer' : 'default' }}
-        >
+        {/* Waveform - full width, no WAVE label */}
+        <WaveformSection>
           <ProfessionalWaveform
             isLoaded={!!loadedAudio}
             duration={loadedAudio?.duration || 0}
@@ -1717,46 +1746,63 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             onSelection={handleWaveformSelection}
             selectionStart={waveformSelection?.start}
             selectionEnd={waveformSelection?.end}
+            zoom={overviewZoom}
+            scrollOffset={overviewScrollOffset}
+            onZoomChange={handleZoomChange}
+            onScrollChange={handleScrollChange}
           />
-          {waveformWidth > 0 && loadedAudio && loadedAudio.duration > 0 && (
-            <PlayheadLine
-              containerWidth={waveformWidth}
-              duration={loadedAudio.duration * 1000}
-            />
-          )}
-        </Box>
-      </WaveformSection>
+        </WaveformSection>
 
-      {/* EQ Section - thinner header */}
+        {/* Unified PlayheadLine spanning Spectral + TimeScale + Waveform */}
+        {unifiedContainerWidth > 0 && loadedAudio && loadedAudio.duration > 0 && visibleDuration > 0 && (
+          <PlayheadLine
+            containerWidth={unifiedContainerWidth}
+            duration={visibleDuration * 1000}
+            offset={visibleStartTime * 1000}
+          />
+        )}
+      </UnifiedPlayheadContainer>
+
+      {/* EQ Section - no header row, Reset button positioned on right near 0dB */}
       <EQSection>
-        <Box sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          height: 24,
-          px: 1,
-          borderBottom: '1px solid #1a1a1a',
-        }}>
-          <Typography sx={{ fontSize: 9, fontWeight: 600, color: '#555', textTransform: 'uppercase' }}>
-            EQ
-          </Typography>
-          <Button
-            size="small"
-            onClick={resetEQ}
-            disabled={!loadedAudio}
-            sx={{ fontSize: 8, color: '#444', minWidth: 'auto', py: 0, px: 1, '&:hover': { color: '#19abb5' } }}
-          >
-            Reset
-          </Button>
-        </Box>
-
-        <Box sx={{ flex: 1, p: 1 }}>
+        <Box sx={{ flex: 1, p: 1, position: 'relative' }}>
           <IntegratedEQ
             values={eqValues}
             onChange={handleEQChange}
             analyzerData={meterLevels}
             disabled={!loadedAudio}
           />
+          {/* Reset button positioned on right, vertically centered with 0dB line */}
+          <Button
+            size="small"
+            onClick={resetEQ}
+            disabled={!loadedAudio}
+            sx={{
+              position: 'absolute',
+              right: 8,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              fontSize: 9,
+              color: '#555',
+              backgroundColor: 'rgba(0, 0, 0, 0.4)',
+              border: '1px solid #333',
+              minWidth: 'auto',
+              py: 0.5,
+              px: 1.5,
+              borderRadius: 1,
+              '&:hover': {
+                color: '#19abb5',
+                borderColor: '#19abb5',
+                backgroundColor: 'rgba(25, 171, 181, 0.1)',
+              },
+              '&:disabled': {
+                color: '#333',
+                borderColor: '#252525',
+              },
+            }}
+          >
+            Reset
+          </Button>
         </Box>
       </EQSection>
 
