@@ -206,8 +206,9 @@ export const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
   const spectralDataRef = useRef<Float32Array[] | null>(null);
   const waveformDataRef = useRef<Float32Array | null>(null);
 
-  // Get playhead timestamp from store (in milliseconds)
+  // Get playhead timestamp and setter from store (in milliseconds)
   const timestamp = usePlayheadStore((state) => state.timestamp);
+  const setTimestamp = usePlayheadStore((state) => state.setTimestamp);
 
   // Generate spectral data when loaded
   const getSpectralData = useCallback((width: number, height: number): Float32Array[] => {
@@ -237,6 +238,18 @@ export const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
     waveformDataRef.current = generateWaveformData(numSamples);
     return waveformDataRef.current;
   }, []);
+
+  // Handle click-to-seek on canvas
+  const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isLoaded || !canvasRef.current) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const clickRatio = x / rect.width;
+    const newTime = clickRatio * duration * 1000; // Convert to ms
+
+    setTimestamp(newTime);
+  }, [isLoaded, duration, setTimestamp]);
 
   // Draw canvas (spectral + waveform)
   const drawCanvas = useCallback(() => {
@@ -407,12 +420,14 @@ export const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
     <CanvasContainer ref={containerRef}>
       <canvas
         ref={canvasRef}
+        onClick={handleCanvasClick}
         style={{
           position: 'absolute',
           top: 0,
           left: 0,
           width: '100%',
           height: '100%',
+          cursor: isLoaded ? 'pointer' : 'default',
         }}
       />
 
