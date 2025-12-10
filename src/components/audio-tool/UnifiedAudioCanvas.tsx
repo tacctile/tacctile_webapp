@@ -6,6 +6,7 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import Box from '@mui/material/Box';
 import { styled } from '@mui/material/styles';
+import { usePlayheadStore } from '@/stores/usePlayheadStore';
 
 // ============================================================================
 // STYLED COMPONENTS
@@ -52,6 +53,7 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const timestamp = usePlayheadStore((state) => state.timestamp);
 
   // Draw function - renders spectral visualization and waveform overlay
   const draw = useCallback(() => {
@@ -170,12 +172,44 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
       ctx.lineTo(width, centerY);
       ctx.stroke();
     }
-  }, [isLoaded]);
+
+    // ========================================================================
+    // Draw Playhead
+    // ========================================================================
+
+    if (isLoaded && duration > 0) {
+      const playheadX = (timestamp / 1000 / duration) * width;
+
+      // Glow effect
+      ctx.shadowColor = '#19abb5';
+      ctx.shadowBlur = 8;
+
+      // Playhead line
+      ctx.strokeStyle = '#19abb5';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(playheadX, 0);
+      ctx.lineTo(playheadX, height);
+      ctx.stroke();
+
+      // Reset shadow
+      ctx.shadowBlur = 0;
+
+      // Triangle at top
+      ctx.fillStyle = '#19abb5';
+      ctx.beginPath();
+      ctx.moveTo(playheadX - 6, 0);
+      ctx.lineTo(playheadX + 6, 0);
+      ctx.lineTo(playheadX, 8);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }, [isLoaded, duration, timestamp]);
 
   // Redraw on mount and when dependencies change
   useEffect(() => {
     draw();
-  }, [draw]);
+  }, [draw, timestamp]);
 
   // Handle window resize
   useEffect(() => {
