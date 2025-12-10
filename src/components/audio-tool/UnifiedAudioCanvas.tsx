@@ -205,6 +205,66 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
       ctx.closePath();
       ctx.fill();
     }
+
+    // ========================================================================
+    // Draw Time Scale
+    // ========================================================================
+
+    if (isLoaded && duration > 0) {
+      const timeScaleHeight = 20;
+
+      // Semi-transparent background for time scale
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.fillRect(0, height - timeScaleHeight, width, timeScaleHeight);
+
+      // Determine appropriate time interval based on duration
+      let interval: number; // in seconds
+      if (duration <= 60) {
+        interval = 10; // 10 second marks for short clips
+      } else if (duration <= 300) {
+        interval = 30; // 30 second marks
+      } else if (duration <= 600) {
+        interval = 60; // 1 minute marks
+      } else if (duration <= 1800) {
+        interval = 120; // 2 minute marks
+      } else {
+        interval = 300; // 5 minute marks for long recordings
+      }
+
+      // Draw time markers
+      ctx.fillStyle = '#888';
+      ctx.font = '10px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+
+      const numMarkers = Math.floor(duration / interval);
+
+      for (let i = 0; i <= numMarkers; i++) {
+        const time = i * interval;
+        const x = (time / duration) * width;
+
+        // Tick mark
+        ctx.strokeStyle = '#555';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, height - timeScaleHeight);
+        ctx.lineTo(x, height - timeScaleHeight + 5);
+        ctx.stroke();
+
+        // Time label
+        const minutes = Math.floor(time / 60);
+        const seconds = Math.floor(time % 60);
+        const label = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        ctx.fillText(label, x, height - 5);
+      }
+
+      // Draw end time
+      const endX = width - 2;
+      const endMinutes = Math.floor(duration / 60);
+      const endSeconds = Math.floor(duration % 60);
+      const endLabel = `${endMinutes}:${endSeconds.toString().padStart(2, '0')}`;
+      ctx.textAlign = 'right';
+      ctx.fillText(endLabel, endX, height - 5);
+    }
   }, [isLoaded, duration, timestamp]);
 
   // Redraw on mount and when dependencies change
