@@ -67,10 +67,12 @@ const PlayheadTriangle = styled(Box)({
 interface PlayheadLineProps {
   /** Width of the timeline container in pixels */
   containerWidth: number;
-  /** Total duration in milliseconds */
+  /** Total duration in milliseconds (visible duration when zoomed) */
   duration: number;
   /** Height of the line (default: '100%') */
   height?: number | string;
+  /** Offset in milliseconds (visible start time when zoomed) */
+  offset?: number;
 }
 
 // ============================================================================
@@ -81,6 +83,7 @@ export const PlayheadLine: React.FC<PlayheadLineProps> = ({
   containerWidth,
   duration,
   height = '100%',
+  offset = 0,
 }) => {
   // Read timestamp from global playhead store
   const timestamp = usePlayheadStore((state) => state.timestamp);
@@ -90,11 +93,17 @@ export const PlayheadLine: React.FC<PlayheadLineProps> = ({
     return null;
   }
 
-  // Clamp timestamp to valid range
-  const clampedTimestamp = Math.max(0, Math.min(timestamp, duration));
+  // Calculate position relative to visible window (accounting for offset/zoom)
+  // timestamp is the global time, offset is the start of the visible window
+  const relativeTimestamp = timestamp - offset;
 
-  // Calculate horizontal position
-  const position = (clampedTimestamp / duration) * containerWidth;
+  // Calculate horizontal position within the visible window
+  const position = (relativeTimestamp / duration) * containerWidth;
+
+  // Don't render if playhead is outside the visible window
+  if (position < 0 || position > containerWidth) {
+    return null;
+  }
 
   return (
     <PlayheadContainer $left={position} $height={height}>

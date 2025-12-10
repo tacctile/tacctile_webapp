@@ -108,6 +108,14 @@ interface ProfessionalWaveformProps {
   selectionStart?: number | null;
   /** Selection end time */
   selectionEnd?: number | null;
+  /** Zoom level (1 = fit to view) - controlled externally */
+  zoom?: number;
+  /** Scroll offset (0-1) - controlled externally */
+  scrollOffset?: number;
+  /** Callback when zoom changes */
+  onZoomChange?: (zoom: number) => void;
+  /** Callback when scroll offset changes */
+  onScrollChange?: (offset: number) => void;
 }
 
 // ============================================================================
@@ -206,14 +214,40 @@ export const ProfessionalWaveform: React.FC<ProfessionalWaveformProps> = ({
   onSelection,
   selectionStart,
   selectionEnd,
+  zoom: externalZoom,
+  scrollOffset: externalScrollOffset,
+  onZoomChange,
+  onScrollChange,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number | null>(null);
 
-  // Zoom and scroll state
-  const [zoom, setZoom] = useState(1); // 1 = fit to view
-  const [scrollOffset, setScrollOffset] = useState(0); // 0-1, position in the file
+  // Zoom and scroll state - use external if provided, otherwise internal
+  const [internalZoom, setInternalZoom] = useState(1); // 1 = fit to view
+  const [internalScrollOffset, setInternalScrollOffset] = useState(0); // 0-1, position in the file
+
+  // Use controlled or uncontrolled mode
+  const zoom = externalZoom ?? internalZoom;
+  const scrollOffset = externalScrollOffset ?? internalScrollOffset;
+
+  const setZoom = useCallback((newZoom: number | ((prev: number) => number)) => {
+    const resolvedZoom = typeof newZoom === 'function' ? newZoom(zoom) : newZoom;
+    if (onZoomChange) {
+      onZoomChange(resolvedZoom);
+    } else {
+      setInternalZoom(resolvedZoom);
+    }
+  }, [zoom, onZoomChange]);
+
+  const setScrollOffset = useCallback((newOffset: number | ((prev: number) => number)) => {
+    const resolvedOffset = typeof newOffset === 'function' ? newOffset(scrollOffset) : newOffset;
+    if (onScrollChange) {
+      onScrollChange(resolvedOffset);
+    } else {
+      setInternalScrollOffset(resolvedOffset);
+    }
+  }, [scrollOffset, onScrollChange]);
 
   // Selection state for dragging
   const [isDragging, setIsDragging] = useState(false);
@@ -223,7 +257,7 @@ export const ProfessionalWaveform: React.FC<ProfessionalWaveformProps> = ({
   // Waveform data cache
   const waveformDataRef = useRef<Float32Array | null>(null);
 
-  // Colors
+  // Colors (playhead colors removed - unified playhead is rendered by parent)
   const COLORS = {
     background: '#1a1a1a',
     waveformFill: 'rgba(25, 171, 181, 0.4)',
@@ -231,8 +265,6 @@ export const ProfessionalWaveform: React.FC<ProfessionalWaveformProps> = ({
     waveformGradientTop: 'rgba(25, 171, 181, 0.6)',
     waveformGradientBottom: 'rgba(25, 171, 181, 0.2)',
     centerline: 'rgba(255, 255, 255, 0.15)',
-    playhead: '#ffffff',
-    playheadGlow: 'rgba(255, 255, 255, 0.3)',
     selection: 'rgba(25, 171, 181, 0.3)',
     selectionBorder: 'rgba(25, 171, 181, 0.8)',
   };
@@ -438,35 +470,9 @@ export const ProfessionalWaveform: React.FC<ProfessionalWaveformProps> = ({
       }
     }
 
-    // Draw playhead
-    const playheadX = timeToPixel(currentTime, width);
-    if (playheadX >= 0 && playheadX <= width) {
-      // Playhead glow
-      ctx.strokeStyle = COLORS.playheadGlow;
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.moveTo(playheadX, 0);
-      ctx.lineTo(playheadX, height);
-      ctx.stroke();
-
-      // Playhead line
-      ctx.strokeStyle = COLORS.playhead;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(playheadX, 0);
-      ctx.lineTo(playheadX, height);
-      ctx.stroke();
-
-      // Playhead triangle at top
-      ctx.fillStyle = COLORS.playhead;
-      ctx.beginPath();
-      ctx.moveTo(playheadX - 4, 0);
-      ctx.lineTo(playheadX + 4, 0);
-      ctx.lineTo(playheadX, 6);
-      ctx.closePath();
-      ctx.fill();
-    }
-  }, [isLoaded, currentTime, getWaveformData, getVisibleRange, timeToPixel, localSelection, selectionStart, selectionEnd, COLORS]);
+    // Note: Playhead is now rendered by parent component as a unified PlayheadLine
+    // spanning both SpectrogramSection and WaveformSection
+  }, [isLoaded, getWaveformData, getVisibleRange, timeToPixel, localSelection, selectionStart, selectionEnd, COLORS]);
 
   // Animation loop for smooth playhead during playback
   useEffect(() => {
