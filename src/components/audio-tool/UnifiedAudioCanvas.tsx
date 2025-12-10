@@ -5,7 +5,12 @@
 
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import Box from '@mui/material/Box';
+import IconButton from '@mui/material/IconButton';
+import Slider from '@mui/material/Slider';
+import Typography from '@mui/material/Typography';
 import { styled } from '@mui/material/styles';
+import AddIcon from '@mui/icons-material/Add';
+import RemoveIcon from '@mui/icons-material/Remove';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
 
 // ============================================================================
@@ -453,6 +458,58 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
           cursor: isLoaded ? 'pointer' : 'default',
         }}
       />
+      {/* Zoom Controls */}
+      {isLoaded && (
+        <Box sx={{
+          position: 'absolute',
+          top: 8,
+          right: 50, // Leave room for Hz scale
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.5,
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          borderRadius: 1,
+          padding: '4px 8px',
+        }}>
+          {/* Zoom out button */}
+          <IconButton
+            size="small"
+            onClick={() => setZoom(Math.max(1, zoom / 1.5))}
+            sx={{ color: '#888', padding: '2px', '&:hover': { color: '#19abb5' } }}
+          >
+            <RemoveIcon sx={{ fontSize: 16 }} />
+          </IconButton>
+
+          {/* Zoom slider */}
+          <Slider
+            value={zoom}
+            min={1}
+            max={100}
+            onChange={(_, value) => setZoom(value as number)}
+            sx={{
+              width: 80,
+              color: '#19abb5',
+              '& .MuiSlider-thumb': { width: 12, height: 12 },
+              '& .MuiSlider-track': { height: 3 },
+              '& .MuiSlider-rail': { height: 3, backgroundColor: '#333' },
+            }}
+          />
+
+          {/* Zoom in button */}
+          <IconButton
+            size="small"
+            onClick={() => setZoom(Math.min(100, zoom * 1.5))}
+            sx={{ color: '#888', padding: '2px', '&:hover': { color: '#19abb5' } }}
+          >
+            <AddIcon sx={{ fontSize: 16 }} />
+          </IconButton>
+
+          {/* Zoom percentage display */}
+          <Typography sx={{ color: '#888', fontSize: 10, minWidth: 35, textAlign: 'right' }}>
+            {Math.round(zoom * 100)}%
+          </Typography>
+        </Box>
+      )}
     </CanvasContainer>
   );
 };
