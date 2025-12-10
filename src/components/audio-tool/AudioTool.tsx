@@ -25,8 +25,7 @@ import VolumeDownIcon from '@mui/icons-material/VolumeDown';
 
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
-import { MetadataPanel, FlagsPanel, TransportControls, PlayheadLine, type Flag } from '@/components/common';
-import { ProfessionalWaveform } from './ProfessionalWaveform';
+import { MetadataPanel, FlagsPanel, TransportControls, type Flag } from '@/components/common';
 import { ExpandVideoModal } from './ExpandVideoModal';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
 import { useNavigationStore } from '@/stores/useNavigationStore';
@@ -51,68 +50,12 @@ const MainContainer = styled(Box)({
   backgroundColor: '#0d0d0d',
 });
 
-const SpectrogramSection = styled(Box)({
-  flex: '1 1 40%',
-  minHeight: 0,
-  position: 'relative',
-  backgroundColor: '#0a0a0a',
-  borderBottom: '1px solid #252525',
-});
-
-const FrequencyScale = styled(Box)({
-  position: 'absolute',
-  right: 0,
-  top: 0,
-  bottom: 0,
-  width: 36,
-  backgroundColor: 'rgba(0,0,0,0.7)',
-  display: 'flex',
-  flexDirection: 'column',
-  justifyContent: 'space-between',
-  padding: '8px 4px',
-  fontSize: 9,
-  color: '#555',
-  fontFamily: '"JetBrains Mono", monospace',
-});
-
-const TimeScale = styled(Box)({
-  height: 18,
-  backgroundColor: '#111',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  padding: '0 44px 0 8px',
-  fontSize: 9,
-  color: '#555',
-  fontFamily: '"JetBrains Mono", monospace',
-  borderBottom: '1px solid #252525',
-});
-
-const WaveformSection = styled(Box)({
-  flex: '1 1 26%',
-  minHeight: 105,
-  backgroundColor: '#0d0d0d',
-  borderBottom: '1px solid #252525',
-  display: 'flex',
-  alignItems: 'center',
-  position: 'relative',
-});
-
 const EQSection = styled(Box)({
   height: 140,
   backgroundColor: '#0d0d0d',
   borderBottom: '1px solid #252525',
   display: 'flex',
   flexDirection: 'column',
-  position: 'relative',
-});
-
-// Container that wraps Spectral + TimeScale + Waveform for unified playhead
-const UnifiedPlayheadContainer = styled(Box)({
-  display: 'flex',
-  flexDirection: 'column',
-  flex: 1,
-  minHeight: 0,
   position: 'relative',
 });
 
@@ -1696,72 +1639,20 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         onScrub={handleOverviewScrub}
       />
 
-      {/* Unified container for Spectral + TimeScale + Waveform with shared playhead */}
-      <UnifiedPlayheadContainer
-        ref={unifiedContainerRef}
-        onClick={handleUnifiedContainerClick}
-        sx={{ cursor: loadedAudio ? 'pointer' : 'default' }}
-      >
-        {/* Spectrogram */}
-        <SpectrogramSection>
-          {renderSpectrogram()}
-
-          {/* Frequency scale */}
-          {loadedAudio && (
-            <FrequencyScale>
-              <span>20k</span>
-              <span>10k</span>
-              <span>5k</span>
-              <span>2k</span>
-              <span>1k</span>
-              <span>500</span>
-              <span>200</span>
-              <span>100</span>
-              <span>Hz</span>
-            </FrequencyScale>
-          )}
-        </SpectrogramSection>
-
-        {/* Time scale - centered between Spectral and Waveform */}
-        {loadedAudio && (
-          <TimeScale>
-            <span>0:00</span>
-            <span>5:00</span>
-            <span>10:00</span>
-            <span>15:00</span>
-            <span>20:00</span>
-            <span>25:00</span>
-            <span>30:00</span>
-          </TimeScale>
-        )}
-
-        {/* Waveform - full width, no WAVE label */}
-        <WaveformSection>
-          <ProfessionalWaveform
-            isLoaded={!!loadedAudio}
-            duration={loadedAudio?.duration || 0}
-            currentTime={timestamp / 1000} // Convert from ms to seconds
-            isPlaying={isPlaying}
-            onSeek={handleWaveformSeek}
-            onSelection={handleWaveformSelection}
-            selectionStart={waveformSelection?.start}
-            selectionEnd={waveformSelection?.end}
-            zoom={overviewZoom}
-            scrollOffset={overviewScrollOffset}
-            onZoomChange={handleZoomChange}
-            onScrollChange={handleScrollChange}
-          />
-        </WaveformSection>
-
-        {/* Unified PlayheadLine spanning Spectral + TimeScale + Waveform */}
-        {unifiedContainerWidth > 0 && loadedAudio && loadedAudio.duration > 0 && visibleDuration > 0 && (
-          <PlayheadLine
-            containerWidth={unifiedContainerWidth}
-            duration={visibleDuration * 1000}
-            offset={visibleStartTime * 1000}
-          />
-        )}
-      </UnifiedPlayheadContainer>
+      {/* Unified Audio Canvas - TO BE BUILT */}
+      <Box sx={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#0a0a0a',
+        minHeight: 300,
+        border: '1px dashed #333'
+      }}>
+        <Typography sx={{ color: '#444' }}>
+          Unified Canvas Placeholder
+        </Typography>
+      </Box>
 
       {/* EQ Section - no header row, Reset button positioned on right near 0dB */}
       <EQSection>
