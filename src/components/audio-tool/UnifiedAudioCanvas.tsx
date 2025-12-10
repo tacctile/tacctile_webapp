@@ -31,10 +31,6 @@ interface UnifiedAudioCanvasProps {
   duration: number;
   /** Current playback position in seconds */
   currentTime: number;
-  /** Zoom level (1 = fit to view) */
-  zoom?: number;
-  /** Scroll offset (0-1) */
-  scrollOffset?: number;
   /** Callback when user clicks to seek */
   onSeek?: (timeInSeconds: number) => void;
 }
@@ -47,8 +43,6 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
   isLoaded,
   duration,
   currentTime,
-  zoom = 1,
-  scrollOffset = 0,
   onSeek,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
