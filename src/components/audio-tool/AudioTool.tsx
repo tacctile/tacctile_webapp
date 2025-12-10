@@ -68,14 +68,13 @@ const OverviewBarContainer = styled(Box)({
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
-  padding: '0 8px',
+  padding: 0,
 });
 
 const OverviewBarContent = styled(Box)({
   flex: 1,
-  height: 24,
+  height: '100%',
   backgroundColor: '#1a1a1a',
-  borderRadius: 2,
   position: 'relative',
   overflow: 'hidden',
 });
