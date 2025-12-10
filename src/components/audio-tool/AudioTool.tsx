@@ -27,7 +27,6 @@ import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
 import { MetadataPanel, FlagsPanel, TransportControls, type Flag } from '@/components/common';
 import { ExpandVideoModal } from './ExpandVideoModal';
-import { UnifiedAudioCanvas } from './UnifiedAudioCanvas';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
 import { useNavigationStore } from '@/stores/useNavigationStore';
 import {
@@ -62,20 +61,21 @@ const EQSection = styled(Box)({
 
 // Overview Bar styled components (iZotope RX-style navigation)
 const OverviewBarContainer = styled(Box)({
-  height: 40,
+  height: 28,
   backgroundColor: '#111',
   borderBottom: '1px solid #252525',
   position: 'relative',
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
-  padding: 0,
+  padding: '0 8px',
 });
 
 const OverviewBarContent = styled(Box)({
   flex: 1,
-  height: '100%',
+  height: 24,
   backgroundColor: '#1a1a1a',
+  borderRadius: 2,
   position: 'relative',
   overflow: 'hidden',
 });
@@ -1639,11 +1639,20 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         onScrub={handleOverviewScrub}
       />
 
-      {/* Unified Audio Canvas - Spectral + Waveform visualization */}
-      <UnifiedAudioCanvas
-        isLoaded={!!loadedAudio}
-        duration={loadedAudio?.duration || 0}
-      />
+      {/* Unified Audio Canvas - TO BE BUILT */}
+      <Box sx={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#0a0a0a',
+        minHeight: 300,
+        border: '1px dashed #333'
+      }}>
+        <Typography sx={{ color: '#444' }}>
+          Unified Canvas Placeholder
+        </Typography>
+      </Box>
 
       {/* EQ Section - no header row, Reset button positioned on right near 0dB */}
       <EQSection>
