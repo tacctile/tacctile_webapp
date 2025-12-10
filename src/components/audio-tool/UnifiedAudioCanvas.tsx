@@ -36,6 +36,14 @@ interface UnifiedAudioCanvasProps {
   duration: number;
   /** Current playback position in seconds */
   currentTime: number;
+  /** Zoom level (1 = full duration visible, higher = zoomed in) */
+  zoom?: number;
+  /** Scroll offset (0-1, portion of timeline scrolled) */
+  scrollOffset?: number;
+  /** Callback when zoom changes */
+  onZoomChange?: (newZoom: number) => void;
+  /** Callback when scroll offset changes */
+  onScrollOffsetChange?: (newOffset: number) => void;
   /** Callback when user clicks to seek */
   onSeek?: (timeInSeconds: number) => void;
 }
@@ -48,6 +56,10 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
   isLoaded,
   duration,
   currentTime,
+  zoom: zoomProp = 1,
+  scrollOffset: scrollOffsetProp = 0,
+  onZoomChange,
+  onScrollOffsetChange,
   onSeek,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -56,10 +68,31 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
   const setTimestamp = usePlayheadStore((state) => state.setTimestamp);
   const isPlaying = usePlayheadStore((state) => state.isPlaying);
 
-  // Zoom state: 1 = full duration visible, higher = zoomed in
-  const [zoom, setZoom] = useState(1);
-  // Scroll offset: 0-1, portion of timeline scrolled
-  const [scrollOffset, setScrollOffset] = useState(0);
+  // Use internal state if no external control, otherwise use props
+  const [internalZoom, setInternalZoom] = useState(1);
+  const [internalScrollOffset, setInternalScrollOffset] = useState(0);
+
+  // Determine if we're controlled or uncontrolled
+  const isControlled = onZoomChange !== undefined || onScrollOffsetChange !== undefined;
+  const zoom = isControlled ? zoomProp : internalZoom;
+  const scrollOffset = isControlled ? scrollOffsetProp : internalScrollOffset;
+
+  // Unified setters that work for both controlled and uncontrolled modes
+  const setZoom = useCallback((newZoom: number) => {
+    if (isControlled && onZoomChange) {
+      onZoomChange(newZoom);
+    } else {
+      setInternalZoom(newZoom);
+    }
+  }, [isControlled, onZoomChange]);
+
+  const setScrollOffset = useCallback((newOffset: number) => {
+    if (isControlled && onScrollOffsetChange) {
+      onScrollOffsetChange(newOffset);
+    } else {
+      setInternalScrollOffset(newOffset);
+    }
+  }, [isControlled, onScrollOffsetChange]);
 
   // Panning state
   const [isSpaceHeld, setIsSpaceHeld] = useState(false);
@@ -637,7 +670,15 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
           {/* Zoom out button */}
           <IconButton
             size="small"
-            onClick={() => setZoom(Math.max(1, zoom / 1.5))}
+            onClick={() => {
+              const newZoom = Math.max(1, zoom / 1.5);
+              const playheadTime = timestamp / 1000;
+              const newVisibleDuration = duration / newZoom;
+              let newScrollOffset = (playheadTime - newVisibleDuration / 2) / duration;
+              newScrollOffset = Math.max(0, Math.min(1 - 1/newZoom, newScrollOffset));
+              setZoom(newZoom);
+              setScrollOffset(newScrollOffset);
+            }}
             sx={{ color: '#888', padding: '2px', '&:hover': { color: '#19abb5' } }}
           >
             <RemoveIcon sx={{ fontSize: 16 }} />
@@ -648,7 +689,15 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
             value={zoom}
             min={1}
             max={10}
-            onChange={(_, value) => setZoom(value as number)}
+            onChange={(_, value) => {
+              const newZoom = value as number;
+              const playheadTime = timestamp / 1000;
+              const newVisibleDuration = duration / newZoom;
+              let newScrollOffset = (playheadTime - newVisibleDuration / 2) / duration;
+              newScrollOffset = Math.max(0, Math.min(1 - 1/newZoom, newScrollOffset));
+              setZoom(newZoom);
+              setScrollOffset(newScrollOffset);
+            }}
             sx={{
               width: 80,
               color: '#19abb5',
@@ -661,7 +710,15 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
           {/* Zoom in button */}
           <IconButton
             size="small"
-            onClick={() => setZoom(Math.min(10, zoom * 1.5))}
+            onClick={() => {
+              const newZoom = Math.min(10, zoom * 1.5);
+              const playheadTime = timestamp / 1000;
+              const newVisibleDuration = duration / newZoom;
+              let newScrollOffset = (playheadTime - newVisibleDuration / 2) / duration;
+              newScrollOffset = Math.max(0, Math.min(1 - 1/newZoom, newScrollOffset));
+              setZoom(newZoom);
+              setScrollOffset(newScrollOffset);
+            }}
             sx={{ color: '#888', padding: '2px', '&:hover': { color: '#19abb5' } }}
           >
             <AddIcon sx={{ fontSize: 16 }} />

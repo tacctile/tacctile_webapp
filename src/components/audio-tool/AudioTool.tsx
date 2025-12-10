@@ -1662,6 +1662,8 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
           currentTime={timestamp / 1000}
           zoom={overviewZoom}
           scrollOffset={overviewScrollOffset}
+          onZoomChange={setOverviewZoom}
+          onScrollOffsetChange={setOverviewScrollOffset}
           onSeek={handleOverviewSeek}
         />
       </Box>
