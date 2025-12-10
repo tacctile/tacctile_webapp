@@ -321,7 +321,18 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
     if (showWaveform && isLoaded) {
       const centerY = height / 2;
 
-      ctx.fillStyle = 'rgba(25, 171, 181, 0.6)'; // Teal with transparency
+      // Set opacity based on whether spectral is showing
+      const waveformOpacity = showSpectral ? 0.85 : 1.0;
+
+      // Save context and set up shadow for contrast against spectral background
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      ctx.shadowBlur = 3;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+
+      // Waveform fill with adjusted opacity
+      ctx.fillStyle = `rgba(25, 171, 181, ${waveformOpacity * 0.6})`; // Teal with opacity
       ctx.beginPath();
       ctx.moveTo(0, centerY);
 
@@ -375,8 +386,16 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
       ctx.closePath();
       ctx.fill();
 
+      // Restore context (removes shadow for subsequent drawing)
+      ctx.restore();
+
+      // Draw a thin stroke outline for extra definition
+      ctx.strokeStyle = `rgba(0, 0, 0, ${waveformOpacity * 0.4})`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
       // Draw center line
-      ctx.strokeStyle = 'rgba(25, 171, 181, 0.3)';
+      ctx.strokeStyle = `rgba(25, 171, 181, ${waveformOpacity * 0.3})`;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(0, centerY);
