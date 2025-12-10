@@ -28,6 +28,7 @@ import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
 import { MetadataPanel, FlagsPanel, TransportControls, PlayheadLine, type Flag } from '@/components/common';
 import { ProfessionalWaveform } from './ProfessionalWaveform';
 import { ExpandVideoModal } from './ExpandVideoModal';
+import { UnifiedAudioCanvas } from './UnifiedAudioCanvas';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
 import { useNavigationStore } from '@/stores/useNavigationStore';
 import {
@@ -1702,58 +1703,13 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         onClick={handleUnifiedContainerClick}
         sx={{ cursor: loadedAudio ? 'pointer' : 'default' }}
       >
-        {/* Spectrogram */}
-        <SpectrogramSection>
-          {renderSpectrogram()}
+        {/* Unified canvas replacing SpectrogramSection + TimeScale + WaveformSection */}
+        <UnifiedAudioCanvas
+          isLoaded={!!loadedAudio}
+          duration={loadedAudio?.duration || 0}
+        />
 
-          {/* Frequency scale */}
-          {loadedAudio && (
-            <FrequencyScale>
-              <span>20k</span>
-              <span>10k</span>
-              <span>5k</span>
-              <span>2k</span>
-              <span>1k</span>
-              <span>500</span>
-              <span>200</span>
-              <span>100</span>
-              <span>Hz</span>
-            </FrequencyScale>
-          )}
-        </SpectrogramSection>
-
-        {/* Time scale - centered between Spectral and Waveform */}
-        {loadedAudio && (
-          <TimeScale>
-            <span>0:00</span>
-            <span>5:00</span>
-            <span>10:00</span>
-            <span>15:00</span>
-            <span>20:00</span>
-            <span>25:00</span>
-            <span>30:00</span>
-          </TimeScale>
-        )}
-
-        {/* Waveform - full width, no WAVE label */}
-        <WaveformSection>
-          <ProfessionalWaveform
-            isLoaded={!!loadedAudio}
-            duration={loadedAudio?.duration || 0}
-            currentTime={timestamp / 1000} // Convert from ms to seconds
-            isPlaying={isPlaying}
-            onSeek={handleWaveformSeek}
-            onSelection={handleWaveformSelection}
-            selectionStart={waveformSelection?.start}
-            selectionEnd={waveformSelection?.end}
-            zoom={overviewZoom}
-            scrollOffset={overviewScrollOffset}
-            onZoomChange={handleZoomChange}
-            onScrollChange={handleScrollChange}
-          />
-        </WaveformSection>
-
-        {/* Unified PlayheadLine spanning Spectral + TimeScale + Waveform */}
+        {/* Unified PlayheadLine spanning the canvas */}
         {unifiedContainerWidth > 0 && loadedAudio && loadedAudio.duration > 0 && visibleDuration > 0 && (
           <PlayheadLine
             containerWidth={unifiedContainerWidth}
