@@ -960,6 +960,10 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [spectralData, setSpectralData] = useState<Float32Array[] | null>(null);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
 
+  // Spectral loading state for progressive UX
+  const [spectralLoading, setSpectralLoading] = useState(false);
+  const [spectralReady, setSpectralReady] = useState(false);
+
   // Unified container ref and width for PlayheadLine (spans Spectral + TimeScale + Waveform)
   const unifiedContainerRef = useRef<HTMLDivElement>(null);
   const [unifiedContainerWidth, setUnifiedContainerWidth] = useState(0);
@@ -1059,43 +1063,47 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     }
   }, []);
 
-  // Generate spectral data using fast energy-based approach (much faster than DFT)
-  const generateSpectralData = useCallback(async (buffer: AudioBuffer): Promise<Float32Array[]> => {
+  // Background spectral generation (chunked to not block UI)
+  const generateSpectralInBackground = useCallback(async (buffer: AudioBuffer): Promise<Float32Array[]> => {
     const channelData = buffer.getChannelData(0);
-    const sampleRate = buffer.sampleRate;
-
-    // Calculate how many frames we want (limit for performance)
-    const targetFrames = Math.min(500, Math.floor(buffer.duration * 20)); // ~20 frames per second
-    const frameInterval = buffer.duration / targetFrames;
-    const samplesPerFrame = Math.floor(sampleRate * frameInterval);
-
+    const samples = channelData.length;
+    const targetFrames = Math.min(500, Math.floor(buffer.duration * 10));
+    const samplesPerFrame = Math.floor(samples / targetFrames);
     const spectralFrames: Float32Array[] = [];
-    const numBins = 128; // Reduced frequency bins for performance
 
-    for (let i = 0; i < targetFrames; i++) {
-      const startSample = i * samplesPerFrame;
-      const frame = new Float32Array(numBins);
+    // Process in chunks to keep UI responsive
+    const chunkSize = 50;
 
-      // Simple energy estimation per frequency band
-      const binSize = Math.floor(samplesPerFrame / numBins);
-      for (let bin = 0; bin < numBins; bin++) {
-        let energy = 0;
-        for (let j = 0; j < binSize; j++) {
-          const idx = startSample + bin * binSize + j;
-          if (idx < channelData.length) {
-            energy += Math.abs(channelData[idx]);
+    for (let chunk = 0; chunk < Math.ceil(targetFrames / chunkSize); chunk++) {
+      // Let UI breathe between chunks
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      const startFrame = chunk * chunkSize;
+      const endFrame = Math.min(startFrame + chunkSize, targetFrames);
+
+      for (let i = startFrame; i < endFrame; i++) {
+        const startSample = i * samplesPerFrame;
+        const frame = new Float32Array(128);
+
+        for (let bin = 0; bin < 128; bin++) {
+          let energy = 0;
+          const binSize = Math.floor(samplesPerFrame / 128);
+          for (let j = 0; j < binSize; j++) {
+            const idx = startSample + bin * binSize + j;
+            if (idx < channelData.length) {
+              energy += Math.abs(channelData[idx]);
+            }
           }
+          frame[bin] = energy / binSize;
         }
-        frame[bin] = energy / binSize;
+        spectralFrames.push(frame);
       }
-
-      spectralFrames.push(frame);
     }
 
     return spectralFrames;
   }, []);
 
-  // Load and decode real audio file
+  // Load and decode real audio file - Progressive loading (waveform first, spectral in background)
   const loadAudioFile = useCallback(async (filePath: string, fileItem: typeof audioEvidence[0]) => {
     try {
       setIsLoadingAudio(true);
@@ -1117,7 +1125,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       const arrayBuffer = await response.arrayBuffer();
       const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
-      // Generate waveform data (downsample for display)
+      // PHASE 1: Waveform (instant)
       const channelData = decodedBuffer.getChannelData(0); // Mono or left channel
       const samples = channelData.length;
       const targetPoints = 2000; // Number of points for waveform display
@@ -1137,11 +1145,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       }
       setWaveformData(waveform);
 
-      // Generate spectral data using fast energy-based approach
-      const spectral = await generateSpectralData(decodedBuffer);
-      setSpectralData(spectral);
-
-      // Update loaded audio state with real duration
+      // Set loaded state immediately (waveform ready)
       setLoadedAudio({
         ...fileItem,
         duration: decodedBuffer.duration,
@@ -1151,20 +1155,45 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         duration: decodedBuffer.duration,
       });
 
+      // Reset spectral state and start loading
+      setSpectralData(null);
+      setSpectralReady(false);
+      setSpectralLoading(true);
+      setIsLoadingAudio(false); // Waveform is ready, remove main loading overlay
+
+      // PHASE 2: Spectral (background)
+      // Use setTimeout to let UI update first
+      setTimeout(async () => {
+        try {
+          const spectral = await generateSpectralInBackground(decodedBuffer);
+          setSpectralData(spectral);
+          setSpectralLoading(false);
+          setSpectralReady(true);
+
+          // Reset "ready" indicator after 5 seconds
+          setTimeout(() => setSpectralReady(false), 5000);
+        } catch (spectralError) {
+          console.error('Error generating spectral data:', spectralError);
+          setSpectralLoading(false);
+        }
+      }, 100);
+
     } catch (error) {
       console.error('Error loading audio:', error);
       // Fall back to mock data on error
       setLoadedAudio(fileItem);
       setSelectedEvidence(fileItem);
-    } finally {
       setIsLoadingAudio(false);
+      setSpectralLoading(false);
     }
-  }, [generateSpectralData]);
+  }, [generateSpectralInBackground]);
 
   const handleDoubleClick = useCallback((item: typeof audioEvidence[0]) => {
-    // Clear previous real audio data
+    // Clear previous real audio data and reset spectral state
     setWaveformData(null);
     setSpectralData(null);
+    setSpectralLoading(false);
+    setSpectralReady(false);
 
     if (item.path) {
       // Load real audio file
@@ -1787,6 +1816,8 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
           onSeek={handleOverviewSeek}
           waveformData={waveformData}
           spectralData={spectralData}
+          spectralLoading={spectralLoading}
+          spectralReady={spectralReady}
         />
         {/* Loading indicator overlay */}
         {isLoadingAudio && (
