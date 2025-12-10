@@ -27,6 +27,7 @@ import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
 import { MetadataPanel, FlagsPanel, TransportControls, type Flag } from '@/components/common';
 import { ExpandVideoModal } from './ExpandVideoModal';
+import { UnifiedAudioCanvas } from './UnifiedAudioCanvas';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
 import { useNavigationStore } from '@/stores/useNavigationStore';
 import {
@@ -1638,20 +1639,11 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         onScrub={handleOverviewScrub}
       />
 
-      {/* Unified Audio Canvas - TO BE BUILT */}
-      <Box sx={{
-        flex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#0a0a0a',
-        minHeight: 300,
-        border: '1px dashed #333'
-      }}>
-        <Typography sx={{ color: '#444' }}>
-          Unified Canvas Placeholder
-        </Typography>
-      </Box>
+      {/* Unified Audio Canvas - Spectral + Waveform visualization */}
+      <UnifiedAudioCanvas
+        isLoaded={!!loadedAudio}
+        duration={loadedAudio?.duration || 0}
+      />
 
       {/* EQ Section - no header row, Reset button positioned on right near 0dB */}
       <EQSection>
