@@ -5,6 +5,7 @@
 
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
 import Slider from '@mui/material/Slider';
 import Tooltip from '@mui/material/Tooltip';
@@ -54,6 +55,10 @@ interface UnifiedAudioCanvasProps {
   waveformData?: Float32Array | null;
   /** Real spectral data (FFT frames) from audio analysis */
   spectralData?: Float32Array[] | null;
+  /** Whether spectral data is currently being generated in background */
+  spectralLoading?: boolean;
+  /** Whether spectral data just became ready (triggers pulse animation) */
+  spectralReady?: boolean;
 }
 
 // ============================================================================
@@ -71,6 +76,8 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
   onSeek,
   waveformData,
   spectralData,
+  spectralLoading = false,
+  spectralReady = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -158,9 +165,10 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
 
     // ========================================================================
     // Draw Spectral Visualization (iZotope RX style - vertical frequency bands)
+    // Skip if loading or no data available
     // ========================================================================
 
-    if (showSpectral && isLoaded) {
+    if (showSpectral && isLoaded && !spectralLoading) {
       const numColumns = Math.floor(width / 2); // One column every 2 pixels
 
       // Use real spectral data if available
@@ -613,7 +621,7 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
       ctx.strokeRect(x1, 0, marqueeWidth, height - 20);
       ctx.setLineDash([]);
     }
-  }, [isLoaded, duration, timestamp, zoom, scrollOffset, showSpectral, showWaveform, zoomToolActive, marqueeStart, marqueeEnd, waveformData, spectralData]);
+  }, [isLoaded, duration, timestamp, zoom, scrollOffset, showSpectral, showWaveform, zoomToolActive, marqueeStart, marqueeEnd, waveformData, spectralData, spectralLoading]);
 
   // Redraw on mount and when dependencies change
   useEffect(() => {
@@ -884,18 +892,37 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
           padding: '4px',
         }}>
           {/* Spectral toggle */}
-          <Tooltip title={showSpectral ? "Hide Spectral" : "Show Spectral"}>
-            <IconButton
-              size="small"
-              onClick={() => setShowSpectral(!showSpectral)}
-              sx={{
-                color: showSpectral ? '#19abb5' : '#555',
-                padding: '4px',
-                '&:hover': { backgroundColor: 'rgba(25, 171, 181, 0.1)' },
-              }}
-            >
-              <GridOnIcon sx={{ fontSize: 18 }} />
-            </IconButton>
+          <Tooltip title={
+            spectralLoading
+              ? "Loading spectral analysis..."
+              : showSpectral
+                ? "Hide Spectral"
+                : "Show Spectral"
+          }>
+            <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+              <IconButton
+                size="small"
+                onClick={() => !spectralLoading && setShowSpectral(!showSpectral)}
+                disabled={spectralLoading}
+                sx={{
+                  color: spectralLoading ? '#555' : showSpectral ? '#19abb5' : '#555',
+                  padding: '4px',
+                  '&:hover': { backgroundColor: 'rgba(25, 171, 181, 0.1)' },
+                  // Pulse animation when ready
+                  animation: spectralReady ? 'spectralPulse 1s ease-in-out 5' : 'none',
+                  '@keyframes spectralPulse': {
+                    '0%, 100%': { boxShadow: '0 0 0 0 rgba(25, 171, 181, 0)' },
+                    '50%': { boxShadow: '0 0 0 8px rgba(25, 171, 181, 0.3)' },
+                  },
+                }}
+              >
+                {spectralLoading ? (
+                  <CircularProgress size={16} sx={{ color: '#19abb5' }} />
+                ) : (
+                  <GridOnIcon sx={{ fontSize: 18 }} />
+                )}
+              </IconButton>
+            </Box>
           </Tooltip>
 
           {/* Waveform toggle */}
