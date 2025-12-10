@@ -61,7 +61,7 @@ const EQSection = styled(Box)({
 
 // Overview Bar styled components (iZotope RX-style navigation)
 const OverviewBarContainer = styled(Box)({
-  height: 28,
+  height: 32,
   backgroundColor: '#111',
   borderBottom: '1px solid #252525',
   position: 'relative',
