@@ -118,7 +118,7 @@ const UnifiedPlayheadContainer = styled(Box)({
 
 // Overview Bar styled components (iZotope RX-style navigation)
 const OverviewBarContainer = styled(Box)({
-  height: 28,
+  height: 52,
   backgroundColor: '#111',
   borderBottom: '1px solid #252525',
   position: 'relative',
@@ -130,7 +130,7 @@ const OverviewBarContainer = styled(Box)({
 
 const OverviewBarContent = styled(Box)({
   flex: 1,
-  height: 24,
+  height: 44,
   backgroundColor: '#1a1a1a',
   borderRadius: 2,
   position: 'relative',
