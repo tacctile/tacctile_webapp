@@ -69,6 +69,8 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
 
   // Scrubbing state (for click+drag to seek)
   const [isDragging, setIsDragging] = useState(false);
+  // Track if mouse is near playhead handle for cursor feedback
+  const [isHoveringPlayhead, setIsHoveringPlayhead] = useState(false);
 
   // Draw function - renders spectral visualization and waveform overlay
   const draw = useCallback(() => {
@@ -227,6 +229,33 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
         ctx.lineTo(playheadX, 8);
         ctx.closePath();
         ctx.fill();
+
+        // Draw playhead handle (draggable grab point) just above time scale
+        const handleY = height - 28; // Just above time scale
+        const handleWidth = 12;
+        const handleHeight = 16;
+
+        // Handle background
+        ctx.fillStyle = '#19abb5';
+        ctx.beginPath();
+        ctx.roundRect(
+          playheadX - handleWidth / 2,
+          handleY,
+          handleWidth,
+          handleHeight,
+          3 // border radius
+        );
+        ctx.fill();
+
+        // Handle grip lines (subtle detail)
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.lineWidth = 1;
+        for (let i = -2; i <= 2; i += 2) {
+          ctx.beginPath();
+          ctx.moveTo(playheadX + i, handleY + 4);
+          ctx.lineTo(playheadX + i, handleY + handleHeight - 4);
+          ctx.stroke();
+        }
       }
     }
 
@@ -455,6 +484,20 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
     };
   }, []);
 
+  // Check if mouse is near the playhead handle for easier grabbing
+  const isNearPlayhead = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current || duration <= 0) return false;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+
+    const visibleDuration = duration / zoom;
+    const startTime = scrollOffset * duration;
+    const playheadX = ((timestamp / 1000 - startTime) / visibleDuration) * rect.width;
+
+    return Math.abs(mouseX - playheadX) < 15; // Within 15px of playhead
+  }, [duration, zoom, scrollOffset, timestamp]);
+
   // Seek to position helper
   const seekToPosition = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return;
@@ -495,6 +538,12 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isLoaded || !canvasRef.current || duration <= 0) return;
 
+    // Update hover state for cursor feedback
+    const nearPlayhead = isNearPlayhead(e);
+    if (nearPlayhead !== isHoveringPlayhead) {
+      setIsHoveringPlayhead(nearPlayhead);
+    }
+
     // Panning (only when zoomed in)
     if (isPanning && zoom > 1) {
       const rect = canvasRef.current.getBoundingClientRect();
@@ -523,6 +572,7 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
   const handleMouseLeave = () => {
     setIsDragging(false);
     setIsPanning(false);
+    setIsHoveringPlayhead(false);
   };
 
   // Handle wheel to zoom (centered on cursor position)
@@ -572,7 +622,7 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
           width: '100%',
           height: '100%',
           cursor: isLoaded
-            ? (isPanning ? 'grabbing' : isSpaceHeld ? 'grab' : isDragging ? 'grabbing' : 'pointer')
+            ? (isPanning ? 'grabbing' : isSpaceHeld ? 'grab' : isDragging ? 'ew-resize' : isHoveringPlayhead ? 'ew-resize' : 'pointer')
             : 'default',
         }}
       />
