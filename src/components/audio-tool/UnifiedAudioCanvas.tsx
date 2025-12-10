@@ -242,6 +242,9 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
         const time = i * interval;
         const x = (time / duration) * width;
 
+        // Skip if too close to end (within 50px)
+        if (width - x < 50 && i !== 0) continue;
+
         // Tick mark
         ctx.strokeStyle = '#555';
         ctx.lineWidth = 1;
