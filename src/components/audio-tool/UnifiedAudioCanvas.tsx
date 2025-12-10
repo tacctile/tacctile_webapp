@@ -54,6 +54,7 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const timestamp = usePlayheadStore((state) => state.timestamp);
   const setTimestamp = usePlayheadStore((state) => state.setTimestamp);
+  const isPlaying = usePlayheadStore((state) => state.isPlaying);
 
   // Zoom state: 1 = full duration visible, higher = zoomed in
   const [zoom, setZoom] = useState(1);
@@ -395,6 +396,30 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [draw]);
+
+  // Auto-scroll to follow playhead during playback
+  useEffect(() => {
+    if (!isPlaying || !isLoaded || zoom <= 1) return;
+
+    const currentTimeSeconds = timestamp / 1000;
+    const visibleDuration = duration / zoom;
+    const startTime = scrollOffset * duration;
+    const endTime = startTime + visibleDuration;
+
+    // Check if playhead is outside visible range
+    if (currentTimeSeconds < startTime || currentTimeSeconds > endTime) {
+      // Center the view on the playhead
+      const newScrollOffset = Math.max(0, Math.min(1 - 1/zoom,
+        (currentTimeSeconds - visibleDuration / 2) / duration));
+      setScrollOffset(newScrollOffset);
+    }
+    // If playhead is approaching the right edge (within 10% of visible area), scroll ahead
+    else if (currentTimeSeconds > startTime + visibleDuration * 0.9) {
+      const newScrollOffset = Math.max(0, Math.min(1 - 1/zoom,
+        (currentTimeSeconds - visibleDuration * 0.1) / duration));
+      setScrollOffset(newScrollOffset);
+    }
+  }, [timestamp, isPlaying, isLoaded, zoom, duration, scrollOffset]);
 
   // Handle click to seek (adjusted for zoom)
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
