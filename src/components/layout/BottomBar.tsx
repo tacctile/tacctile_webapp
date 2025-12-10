@@ -90,10 +90,11 @@ export const BottomBar: React.FC = () => {
           sx={{
             color: '#19abb5',
             fontFamily: '"JetBrains Mono", "Roboto Mono", "Consolas", monospace',
-            fontSize: '15px',
+            fontSize: '30px',
             fontWeight: 600,
             whiteSpace: 'nowrap',
             letterSpacing: '-0.3px',
+            lineHeight: 1,
           }}
         >
           {formatTimecode(timestamp)}
