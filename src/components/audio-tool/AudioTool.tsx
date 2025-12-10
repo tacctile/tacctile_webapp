@@ -61,21 +61,21 @@ const EQSection = styled(Box)({
 
 // Overview Bar styled components (iZotope RX-style navigation)
 const OverviewBarContainer = styled(Box)({
-  height: 28,
+  height: 40,
   backgroundColor: '#111',
   borderBottom: '1px solid #252525',
   position: 'relative',
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
-  padding: '0 8px',
+  padding: 0,
 });
 
 const OverviewBarContent = styled(Box)({
   flex: 1,
-  height: 24,
+  height: 36,
   backgroundColor: '#1a1a1a',
-  borderRadius: 2,
+  borderRadius: 0,
   position: 'relative',
   overflow: 'hidden',
 });
