@@ -10,3 +10,4 @@ export { MetadataPanel } from './MetadataPanel';
 export { PrecisionSlider } from './PrecisionSlider';
 export { FlagsPanel, type Flag } from './FlagsPanel';
 export { ResizablePanelSplit } from './ResizablePanelSplit';
+export { PlayheadLine } from './PlayheadLine';
