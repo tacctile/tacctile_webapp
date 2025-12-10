@@ -168,52 +168,61 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
     // Skip if loading or no data available
     // ========================================================================
 
-    // Aurora color function - smooth gradient from deep purple through teal to bright yellow
+    // Aurora borealis color function - deep purple → teal → green → pink peaks
     const getAuroraColor = (intensity: number): { r: number; g: number; b: number; a: number } => {
-      // Clamp intensity
-      intensity = Math.max(0, Math.min(1, intensity));
+      const i = Math.max(0, Math.min(1, intensity));
 
-      let r: number, g: number, b: number, a: number;
+      let r, g, b, a;
 
-      if (intensity < 0.08) {
-        // Very low: deep space purple, subtle
-        r = 15; g = 5; b = 35;
-        a = 0.4 + intensity * 4;
-      } else if (intensity < 0.2) {
-        // Low: dark purple to violet
-        const t = (intensity - 0.08) / 0.12;
-        r = Math.floor(15 + t * 45);
-        g = Math.floor(5 + t * 15);
-        b = Math.floor(35 + t * 55);
-        a = 0.7 + t * 0.15;
-      } else if (intensity < 0.4) {
-        // Lower-mid: violet to teal transition
-        const t = (intensity - 0.2) / 0.2;
-        r = Math.floor(60 - t * 35);
-        g = Math.floor(20 + t * 80);
-        b = Math.floor(90 + t * 30);
-        a = 0.85 + t * 0.05;
-      } else if (intensity < 0.6) {
-        // Mid: teal/cyan glow
-        const t = (intensity - 0.4) / 0.2;
-        r = Math.floor(25 + t * 15);
-        g = Math.floor(100 + t * 70);
-        b = Math.floor(120 + t * 40);
-        a = 0.9 + t * 0.05;
-      } else if (intensity < 0.8) {
-        // Upper-mid: teal to green-yellow
-        const t = (intensity - 0.6) / 0.2;
-        r = Math.floor(40 + t * 100);
-        g = Math.floor(170 + t * 50);
-        b = Math.floor(160 - t * 80);
+      if (i < 0.15) {
+        // Silence/very low: deep purple/black
+        const t = i / 0.15;
+        r = Math.floor(15 + t * 30);
+        g = Math.floor(8 + t * 19);
+        b = Math.floor(35 + t * 43);
+        a = 0.4 + t * 0.3;
+      } else if (i < 0.3) {
+        // Low: purple/violet
+        const t = (i - 0.15) / 0.15;
+        r = Math.floor(45 + t * 25);
+        g = Math.floor(27 + t * 40);
+        b = Math.floor(78 + t * 30);
+        a = 0.7 + t * 0.1;
+      } else if (i < 0.45) {
+        // Low-mid: purple to teal
+        const t = (i - 0.3) / 0.15;
+        r = Math.floor(70 - t * 45);
+        g = Math.floor(67 + t * 71);
+        b = Math.floor(108 + t * 46);
+        a = 0.8 + t * 0.1;
+      } else if (i < 0.6) {
+        // Mid: teal/cyan
+        const t = (i - 0.45) / 0.15;
+        r = Math.floor(25 + t * 10);
+        g = Math.floor(138 + t * 30);
+        b = Math.floor(154 - t * 10);
+        a = 0.9;
+      } else if (i < 0.75) {
+        // Mid-high: teal to green
+        const t = (i - 0.6) / 0.15;
+        r = Math.floor(35 + t * 11);
+        g = Math.floor(168 + t * 36);
+        b = Math.floor(144 - t * 72);
+        a = 0.92;
+      } else if (i < 0.9) {
+        // High: green
+        const t = (i - 0.75) / 0.15;
+        r = Math.floor(46 + t * 30);
+        g = Math.floor(204 + t * 18);
+        b = Math.floor(72 + t * 30);
         a = 0.95;
       } else {
-        // High: bright yellow/white peaks
-        const t = (intensity - 0.8) / 0.2;
-        r = Math.floor(140 + t * 115);
-        g = Math.floor(220 + t * 35);
-        b = Math.floor(80 - t * 30);
-        a = 0.95 + t * 0.05;
+        // Peak: green with pink/magenta hints (rare, only true peaks)
+        const t = (i - 0.9) / 0.1;
+        r = Math.floor(76 + t * 160);
+        g = Math.floor(222 - t * 80);
+        b = Math.floor(102 + t * 80);
+        a = 1.0;
       }
 
       return { r, g, b, a };
@@ -246,9 +255,8 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
             gradientStops.forEach(stop => {
               const binIndex = Math.floor(stop * (numBins - 1));
               const magnitude = frame[binIndex];
-              // Use aggressive boost and sqrt for dynamic range
-              const normalized = Math.min(1, magnitude * 15);
-              const intensity = Math.pow(normalized, 0.5);
+              // Use logarithmic scaling for better dynamic range (prevents everything from being yellow/peak)
+              const intensity = Math.min(1, Math.log10(1 + magnitude * 50) / 2);
               const color = getAuroraColor(intensity);
               gradient.addColorStop(stop, `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a})`);
             });
