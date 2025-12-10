@@ -913,7 +913,8 @@ const OverviewBar: React.FC<OverviewBarProps> = ({
 // MOCK DATA
 // ============================================================================
 
-const audioEvidence: (EvidenceItem & { format?: string; gps?: string | null; hasVideo?: boolean })[] = [
+const audioEvidence: (EvidenceItem & { format?: string; gps?: string | null; hasVideo?: boolean; path?: string })[] = [
+  { id: 'test-drums-1', type: 'audio', fileName: 'test_drums1.mp3', duration: 0, capturedAt: Date.now(), user: 'You', deviceInfo: 'Imported', flagCount: 0, hasFindings: false, format: '44.1kHz / 16-bit', gps: null, hasVideo: false, path: '/audio/test_drums1.mp3' },
   { id: 'a1', type: 'audio', fileName: 'ambient_baseline.wav', duration: 1080, capturedAt: Date.now() - 7200000, user: 'Mike', deviceInfo: 'Zoom H6', flagCount: 0, hasFindings: false, format: '48kHz / 24-bit', gps: null, hasVideo: false },
   { id: 'a2', type: 'audio', fileName: 'recorder_01_audio_session.wav', duration: 1834, capturedAt: Date.now() - 6500000, user: 'Sarah', deviceInfo: 'Zoom H6', flagCount: 7, hasFindings: true, format: '48kHz / 24-bit', gps: '39.95°N, 75.16°W', hasVideo: false },
   { id: 'a3', type: 'audio', fileName: 'camera_01_audio_extract.wav', duration: 3847, capturedAt: Date.now() - 7000000, user: 'Sarah', deviceInfo: 'Sony A7IV', flagCount: 2, hasFindings: true, format: '48kHz / 16-bit', gps: '39.95°N, 75.16°W', hasVideo: true },
@@ -951,6 +952,11 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   // File drop zone state
   const [isFileDragOver, setIsFileDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Real audio data state (Web Audio API)
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const [waveformData, setWaveformData] = useState<Float32Array | null>(null);
+  const [spectralData, setSpectralData] = useState<Float32Array[] | null>(null);
 
   // Unified container ref and width for PlayheadLine (spans Spectral + TimeScale + Waveform)
   const unifiedContainerRef = useRef<HTMLDivElement>(null);
@@ -1051,10 +1057,105 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     }
   }, []);
 
-  const handleDoubleClick = useCallback((item: typeof audioEvidence[0]) => {
-    setLoadedAudio(item);
-    setSelectedEvidence(item);
+  // Load and decode real audio file
+  const loadAudioFile = useCallback(async (filePath: string, fileItem: typeof audioEvidence[0]) => {
+    try {
+      // Create audio context if needed
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+      }
+      const audioContext = audioContextRef.current;
+
+      // Fetch and decode audio
+      const response = await fetch(filePath);
+      const arrayBuffer = await response.arrayBuffer();
+      const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+      // Generate waveform data (downsample for display)
+      const channelData = decodedBuffer.getChannelData(0); // Mono or left channel
+      const samples = channelData.length;
+      const targetPoints = 2000; // Number of points for waveform display
+      const blockSize = Math.floor(samples / targetPoints);
+      const waveform = new Float32Array(targetPoints);
+
+      for (let i = 0; i < targetPoints; i++) {
+        let max = 0;
+        for (let j = 0; j < blockSize; j++) {
+          const idx = i * blockSize + j;
+          if (idx < samples) {
+            const val = Math.abs(channelData[idx]);
+            if (val > max) max = val;
+          }
+        }
+        waveform[i] = max; // Use peak value for each block
+      }
+      setWaveformData(waveform);
+
+      // Generate spectral data (FFT)
+      const fftSize = 2048;
+      const hopSize = fftSize / 4;
+      const numFrames = Math.floor((samples - fftSize) / hopSize);
+      const spectral: Float32Array[] = [];
+
+      // Simple FFT approximation using windowed segments
+      for (let frame = 0; frame < Math.min(numFrames, 500); frame++) { // Limit frames for performance
+        const startSample = frame * hopSize;
+        const frameData = new Float32Array(fftSize);
+
+        for (let i = 0; i < fftSize; i++) {
+          const idx = startSample + i;
+          // Apply Hanning window
+          const window = 0.5 * (1 - Math.cos(2 * Math.PI * i / fftSize));
+          frameData[i] = idx < samples ? channelData[idx] * window : 0;
+        }
+
+        // Simple DFT for frequency magnitudes (not full FFT, but works for visualization)
+        const magnitudes = new Float32Array(fftSize / 2);
+        for (let k = 0; k < fftSize / 2; k++) {
+          let real = 0, imag = 0;
+          for (let n = 0; n < fftSize; n++) {
+            const angle = -2 * Math.PI * k * n / fftSize;
+            real += frameData[n] * Math.cos(angle);
+            imag += frameData[n] * Math.sin(angle);
+          }
+          magnitudes[k] = Math.sqrt(real * real + imag * imag) / fftSize;
+        }
+        spectral.push(magnitudes);
+      }
+      setSpectralData(spectral);
+
+      // Update loaded audio state with real duration
+      setLoadedAudio({
+        ...fileItem,
+        duration: decodedBuffer.duration,
+      });
+      setSelectedEvidence({
+        ...fileItem,
+        duration: decodedBuffer.duration,
+      });
+
+    } catch (error) {
+      console.error('Error loading audio:', error);
+      // Fall back to mock data on error
+      setLoadedAudio(fileItem);
+      setSelectedEvidence(fileItem);
+    }
   }, []);
+
+  const handleDoubleClick = useCallback((item: typeof audioEvidence[0]) => {
+    // Clear previous real audio data
+    setWaveformData(null);
+    setSpectralData(null);
+
+    if (item.path) {
+      // Load real audio file
+      loadAudioFile(item.path, item);
+    } else {
+      // Use mock data for files without a path
+      setLoadedAudio(item);
+      setSelectedEvidence(item);
+    }
+  }, [loadAudioFile]);
 
   const handleEQChange = useCallback((index: number, value: number) => {
     setEqValues(prev => {
@@ -1665,6 +1766,8 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
           onZoomChange={setOverviewZoom}
           onScrollOffsetChange={setOverviewScrollOffset}
           onSeek={handleOverviewSeek}
+          waveformData={waveformData}
+          spectralData={spectralData}
         />
       </Box>
 
