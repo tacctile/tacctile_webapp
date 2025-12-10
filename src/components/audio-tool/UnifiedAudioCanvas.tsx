@@ -315,6 +315,53 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
       ctx.font = '8px Inter, system-ui, sans-serif';
       ctx.fillText('Hz', width - 5, 12);
     }
+
+    // ========================================================================
+    // Draw dB Scale
+    // ========================================================================
+
+    // Draw dB scale along left edge
+    if (isLoaded) {
+      const dbScaleWidth = 30;
+
+      // Semi-transparent background for dB scale
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.fillRect(0, 0, dbScaleWidth, height - 20); // Stop above time scale
+
+      // dB markers (0dB at top, -60dB at bottom)
+      const dbMarkers = [0, -6, -12, -18, -24, -36, -48, -60];
+
+      ctx.fillStyle = '#888';
+      ctx.font = '9px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'left';
+
+      const usableHeight = height - 20; // Account for time scale
+
+      dbMarkers.forEach((db) => {
+        // Linear positioning (0dB at top, -60dB at bottom)
+        const ratio = Math.abs(db) / 60;
+        const y = ratio * usableHeight;
+
+        // Only draw if in visible range
+        if (y > 10 && y < usableHeight - 5) {
+          // Tick mark
+          ctx.strokeStyle = '#555';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(dbScaleWidth - 5, y);
+          ctx.lineTo(dbScaleWidth, y);
+          ctx.stroke();
+
+          // dB label
+          ctx.fillText(`${db}`, 3, y + 3);
+        }
+      });
+
+      // "dB" label at top
+      ctx.fillStyle = '#666';
+      ctx.font = '8px Inter, system-ui, sans-serif';
+      ctx.fillText('dB', 3, 12);
+    }
   }, [isLoaded, duration, timestamp]);
 
   // Redraw on mount and when dependencies change
