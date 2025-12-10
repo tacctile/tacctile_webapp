@@ -183,29 +183,42 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
               const y = height - 20 - (freqRatio * (height - 20));
               const binHeight = (height - 20) / numBins + 1;
 
-              // Normalize and apply log scale for better visualization
+              // Better intensity scaling for real audio
               const magnitude = frame[bin];
-              const intensity = Math.min(1, Math.log10(1 + magnitude * 100) / 2);
+              // Use a more aggressive boost and sqrt for better dynamic range
+              const normalized = Math.min(1, magnitude * 10); // Boost weak signals
+              const intensity = Math.pow(normalized, 0.5); // Square root for better dynamic range
 
-              // Color mapping (purple -> teal -> yellow)
-              let r, g, b;
-              if (intensity < 0.3) {
-                r = Math.floor(30 + intensity * 100);
-                g = Math.floor(10 + intensity * 50);
-                b = Math.floor(60 + intensity * 80);
+              // Enhanced color mapping with better contrast
+              let r, g, b, a;
+              if (intensity < 0.1) {
+                // Very low: dark purple, more transparent
+                r = 20; g = 5; b = 40;
+                a = 0.3 + intensity * 3;
+              } else if (intensity < 0.3) {
+                // Low: purple
+                const t = (intensity - 0.1) / 0.2;
+                r = Math.floor(20 + t * 60);
+                g = Math.floor(5 + t * 30);
+                b = Math.floor(40 + t * 60);
+                a = 0.6 + t * 0.2;
               } else if (intensity < 0.6) {
+                // Mid: teal/cyan
                 const t = (intensity - 0.3) / 0.3;
-                r = Math.floor(60 - t * 40);
-                g = Math.floor(40 + t * 120);
+                r = Math.floor(80 - t * 60);
+                g = Math.floor(35 + t * 130);
                 b = Math.floor(100 + t * 50);
+                a = 0.8 + t * 0.1;
               } else {
+                // High: yellow/bright
                 const t = (intensity - 0.6) / 0.4;
-                r = Math.floor(20 + t * 180);
-                g = Math.floor(160 + t * 60);
+                r = Math.floor(20 + t * 200);
+                g = Math.floor(165 + t * 55);
                 b = Math.floor(150 - t * 100);
+                a = 0.9 + t * 0.1;
               }
 
-              ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+              ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
               ctx.fillRect(x, y - binHeight, colWidth, binHeight);
             }
           }
