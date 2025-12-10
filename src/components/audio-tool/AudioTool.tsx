@@ -1064,11 +1064,11 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   }, []);
 
   // Background spectral generation (chunked to not block UI)
-  // Ultra resolution: 40 frames per second, 256 frequency bins
+  // Ultra resolution: 80 frames per second, 256 frequency bins for smooth 10x zoom
   const generateSpectralInBackground = useCallback(async (buffer: AudioBuffer): Promise<Float32Array[]> => {
     const channelData = buffer.getChannelData(0);
     const samples = channelData.length;
-    const targetFrames = Math.min(2000, Math.floor(buffer.duration * 40)); // 40 frames per second for smooth animation
+    const targetFrames = Math.min(4000, Math.floor(buffer.duration * 80)); // 80 frames per second for smooth 10x zoom
     const samplesPerFrame = Math.floor(samples / targetFrames);
     const spectralFrames: Float32Array[] = [];
 
