@@ -131,6 +131,67 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
   const [marqueeStart, setMarqueeStart] = useState<{ x: number; time: number } | null>(null);
   const [marqueeEnd, setMarqueeEnd] = useState<{ x: number; time: number } | null>(null);
 
+  // Aurora borealis color mapping for spectral visualization
+  const getAuroraColor = (intensity: number): { r: number; g: number; b: number; a: number } => {
+    // Ensure intensity is 0-1
+    const i = Math.max(0, Math.min(1, intensity));
+
+    let r, g, b, a;
+
+    if (i < 0.1) {
+      // Near silence: deep black/dark purple
+      const t = i / 0.1;
+      r = Math.floor(10 + t * 35);
+      g = Math.floor(5 + t * 22);
+      b = Math.floor(20 + t * 58);
+      a = 0.3 + t * 0.3;
+    } else if (i < 0.25) {
+      // Low: purple/violet
+      const t = (i - 0.1) / 0.15;
+      r = Math.floor(45 + t * 29);
+      g = Math.floor(27 + t * 33);
+      b = Math.floor(78 + t * 42);
+      a = 0.6 + t * 0.15;
+    } else if (i < 0.4) {
+      // Low-mid: blue-purple to teal
+      const t = (i - 0.25) / 0.15;
+      r = Math.floor(74 - t * 29);
+      g = Math.floor(60 + t * 78);
+      b = Math.floor(120 + t * 34);
+      a = 0.75 + t * 0.1;
+    } else if (i < 0.55) {
+      // Mid: teal/cyan
+      const t = (i - 0.4) / 0.15;
+      r = Math.floor(45 - t * 20);
+      g = Math.floor(138 + t * 30);
+      b = Math.floor(154 + t * 27);
+      a = 0.85 + t * 0.05;
+    } else if (i < 0.7) {
+      // Mid-high: teal to green
+      const t = (i - 0.55) / 0.15;
+      r = Math.floor(25 + t * 21);
+      g = Math.floor(168 + t * 36);
+      b = Math.floor(181 - t * 53);
+      a = 0.9 + t * 0.05;
+    } else if (i < 0.85) {
+      // High: green with pink hints
+      const t = (i - 0.7) / 0.15;
+      r = Math.floor(46 + t * 150);
+      g = Math.floor(204 - t * 32);
+      b = Math.floor(128 + t * 25);
+      a = 0.95;
+    } else {
+      // Peak: pink/magenta highlights
+      const t = (i - 0.85) / 0.15;
+      r = Math.floor(196 + t * 40);
+      g = Math.floor(172 - t * 100);
+      b = Math.floor(153 + t * 30);
+      a = 1.0;
+    }
+
+    return { r, g, b, a };
+  };
+
   // Draw function - renders spectral visualization and waveform overlay
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -197,36 +258,9 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
               const normalized = Math.min(1, magnitude * 10); // Boost weak signals
               const intensity = Math.pow(normalized, 0.5); // Square root for better dynamic range
 
-              // Enhanced color mapping with better contrast
-              let r, g, b, a;
-              if (intensity < 0.1) {
-                // Very low: dark purple, more transparent
-                r = 20; g = 5; b = 40;
-                a = 0.3 + intensity * 3;
-              } else if (intensity < 0.3) {
-                // Low: purple
-                const t = (intensity - 0.1) / 0.2;
-                r = Math.floor(20 + t * 60);
-                g = Math.floor(5 + t * 30);
-                b = Math.floor(40 + t * 60);
-                a = 0.6 + t * 0.2;
-              } else if (intensity < 0.6) {
-                // Mid: teal/cyan
-                const t = (intensity - 0.3) / 0.3;
-                r = Math.floor(80 - t * 60);
-                g = Math.floor(35 + t * 130);
-                b = Math.floor(100 + t * 50);
-                a = 0.8 + t * 0.1;
-              } else {
-                // High: yellow/bright
-                const t = (intensity - 0.6) / 0.4;
-                r = Math.floor(20 + t * 200);
-                g = Math.floor(165 + t * 55);
-                b = Math.floor(150 - t * 100);
-                a = 0.9 + t * 0.1;
-              }
-
-              ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
+              // Aurora borealis color mapping
+              const color = getAuroraColor(intensity);
+              ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a})`;
               ctx.fillRect(x, y - binHeight, colWidth, binHeight);
             }
           }
@@ -276,28 +310,9 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
             intensity += (Math.random() - 0.5) * 0.1;
             intensity = Math.max(0, Math.min(1, intensity));
 
-            // Color based on intensity (purple -> teal -> yellow for peaks)
-            let r, g, b;
-            if (intensity < 0.3) {
-              // Low: dark purple
-              r = Math.floor(30 + intensity * 100);
-              g = Math.floor(10 + intensity * 50);
-              b = Math.floor(60 + intensity * 80);
-            } else if (intensity < 0.6) {
-              // Mid: teal/cyan
-              const tt = (intensity - 0.3) / 0.3;
-              r = Math.floor(60 - tt * 40);
-              g = Math.floor(40 + tt * 120);
-              b = Math.floor(100 + tt * 50);
-            } else {
-              // High: yellow/green peaks
-              const tt = (intensity - 0.6) / 0.4;
-              r = Math.floor(20 + tt * 180);
-              g = Math.floor(160 + tt * 60);
-              b = Math.floor(150 - tt * 100);
-            }
-
-            ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+            // Aurora borealis color mapping
+            const color = getAuroraColor(intensity);
+            ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a})`;
             ctx.fillRect(x, y - binHeight, colWidth, binHeight);
           }
         }
