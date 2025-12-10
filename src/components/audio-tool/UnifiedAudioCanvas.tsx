@@ -164,93 +164,117 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
     const endTime = startTime + visibleDuration;
 
     // ========================================================================
-    // Draw Spectral Visualization (iZotope RX style - vertical frequency bands)
+    // Draw Spectral Visualization (iZotope RX style - smooth aurora gradients)
     // Skip if loading or no data available
     // ========================================================================
 
-    if (showSpectral && isLoaded && !spectralLoading) {
-      const numColumns = Math.floor(width / 2); // One column every 2 pixels
+    // Aurora color function - smooth gradient from deep purple through teal to bright yellow
+    const getAuroraColor = (intensity: number): { r: number; g: number; b: number; a: number } => {
+      // Clamp intensity
+      intensity = Math.max(0, Math.min(1, intensity));
 
+      let r: number, g: number, b: number, a: number;
+
+      if (intensity < 0.08) {
+        // Very low: deep space purple, subtle
+        r = 15; g = 5; b = 35;
+        a = 0.4 + intensity * 4;
+      } else if (intensity < 0.2) {
+        // Low: dark purple to violet
+        const t = (intensity - 0.08) / 0.12;
+        r = Math.floor(15 + t * 45);
+        g = Math.floor(5 + t * 15);
+        b = Math.floor(35 + t * 55);
+        a = 0.7 + t * 0.15;
+      } else if (intensity < 0.4) {
+        // Lower-mid: violet to teal transition
+        const t = (intensity - 0.2) / 0.2;
+        r = Math.floor(60 - t * 35);
+        g = Math.floor(20 + t * 80);
+        b = Math.floor(90 + t * 30);
+        a = 0.85 + t * 0.05;
+      } else if (intensity < 0.6) {
+        // Mid: teal/cyan glow
+        const t = (intensity - 0.4) / 0.2;
+        r = Math.floor(25 + t * 15);
+        g = Math.floor(100 + t * 70);
+        b = Math.floor(120 + t * 40);
+        a = 0.9 + t * 0.05;
+      } else if (intensity < 0.8) {
+        // Upper-mid: teal to green-yellow
+        const t = (intensity - 0.6) / 0.2;
+        r = Math.floor(40 + t * 100);
+        g = Math.floor(170 + t * 50);
+        b = Math.floor(160 - t * 80);
+        a = 0.95;
+      } else {
+        // High: bright yellow/white peaks
+        const t = (intensity - 0.8) / 0.2;
+        r = Math.floor(140 + t * 115);
+        g = Math.floor(220 + t * 35);
+        b = Math.floor(80 - t * 30);
+        a = 0.95 + t * 0.05;
+      }
+
+      return { r, g, b, a };
+    };
+
+    if (showSpectral && isLoaded && !spectralLoading) {
       // Use real spectral data if available
       if (spectralData && spectralData.length > 0) {
         const numBins = spectralData[0].length;
+        const spectralHeight = height - 20; // Reserve space for time scale
 
-        for (let col = 0; col < numColumns; col++) {
-          const x = (col / numColumns) * width;
-          const colWidth = width / numColumns + 1;
+        // Calculate column width based on data density for smooth rendering
+        const dataPointsVisible = Math.floor((visibleDuration / duration) * spectralData.length);
+        const columnWidth = Math.max(1, width / dataPointsVisible);
 
-          // Time position for this column (accounting for zoom/scroll)
-          const colTime = startTime + (col / numColumns) * visibleDuration;
-          const frameIndex = Math.floor((colTime / duration) * spectralData.length);
+        // Draw smooth columns using vertical gradients
+        for (let x = 0; x < width; x += columnWidth) {
+          const time = startTime + (x / width) * visibleDuration;
+          const frameIndex = Math.floor((time / duration) * spectralData.length);
 
           if (frameIndex >= 0 && frameIndex < spectralData.length) {
             const frame = spectralData[frameIndex];
 
-            for (let bin = 0; bin < numBins; bin++) {
-              const freqRatio = bin / numBins;
-              const y = height - 20 - (freqRatio * (height - 20));
-              const binHeight = (height - 20) / numBins + 1;
+            // Create vertical gradient for this column (smooth aurora effect)
+            const gradient = ctx.createLinearGradient(x, spectralHeight, x, 0);
 
-              // Better intensity scaling for real audio
-              const magnitude = frame[bin];
-              // Use a more aggressive boost and sqrt for better dynamic range
-              const normalized = Math.min(1, magnitude * 10); // Boost weak signals
-              const intensity = Math.pow(normalized, 0.5); // Square root for better dynamic range
+            // Sample multiple points along the frequency spectrum for smooth gradient
+            const gradientStops = [0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1.0];
 
-              // Enhanced color mapping with better contrast
-              let r, g, b, a;
-              if (intensity < 0.1) {
-                // Very low: dark purple, more transparent
-                r = 20; g = 5; b = 40;
-                a = 0.3 + intensity * 3;
-              } else if (intensity < 0.3) {
-                // Low: purple
-                const t = (intensity - 0.1) / 0.2;
-                r = Math.floor(20 + t * 60);
-                g = Math.floor(5 + t * 30);
-                b = Math.floor(40 + t * 60);
-                a = 0.6 + t * 0.2;
-              } else if (intensity < 0.6) {
-                // Mid: teal/cyan
-                const t = (intensity - 0.3) / 0.3;
-                r = Math.floor(80 - t * 60);
-                g = Math.floor(35 + t * 130);
-                b = Math.floor(100 + t * 50);
-                a = 0.8 + t * 0.1;
-              } else {
-                // High: yellow/bright
-                const t = (intensity - 0.6) / 0.4;
-                r = Math.floor(20 + t * 200);
-                g = Math.floor(165 + t * 55);
-                b = Math.floor(150 - t * 100);
-                a = 0.9 + t * 0.1;
-              }
+            gradientStops.forEach(stop => {
+              const binIndex = Math.floor(stop * (numBins - 1));
+              const magnitude = frame[binIndex];
+              // Use aggressive boost and sqrt for dynamic range
+              const normalized = Math.min(1, magnitude * 15);
+              const intensity = Math.pow(normalized, 0.5);
+              const color = getAuroraColor(intensity);
+              gradient.addColorStop(stop, `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a})`);
+            });
 
-              ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
-              ctx.fillRect(x, y - binHeight, colWidth, binHeight);
-            }
+            ctx.fillStyle = gradient;
+            ctx.fillRect(x, 0, columnWidth + 1, spectralHeight); // +1 to avoid gaps
           }
         }
       } else {
-        // Fall back to mock spectral visualization
-        const numFreqBins = 128; // Frequency resolution
+        // Fall back to mock spectral visualization with smooth gradients
+        const spectralHeight = height - 20;
+        const mockColumnWidth = 3; // Smooth columns for mock data
 
-        for (let col = 0; col < numColumns; col++) {
-          const x = (col / numColumns) * width;
-          const colWidth = width / numColumns + 1; // +1 to avoid gaps
-
+        for (let x = 0; x < width; x += mockColumnWidth) {
           // Time position for this column (accounting for zoom/scroll)
-          const colTime = startTime + (col / numColumns) * visibleDuration;
+          const colTime = startTime + (x / width) * visibleDuration;
           const timeRatio = colTime / duration;
 
-          // Generate frequency data for this time slice (mock data)
-          for (let freqBin = 0; freqBin < numFreqBins; freqBin++) {
-            const freqRatio = freqBin / numFreqBins; // 0 = low freq, 1 = high freq
-            const y = height - 20 - (freqRatio * (height - 20)); // Bottom to top, above time scale
-            const binHeight = (height - 20) / numFreqBins + 1;
+          // Create vertical gradient for this column
+          const gradient = ctx.createLinearGradient(x, spectralHeight, x, 0);
 
-            // Generate intensity based on mock audio patterns
-            // Combine multiple sine waves for realistic-looking content
+          // Sample gradient stops with mock intensity values
+          const gradientStops = [0, 0.1, 0.2, 0.35, 0.5, 0.65, 0.8, 0.9, 1.0];
+
+          gradientStops.forEach(stop => {
+            const freqRatio = stop;
             const t = timeRatio * Math.PI * 20;
             const f = freqRatio * Math.PI * 4;
 
@@ -272,34 +296,12 @@ const UnifiedAudioCanvas: React.FC<UnifiedAudioCanvasProps> = ({
             let intensity = (0.3 + timeVariation + freqPattern) * freqFalloff;
             intensity = Math.max(0, Math.min(1, intensity));
 
-            // Add some noise for texture
-            intensity += (Math.random() - 0.5) * 0.1;
-            intensity = Math.max(0, Math.min(1, intensity));
+            const color = getAuroraColor(intensity);
+            gradient.addColorStop(stop, `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a})`);
+          });
 
-            // Color based on intensity (purple -> teal -> yellow for peaks)
-            let r, g, b;
-            if (intensity < 0.3) {
-              // Low: dark purple
-              r = Math.floor(30 + intensity * 100);
-              g = Math.floor(10 + intensity * 50);
-              b = Math.floor(60 + intensity * 80);
-            } else if (intensity < 0.6) {
-              // Mid: teal/cyan
-              const tt = (intensity - 0.3) / 0.3;
-              r = Math.floor(60 - tt * 40);
-              g = Math.floor(40 + tt * 120);
-              b = Math.floor(100 + tt * 50);
-            } else {
-              // High: yellow/green peaks
-              const tt = (intensity - 0.6) / 0.4;
-              r = Math.floor(20 + tt * 180);
-              g = Math.floor(160 + tt * 60);
-              b = Math.floor(150 - tt * 100);
-            }
-
-            ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-            ctx.fillRect(x, y - binHeight, colWidth, binHeight);
-          }
+          ctx.fillStyle = gradient;
+          ctx.fillRect(x, 0, mockColumnWidth + 1, spectralHeight);
         }
       }
     }
