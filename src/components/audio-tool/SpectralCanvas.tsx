@@ -17,6 +17,12 @@ interface SpectralCanvasProps {
   spectralData?: Float32Array[] | null;
   spectralLoading?: boolean;
   spectralReady?: boolean;
+  /** Pre-generated spectrogram image for fast rendering */
+  spectrogramImage?: ImageBitmap | null;
+  /** Whether spectrogram is currently being generated */
+  spectrogramGenerating?: boolean;
+  /** Whether spectrogram generation just completed */
+  spectrogramReady?: boolean;
   onSeek?: (timeInSeconds: number) => void;
   onZoomChange?: (zoom: number) => void;
   onScrollChange?: (scrollOffset: number) => void;
@@ -30,6 +36,9 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
   spectralData,
   spectralLoading = false,
   spectralReady = false,
+  spectrogramImage,
+  spectrogramGenerating = false,
+  spectrogramReady = false,
   onSeek,
   onZoomChange,
   onScrollChange,
@@ -132,14 +141,31 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, width, height);
 
-    if (!isLoaded || spectralLoading) return;
+    if (!isLoaded) return;
 
     // Calculate visible time range
     const visibleDuration = duration / zoom;
     const startTime = scrollOffset * duration;
 
-    // Draw spectral visualization
-    if (spectralData && spectralData.length > 0) {
+    // Draw spectral visualization - prioritize pre-generated spectrogram image
+    if (spectrogramImage) {
+      // Use pre-generated ImageBitmap for high-quality, fast rendering
+      // Calculate source rectangle based on zoom/scroll
+      const visibleFraction = 1 / zoom;
+      const sourceX = scrollOffset * spectrogramImage.width;
+      const sourceWidth = spectrogramImage.width * visibleFraction;
+
+      // Draw the visible portion scaled to canvas
+      ctx.drawImage(
+        spectrogramImage,
+        sourceX, 0, sourceWidth, spectrogramImage.height,  // Source rect
+        0, 0, width, height  // Dest rect
+      );
+    } else if (spectrogramGenerating) {
+      // Show loading state while generating spectrogram - don't draw anything
+      // The overlay will show "Generating spectrogram..."
+    } else if (spectralData && spectralData.length > 0) {
+      // Fallback: Use legacy spectral data rendering
       const numBins = spectralData[0].length;
       const dataPointsVisible = Math.floor((visibleDuration / duration) * spectralData.length);
       const columnWidth = Math.max(1, width / dataPointsVisible);
@@ -173,7 +199,7 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
         }
       }
     } else {
-      // Mock spectral visualization
+      // Mock spectral visualization (for files without real audio)
       const mockColumnWidth = 3;
 
       for (let x = 0; x < width; x += mockColumnWidth) {
@@ -239,7 +265,7 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
         ctx.fill();
       }
     }
-  }, [isLoaded, duration, zoom, scrollOffset, timestamp, spectralData, spectralLoading, getMagmaColor]);
+  }, [isLoaded, duration, zoom, scrollOffset, timestamp, spectralData, spectralLoading, spectrogramImage, spectrogramGenerating, getMagmaColor]);
 
   useEffect(() => {
     draw();
@@ -418,7 +444,7 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
         }}
       />
       {/* Loading overlay */}
-      {spectralLoading && (
+      {(spectrogramGenerating || spectralLoading) && (
         <Box sx={{
           position: 'absolute',
           top: 0,
@@ -433,7 +459,7 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
         }}>
           <CircularProgress size={32} sx={{ color: '#19abb5' }} />
           <Typography sx={{ color: '#666', mt: 1, fontSize: 11 }}>
-            Generating spectral...
+            Generating spectrogram...
           </Typography>
         </Box>
       )}
