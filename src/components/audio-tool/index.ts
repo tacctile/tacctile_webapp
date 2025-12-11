@@ -5,8 +5,8 @@
 
 export { default as AudioTool } from './AudioTool';
 export { default as WaveformView } from './WaveformView';
-export { default as SpectrogramView } from './SpectrogramView';
 export { default as FilterPanel } from './FilterPanel';
 export { default as RecipePanel } from './RecipePanel';
 export { default as FindingsPanel } from './FindingsPanel';
 export { ExpandVideoModal } from './ExpandVideoModal';
+export { UnifiedSpectrumEQ } from './UnifiedSpectrumEQ';
