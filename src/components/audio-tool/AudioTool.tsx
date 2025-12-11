@@ -47,6 +47,10 @@ import {
   formatGPSCoordinates,
 } from '@/utils/testMetadataGenerator';
 
+// Wavesurfer.js for spectrogram generation (used as hidden generator)
+import WaveSurfer from 'wavesurfer.js';
+import Spectrogram from 'wavesurfer.js/dist/plugins/spectrogram.esm.js';
+
 // ============================================================================
 // STYLED COMPONENTS
 // ============================================================================
@@ -990,6 +994,9 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const unifiedContainerRef = useRef<HTMLDivElement>(null);
   const [unifiedContainerWidth, setUnifiedContainerWidth] = useState(0);
 
+  // Hidden container for wavesurfer spectrogram generation
+  const hiddenContainerRef = useRef<HTMLDivElement>(null);
+
   // Toast notification state
   const [toast, setToast] = useState<{
     open: boolean;
@@ -1180,146 +1187,138 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     return { r, g, b, a };
   }, []);
 
-  // Generate high-resolution spectrogram image using FFT
-  const generateSpectrogram = useCallback(async (audioBuffer: AudioBuffer) => {
+  // Generate Magma colormap for wavesurfer (256 entries, values 0-1)
+  const generateMagmaColormap = useCallback((): number[][] => {
+    const colormap: number[][] = [];
+
+    for (let i = 0; i < 256; i++) {
+      const t = i / 255;
+      let r, g, b;
+
+      if (t < 0.1) {
+        r = (2 + t * 100) / 255;
+        g = (2 + t * 30) / 255;
+        b = (5 + t * 150) / 255;
+      } else if (t < 0.25) {
+        const s = (t - 0.1) / 0.15;
+        r = (12 + s * 40) / 255;
+        g = (5 + s * 10) / 255;
+        b = (20 + s * 50) / 255;
+      } else if (t < 0.4) {
+        const s = (t - 0.25) / 0.15;
+        r = (52 + s * 80) / 255;
+        g = (15 + s * 20) / 255;
+        b = (70 + s * 30) / 255;
+      } else if (t < 0.55) {
+        const s = (t - 0.4) / 0.15;
+        r = (132 + s * 70) / 255;
+        g = (35 + s * 40) / 255;
+        b = (100 - s * 50) / 255;
+      } else if (t < 0.7) {
+        const s = (t - 0.55) / 0.15;
+        r = (202 + s * 35) / 255;
+        g = (75 + s * 60) / 255;
+        b = (50 - s * 30) / 255;
+      } else if (t < 0.85) {
+        const s = (t - 0.7) / 0.15;
+        r = (237 + s * 15) / 255;
+        g = (135 + s * 70) / 255;
+        b = (20 + s * 10) / 255;
+      } else {
+        const s = (t - 0.85) / 0.15;
+        r = (252 + s * 3) / 255;
+        g = (205 + s * 45) / 255;
+        b = (30 + s * 100) / 255;
+      }
+
+      colormap.push([r, g, b, 1]);
+    }
+
+    return colormap;
+  }, []);
+
+  // Generate high-resolution spectrogram image using wavesurfer.js
+  const generateSpectrogram = useCallback(async (audioUrl: string) => {
+    if (!hiddenContainerRef.current) return;
+
     setSpectrogramGenerating(true);
     setSpectrogramReady(false);
 
+    // Create hidden container for wavesurfer
+    const waveContainer = document.createElement('div');
+    waveContainer.style.position = 'absolute';
+    waveContainer.style.left = '-9999px';
+    waveContainer.style.width = '4000px';
+    waveContainer.style.height = '1px';
+    hiddenContainerRef.current.appendChild(waveContainer);
+
+    // Create hidden container for spectrogram
+    const spectroContainer = document.createElement('div');
+    spectroContainer.style.position = 'absolute';
+    spectroContainer.style.left = '-9999px';
+    spectroContainer.style.width = '4000px';
+    spectroContainer.style.height = '400px';
+    hiddenContainerRef.current.appendChild(spectroContainer);
+
     try {
-      const channelData = audioBuffer.getChannelData(0);
-      const sampleRate = audioBuffer.sampleRate;
+      // Initialize wavesurfer with spectrogram plugin
+      const wavesurfer = WaveSurfer.create({
+        container: waveContainer,
+        height: 1,
+        waveColor: 'transparent',
+        progressColor: 'transparent',
+        cursorColor: 'transparent',
+        interact: false,
+        plugins: [
+          Spectrogram.create({
+            container: spectroContainer,
+            labels: false,
+            height: 400,
+            fftSamples: 1024,
+            frequencyMin: 20,
+            frequencyMax: 20000,
+            scale: 'logarithmic',
+            colorMap: generateMagmaColormap(),
+          }),
+        ],
+      });
 
-      // FFT parameters - Ultra quality
-      const fftSize = 2048;
-      const hopSize = fftSize / 4; // 75% overlap
-      const numBins = fftSize / 2;
+      // Wait for audio to load and spectrogram to render
+      await new Promise<void>((resolve, reject) => {
+        wavesurfer.on('ready', () => {
+          // Give spectrogram a moment to finish rendering
+          setTimeout(resolve, 500);
+        });
+        wavesurfer.on('error', reject);
+        wavesurfer.load(audioUrl);
+      });
 
-      // Calculate dimensions
-      const numFrames = Math.floor((channelData.length - fftSize) / hopSize);
-      const imageWidth = Math.min(4000, numFrames); // Cap width for performance
-      const imageHeight = 512; // Frequency resolution
+      // Find the spectrogram canvas
+      const spectroCanvas = spectroContainer.querySelector('canvas');
 
-      // Create off-screen canvas
-      const offscreen = new OffscreenCanvas(imageWidth, imageHeight);
-      const ctx = offscreen.getContext('2d');
-      if (!ctx) {
-        console.error('Failed to get OffscreenCanvas context');
-        setSpectrogramGenerating(false);
-        return;
+      if (spectroCanvas) {
+        // Capture as ImageBitmap
+        const bitmap = await createImageBitmap(spectroCanvas);
+        setSpectrogramImage(bitmap);
+        setSpectrogramReady(true);
+
+        // Reset ready indicator after 5 seconds
+        setTimeout(() => setSpectrogramReady(false), 5000);
       }
 
-      // Fill with dark background
-      ctx.fillStyle = '#0a0a0a';
-      ctx.fillRect(0, 0, imageWidth, imageHeight);
-
-      // Create ImageData for direct pixel manipulation (faster than fillRect)
-      const imageData = ctx.createImageData(imageWidth, imageHeight);
-      const pixels = imageData.data;
-
-      // Initialize all pixels to dark background
-      for (let i = 0; i < pixels.length; i += 4) {
-        pixels[i] = 10;     // R
-        pixels[i + 1] = 10; // G
-        pixels[i + 2] = 10; // B
-        pixels[i + 3] = 255; // A
-      }
-
-      // Hanning window
-      const window = new Float32Array(fftSize);
-      for (let i = 0; i < fftSize; i++) {
-        window[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / fftSize));
-      }
-
-      // Process in chunks to not block UI
-      const framesPerChunk = 100;
-      const frameStep = Math.max(1, Math.floor(numFrames / imageWidth));
-
-      for (let chunkStart = 0; chunkStart < numFrames; chunkStart += framesPerChunk) {
-        // Yield to UI
-        await new Promise(resolve => setTimeout(resolve, 0));
-
-        const chunkEnd = Math.min(chunkStart + framesPerChunk, numFrames);
-
-        for (let frame = chunkStart; frame < chunkEnd; frame++) {
-          const x = Math.floor(frame / frameStep);
-          if (x >= imageWidth) continue;
-
-          const startSample = frame * hopSize;
-
-          // Apply window and prepare for FFT
-          const segment = new Float32Array(fftSize);
-          for (let i = 0; i < fftSize; i++) {
-            const sampleIndex = startSample + i;
-            segment[i] = sampleIndex < channelData.length
-              ? channelData[sampleIndex] * window[i]
-              : 0;
-          }
-
-          // Simple DFT for magnitude spectrum
-          // Only compute bins we'll display (first 256 for performance)
-          const displayBins = Math.min(256, numBins);
-          const magnitudes = new Float32Array(displayBins);
-
-          for (let k = 0; k < displayBins; k++) {
-            let real = 0, imag = 0;
-            const freq = k * sampleRate / fftSize;
-
-            // Skip if above 20kHz
-            if (freq > 20000) break;
-
-            for (let n = 0; n < fftSize; n++) {
-              const angle = -2 * Math.PI * k * n / fftSize;
-              real += segment[n] * Math.cos(angle);
-              imag += segment[n] * Math.sin(angle);
-            }
-
-            magnitudes[k] = Math.sqrt(real * real + imag * imag) / fftSize;
-          }
-
-          // Draw column of pixels
-          for (let bin = 0; bin < displayBins; bin++) {
-            // Logarithmic frequency mapping
-            const freqRatio = Math.log10(1 + bin) / Math.log10(1 + displayBins);
-            const y = imageHeight - 1 - Math.floor(freqRatio * imageHeight);
-
-            if (y < 0 || y >= imageHeight) continue;
-
-            // Convert magnitude to dB, normalize
-            const magnitude = magnitudes[bin];
-            const db = 20 * Math.log10(Math.max(magnitude, 1e-10));
-            const normalized = Math.max(0, Math.min(1, (db + 80) / 80)); // -80dB to 0dB range
-
-            // Get Magma color
-            const color = getMagmaColor(normalized);
-
-            // Set pixel
-            const pixelIndex = (y * imageWidth + x) * 4;
-            pixels[pixelIndex] = color.r;
-            pixels[pixelIndex + 1] = color.g;
-            pixels[pixelIndex + 2] = color.b;
-            pixels[pixelIndex + 3] = Math.floor(color.a * 255);
-          }
-        }
-      }
-
-      // Put image data to canvas
-      ctx.putImageData(imageData, 0, 0);
-
-      // Convert to ImageBitmap for fast rendering
-      const bitmap = await createImageBitmap(offscreen);
-
-      setSpectrogramImage(bitmap);
-      setSpectrogramGenerating(false);
-      setSpectrogramReady(true);
-
-      // Reset ready indicator after 5 seconds
-      setTimeout(() => setSpectrogramReady(false), 5000);
+      // Cleanup - destroy wavesurfer
+      wavesurfer.destroy();
 
     } catch (error) {
       console.error('Error generating spectrogram:', error);
+    } finally {
+      // Remove hidden containers
+      if (hiddenContainerRef.current) {
+        hiddenContainerRef.current.innerHTML = '';
+      }
       setSpectrogramGenerating(false);
     }
-  }, [getMagmaColor]);
+  }, [generateMagmaColormap]);
 
   // Load and decode real audio file - Progressive loading (waveform first, spectral in background)
   const loadAudioFile = useCallback(async (filePath: string, fileItem: typeof audioEvidence[0]) => {
@@ -1390,8 +1389,8 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       // Use setTimeout to let UI update first
       setTimeout(async () => {
         try {
-          // Generate the pre-rendered spectrogram image (new approach)
-          await generateSpectrogram(decodedBuffer);
+          // Generate the pre-rendered spectrogram image using wavesurfer.js
+          await generateSpectrogram(filePath);
 
           // Also generate legacy spectral data as fallback
           const spectral = await generateSpectralInBackground(decodedBuffer);
@@ -2050,6 +2049,12 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   // Main content
   const mainContent = (
     <MainContainer>
+      {/* Hidden container for wavesurfer spectrogram generation */}
+      <div
+        ref={hiddenContainerRef}
+        style={{ position: 'absolute', left: '-9999px', overflow: 'hidden' }}
+      />
+
       {/* Overview Bar - iZotope RX-style navigation */}
       <OverviewBar
         isLoaded={!!loadedAudio}
