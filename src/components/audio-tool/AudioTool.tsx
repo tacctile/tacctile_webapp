@@ -1204,42 +1204,36 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     // Clear any previous content
     spectrogramContainerRef.current.innerHTML = '';
 
-    // Create waveform container (hidden, just needed for wavesurfer to work)
-    const waveContainer = document.createElement('div');
-    waveContainer.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;';
-    document.body.appendChild(waveContainer);
+    // Get container dimensions for proper sizing
+    const containerRect = spectrogramContainerRef.current.getBoundingClientRect();
 
-    // Create spectrogram container that fills the visible area
-    const spectroContainer = document.createElement('div');
-    spectroContainer.style.cssText = 'width:100%;height:100%;';
-    spectrogramContainerRef.current.appendChild(spectroContainer);
+    // Create a container for wavesurfer (waveform + spectrogram)
+    const wsContainer = document.createElement('div');
+    wsContainer.style.cssText = `width:${containerRect.width}px;height:${containerRect.height}px;`;
+    spectrogramContainerRef.current.appendChild(wsContainer);
 
     try {
       // Generate magma colormap
       const colorMap = generateMagmaColormap();
 
-      // Get container dimensions for proper sizing
-      const containerRect = spectrogramContainerRef.current.getBoundingClientRect();
-
-      // Initialize wavesurfer (waveform is hidden, only spectrogram visible)
+      // Initialize wavesurfer - renders in the visible container
       const wavesurfer = WaveSurfer.create({
-        container: waveContainer,
-        height: 1,
+        container: wsContainer,
+        height: Math.max(256, containerRect.height),
         waveColor: 'transparent',
         progressColor: 'transparent',
         cursorColor: 'transparent',
         interact: false,
-        minPxPerSec: 100, // Good resolution for capture
+        sampleRate: 44100,
       });
 
       // Store ref for cleanup
       wavesurferRef.current = wavesurfer;
 
-      // Register spectrogram plugin - renders visibly in the spectral section
+      // Register spectrogram plugin - renders in the same container
       wavesurfer.registerPlugin(
         Spectrogram.create({
-          container: spectroContainer,
-          labels: true,  // Show wavesurfer's native labels during generation
+          labels: false,  // We draw our own labels
           height: Math.max(256, containerRect.height),
           fftSamples: 1024,
           frequencyMin: 20,
@@ -1248,20 +1242,36 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         })
       );
 
-      // Wait for ready and spectrogram to render
+      // Wait for spectrogram-ready event (fires when spectrogram finishes rendering)
       await new Promise<void>((resolve, reject) => {
-        wavesurfer.on('ready', () => {
-          // Give spectrogram time to fully render (it renders progressively)
-          setTimeout(resolve, 1500);
+        let spectrogramReadyFired = false;
+
+        wavesurfer.on('spectrogram-ready', () => {
+          spectrogramReadyFired = true;
+          // Small delay to ensure canvas is fully painted
+          setTimeout(resolve, 100);
         });
+
+        wavesurfer.on('ready', () => {
+          // Fallback: if spectrogram-ready doesn't fire within 3 seconds of ready
+          setTimeout(() => {
+            if (!spectrogramReadyFired) {
+              console.log('Spectrogram ready event did not fire, using fallback');
+              resolve();
+            }
+          }, 3000);
+        });
+
         wavesurfer.on('error', reject);
         wavesurfer.load(audioUrl);
       });
 
-      // Capture the spectrogram canvas
-      const spectroCanvas = spectroContainer.querySelector('canvas');
+      // Find and capture the spectrogram canvas
+      const canvases = wsContainer.querySelectorAll('canvas');
+      // The spectrogram canvas is typically the second one (first is waveform)
+      const spectroCanvas = canvases.length > 1 ? canvases[1] : canvases[0];
 
-      if (spectroCanvas) {
+      if (spectroCanvas && spectroCanvas.width > 0 && spectroCanvas.height > 0) {
         // Create high-resolution capture for zoom/scroll
         const bitmap = await createImageBitmap(spectroCanvas);
         setSpectrogramImage(bitmap);
@@ -1269,18 +1279,15 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
 
         // Reset ready indicator after 5 seconds
         setTimeout(() => setSpectrogramReady(false), 5000);
+      } else {
+        console.warn('Spectrogram canvas not found or has zero dimensions');
       }
 
       // Cleanup wavesurfer - it's no longer needed
       wavesurfer.destroy();
       wavesurferRef.current = null;
 
-      // Remove the hidden waveform container
-      if (waveContainer.parentNode) {
-        waveContainer.parentNode.removeChild(waveContainer);
-      }
-
-      // Clear the visible spectrogram container (SpectralCanvas will take over)
+      // Clear the visible container (SpectralCanvas will take over)
       if (spectrogramContainerRef.current) {
         spectrogramContainerRef.current.innerHTML = '';
       }
