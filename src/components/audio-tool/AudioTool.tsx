@@ -29,6 +29,7 @@ import { WaveformCanvas } from './WaveformCanvas';
 import { TimeScaleBar } from './TimeScaleBar';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
 import { useNavigationStore } from '@/stores/useNavigationStore';
+import { useAudioToolStore } from '@/stores/useAudioToolStore';
 import {
   isFileType,
   getFileTypeErrorMessage,
@@ -990,10 +991,23 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [marqueeStart, setMarqueeStart] = useState<number | null>(null);
   const [marqueeEnd, setMarqueeEnd] = useState<number | null>(null);
 
+  // Time selection state (separate from marquee zoom - for selecting audio regions to play/loop)
+  const [selectionStart, setSelectionStart] = useState<number | null>(null);
+  const [selectionEnd, setSelectionEnd] = useState<number | null>(null);
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [isDraggingHandle, setIsDraggingHandle] = useState<'start' | 'end' | null>(null);
+
+  // Ref for waveform container to calculate selection positions
+  const waveformContainerRef = useRef<HTMLDivElement>(null);
+
   // Playhead store for waveform integration
   const timestamp = usePlayheadStore((state) => state.timestamp);
   const isPlaying = usePlayheadStore((state) => state.isPlaying);
   const setTimestamp = usePlayheadStore((state) => state.setTimestamp);
+
+  // Audio tool store for loop state and selection sync
+  const looping = useAudioToolStore((state) => state.playback.looping);
+  const syncWaveformSelectionToStore = useAudioToolStore((state) => state.setWaveformSelection);
 
   const navigateToTool = useNavigationStore((state) => state.navigateToTool);
   const loadedFileId = useNavigationStore((state) => state.loadedFiles.audio);
@@ -1047,6 +1061,34 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       return () => resizeObserver.disconnect();
     }
   }, []);
+
+  // Sync local selection state with audio tool store (for TransportControls access)
+  useEffect(() => {
+    syncWaveformSelectionToStore(selectionStart, selectionEnd);
+  }, [selectionStart, selectionEnd, syncWaveformSelectionToStore]);
+
+  // Loop within selection effect
+  // When looping is enabled and a selection exists, loop within the selection bounds
+  useEffect(() => {
+    if (!isPlaying || !looping || !loadedAudio || !loadedAudio.duration) return;
+
+    const currentTimeSec = timestamp / 1000;
+    const duration = loadedAudio.duration;
+
+    // If selection exists and playhead is past the selection end, loop back to start
+    if (selectionStart !== null && selectionEnd !== null) {
+      const loopStart = selectionStart;
+      const loopEnd = selectionEnd;
+      if (currentTimeSec >= loopEnd) {
+        setTimestamp(loopStart * 1000);
+      }
+    } else {
+      // No selection - loop entire track
+      if (currentTimeSec >= duration) {
+        setTimestamp(0);
+      }
+    }
+  }, [isPlaying, looping, timestamp, selectionStart, selectionEnd, loadedAudio, setTimestamp]);
 
   // Load and decode real audio file
   const loadAudioFile = useCallback(async (filePath: string, fileItem: typeof audioEvidence[0]) => {
@@ -1403,6 +1445,147 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     setZoomToolActive(false);
   }, [zoomToolActive, marqueeStart, marqueeEnd, loadedAudio, setTimestamp]);
 
+  // ============================================================================
+  // TIME SELECTION HELPERS AND HANDLERS
+  // ============================================================================
+
+  // Convert pixel position to time based on current zoom and scroll
+  const pixelToTime = useCallback((pixelX: number, containerWidth: number): number => {
+    const duration = loadedAudio?.duration || 0;
+    const visibleDuration = duration / overviewZoom;
+    const visibleStart = overviewScrollOffset * duration;
+    const relativeX = pixelX / containerWidth;
+    return visibleStart + (relativeX * visibleDuration);
+  }, [loadedAudio?.duration, overviewZoom, overviewScrollOffset]);
+
+  // Convert time to pixel position based on current zoom and scroll
+  const timeToPixel = useCallback((time: number, containerWidth: number): number => {
+    const duration = loadedAudio?.duration || 0;
+    const visibleDuration = duration / overviewZoom;
+    const visibleStart = overviewScrollOffset * duration;
+    const relativeTime = (time - visibleStart) / visibleDuration;
+    return relativeTime * containerWidth;
+  }, [loadedAudio?.duration, overviewZoom, overviewScrollOffset]);
+
+  // Handle selection mouse down on waveform
+  const handleSelectionMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!loadedAudio || zoomToolActive) return;
+
+    const rect = waveformContainerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const x = e.clientX - rect.left;
+    const time = pixelToTime(x, rect.width);
+
+    // Check if clicking on a handle (when selection exists)
+    if (selectionStart !== null && selectionEnd !== null) {
+      const startPixel = timeToPixel(Math.min(selectionStart, selectionEnd), rect.width);
+      const endPixel = timeToPixel(Math.max(selectionStart, selectionEnd), rect.width);
+
+      // Within 8 pixels of start handle
+      if (Math.abs(x - startPixel) < 8) {
+        setIsDraggingHandle('start');
+        e.stopPropagation();
+        return;
+      }
+      // Within 8 pixels of end handle
+      if (Math.abs(x - endPixel) < 8) {
+        setIsDraggingHandle('end');
+        e.stopPropagation();
+        return;
+      }
+    }
+
+    // Start new selection
+    setIsSelecting(true);
+    setSelectionStart(time);
+    setSelectionEnd(time);
+  }, [loadedAudio, zoomToolActive, pixelToTime, timeToPixel, selectionStart, selectionEnd]);
+
+  // Handle selection mouse move on waveform
+  const handleSelectionMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!loadedAudio) return;
+
+    const rect = waveformContainerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const x = e.clientX - rect.left;
+    const time = pixelToTime(x, rect.width);
+
+    // Clamp time to valid range
+    const duration = loadedAudio.duration || 0;
+    const clampedTime = Math.max(0, Math.min(duration, time));
+
+    if (isSelecting) {
+      setSelectionEnd(clampedTime);
+    } else if (isDraggingHandle === 'start') {
+      // When dragging start handle, we need to keep the lower value as start
+      const currentEnd = selectionEnd ?? 0;
+      if (clampedTime < currentEnd) {
+        setSelectionStart(clampedTime);
+      } else {
+        // Swap: start becomes end, dragged position becomes new end
+        setSelectionStart(currentEnd);
+        setSelectionEnd(clampedTime);
+        setIsDraggingHandle('end');
+      }
+    } else if (isDraggingHandle === 'end') {
+      const currentStart = selectionStart ?? 0;
+      if (clampedTime > currentStart) {
+        setSelectionEnd(clampedTime);
+      } else {
+        // Swap: end becomes start, dragged position becomes new start
+        setSelectionEnd(currentStart);
+        setSelectionStart(clampedTime);
+        setIsDraggingHandle('start');
+      }
+    }
+  }, [loadedAudio, pixelToTime, isSelecting, isDraggingHandle, selectionStart, selectionEnd]);
+
+  // Handle selection mouse up on waveform
+  const handleSelectionMouseUp = useCallback(() => {
+    if (isSelecting && selectionStart !== null && selectionEnd !== null) {
+      // Normalize: ensure start < end
+      const start = Math.min(selectionStart, selectionEnd);
+      const end = Math.max(selectionStart, selectionEnd);
+
+      // Clear selection if too small (less than 0.05 seconds)
+      if (Math.abs(end - start) < 0.05) {
+        setSelectionStart(null);
+        setSelectionEnd(null);
+      } else {
+        setSelectionStart(start);
+        setSelectionEnd(end);
+      }
+    }
+
+    setIsSelecting(false);
+    setIsDraggingHandle(null);
+  }, [isSelecting, selectionStart, selectionEnd]);
+
+  // Clear selection function
+  const clearSelection = useCallback(() => {
+    setSelectionStart(null);
+    setSelectionEnd(null);
+    setIsSelecting(false);
+    setIsDraggingHandle(null);
+  }, []);
+
+  // Keyboard handler to clear selection on Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      if (e.key === 'Escape') {
+        clearSelection();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [clearSelection]);
+
   // Click-to-seek handler for unified container
   // Calculates time position accounting for zoom and scroll
   const handleUnifiedContainerClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -1755,23 +1938,44 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
 
         {/* Waveform Section - fills remaining space */}
         <Box
+          ref={waveformContainerRef}
           sx={{
             flex: 1,
             position: 'relative',
             backgroundColor: '#0a0a0a',
             minHeight: 100,
-            cursor: zoomToolActive ? 'crosshair' : 'default',
+            cursor: zoomToolActive
+              ? 'crosshair'
+              : (isSelecting || isDraggingHandle)
+                ? 'ew-resize'
+                : 'default',
           }}
           onMouseDown={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            handleMarqueeMouseDown(e, rect);
+            // Zoom marquee takes priority when active
+            if (zoomToolActive) {
+              const rect = e.currentTarget.getBoundingClientRect();
+              handleMarqueeMouseDown(e, rect);
+            } else {
+              // Time selection when zoom tool is not active
+              handleSelectionMouseDown(e);
+            }
           }}
           onMouseMove={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            handleMarqueeMouseMove(e, rect);
+            if (zoomToolActive) {
+              const rect = e.currentTarget.getBoundingClientRect();
+              handleMarqueeMouseMove(e, rect);
+            } else if (isSelecting || isDraggingHandle) {
+              handleSelectionMouseMove(e);
+            }
           }}
-          onMouseUp={handleMarqueeMouseUp}
-          onMouseLeave={handleMarqueeMouseUp}
+          onMouseUp={() => {
+            handleMarqueeMouseUp();
+            handleSelectionMouseUp();
+          }}
+          onMouseLeave={() => {
+            handleMarqueeMouseUp();
+            handleSelectionMouseUp();
+          }}
         >
           <WaveformCanvas
             isLoaded={!!loadedAudio}
@@ -1828,6 +2032,107 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             >
               Click and drag to zoom
             </Box>
+          )}
+
+          {/* Time selection overlay */}
+          {selectionStart !== null && selectionEnd !== null && loadedAudio && waveformContainerRef.current && (
+            (() => {
+              const containerWidth = waveformContainerRef.current.clientWidth;
+              const startTime = Math.min(selectionStart, selectionEnd);
+              const endTime = Math.max(selectionStart, selectionEnd);
+              const leftPx = timeToPixel(startTime, containerWidth);
+              const rightPx = timeToPixel(endTime, containerWidth);
+              const widthPx = rightPx - leftPx;
+              const selectionDuration = endTime - startTime;
+
+              // Only render if selection is visible in the current viewport
+              if (rightPx < 0 || leftPx > containerWidth) return null;
+
+              return (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    bottom: 0,
+                    left: `${Math.max(0, leftPx)}px`,
+                    width: `${Math.min(widthPx, containerWidth - Math.max(0, leftPx))}px`,
+                    backgroundColor: 'rgba(25, 171, 181, 0.2)',
+                    borderLeft: leftPx >= 0 ? '2px solid #19abb5' : 'none',
+                    borderRight: rightPx <= containerWidth ? '2px solid #19abb5' : 'none',
+                    pointerEvents: 'none',
+                    zIndex: 4,
+                  }}
+                >
+                  {/* Start handle */}
+                  {leftPx >= 0 && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        left: -4,
+                        top: 0,
+                        bottom: 0,
+                        width: 8,
+                        cursor: 'ew-resize',
+                        pointerEvents: 'auto',
+                        backgroundColor: 'transparent',
+                        '&:hover': {
+                          backgroundColor: 'rgba(25, 171, 181, 0.3)',
+                        },
+                      }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        setIsDraggingHandle('start');
+                      }}
+                    />
+                  )}
+                  {/* End handle */}
+                  {rightPx <= containerWidth && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        right: -4,
+                        top: 0,
+                        bottom: 0,
+                        width: 8,
+                        cursor: 'ew-resize',
+                        pointerEvents: 'auto',
+                        backgroundColor: 'transparent',
+                        '&:hover': {
+                          backgroundColor: 'rgba(25, 171, 181, 0.3)',
+                        },
+                      }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        setIsDraggingHandle('end');
+                      }}
+                    />
+                  )}
+                  {/* Selection duration label */}
+                  {widthPx > 50 && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: 4,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                        color: '#19abb5',
+                        fontSize: 10,
+                        fontFamily: '"JetBrains Mono", monospace',
+                        padding: '2px 6px',
+                        borderRadius: 1,
+                        pointerEvents: 'none',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {selectionDuration >= 1
+                        ? `${selectionDuration.toFixed(2)}s`
+                        : `${(selectionDuration * 1000).toFixed(0)}ms`}
+                    </Box>
+                  )}
+                </Box>
+              );
+            })()
           )}
         </Box>
 

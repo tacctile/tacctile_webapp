@@ -108,6 +108,10 @@ interface AudioToolActions {
   setZoom: (zoom: number) => void;
   setScrollPosition: (position: number) => void;
 
+  // Waveform time selection (for loop/playback bounds)
+  setWaveformSelection: (startTime: number | null, endTime: number | null) => void;
+  clearWaveformSelection: () => void;
+
   // Reset
   reset: () => void;
 }
@@ -147,6 +151,9 @@ const initialState: AudioToolState = {
   filtersBypassed: false,
   zoom: 100,
   scrollPosition: 0,
+  // Waveform time selection (in seconds)
+  waveformSelectionStart: null as number | null,
+  waveformSelectionEnd: null as number | null,
 };
 
 // ============================================================================
@@ -671,6 +678,21 @@ export const useAudioToolStore = create<AudioToolState & AudioToolActions>()(
         });
       },
 
+      // Waveform time selection
+      setWaveformSelection: (startTime, endTime) => {
+        set((state) => {
+          state.waveformSelectionStart = startTime;
+          state.waveformSelectionEnd = endTime;
+        });
+      },
+
+      clearWaveformSelection: () => {
+        set((state) => {
+          state.waveformSelectionStart = null;
+          state.waveformSelectionEnd = null;
+        });
+      },
+
       // Reset
       reset: () => {
         set((state) => {
@@ -733,5 +755,9 @@ export const selectIsLoading = (state: AudioToolState) => state.isLoading;
 export const selectIsProcessing = (state: AudioToolState) => state.isProcessing;
 export const selectAudioError = (state: AudioToolState) => state.error;
 export const selectFiltersBypassed = (state: AudioToolState) => state.filtersBypassed;
+export const selectWaveformSelection = (state: AudioToolState & { waveformSelectionStart: number | null; waveformSelectionEnd: number | null }) => ({
+  start: state.waveformSelectionStart,
+  end: state.waveformSelectionEnd,
+});
 
 export default useAudioToolStore;
