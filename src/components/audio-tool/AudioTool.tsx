@@ -981,6 +981,11 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [spectralLoading, setSpectralLoading] = useState(false);
   const [spectralReady, setSpectralReady] = useState(false);
 
+  // Spectrogram image state (pre-generated ImageBitmap for fast rendering)
+  const [spectrogramImage, setSpectrogramImage] = useState<ImageBitmap | null>(null);
+  const [spectrogramGenerating, setSpectrogramGenerating] = useState(false);
+  const [spectrogramReady, setSpectrogramReady] = useState(false);
+
   // Unified container ref and width for PlayheadLine (spans Spectral + TimeScale + Waveform)
   const unifiedContainerRef = useRef<HTMLDivElement>(null);
   const [unifiedContainerWidth, setUnifiedContainerWidth] = useState(0);
@@ -1122,6 +1127,200 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     return spectralFrames;
   }, []);
 
+  // Magma color function for spectrogram generation (black → purple → red → orange → yellow)
+  const getMagmaColor = useCallback((intensity: number): { r: number; g: number; b: number; a: number } => {
+    const i = Math.max(0, Math.min(1, intensity));
+
+    let r, g, b, a;
+
+    if (i < 0.1) {
+      const t = i / 0.1;
+      r = Math.floor(2 + t * 10);
+      g = Math.floor(2 + t * 3);
+      b = Math.floor(5 + t * 15);
+      a = 0.9 + t * 0.1;
+    } else if (i < 0.25) {
+      const t = (i - 0.1) / 0.15;
+      r = Math.floor(12 + t * 40);
+      g = Math.floor(5 + t * 10);
+      b = Math.floor(20 + t * 50);
+      a = 1;
+    } else if (i < 0.4) {
+      const t = (i - 0.25) / 0.15;
+      r = Math.floor(52 + t * 80);
+      g = Math.floor(15 + t * 20);
+      b = Math.floor(70 + t * 30);
+      a = 1;
+    } else if (i < 0.55) {
+      const t = (i - 0.4) / 0.15;
+      r = Math.floor(132 + t * 70);
+      g = Math.floor(35 + t * 40);
+      b = Math.floor(100 - t * 50);
+      a = 1;
+    } else if (i < 0.7) {
+      const t = (i - 0.55) / 0.15;
+      r = Math.floor(202 + t * 35);
+      g = Math.floor(75 + t * 60);
+      b = Math.floor(50 - t * 30);
+      a = 1;
+    } else if (i < 0.85) {
+      const t = (i - 0.7) / 0.15;
+      r = Math.floor(237 + t * 15);
+      g = Math.floor(135 + t * 70);
+      b = Math.floor(20 + t * 10);
+      a = 1;
+    } else {
+      const t = (i - 0.85) / 0.15;
+      r = Math.floor(252 + t * 3);
+      g = Math.floor(205 + t * 45);
+      b = Math.floor(30 + t * 100);
+      a = 1;
+    }
+
+    return { r, g, b, a };
+  }, []);
+
+  // Generate high-resolution spectrogram image using FFT
+  const generateSpectrogram = useCallback(async (audioBuffer: AudioBuffer) => {
+    setSpectrogramGenerating(true);
+    setSpectrogramReady(false);
+
+    try {
+      const channelData = audioBuffer.getChannelData(0);
+      const sampleRate = audioBuffer.sampleRate;
+
+      // FFT parameters - Ultra quality
+      const fftSize = 2048;
+      const hopSize = fftSize / 4; // 75% overlap
+      const numBins = fftSize / 2;
+
+      // Calculate dimensions
+      const numFrames = Math.floor((channelData.length - fftSize) / hopSize);
+      const imageWidth = Math.min(4000, numFrames); // Cap width for performance
+      const imageHeight = 512; // Frequency resolution
+
+      // Create off-screen canvas
+      const offscreen = new OffscreenCanvas(imageWidth, imageHeight);
+      const ctx = offscreen.getContext('2d');
+      if (!ctx) {
+        console.error('Failed to get OffscreenCanvas context');
+        setSpectrogramGenerating(false);
+        return;
+      }
+
+      // Fill with dark background
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(0, 0, imageWidth, imageHeight);
+
+      // Create ImageData for direct pixel manipulation (faster than fillRect)
+      const imageData = ctx.createImageData(imageWidth, imageHeight);
+      const pixels = imageData.data;
+
+      // Initialize all pixels to dark background
+      for (let i = 0; i < pixels.length; i += 4) {
+        pixels[i] = 10;     // R
+        pixels[i + 1] = 10; // G
+        pixels[i + 2] = 10; // B
+        pixels[i + 3] = 255; // A
+      }
+
+      // Hanning window
+      const window = new Float32Array(fftSize);
+      for (let i = 0; i < fftSize; i++) {
+        window[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / fftSize));
+      }
+
+      // Process in chunks to not block UI
+      const framesPerChunk = 100;
+      const frameStep = Math.max(1, Math.floor(numFrames / imageWidth));
+
+      for (let chunkStart = 0; chunkStart < numFrames; chunkStart += framesPerChunk) {
+        // Yield to UI
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const chunkEnd = Math.min(chunkStart + framesPerChunk, numFrames);
+
+        for (let frame = chunkStart; frame < chunkEnd; frame++) {
+          const x = Math.floor(frame / frameStep);
+          if (x >= imageWidth) continue;
+
+          const startSample = frame * hopSize;
+
+          // Apply window and prepare for FFT
+          const segment = new Float32Array(fftSize);
+          for (let i = 0; i < fftSize; i++) {
+            const sampleIndex = startSample + i;
+            segment[i] = sampleIndex < channelData.length
+              ? channelData[sampleIndex] * window[i]
+              : 0;
+          }
+
+          // Simple DFT for magnitude spectrum
+          // Only compute bins we'll display (first 256 for performance)
+          const displayBins = Math.min(256, numBins);
+          const magnitudes = new Float32Array(displayBins);
+
+          for (let k = 0; k < displayBins; k++) {
+            let real = 0, imag = 0;
+            const freq = k * sampleRate / fftSize;
+
+            // Skip if above 20kHz
+            if (freq > 20000) break;
+
+            for (let n = 0; n < fftSize; n++) {
+              const angle = -2 * Math.PI * k * n / fftSize;
+              real += segment[n] * Math.cos(angle);
+              imag += segment[n] * Math.sin(angle);
+            }
+
+            magnitudes[k] = Math.sqrt(real * real + imag * imag) / fftSize;
+          }
+
+          // Draw column of pixels
+          for (let bin = 0; bin < displayBins; bin++) {
+            // Logarithmic frequency mapping
+            const freqRatio = Math.log10(1 + bin) / Math.log10(1 + displayBins);
+            const y = imageHeight - 1 - Math.floor(freqRatio * imageHeight);
+
+            if (y < 0 || y >= imageHeight) continue;
+
+            // Convert magnitude to dB, normalize
+            const magnitude = magnitudes[bin];
+            const db = 20 * Math.log10(Math.max(magnitude, 1e-10));
+            const normalized = Math.max(0, Math.min(1, (db + 80) / 80)); // -80dB to 0dB range
+
+            // Get Magma color
+            const color = getMagmaColor(normalized);
+
+            // Set pixel
+            const pixelIndex = (y * imageWidth + x) * 4;
+            pixels[pixelIndex] = color.r;
+            pixels[pixelIndex + 1] = color.g;
+            pixels[pixelIndex + 2] = color.b;
+            pixels[pixelIndex + 3] = Math.floor(color.a * 255);
+          }
+        }
+      }
+
+      // Put image data to canvas
+      ctx.putImageData(imageData, 0, 0);
+
+      // Convert to ImageBitmap for fast rendering
+      const bitmap = await createImageBitmap(offscreen);
+
+      setSpectrogramImage(bitmap);
+      setSpectrogramGenerating(false);
+      setSpectrogramReady(true);
+
+      // Reset ready indicator after 5 seconds
+      setTimeout(() => setSpectrogramReady(false), 5000);
+
+    } catch (error) {
+      console.error('Error generating spectrogram:', error);
+      setSpectrogramGenerating(false);
+    }
+  }, [getMagmaColor]);
+
   // Load and decode real audio file - Progressive loading (waveform first, spectral in background)
   const loadAudioFile = useCallback(async (filePath: string, fileItem: typeof audioEvidence[0]) => {
     try {
@@ -1178,16 +1377,23 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         duration: decodedBuffer.duration,
       });
 
-      // Reset spectral state and start loading
+      // Reset spectral and spectrogram state
       setSpectralData(null);
       setSpectralReady(false);
       setSpectralLoading(true);
+      setSpectrogramImage(null);
+      setSpectrogramGenerating(false);
+      setSpectrogramReady(false);
       setIsLoadingAudio(false); // Waveform is ready, remove main loading overlay
 
-      // PHASE 2: Spectral (background)
+      // PHASE 2: Generate high-resolution spectrogram image (background)
       // Use setTimeout to let UI update first
       setTimeout(async () => {
         try {
+          // Generate the pre-rendered spectrogram image (new approach)
+          await generateSpectrogram(decodedBuffer);
+
+          // Also generate legacy spectral data as fallback
           const spectral = await generateSpectralInBackground(decodedBuffer);
           setSpectralData(spectral);
           setSpectralLoading(false);
@@ -1198,6 +1404,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         } catch (spectralError) {
           console.error('Error generating spectral data:', spectralError);
           setSpectralLoading(false);
+          setSpectrogramGenerating(false);
         }
       }, 100);
 
@@ -1208,15 +1415,19 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       setSelectedEvidence(fileItem);
       setIsLoadingAudio(false);
       setSpectralLoading(false);
+      setSpectrogramGenerating(false);
     }
-  }, [generateSpectralInBackground]);
+  }, [generateSpectralInBackground, generateSpectrogram]);
 
   const handleDoubleClick = useCallback((item: typeof audioEvidence[0]) => {
-    // Clear previous real audio data and reset spectral state
+    // Clear previous real audio data and reset spectral/spectrogram state
     setWaveformData(null);
     setSpectralData(null);
     setSpectralLoading(false);
     setSpectralReady(false);
+    setSpectrogramImage(null);
+    setSpectrogramGenerating(false);
+    setSpectrogramReady(false);
 
     if (item.path) {
       // Load real audio file
@@ -1876,6 +2087,9 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             spectralData={spectralData}
             spectralLoading={spectralLoading}
             spectralReady={spectralReady}
+            spectrogramImage={spectrogramImage}
+            spectrogramGenerating={spectrogramGenerating}
+            spectrogramReady={spectrogramReady}
             onSeek={handleOverviewSeek}
             onZoomChange={handleZoomChange}
             onScrollChange={handleScrollChange}
