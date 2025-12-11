@@ -1721,12 +1721,12 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         position: 'relative',
       }}>
 
-        {/* Audio Visualization Section - Spectrum Analyzer */}
+        {/* Audio Visualization Section - Spectrum Analyzer (compact) */}
         <Box sx={{
-          flex: 1,
+          height: 120,
           position: 'relative',
-          minHeight: 150,
           backgroundColor: '#000004',
+          borderBottom: '1px solid #252525',
         }}>
           {/* Spectrum Analyzer */}
           <SpectrumAnalyzer
@@ -1823,9 +1823,10 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
           />
         </Box>
 
-        {/* Waveform Section - same height as EQ (140px) */}
+        {/* Waveform Section - primary display, takes remaining space */}
         <Box sx={{
-          height: 140,
+          flex: 1,
+          minHeight: 150,
           position: 'relative',
           backgroundColor: '#0a0a0a',
           borderBottom: '1px solid #252525',
