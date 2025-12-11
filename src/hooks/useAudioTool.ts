@@ -54,7 +54,6 @@ export function useAudioTool(options: UseAudioToolOptions = {}) {
     filterSettings,
     currentSelection,
     findings,
-    spectrogramSettings,
   } = store;
 
   // Local state
@@ -246,7 +245,7 @@ export function useAudioTool(options: UseAudioToolOptions = {}) {
       if (!audioBuffer) return null;
 
       const sampleIndex = Math.floor(time * audioBuffer.sampleRate);
-      const fftSize = spectrogramSettings.fftSize;
+      const fftSize = 2048; // Standard FFT size for audio analysis
       const channelData = audioBuffer.getChannelData(0);
 
       // Extract frame around the time
@@ -286,7 +285,7 @@ export function useAudioTool(options: UseAudioToolOptions = {}) {
 
       return result;
     },
-    [audioBuffer, spectrogramSettings.fftSize]
+    [audioBuffer]
   );
 
   // Sync finding to evidence flagging service
@@ -341,30 +340,6 @@ export function useAudioTool(options: UseAudioToolOptions = {}) {
     [audioBuffer, currentSelection, initAudioContext]
   );
 
-  // Apply frequency band filter to selection
-  const filterSelectionByFrequency = useCallback(
-    async (): Promise<AudioBuffer | null> => {
-      if (!audioBuffer || !currentSelection) return null;
-
-      const selectionBuffer = await extractSelectionAudio();
-      if (!selectionBuffer) return null;
-
-      const { lowFrequency, highFrequency } = currentSelection;
-
-      // Create bandpass filter settings
-      const bandpassSettings: FilterSettings = {
-        ...filterSettings,
-        highPassEnabled: true,
-        highPassCutoff: lowFrequency,
-        lowPassEnabled: true,
-        lowPassCutoff: highFrequency,
-      };
-
-      return processAudioOffline(selectionBuffer, bandpassSettings);
-    },
-    [audioBuffer, currentSelection, filterSettings, extractSelectionAudio, processAudioOffline]
-  );
-
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -397,7 +372,6 @@ export function useAudioTool(options: UseAudioToolOptions = {}) {
 
     // Selection operations
     extractSelectionAudio,
-    filterSelectionByFrequency,
 
     // Integration
     syncFindingToFlag,

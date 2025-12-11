@@ -1,6 +1,6 @@
 /**
  * FindingsPanel Component
- * Displays and manages spectral findings/annotations
+ * Displays and manages audio findings/annotations
  */
 
 import React, { useState } from 'react';
@@ -39,7 +39,7 @@ import SyncIcon from '@mui/icons-material/Sync';
 import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 
-import type { AudioFinding, SpectralSelection } from '../../types/audio';
+import type { AudioFinding, TimeSelection } from '../../types/audio';
 
 // ============================================================================
 // STYLED COMPONENTS
@@ -92,15 +92,6 @@ const TimeRange = styled(Box)({
   fontFamily: 'monospace',
 });
 
-const FrequencyRange = styled(Box)({
-  display: 'flex',
-  alignItems: 'center',
-  gap: 4,
-  fontSize: 11,
-  color: '#888888',
-  fontFamily: 'monospace',
-});
-
 const EmptyState = styled(Box)({
   flex: 1,
   display: 'flex',
@@ -118,8 +109,8 @@ const EmptyState = styled(Box)({
 interface FindingsPanelProps {
   /** List of findings */
   findings: AudioFinding[];
-  /** Current spectral selection (for creating new finding) */
-  currentSelection: SpectralSelection | null;
+  /** Current time selection (for creating new finding) */
+  currentSelection: TimeSelection | null;
   /** Currently selected finding ID */
   selectedFindingId?: string | null;
   /** Callback to create a finding from selection */
@@ -209,13 +200,6 @@ const FindingsPanel: React.FC<FindingsPanelProps> = ({
     return `${secs}.${ms.toString().padStart(2, '0')}s`;
   };
 
-  const formatFrequency = (hz: number): string => {
-    if (hz >= 1000) {
-      return `${(hz / 1000).toFixed(1)}k`;
-    }
-    return `${Math.round(hz)}`;
-  };
-
   const toggleExpanded = (id: string) => {
     setExpandedFindingId(expandedFindingId === id ? null : id);
   };
@@ -273,7 +257,7 @@ const FindingsPanel: React.FC<FindingsPanelProps> = ({
             No findings yet
           </Typography>
           <Typography variant="caption" sx={{ color: '#555555', mb: 2 }}>
-            Draw a selection on the spectrogram and save it as a finding
+            Draw a selection on the waveform and save it as a finding
           </Typography>
           {currentSelection && (
             <Button
@@ -333,15 +317,12 @@ const FindingsPanel: React.FC<FindingsPanelProps> = ({
                   </Box>
                 </Box>
 
-                {/* Time and frequency info */}
+                {/* Time info */}
                 <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
                   <TimeRange>
                     <AccessTimeIcon sx={{ fontSize: 12 }} />
                     {formatTime(finding.selection.startTime)} - {formatTime(finding.selection.endTime)}
                   </TimeRange>
-                  <FrequencyRange>
-                    {formatFrequency(finding.selection.lowFrequency)} - {formatFrequency(finding.selection.highFrequency)} Hz
-                  </FrequencyRange>
                 </Box>
 
                 {/* Expanded content */}
@@ -384,7 +365,7 @@ const FindingsPanel: React.FC<FindingsPanelProps> = ({
                           <PlayArrowIcon sx={{ fontSize: 16 }} />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title={finding.visible ? 'Hide on spectrogram' : 'Show on spectrogram'}>
+                      <Tooltip title={finding.visible ? 'Hide on waveform' : 'Show on waveform'}>
                         <IconButton
                           size="small"
                           onClick={(e) => {
@@ -455,8 +436,6 @@ const FindingsPanel: React.FC<FindingsPanelProps> = ({
             <Box sx={{ mb: 2, p: 1.5, backgroundColor: '#1a1a1a', borderRadius: 1 }}>
               <Typography variant="caption" sx={{ color: '#888888' }}>
                 Selection: {formatTime(currentSelection.startTime)} - {formatTime(currentSelection.endTime)}
-                {' | '}
-                {formatFrequency(currentSelection.lowFrequency)} - {formatFrequency(currentSelection.highFrequency)} Hz
               </Typography>
             </Box>
           )}

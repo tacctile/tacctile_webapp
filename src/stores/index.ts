@@ -15,7 +15,6 @@ export {
   useRecipes,
   useIterations,
   useFindings,
-  useSpectrogramSettings,
   useWaveformSettings,
   useIsLoading,
   useIsProcessing,
