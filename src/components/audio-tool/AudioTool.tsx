@@ -211,14 +211,14 @@ const ImportButton = styled(Button)({
 // ============================================================================
 
 const EQ_BANDS = [
-  { freq: 60, label: '60' },
+  { freq: 31, label: '31' },
+  { freq: 62, label: '62' },
   { freq: 125, label: '125' },
   { freq: 250, label: '250' },
   { freq: 500, label: '500' },
   { freq: 1000, label: '1k' },
   { freq: 2000, label: '2k' },
   { freq: 4000, label: '4k' },
-  { freq: 6000, label: '6k' },
   { freq: 8000, label: '8k' },
   { freq: 16000, label: '16k' },
 ];
