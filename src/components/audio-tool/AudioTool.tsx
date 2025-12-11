@@ -381,73 +381,25 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
           })}
         </svg>
 
-        {/* L/R Level Meters */}
-        <Box sx={{
-          position: 'absolute',
-          left: 12,
-          top: '50%',
-          transform: 'translateY(-50%)',
-          display: 'flex',
-          gap: 0.5,
-          alignItems: 'center',
-          height: '60%',
-        }}>
-          {/* Left channel */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.25 }}>
-            <Typography sx={{ fontSize: 8, color: '#555', fontFamily: '"JetBrains Mono", monospace' }}>L</Typography>
-            <Box sx={{
-              width: 6,
-              height: '100%',
-              backgroundColor: '#1a1a1a',
-              borderRadius: 0.5,
-              position: 'relative',
-              overflow: 'hidden',
-            }}>
-              <Box sx={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                height: `${Math.min(100, Math.max(0, analyzerData[0] || 0))}%`,
-                background: 'linear-gradient(to top, #19abb5 0%, #19abb5 70%, #f59e0b 85%, #ef4444 100%)',
-                borderRadius: 0.5,
-                transition: 'height 0.05s ease-out',
-              }} />
-            </Box>
-          </Box>
-          {/* Right channel */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.25 }}>
-            <Typography sx={{ fontSize: 8, color: '#555', fontFamily: '"JetBrains Mono", monospace' }}>R</Typography>
-            <Box sx={{
-              width: 6,
-              height: '100%',
-              backgroundColor: '#1a1a1a',
-              borderRadius: 0.5,
-              position: 'relative',
-              overflow: 'hidden',
-            }}>
-              <Box sx={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                height: `${Math.min(100, Math.max(0, analyzerData[1] || analyzerData[0] || 0))}%`,
-                background: 'linear-gradient(to top, #19abb5 0%, #19abb5 70%, #f59e0b 85%, #ef4444 100%)',
-                borderRadius: 0.5,
-                transition: 'height 0.05s ease-out',
-              }} />
-            </Box>
-          </Box>
-        </Box>
-
-        {/* dB labels */}
-        <Box sx={{ position: 'absolute', left: 36, top: 2, fontSize: 11, color: '#888', fontFamily: '"JetBrains Mono", monospace' }}>
+        {/* dB labels - Left side */}
+        <Box sx={{ position: 'absolute', left: 8, top: 8, fontSize: 10, color: '#666', fontFamily: '"JetBrains Mono", monospace' }}>
           +12
         </Box>
-        <Box sx={{ position: 'absolute', left: 36, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: '#888', fontFamily: '"JetBrains Mono", monospace' }}>
+        <Box sx={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: '#888', fontFamily: '"JetBrains Mono", monospace' }}>
           0dB
         </Box>
-        <Box sx={{ position: 'absolute', left: 36, bottom: 2, fontSize: 11, color: '#888', fontFamily: '"JetBrains Mono", monospace' }}>
+        <Box sx={{ position: 'absolute', left: 8, bottom: 8, fontSize: 10, color: '#666', fontFamily: '"JetBrains Mono", monospace' }}>
+          -12
+        </Box>
+
+        {/* dB labels - Right side */}
+        <Box sx={{ position: 'absolute', right: 8, top: 8, fontSize: 10, color: '#666', fontFamily: '"JetBrains Mono", monospace' }}>
+          +12
+        </Box>
+        <Box sx={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: '#888', fontFamily: '"JetBrains Mono", monospace' }}>
+          0dB
+        </Box>
+        <Box sx={{ position: 'absolute', right: 8, bottom: 8, fontSize: 10, color: '#666', fontFamily: '"JetBrains Mono", monospace' }}>
           -12
         </Box>
 
@@ -1177,10 +1129,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     });
   }, []);
 
-  const resetEQ = useCallback(() => {
-    setEqValues([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-  }, []);
-
   const resetAllFilters = useCallback(() => {
     setFilters({ deNoise: 0, deHum: 0, lowCut: 20, highCut: 20000, clarity: 0 });
   }, []);
@@ -1758,47 +1706,15 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         )}
       </Box>
 
-      {/* EQ Section - no header row, Reset button positioned on right near 0dB */}
+      {/* EQ Section */}
       <EQSection>
-        <Box sx={{ flex: 1, p: 1, position: 'relative' }}>
+        <Box sx={{ flex: 1, p: 1 }}>
           <IntegratedEQ
             values={eqValues}
             onChange={handleEQChange}
             analyzerData={meterLevels}
             disabled={!loadedAudio}
           />
-          {/* Reset button - vertically centered on right side (aligned with 0dB line) */}
-          <Button
-            size="small"
-            onClick={resetEQ}
-            disabled={!loadedAudio}
-            sx={{
-              position: 'absolute',
-              right: 12,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              fontSize: 10,
-              color: '#888',
-              backgroundColor: 'transparent',
-              border: '1px solid #333',
-              minWidth: 'auto',
-              py: 0.5,
-              px: 1.5,
-              borderRadius: 0.5,
-              textTransform: 'none',
-              '&:hover': {
-                color: '#19abb5',
-                borderColor: '#19abb5',
-                backgroundColor: 'rgba(25, 171, 181, 0.1)',
-              },
-              '&:disabled': {
-                color: '#444',
-                borderColor: '#252525',
-              },
-            }}
-          >
-            Reset
-          </Button>
         </Box>
       </EQSection>
 
