@@ -210,18 +210,35 @@ const ImportButton = styled(Button)({
 // EQ COMPONENT
 // ============================================================================
 
+// ISO 10-band standard frequencies
 const EQ_BANDS = [
-  { freq: 60, label: '60' },
+  { freq: 31, label: '31' },
+  { freq: 62, label: '62' },
   { freq: 125, label: '125' },
   { freq: 250, label: '250' },
   { freq: 500, label: '500' },
   { freq: 1000, label: '1k' },
   { freq: 2000, label: '2k' },
   { freq: 4000, label: '4k' },
-  { freq: 6000, label: '6k' },
   { freq: 8000, label: '8k' },
   { freq: 16000, label: '16k' },
 ];
+
+// ISO intermediate frequencies for reference grid lines
+const EQ_INTERMEDIATE_FREQS = [45, 90, 180, 350, 700, 1500, 3000, 6000, 12000];
+
+// Frequency range for logarithmic positioning (20Hz - 20kHz human hearing range)
+const FREQ_MIN = 20;
+const FREQ_MAX = 20000;
+
+// Convert frequency to X position (0-100) using logarithmic scale
+const freqToX = (freq: number): number => {
+  const minLog = Math.log10(FREQ_MIN);
+  const maxLog = Math.log10(FREQ_MAX);
+  const freqLog = Math.log10(freq);
+  // Map to 5-95% range (same as existing node positioning)
+  return 5 + ((freqLog - minLog) / (maxLog - minLog)) * 90;
+};
 
 interface IntegratedEQProps {
   values: number[];
@@ -269,39 +286,59 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
   // Convert dB value to Y percentage (0-100, where 0 is top)
   const dbToY = (db: number) => 50 - (db / 12) * 45;
 
-  // Generate smooth bezier curve path for EQ line
+  // Generate smooth bezier curve path for EQ line using logarithmic frequency positioning
   const generateEQPath = () => {
-    if (values.length === 0) return '';
+    if (values.length === 0 || EQ_BANDS.length === 0) return '';
 
-    const points = values.map((v, i) => ({
-      x: 5 + (i / (values.length - 1)) * 90, // 5% to 95% of width
-      y: dbToY(v),
-    }));
+    const points: { x: number; y: number }[] = [];
+    for (let i = 0; i < values.length; i++) {
+      const band = EQ_BANDS[i];
+      const val = values[i];
+      if (band && val !== undefined) {
+        points.push({
+          x: freqToX(band.freq), // Logarithmic frequency positioning
+          y: dbToY(val),
+        });
+      }
+    }
 
-    let path = `M ${points[0].x} ${points[0].y}`;
+    if (points.length < 2) return '';
+    let path = `M ${points[0]!.x} ${points[0]!.y}`;
 
     for (let i = 1; i < points.length; i++) {
-      const cp = (points[i - 1].x + points[i].x) / 2;
-      path += ` C ${cp} ${points[i - 1].y}, ${cp} ${points[i].y}, ${points[i].x} ${points[i].y}`;
+      const prev = points[i - 1]!;
+      const curr = points[i]!;
+      const cp = (prev.x + curr.x) / 2;
+      path += ` C ${cp} ${prev.y}, ${cp} ${curr.y}, ${curr.x} ${curr.y}`;
     }
 
     return path;
   };
 
-  // Generate analyzer wave path (jagged, organic)
+  // Generate analyzer wave path using logarithmic frequency positioning for FFT data
   const generateAnalyzerPath = () => {
-    if (analyzerData.length === 0) return '';
+    if (analyzerData.length === 0 || EQ_BANDS.length === 0) return '';
 
-    const points = analyzerData.map((level, i) => ({
-      x: 5 + (i / (analyzerData.length - 1)) * 90,
-      y: 50 - (level / 100) * 40, // Convert 0-100 level to Y position
-    }));
+    // Map analyzer data to logarithmic frequency positions
+    const points: { x: number; y: number }[] = [];
+    for (let i = 0; i < analyzerData.length; i++) {
+      const band = EQ_BANDS[i];
+      const level = analyzerData[i];
+      if (band && level !== undefined) {
+        points.push({
+          x: freqToX(band.freq), // Logarithmic positioning matching EQ bands
+          y: 50 - (level / 100) * 40, // Convert 0-100 level to Y position
+        });
+      }
+    }
 
-    let path = `M ${points[0].x} ${points[0].y}`;
+    if (points.length < 1) return '';
+    let path = `M ${points[0]!.x} ${points[0]!.y}`;
 
     for (let i = 1; i < points.length; i++) {
+      const curr = points[i]!;
       // Slightly jagged line (not as smooth as EQ curve)
-      path += ` L ${points[i].x} ${points[i].y}`;
+      path += ` L ${curr.x} ${curr.y}`;
     }
 
     return path;
@@ -352,17 +389,34 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
           <line x1="5" y1="50" x2="95" y2="50" stroke="#2a2a2a" strokeWidth="1" vectorEffect="non-scaling-stroke" />
           <line x1="5" y1="95" x2="95" y2="95" stroke="#1a1a1a" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
 
-          {/* Vertical grid lines for each frequency */}
-          {EQ_BANDS.map((_, i) => {
-            const x = 5 + (i / (EQ_BANDS.length - 1)) * 90;
+          {/* Vertical grid lines at intermediate ISO frequencies (more subtle, behind main lines) */}
+          {EQ_INTERMEDIATE_FREQS.map((freq) => {
+            const x = freqToX(freq);
             return (
               <line
-                key={i}
+                key={`int-${freq}`}
                 x1={x}
                 y1="5"
                 x2={x}
                 y2="95"
-                stroke="#1a1a1a"
+                stroke="#161616"
+                strokeWidth="0.5"
+                vectorEffect="non-scaling-stroke"
+              />
+            );
+          })}
+
+          {/* Vertical grid lines at main ISO frequencies (more visible, on top) */}
+          {EQ_BANDS.map((band) => {
+            const x = freqToX(band.freq);
+            return (
+              <line
+                key={`main-${band.freq}`}
+                x1={x}
+                y1="5"
+                x2={x}
+                y2="95"
+                stroke="#252525"
                 strokeWidth="0.5"
                 vectorEffect="non-scaling-stroke"
               />
@@ -381,7 +435,7 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
           -12
         </Box>
 
-        {/* Analyzer wave (behind) */}
+        {/* Analyzer wave (behind) - Real FFT frequency response visualization */}
         <svg
           style={{
             position: 'absolute',
@@ -396,10 +450,10 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
           <path
             d={generateAnalyzerPath()}
             fill="none"
-            stroke="#3a4a3a"
+            stroke="#555"
             strokeWidth="1.5"
             vectorEffect="non-scaling-stroke"
-            opacity="0.6"
+            opacity="0.5"
           />
         </svg>
 
@@ -426,7 +480,9 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
 
         {/* Draggable nodes (EQ dots) */}
         {values.map((value, i) => {
-          const x = 5 + (i / (values.length - 1)) * 90;
+          const band = EQ_BANDS[i];
+          if (!band) return null;
+          const x = freqToX(band.freq); // Logarithmic frequency positioning
           const y = dbToY(value);
           return (
             <Box
@@ -472,50 +528,55 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
         })}
       </Box>
 
-      {/* Frequency labels + reset buttons */}
+      {/* Frequency labels + reset buttons - positioned logarithmically */}
       <Box sx={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        padding: '6px 5% 0',
-        alignItems: 'center',
+        position: 'relative',
+        height: 36,
+        marginTop: '6px',
       }}>
-        {EQ_BANDS.map((band, i) => (
-          <Box
-            key={band.freq}
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 0.5,
-            }}
-          >
-            <Typography sx={{ fontSize: 8, color: '#555', fontFamily: '"JetBrains Mono", monospace' }}>
-              {band.label}
-            </Typography>
+        {EQ_BANDS.map((band, i) => {
+          const x = freqToX(band.freq);
+          return (
             <Box
-              onClick={() => handleResetBand(i)}
+              key={band.freq}
               sx={{
-                width: 12,
-                height: 12,
-                borderRadius: '50%',
-                border: '1px solid #333',
-                backgroundColor: values[i] === 0 ? 'transparent' : '#252525',
-                cursor: disabled ? 'default' : 'pointer',
+                position: 'absolute',
+                left: `${x}%`,
+                transform: 'translateX(-50%)',
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
-                justifyContent: 'center',
-                '&:hover': {
-                  borderColor: disabled ? '#333' : '#19abb5',
-                  backgroundColor: disabled ? 'transparent' : 'rgba(25, 171, 181, 0.1)',
-                },
+                gap: 0.5,
               }}
             >
-              {values[i] !== 0 && (
-                <Box sx={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: '#19abb5' }} />
-              )}
+              <Typography sx={{ fontSize: 8, color: '#555', fontFamily: '"JetBrains Mono", monospace' }}>
+                {band.label}
+              </Typography>
+              <Box
+                onClick={() => handleResetBand(i)}
+                sx={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: '50%',
+                  border: '1px solid #333',
+                  backgroundColor: values[i] === 0 ? 'transparent' : '#252525',
+                  cursor: disabled ? 'default' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  '&:hover': {
+                    borderColor: disabled ? '#333' : '#19abb5',
+                    backgroundColor: disabled ? 'transparent' : 'rgba(25, 171, 181, 0.1)',
+                  },
+                }}
+              >
+                {values[i] !== 0 && (
+                  <Box sx={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: '#19abb5' }} />
+                )}
+              </Box>
             </Box>
-          </Box>
-        ))}
+          );
+        })}
       </Box>
     </Box>
   );
@@ -912,6 +973,13 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
 
   // Real audio data state (Web Audio API)
   const audioContextRef = useRef<AudioContext | null>(null);
+  const audioBufferRef = useRef<AudioBuffer | null>(null);
+  const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const playbackStartTimeRef = useRef<number>(0);
+  const playbackOffsetRef = useRef<number>(0);
   const [waveformData, setWaveformData] = useState<Float32Array | null>(null);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
 
@@ -965,24 +1033,147 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const navigateToTool = useNavigationStore((state) => state.navigateToTool);
   const loadedFileId = useNavigationStore((state) => state.loadedFiles.audio);
 
-  // Simulate bouncing meters when audio is loaded
+  // Helper function to get average level for a frequency range from FFT data
+  const getFrequencyRangeLevel = useCallback((
+    frequencyData: Uint8Array,
+    targetFreq: number,
+    fftSize: number,
+    sampleRate: number
+  ) => {
+    // Calculate the bin range for the target frequency (using 1/3 octave bandwidth)
+    const bandwidth = targetFreq * 0.23; // ~1/3 octave
+    const lowFreq = targetFreq - bandwidth / 2;
+    const highFreq = targetFreq + bandwidth / 2;
+
+    const lowBin = Math.max(0, Math.floor((lowFreq * fftSize) / sampleRate));
+    const highBin = Math.min(frequencyData.length - 1, Math.ceil((highFreq * fftSize) / sampleRate));
+
+    // Get average level in the bin range
+    let sum = 0;
+    let count = 0;
+    for (let i = lowBin; i <= highBin; i++) {
+      sum += frequencyData[i];
+      count++;
+    }
+
+    // Convert from 0-255 to 0-100 scale with some normalization
+    const avgLevel = count > 0 ? sum / count : 0;
+    return Math.min(100, (avgLevel / 255) * 120); // Slight boost for visibility
+  }, []);
+
+  // Real FFT analysis effect - runs animation loop when audio is playing
   useEffect(() => {
     if (!loadedAudio) {
       setMeterLevels([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
       return;
     }
 
-    const interval = setInterval(() => {
-      setMeterLevels(prev => prev.map((_, i) => {
-        // Simulate frequency distribution (more energy in low-mids)
-        const baseLevel = 40 + Math.sin(i * 0.5) * 20;
-        const variation = Math.random() * 30;
-        return Math.min(100, Math.max(0, baseLevel + variation));
-      }));
-    }, 100);
+    // Start/stop audio playback based on isPlaying state
+    const audioContext = audioContextRef.current;
+    const audioBuffer = audioBufferRef.current;
+    const analyser = analyserRef.current;
 
-    return () => clearInterval(interval);
-  }, [loadedAudio]);
+    if (isPlaying && audioContext && audioBuffer && analyser) {
+      // Resume audio context if suspended
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+
+      // Stop any existing source
+      if (sourceNodeRef.current) {
+        try {
+          sourceNodeRef.current.stop();
+        } catch (e) {
+          // Ignore - source may already be stopped
+        }
+        sourceNodeRef.current.disconnect();
+      }
+
+      // Create new source node for playback
+      const source = audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(analyser);
+      sourceNodeRef.current = source;
+
+      // Calculate start position from timestamp
+      const startOffset = (timestamp / 1000) % audioBuffer.duration;
+      playbackStartTimeRef.current = audioContext.currentTime;
+      playbackOffsetRef.current = startOffset;
+
+      source.start(0, startOffset);
+
+      // FFT data array
+      const frequencyData = new Uint8Array(analyser.frequencyBinCount);
+      const sampleRate = audioContext.sampleRate;
+      const fftSize = analyser.fftSize;
+
+      // Animation loop for FFT visualization
+      const updateFFT = () => {
+        if (!isPlaying) return;
+
+        analyser.getByteFrequencyData(frequencyData);
+
+        // Map FFT data to the 10 ISO frequency bands
+        const newLevels = EQ_BANDS.map((band) =>
+          getFrequencyRangeLevel(frequencyData, band.freq, fftSize, sampleRate)
+        );
+
+        setMeterLevels(newLevels);
+
+        // Update playhead position
+        const elapsed = audioContext.currentTime - playbackStartTimeRef.current;
+        const newTime = ((playbackOffsetRef.current + elapsed) % audioBuffer.duration) * 1000;
+        setTimestamp(newTime);
+
+        animationFrameRef.current = requestAnimationFrame(updateFFT);
+      };
+
+      animationFrameRef.current = requestAnimationFrame(updateFFT);
+
+      // Handle when audio ends
+      source.onended = () => {
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+        }
+      };
+    } else {
+      // Not playing - stop animation and reset meters gradually
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+
+      // Stop source node if exists
+      if (sourceNodeRef.current) {
+        try {
+          sourceNodeRef.current.stop();
+        } catch (e) {
+          // Ignore - source may already be stopped
+        }
+        sourceNodeRef.current.disconnect();
+        sourceNodeRef.current = null;
+      }
+
+      // Gradually fade meters to zero for smooth visual transition
+      const fadeInterval = setInterval(() => {
+        setMeterLevels(prev => {
+          const newLevels = prev.map(level => Math.max(0, level - 10));
+          if (newLevels.every(l => l === 0)) {
+            clearInterval(fadeInterval);
+          }
+          return newLevels;
+        });
+      }, 50);
+
+      return () => clearInterval(fadeInterval);
+    }
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [loadedAudio, isPlaying, timestamp, setTimestamp, getFrequencyRangeLevel]);
 
   // Load file when navigated to
   useEffect(() => {
@@ -1060,6 +1251,25 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         waveform[i] = max; // Use peak value for each block
       }
       setWaveformData(waveform);
+
+      // Store the audio buffer for playback with FFT analysis
+      audioBufferRef.current = decodedBuffer;
+
+      // Create analyser node for FFT visualization
+      if (!analyserRef.current) {
+        analyserRef.current = audioContext.createAnalyser();
+        analyserRef.current.fftSize = 2048;
+        analyserRef.current.smoothingTimeConstant = 0.8;
+      }
+
+      // Create gain node for volume control
+      if (!gainNodeRef.current) {
+        gainNodeRef.current = audioContext.createGain();
+        gainNodeRef.current.connect(audioContext.destination);
+      }
+
+      // Connect analyser to gain node
+      analyserRef.current.connect(gainNodeRef.current);
 
       // Set loaded state immediately (waveform ready)
       setLoadedAudio({
