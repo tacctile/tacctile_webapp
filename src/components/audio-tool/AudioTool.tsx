@@ -32,7 +32,6 @@ import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
 import { MetadataPanel, FlagsPanel, TransportControls, type Flag } from '@/components/common';
 import { ExpandVideoModal } from './ExpandVideoModal';
 import UnifiedAudioCanvas from './UnifiedAudioCanvas';
-import { SpectralCanvas } from './SpectralCanvas';
 import { WaveformCanvas } from './WaveformCanvas';
 import { TimeScaleBar } from './TimeScaleBar';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
@@ -47,9 +46,6 @@ import {
   formatGPSCoordinates,
 } from '@/utils/testMetadataGenerator';
 
-// Wavesurfer.js for spectrogram generation (used as hidden generator)
-import WaveSurfer from 'wavesurfer.js';
-import Spectrogram from 'wavesurfer.js/dist/plugins/spectrogram.esm.js';
 
 // ============================================================================
 // STYLED COMPONENTS
@@ -978,24 +974,11 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   // Real audio data state (Web Audio API)
   const audioContextRef = useRef<AudioContext | null>(null);
   const [waveformData, setWaveformData] = useState<Float32Array | null>(null);
-  const [spectralData, setSpectralData] = useState<Float32Array[] | null>(null);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
 
-  // Spectral loading state for progressive UX
-  const [spectralLoading, setSpectralLoading] = useState(false);
-  const [spectralReady, setSpectralReady] = useState(false);
-
-  // Spectrogram image state (pre-generated ImageBitmap for fast rendering)
-  const [spectrogramImage, setSpectrogramImage] = useState<ImageBitmap | null>(null);
-  const [spectrogramGenerating, setSpectrogramGenerating] = useState(false);
-  const [spectrogramReady, setSpectrogramReady] = useState(false);
-
-  // Unified container ref and width for PlayheadLine (spans Spectral + TimeScale + Waveform)
+  // Unified container ref and width for PlayheadLine (spans TimeScale + Waveform)
   const unifiedContainerRef = useRef<HTMLDivElement>(null);
   const [unifiedContainerWidth, setUnifiedContainerWidth] = useState(0);
-
-  // Hidden container for wavesurfer spectrogram generation
-  const hiddenContainerRef = useRef<HTMLDivElement>(null);
 
   // Toast notification state
   const [toast, setToast] = useState<{
@@ -1093,231 +1076,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     }
   }, []);
 
-  // Background spectral generation (chunked to not block UI)
-  // Ultra resolution: 80 frames per second, 256 frequency bins for smooth 10x zoom
-  const generateSpectralInBackground = useCallback(async (buffer: AudioBuffer): Promise<Float32Array[]> => {
-    const channelData = buffer.getChannelData(0);
-    const samples = channelData.length;
-    const targetFrames = Math.min(4000, Math.floor(buffer.duration * 80)); // 80 frames per second for smooth 10x zoom
-    const samplesPerFrame = Math.floor(samples / targetFrames);
-    const spectralFrames: Float32Array[] = [];
-
-    // Process in chunks to keep UI responsive
-    const chunkSize = 50;
-
-    for (let chunk = 0; chunk < Math.ceil(targetFrames / chunkSize); chunk++) {
-      // Let UI breathe between chunks
-      await new Promise(resolve => setTimeout(resolve, 0));
-
-      const startFrame = chunk * chunkSize;
-      const endFrame = Math.min(startFrame + chunkSize, targetFrames);
-
-      for (let i = startFrame; i < endFrame; i++) {
-        const startSample = i * samplesPerFrame;
-        const frame = new Float32Array(256); // 256 frequency bins for higher vertical resolution
-
-        for (let bin = 0; bin < 256; bin++) {
-          let energy = 0;
-          const binSize = Math.floor(samplesPerFrame / 256);
-          for (let j = 0; j < binSize; j++) {
-            const idx = startSample + bin * binSize + j;
-            if (idx < channelData.length) {
-              energy += Math.abs(channelData[idx]);
-            }
-          }
-          frame[bin] = energy / binSize;
-        }
-        spectralFrames.push(frame);
-      }
-    }
-
-    return spectralFrames;
-  }, []);
-
-  // Magma color function for spectrogram generation (black → purple → red → orange → yellow)
-  const getMagmaColor = useCallback((intensity: number): { r: number; g: number; b: number; a: number } => {
-    const i = Math.max(0, Math.min(1, intensity));
-
-    let r, g, b, a;
-
-    if (i < 0.1) {
-      const t = i / 0.1;
-      r = Math.floor(2 + t * 10);
-      g = Math.floor(2 + t * 3);
-      b = Math.floor(5 + t * 15);
-      a = 0.9 + t * 0.1;
-    } else if (i < 0.25) {
-      const t = (i - 0.1) / 0.15;
-      r = Math.floor(12 + t * 40);
-      g = Math.floor(5 + t * 10);
-      b = Math.floor(20 + t * 50);
-      a = 1;
-    } else if (i < 0.4) {
-      const t = (i - 0.25) / 0.15;
-      r = Math.floor(52 + t * 80);
-      g = Math.floor(15 + t * 20);
-      b = Math.floor(70 + t * 30);
-      a = 1;
-    } else if (i < 0.55) {
-      const t = (i - 0.4) / 0.15;
-      r = Math.floor(132 + t * 70);
-      g = Math.floor(35 + t * 40);
-      b = Math.floor(100 - t * 50);
-      a = 1;
-    } else if (i < 0.7) {
-      const t = (i - 0.55) / 0.15;
-      r = Math.floor(202 + t * 35);
-      g = Math.floor(75 + t * 60);
-      b = Math.floor(50 - t * 30);
-      a = 1;
-    } else if (i < 0.85) {
-      const t = (i - 0.7) / 0.15;
-      r = Math.floor(237 + t * 15);
-      g = Math.floor(135 + t * 70);
-      b = Math.floor(20 + t * 10);
-      a = 1;
-    } else {
-      const t = (i - 0.85) / 0.15;
-      r = Math.floor(252 + t * 3);
-      g = Math.floor(205 + t * 45);
-      b = Math.floor(30 + t * 100);
-      a = 1;
-    }
-
-    return { r, g, b, a };
-  }, []);
-
-  // Generate Magma colormap for wavesurfer (256 entries, float arrays 0-1)
-  const generateMagmaColormap = useCallback((): number[][] => {
-    const colormap: number[][] = [];
-
-    for (let i = 0; i < 256; i++) {
-      const t = i / 255;
-      let r, g, b;
-
-      if (t < 0.1) {
-        r = 0.01 + t * 0.4;
-        g = 0.01 + t * 0.1;
-        b = 0.02 + t * 0.6;
-      } else if (t < 0.25) {
-        const s = (t - 0.1) / 0.15;
-        r = 0.05 + s * 0.15;
-        g = 0.02 + s * 0.04;
-        b = 0.08 + s * 0.2;
-      } else if (t < 0.4) {
-        const s = (t - 0.25) / 0.15;
-        r = 0.2 + s * 0.3;
-        g = 0.06 + s * 0.08;
-        b = 0.28 + s * 0.12;
-      } else if (t < 0.55) {
-        const s = (t - 0.4) / 0.15;
-        r = 0.5 + s * 0.28;
-        g = 0.14 + s * 0.16;
-        b = 0.4 - s * 0.2;
-      } else if (t < 0.7) {
-        const s = (t - 0.55) / 0.15;
-        r = 0.78 + s * 0.14;
-        g = 0.3 + s * 0.24;
-        b = 0.2 - s * 0.12;
-      } else if (t < 0.85) {
-        const s = (t - 0.7) / 0.15;
-        r = 0.92 + s * 0.06;
-        g = 0.54 + s * 0.26;
-        b = 0.08 + s * 0.04;
-      } else {
-        const s = (t - 0.85) / 0.15;
-        r = 0.98 + s * 0.02;
-        g = 0.8 + s * 0.18;
-        b = 0.12 + s * 0.4;
-      }
-
-      // Wavesurfer expects [r, g, b, a] as floats 0-1
-      colormap.push([r, g, b, 1]);
-    }
-
-    return colormap;
-  }, []);
-
-  // Generate high-resolution spectrogram image using wavesurfer.js
-  const generateSpectrogram = useCallback(async (audioUrl: string) => {
-    if (!hiddenContainerRef.current) return;
-
-    setSpectrogramGenerating(true);
-    setSpectrogramReady(false);
-
-    // Create hidden containers with proper sizing for high-quality output
-    const waveContainer = document.createElement('div');
-    waveContainer.style.cssText = 'position:absolute;left:-9999px;width:4000px;height:50px;';
-    hiddenContainerRef.current.appendChild(waveContainer);
-
-    const spectroContainer = document.createElement('div');
-    spectroContainer.style.cssText = 'position:absolute;left:-9999px;width:4000px;height:512px;';
-    hiddenContainerRef.current.appendChild(spectroContainer);
-
-    try {
-      // Generate magma colormap first
-      const colorMap = generateMagmaColormap();
-
-      // Initialize wavesurfer first
-      const wavesurfer = WaveSurfer.create({
-        container: waveContainer,
-        height: 50,
-        waveColor: 'transparent',
-        progressColor: 'transparent',
-        cursorColor: 'transparent',
-        interact: false,
-        minPxPerSec: 50, // Higher resolution
-      });
-
-      // Register spectrogram plugin AFTER wavesurfer is created
-      wavesurfer.registerPlugin(
-        Spectrogram.create({
-          container: spectroContainer,
-          labels: false,
-          height: 512,
-          fftSamples: 1024,  // Higher = more frequency detail
-          frequencyMin: 20,
-          frequencyMax: 20000,  // Full audible range
-          colorMap: colorMap,
-        })
-      );
-
-      // Wait for ready
-      await new Promise<void>((resolve, reject) => {
-        wavesurfer.on('ready', () => {
-          // Spectrogram renders after waveform, give it time
-          setTimeout(resolve, 1000);
-        });
-        wavesurfer.on('error', reject);
-        wavesurfer.load(audioUrl);
-      });
-
-      // Find and capture the spectrogram canvas
-      const spectroCanvas = spectroContainer.querySelector('canvas');
-
-      if (spectroCanvas) {
-        const bitmap = await createImageBitmap(spectroCanvas);
-        setSpectrogramImage(bitmap);
-        setSpectrogramReady(true);
-
-        // Reset ready indicator after 5 seconds
-        setTimeout(() => setSpectrogramReady(false), 5000);
-      }
-
-      // Cleanup
-      wavesurfer.destroy();
-
-    } catch (error) {
-      console.error('Error generating spectrogram:', error);
-    } finally {
-      if (hiddenContainerRef.current) {
-        hiddenContainerRef.current.innerHTML = '';
-      }
-      setSpectrogramGenerating(false);
-    }
-  }, [generateMagmaColormap]);
-
-  // Load and decode real audio file - Progressive loading (waveform first, spectral in background)
+  // Load and decode real audio file
   const loadAudioFile = useCallback(async (filePath: string, fileItem: typeof audioEvidence[0]) => {
     try {
       setIsLoadingAudio(true);
@@ -1373,36 +1132,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         duration: decodedBuffer.duration,
       });
 
-      // Reset spectral and spectrogram state
-      setSpectralData(null);
-      setSpectralReady(false);
-      setSpectralLoading(true);
-      setSpectrogramImage(null);
-      setSpectrogramGenerating(false);
-      setSpectrogramReady(false);
-      setIsLoadingAudio(false); // Waveform is ready, remove main loading overlay
-
-      // PHASE 2: Generate high-resolution spectrogram image (background)
-      // Use setTimeout to let UI update first
-      setTimeout(async () => {
-        try {
-          // Generate the pre-rendered spectrogram image using wavesurfer.js
-          await generateSpectrogram(filePath);
-
-          // Also generate legacy spectral data as fallback
-          const spectral = await generateSpectralInBackground(decodedBuffer);
-          setSpectralData(spectral);
-          setSpectralLoading(false);
-          setSpectralReady(true);
-
-          // Reset "ready" indicator after 5 seconds
-          setTimeout(() => setSpectralReady(false), 5000);
-        } catch (spectralError) {
-          console.error('Error generating spectral data:', spectralError);
-          setSpectralLoading(false);
-          setSpectrogramGenerating(false);
-        }
-      }, 100);
+      setIsLoadingAudio(false);
 
     } catch (error) {
       console.error('Error loading audio:', error);
@@ -1410,20 +1140,12 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       setLoadedAudio(fileItem);
       setSelectedEvidence(fileItem);
       setIsLoadingAudio(false);
-      setSpectralLoading(false);
-      setSpectrogramGenerating(false);
     }
-  }, [generateSpectralInBackground, generateSpectrogram]);
+  }, []);
 
   const handleDoubleClick = useCallback((item: typeof audioEvidence[0]) => {
-    // Clear previous real audio data and reset spectral/spectrogram state
+    // Clear previous real audio data
     setWaveformData(null);
-    setSpectralData(null);
-    setSpectralLoading(false);
-    setSpectralReady(false);
-    setSpectrogramImage(null);
-    setSpectrogramGenerating(false);
-    setSpectrogramReady(false);
 
     if (item.path) {
       // Load real audio file
@@ -1578,76 +1300,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     // Stop propagation to prevent parent handlers from triggering (e.g., fullscreen exit)
     e.stopPropagation();
   }, []);
-
-  // Render spectrogram placeholder (with drop zone when no file)
-  const renderSpectrogram = () => {
-    if (!loadedAudio) {
-      return (
-        <FileDropZone
-          isActive={isFileDragOver}
-          onDragEnter={handleFileDragEnter}
-          onDragLeave={handleFileDragLeave}
-          onDragOver={handleFileDragOver}
-          onDrop={handleFileDrop}
-          onClick={handleDropZoneClick}
-        >
-          <MicIcon sx={{ fontSize: 64, mb: 2, opacity: isFileDragOver ? 0.8 : 0.3 }} />
-          <Typography sx={{ fontSize: 14, color: isFileDragOver ? '#19abb5' : '#555' }}>
-            {isFileDragOver ? 'Drop audio file here' : 'No audio loaded'}
-          </Typography>
-          <Typography sx={{ fontSize: 12, color: '#444', mt: 0.5 }}>
-            {isFileDragOver ? 'Release to import' : 'Drag & drop or click to import audio files'}
-          </Typography>
-          <Typography sx={{ fontSize: 10, color: '#333', mt: 1 }}>
-            .mp3, .wav, .ogg, .m4a, .flac, .aac
-          </Typography>
-        </FileDropZone>
-      );
-    }
-
-    return (
-      <Box sx={{
-        width: '100%',
-        height: '100%',
-        background: 'linear-gradient(180deg, #0a0612 0%, #0d1a2e 30%, #1a2a1a 60%, #1a1a0a 100%)',
-        position: 'relative',
-      }}>
-        {/* Fake spectrogram visualization */}
-        {Array.from({ length: 60 }).map((_, i) => (
-          <Box
-            key={i}
-            sx={{
-              position: 'absolute',
-              left: `${(i / 60) * 100}%`,
-              top: 0,
-              bottom: 0,
-              width: '1.5%',
-              background: `linear-gradient(180deg,
-                rgba(255,100,0,${Math.random() * 0.4}) 0%,
-                rgba(255,150,0,${Math.random() * 0.6 + 0.2}) 30%,
-                rgba(200,200,0,${Math.random() * 0.5}) 50%,
-                rgba(0,150,100,${Math.random() * 0.4}) 70%,
-                rgba(0,50,100,${Math.random() * 0.2}) 100%
-              )`,
-              opacity: 0.6 + Math.random() * 0.4,
-            }}
-          />
-        ))}
-
-        {/* Playhead */}
-        <Box sx={{
-          position: 'absolute',
-          left: '35%',
-          top: 0,
-          bottom: 0,
-          width: 2,
-          backgroundColor: '#19abb5',
-          boxShadow: '0 0 8px rgba(25, 171, 181, 0.5)',
-          zIndex: 5,
-        }} />
-      </Box>
-    );
-  };
 
   // Waveform seek handler - converts seconds to milliseconds for playhead store
   const handleWaveformSeek = useCallback((timeInSeconds: number) => {
@@ -2046,12 +1698,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   // Main content
   const mainContent = (
     <MainContainer>
-      {/* Hidden container for wavesurfer spectrogram generation */}
-      <div
-        ref={hiddenContainerRef}
-        style={{ position: 'absolute', left: '-9999px', overflow: 'hidden' }}
-      />
-
       {/* Overview Bar - iZotope RX-style navigation */}
       <OverviewBar
         isLoaded={!!loadedAudio}
@@ -2074,29 +1720,16 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         position: 'relative',
       }}>
 
-        {/* Spectral Section - takes remaining space */}
+        {/* Audio Visualization Section - placeholder for spectrum analyzer, level meters, etc. */}
         <Box sx={{
           flex: 1,
           position: 'relative',
           minHeight: 150,
-          backgroundColor: '#0a0a0a',
+          backgroundColor: '#000004',
         }}>
-          <SpectralCanvas
-            isLoaded={!!loadedAudio}
-            duration={loadedAudio?.duration || 0}
-            zoom={overviewZoom}
-            scrollOffset={overviewScrollOffset}
-            spectralData={spectralData}
-            spectralLoading={spectralLoading}
-            spectralReady={spectralReady}
-            spectrogramImage={spectrogramImage}
-            spectrogramGenerating={spectrogramGenerating}
-            spectrogramReady={spectrogramReady}
-            onSeek={handleOverviewSeek}
-            onZoomChange={handleZoomChange}
-            onScrollChange={handleScrollChange}
-          />
-          {/* Zoom Controls - positioned left of Hz bar (44px + 12px spacing) */}
+          {/* TODO: Add spectrum analyzer, level meters, stereo field display */}
+
+          {/* Zoom Controls */}
           {loadedAudio && (
             <Box sx={{
               position: 'absolute',
