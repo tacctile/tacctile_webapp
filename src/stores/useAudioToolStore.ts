@@ -8,20 +8,18 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import type {
   AudioToolState,
-  SpectralSelection,
+  TimeSelection,
   LoopRegion,
   FilterSettings,
   FilterRecipe,
   AudioIteration,
   AudioFinding,
-  SpectrogramSettings,
   WaveformSettings,
   AudioViewMode,
   AudioAnalysisData,
 } from '../types/audio';
 import {
   DEFAULT_FILTER_SETTINGS,
-  DEFAULT_SPECTROGRAM_SETTINGS,
   DEFAULT_WAVEFORM_SETTINGS,
   DEFAULT_PLAYBACK_STATE,
   PRESET_RECIPES,
@@ -52,13 +50,13 @@ interface AudioToolActions {
   updatePlaybackTime: (time: number) => void;
   setDuration: (duration: number) => void;
 
-  // Spectral selections
-  startSelection: (x: number, y: number, startTime: number, lowFreq: number) => void;
-  updateSelection: (endTime: number, highFreq: number) => void;
+  // Time selections
+  startSelection: (startTime: number) => void;
+  updateSelection: (endTime: number) => void;
   finishSelection: () => void;
   cancelSelection: () => void;
-  setCurrentSelection: (selection: SpectralSelection | null) => void;
-  addSelection: (selection: SpectralSelection) => void;
+  setCurrentSelection: (selection: TimeSelection | null) => void;
+  addSelection: (selection: TimeSelection) => void;
   removeSelection: (id: string) => void;
   updateSelectionVisibility: (id: string, visible: boolean) => void;
   clearSelections: () => void;
@@ -98,7 +96,6 @@ interface AudioToolActions {
   setFindingVisibility: (id: string, visible: boolean) => void;
 
   // Settings
-  setSpectrogramSettings: (settings: Partial<SpectrogramSettings>) => void;
   setWaveformSettings: (settings: Partial<WaveformSettings>) => void;
 
   // Analysis
@@ -126,7 +123,7 @@ const initialState: AudioToolState = {
   investigationId: null,
   audioBuffer: null,
   audioUrl: null,
-  viewMode: 'spectrogram',
+  viewMode: 'waveform',
   playback: DEFAULT_PLAYBACK_STATE,
   currentSelection: null,
   selections: [],
@@ -142,7 +139,6 @@ const initialState: AudioToolState = {
   iterations: [],
   activeIterationId: null,
   findings: [],
-  spectrogramSettings: DEFAULT_SPECTROGRAM_SETTINGS,
   waveformSettings: DEFAULT_WAVEFORM_SETTINGS,
   analysisData: null,
   isLoading: false,
@@ -274,17 +270,14 @@ export const useAudioToolStore = create<AudioToolState & AudioToolActions>()(
         });
       },
 
-      // Spectral selections
-      startSelection: (_x, _y, startTime, lowFreq) => {
-        // _x, _y reserved for pixel position tracking
+      // Time selections
+      startSelection: (startTime) => {
         const userId = 'current-user'; // Will be replaced with actual user ID
         set((state) => {
           state.currentSelection = {
             id: generateId(),
             startTime,
             endTime: startTime,
-            lowFrequency: lowFreq,
-            highFrequency: lowFreq,
             color: '#19abb5',
             userId,
             visible: true,
@@ -293,11 +286,10 @@ export const useAudioToolStore = create<AudioToolState & AudioToolActions>()(
         });
       },
 
-      updateSelection: (endTime, highFreq) => {
+      updateSelection: (endTime) => {
         set((state) => {
           if (state.currentSelection) {
             state.currentSelection.endTime = endTime;
-            state.currentSelection.highFrequency = highFreq;
           }
         });
       },
@@ -306,12 +298,10 @@ export const useAudioToolStore = create<AudioToolState & AudioToolActions>()(
         const { currentSelection } = get();
         if (currentSelection) {
           // Normalize selection (ensure start < end)
-          const normalizedSelection: SpectralSelection = {
+          const normalizedSelection: TimeSelection = {
             ...currentSelection,
             startTime: Math.min(currentSelection.startTime, currentSelection.endTime),
             endTime: Math.max(currentSelection.startTime, currentSelection.endTime),
-            lowFrequency: Math.min(currentSelection.lowFrequency, currentSelection.highFrequency),
-            highFrequency: Math.max(currentSelection.lowFrequency, currentSelection.highFrequency),
           };
           set((state) => {
             state.selections.push(normalizedSelection);
@@ -635,12 +625,6 @@ export const useAudioToolStore = create<AudioToolState & AudioToolActions>()(
       },
 
       // Settings
-      setSpectrogramSettings: (settings) => {
-        set((state) => {
-          Object.assign(state.spectrogramSettings, settings);
-        });
-      },
-
       setWaveformSettings: (settings) => {
         set((state) => {
           Object.assign(state.waveformSettings, settings);
@@ -703,7 +687,6 @@ export const useAudioToolStore = create<AudioToolState & AudioToolActions>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         // Only persist settings, recipes, and preferences - never persist dynamic data
-        spectrogramSettings: state.spectrogramSettings,
         waveformSettings: state.waveformSettings,
         recipes: state.recipes.filter((r) => !r.isPreset), // Only user recipes
         viewMode: state.viewMode,
@@ -717,7 +700,6 @@ export const useAudioToolStore = create<AudioToolState & AudioToolActions>()(
         return {
           ...currentState,
           // Only restore preferences, not data
-          spectrogramSettings: persisted.spectrogramSettings ?? currentState.spectrogramSettings,
           waveformSettings: persisted.waveformSettings ?? currentState.waveformSettings,
           viewMode: persisted.viewMode ?? currentState.viewMode,
           zoom: persisted.zoom ?? currentState.zoom,
@@ -746,7 +728,6 @@ export const selectFilterSettings = (state: AudioToolState) => state.filterSetti
 export const selectRecipes = (state: AudioToolState) => state.recipes;
 export const selectIterations = (state: AudioToolState) => state.iterations;
 export const selectFindings = (state: AudioToolState) => state.findings;
-export const selectSpectrogramSettings = (state: AudioToolState) => state.spectrogramSettings;
 export const selectWaveformSettings = (state: AudioToolState) => state.waveformSettings;
 export const selectIsLoading = (state: AudioToolState) => state.isLoading;
 export const selectIsProcessing = (state: AudioToolState) => state.isProcessing;

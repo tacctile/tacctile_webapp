@@ -104,7 +104,7 @@ export function useAudioFindingsSync(evidenceId: string) {
           title: finding.title,
           description: buildFlagDescription(finding),
           confidence: finding.confidence,
-          tags: ['audio-tool', 'spectral-selection', ...finding.tags],
+          tags: ['audio-tool', 'time-selection', ...finding.tags],
           generateAISummary: true,
         });
 
@@ -158,7 +158,7 @@ export function useAudioFindingsSync(evidenceId: string) {
           title: finding.title,
           description: buildFlagDescription(finding),
           confidence: finding.confidence,
-          tags: ['audio-tool', 'spectral-selection', ...finding.tags],
+          tags: ['audio-tool', 'time-selection', ...finding.tags],
         });
 
         return { success: true, flagId: finding.flagId };
@@ -232,14 +232,10 @@ function buildFlagDescription(finding: AudioFinding): string {
     parts.push(finding.notes);
   }
 
-  // Add frequency range info
-  const lowFreq = finding.selection.lowFrequency;
-  const highFreq = finding.selection.highFrequency;
-  const freqRange =
-    lowFreq >= 1000
-      ? `${(lowFreq / 1000).toFixed(1)}kHz - ${(highFreq / 1000).toFixed(1)}kHz`
-      : `${Math.round(lowFreq)}Hz - ${Math.round(highFreq)}Hz`;
-  parts.push(`Frequency range: ${freqRange}`);
+  // Add time range info
+  const startTime = finding.selection.startTime.toFixed(2);
+  const endTime = finding.selection.endTime.toFixed(2);
+  parts.push(`Time range: ${startTime}s - ${endTime}s`);
 
   // Add iteration info if available
   if (finding.iterationId) {

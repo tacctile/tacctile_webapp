@@ -4,23 +4,19 @@
  */
 
 // ============================================================================
-// SPECTRAL SELECTION TYPES
+// TIME SELECTION TYPES
 // ============================================================================
 
 /**
- * Represents a rectangular selection on the spectrogram
- * Defines both time range (horizontal) and frequency range (vertical)
+ * Represents a time-based selection on the waveform
+ * Defines a time range for analysis
  */
-export interface SpectralSelection {
+export interface TimeSelection {
   id: string;
   /** Start time in seconds */
   startTime: number;
   /** End time in seconds */
   endTime: number;
-  /** Low frequency in Hz */
-  lowFrequency: number;
-  /** High frequency in Hz */
-  highFrequency: number;
   /** Selection color for visualization */
   color: string;
   /** User ID who created this selection */
@@ -180,7 +176,7 @@ export interface AudioIteration {
 // ============================================================================
 
 /**
- * An audio finding (spectral selection saved with notes)
+ * An audio finding (time selection saved with notes)
  * Links to the main EvidenceFlag system
  */
 export interface AudioFinding {
@@ -191,8 +187,8 @@ export interface AudioFinding {
   investigationId: string;
   /** Linked evidence flag ID */
   flagId?: string;
-  /** Spectral selection that defined this finding */
-  selection: SpectralSelection;
+  /** Time selection that defined this finding */
+  selection: TimeSelection;
   /** Iteration this finding was made in */
   iterationId?: string;
   /** Finding title */
@@ -218,36 +214,8 @@ export interface AudioFinding {
 }
 
 // ============================================================================
-// SPECTROGRAM TYPES
+// WAVEFORM TYPES
 // ============================================================================
-
-/**
- * Spectrogram display settings
- */
-export interface SpectrogramSettings {
-  /** FFT size (power of 2: 256, 512, 1024, 2048, 4096, 8192) */
-  fftSize: number;
-  /** Minimum frequency to display (Hz) */
-  minFrequency: number;
-  /** Maximum frequency to display (Hz) */
-  maxFrequency: number;
-  /** Frequency scale type */
-  frequencyScale: 'linear' | 'logarithmic' | 'mel';
-  /** Color map for intensity */
-  colorMap: 'grayscale' | 'viridis' | 'plasma' | 'inferno' | 'magma' | 'thermal' | 'rainbow';
-  /** Minimum dB level for color mapping */
-  minDecibels: number;
-  /** Maximum dB level for color mapping */
-  maxDecibels: number;
-  /** Window function for FFT */
-  windowFunction: 'hann' | 'hamming' | 'blackman' | 'bartlett' | 'rectangular';
-  /** Overlap between FFT windows (0-1) */
-  overlap: number;
-  /** Contrast adjustment (0-2) */
-  contrast: number;
-  /** Brightness adjustment (-1 to 1) */
-  brightness: number;
-}
 
 /**
  * Waveform display settings
@@ -278,7 +246,7 @@ export interface WaveformSettings {
 /**
  * View mode for the audio tool
  */
-export type AudioViewMode = 'waveform' | 'spectrogram' | 'split';
+export type AudioViewMode = 'waveform';
 
 /**
  * Playback state
@@ -334,10 +302,10 @@ export interface AudioToolState {
   viewMode: AudioViewMode;
   /** Playback state */
   playback: PlaybackState;
-  /** Current spectral selection */
-  currentSelection: SpectralSelection | null;
-  /** All spectral selections */
-  selections: SpectralSelection[];
+  /** Current time selection */
+  currentSelection: TimeSelection | null;
+  /** All time selections */
+  selections: TimeSelection[];
   /** Loop regions */
   loopRegions: LoopRegion[];
   /** Active loop region */
@@ -352,8 +320,6 @@ export interface AudioToolState {
   activeIterationId: string | null;
   /** Findings */
   findings: AudioFinding[];
-  /** Spectrogram settings */
-  spectrogramSettings: SpectrogramSettings;
   /** Waveform settings */
   waveformSettings: WaveformSettings;
   /** Current analysis data */
@@ -400,20 +366,6 @@ export const DEFAULT_FILTER_SETTINGS: FilterSettings = {
   lowPassCutoff: 12000,
   highPassEnabled: false,
   lowPassEnabled: false,
-};
-
-export const DEFAULT_SPECTROGRAM_SETTINGS: SpectrogramSettings = {
-  fftSize: 2048,
-  minFrequency: 0,
-  maxFrequency: 22050,
-  frequencyScale: 'logarithmic',
-  colorMap: 'viridis',
-  minDecibels: -100,
-  maxDecibels: -30,
-  windowFunction: 'hann',
-  overlap: 0.5,
-  contrast: 1,
-  brightness: 0,
 };
 
 export const DEFAULT_WAVEFORM_SETTINGS: WaveformSettings = {
@@ -536,17 +488,3 @@ export const PRESET_RECIPES: Omit<FilterRecipe, 'id' | 'createdAt' | 'updatedAt'
     isPreset: true,
   },
 ];
-
-// ============================================================================
-// COLOR MAPS FOR SPECTROGRAM
-// ============================================================================
-
-export const COLOR_MAPS: Record<SpectrogramSettings['colorMap'], string[]> = {
-  grayscale: ['#000000', '#404040', '#808080', '#c0c0c0', '#ffffff'],
-  viridis: ['#440154', '#414487', '#2a788e', '#22a884', '#7ad151', '#fde725'],
-  plasma: ['#0d0887', '#6a00a8', '#b12a90', '#e16462', '#fca636', '#f0f921'],
-  inferno: ['#000004', '#420a68', '#932667', '#dd513a', '#fca50a', '#fcffa4'],
-  magma: ['#000004', '#3b0f70', '#8c2981', '#de4968', '#fe9f6d', '#fcfdbf'],
-  thermal: ['#000000', '#0000ff', '#00ffff', '#00ff00', '#ffff00', '#ff0000', '#ffffff'],
-  rainbow: ['#ff0000', '#ff8000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff'],
-};

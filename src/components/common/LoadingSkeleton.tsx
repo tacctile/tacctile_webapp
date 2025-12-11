@@ -80,7 +80,7 @@ export const LoadingSkeleton: React.FC<LoadingSkeletonProps> = ({ variant = 'gen
           <SkeletonCenterArea>
             {/* Waveform area */}
             <AnimatedSkeleton variant="rectangular" height={120} sx={{ borderRadius: 1 }} />
-            {/* Spectrogram area */}
+            {/* EQ area */}
             <AnimatedSkeleton variant="rectangular" height="100%" sx={{ borderRadius: 1, flex: 1 }} />
           </SkeletonCenterArea>
           <SkeletonSidePanel>
