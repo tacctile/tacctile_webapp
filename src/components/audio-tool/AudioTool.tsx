@@ -211,14 +211,14 @@ const ImportButton = styled(Button)({
 // ============================================================================
 
 const EQ_BANDS = [
-  { freq: 60, label: '60' },
+  { freq: 31, label: '31' },
+  { freq: 62, label: '62' },
   { freq: 125, label: '125' },
   { freq: 250, label: '250' },
   { freq: 500, label: '500' },
   { freq: 1000, label: '1k' },
   { freq: 2000, label: '2k' },
   { freq: 4000, label: '4k' },
-  { freq: 6000, label: '6k' },
   { freq: 8000, label: '8k' },
   { freq: 16000, label: '16k' },
 ];
@@ -233,6 +233,17 @@ interface IntegratedEQProps {
 const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerData, disabled }) => {
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Convert frequency to X position (0-100) using logarithmic scale
+  // Human hearing is logarithmic: 20Hz-200Hz feels like same "distance" as 2kHz-20kHz
+  const freqToX = (freq: number): number => {
+    const minFreq = 20;
+    const maxFreq = 20000;
+    const logMin = Math.log10(minFreq);
+    const logMax = Math.log10(maxFreq);
+    const logFreq = Math.log10(freq);
+    return 5 + ((logFreq - logMin) / (logMax - logMin)) * 90;
+  };
 
   // Handle drag start
   const handleMouseDown = (index: number) => (e: React.MouseEvent) => {
@@ -273,9 +284,9 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
   const generateEQPath = () => {
     if (values.length === 0) return '';
 
-    const points = values.map((v, i) => ({
-      x: 5 + (i / (values.length - 1)) * 90, // 5% to 95% of width
-      y: dbToY(v),
+    const points = EQ_BANDS.map((band, i) => ({
+      x: freqToX(band.freq),
+      y: dbToY(values[i]),
     }));
 
     let path = `M ${points[0].x} ${points[0].y}`;
@@ -293,7 +304,7 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
     if (analyzerData.length === 0) return '';
 
     const points = analyzerData.map((level, i) => ({
-      x: 5 + (i / (analyzerData.length - 1)) * 90,
+      x: freqToX(EQ_BANDS[i]?.freq || 1000),
       y: 50 - (level / 100) * 40, // Convert 0-100 level to Y position
     }));
 
@@ -353,8 +364,8 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
           <line x1="5" y1="95" x2="95" y2="95" stroke="#1a1a1a" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
 
           {/* Vertical grid lines for each frequency */}
-          {EQ_BANDS.map((_, i) => {
-            const x = 5 + (i / (EQ_BANDS.length - 1)) * 90;
+          {EQ_BANDS.map((band, i) => {
+            const x = freqToX(band.freq);
             return (
               <line
                 key={i}
@@ -362,7 +373,7 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
                 y1="5"
                 x2={x}
                 y2="95"
-                stroke="#1a1a1a"
+                stroke="#2a2a2a"
                 strokeWidth="0.5"
                 vectorEffect="non-scaling-stroke"
               />
@@ -426,7 +437,7 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
 
         {/* Draggable nodes (EQ dots) */}
         {values.map((value, i) => {
-          const x = 5 + (i / (values.length - 1)) * 90;
+          const x = freqToX(EQ_BANDS[i].freq);
           const y = dbToY(value);
           return (
             <Box
@@ -474,15 +485,17 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
 
       {/* Frequency labels + reset buttons */}
       <Box sx={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        padding: '6px 5% 0',
-        alignItems: 'center',
+        position: 'relative',
+        height: 32,
+        marginTop: '6px',
       }}>
         {EQ_BANDS.map((band, i) => (
           <Box
             key={band.freq}
             sx={{
+              position: 'absolute',
+              left: `${freqToX(band.freq)}%`,
+              transform: 'translateX(-50%)',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
