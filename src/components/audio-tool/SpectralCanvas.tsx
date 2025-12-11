@@ -118,6 +118,85 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
     return { r, g, b, a };
   }, []);
 
+  // Draw Hz scale overlay on the right side (translucent, doesn't compress spectral area)
+  const drawHzScale = useCallback((ctx: CanvasRenderingContext2D, width: number, height: number) => {
+    const scaleWidth = 36;
+    const scaleX = width - scaleWidth;
+
+    // Translucent background
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillRect(scaleX, 0, scaleWidth, height);
+
+    // Frequency labels (logarithmic scale matching wavesurfer)
+    const frequencies = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+    const labels = ['20', '50', '100', '200', '500', '1k', '2k', '5k', '10k', '20k'];
+
+    ctx.fillStyle = '#888';
+    ctx.font = '9px Inter, system-ui, sans-serif';
+    ctx.textAlign = 'right';
+
+    const logMin = Math.log10(20);
+    const logMax = Math.log10(20000);
+
+    frequencies.forEach((freq, i) => {
+      const logFreq = Math.log10(freq);
+      const ratio = (logFreq - logMin) / (logMax - logMin);
+      const y = height - (ratio * height);
+
+      // Tick mark
+      ctx.strokeStyle = '#555';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(scaleX, y);
+      ctx.lineTo(scaleX + 5, y);
+      ctx.stroke();
+
+      // Label
+      ctx.fillText(labels[i], scaleX + scaleWidth - 4, y + 3);
+    });
+
+    // "Hz" label at top
+    ctx.fillStyle = '#666';
+    ctx.fillText('Hz', scaleX + scaleWidth - 4, 12);
+  }, []);
+
+  // Draw dB scale overlay on the left side (translucent, doesn't compress spectral area)
+  const drawDbScale = useCallback((ctx: CanvasRenderingContext2D, height: number) => {
+    const scaleWidth = 28;
+
+    // Translucent background
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillRect(0, 0, scaleWidth, height);
+
+    // dB levels (0dB at top, -60dB at bottom)
+    const dbLevels = [0, -12, -24, -36, -48, -60];
+
+    ctx.fillStyle = '#888';
+    ctx.font = '9px Inter, system-ui, sans-serif';
+    ctx.textAlign = 'left';
+
+    dbLevels.forEach(db => {
+      // Map dB to y position (0dB = top, -60dB = bottom)
+      const ratio = (db + 60) / 60;
+      const y = height - (ratio * height);
+
+      // Tick mark
+      ctx.strokeStyle = '#555';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(scaleWidth - 5, y);
+      ctx.lineTo(scaleWidth, y);
+      ctx.stroke();
+
+      // Label
+      ctx.fillText(`${db}`, 4, y + 3);
+    });
+
+    // "dB" label at top
+    ctx.fillStyle = '#666';
+    ctx.fillText('dB', 4, 12);
+  }, []);
+
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -237,6 +316,13 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
       }
     }
 
+    // Draw scale overlays (on top of spectrogram, below playhead)
+    // Only draw scales when there's actual spectrogram content
+    if (spectrogramImage || (spectralData && spectralData.length > 0) || isLoaded) {
+      drawHzScale(ctx, width, height);
+      drawDbScale(ctx, height);
+    }
+
     // Draw playhead
     if (duration > 0) {
       const playheadTime = timestamp / 1000;
@@ -265,7 +351,7 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
         ctx.fill();
       }
     }
-  }, [isLoaded, duration, zoom, scrollOffset, timestamp, spectralData, spectralLoading, spectrogramImage, spectrogramGenerating, getMagmaColor]);
+  }, [isLoaded, duration, zoom, scrollOffset, timestamp, spectralData, spectralLoading, spectrogramImage, spectrogramGenerating, getMagmaColor, drawHzScale, drawDbScale]);
 
   useEffect(() => {
     draw();
