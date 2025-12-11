@@ -1385,11 +1385,17 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     if (selectionDuration > 0.1) { // Minimum selection of 0.1 seconds
       // Calculate zoom level to fit selection
       const newZoom = Math.min(10, loadedAudio.duration / selectionDuration);
-      const newScrollOffset = startTime / loadedAudio.duration;
+
+      // Place playhead at CENTER of selection
+      const centerTime = (startTime + endTime) / 2;
+      setTimestamp(centerTime * 1000); // Convert to ms
+
+      // Center the scroll offset on the playhead (center of selection)
+      const playheadRatio = centerTime / loadedAudio.duration;
+      const newScrollOffset = Math.max(0, Math.min(1 - (1 / newZoom), playheadRatio - (0.5 / newZoom)));
 
       setOverviewZoom(newZoom);
       setOverviewScrollOffset(newScrollOffset);
-      setTimestamp(startTime * 1000); // Place playhead at start of selection (convert to ms)
     }
 
     setMarqueeStart(null);
