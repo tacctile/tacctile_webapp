@@ -994,8 +994,9 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const unifiedContainerRef = useRef<HTMLDivElement>(null);
   const [unifiedContainerWidth, setUnifiedContainerWidth] = useState(0);
 
-  // Hidden container for wavesurfer spectrogram generation
-  const hiddenContainerRef = useRef<HTMLDivElement>(null);
+  // Visible container for wavesurfer spectrogram generation (renders in front of user)
+  const spectrogramContainerRef = useRef<HTMLDivElement>(null);
+  const wavesurferRef = useRef<WaveSurfer | null>(null);
 
   // Toast notification state
   const [toast, setToast] = useState<{
@@ -1238,64 +1239,76 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     return colormap;
   }, []);
 
-  // Generate high-resolution spectrogram image using wavesurfer.js
+  // Generate spectrogram visibly using wavesurfer.js, then capture when complete
   const generateSpectrogram = useCallback(async (audioUrl: string) => {
-    if (!hiddenContainerRef.current) return;
+    if (!spectrogramContainerRef.current) return;
 
     setSpectrogramGenerating(true);
     setSpectrogramReady(false);
+    setSpectrogramImage(null);
 
-    // Create hidden containers with proper sizing for high-quality output
+    // Clear any previous content
+    spectrogramContainerRef.current.innerHTML = '';
+
+    // Create waveform container (hidden, just needed for wavesurfer to work)
     const waveContainer = document.createElement('div');
-    waveContainer.style.cssText = 'position:absolute;left:-9999px;width:4000px;height:50px;';
-    hiddenContainerRef.current.appendChild(waveContainer);
+    waveContainer.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;';
+    document.body.appendChild(waveContainer);
 
+    // Create spectrogram container that fills the visible area
     const spectroContainer = document.createElement('div');
-    spectroContainer.style.cssText = 'position:absolute;left:-9999px;width:4000px;height:512px;';
-    hiddenContainerRef.current.appendChild(spectroContainer);
+    spectroContainer.style.cssText = 'width:100%;height:100%;';
+    spectrogramContainerRef.current.appendChild(spectroContainer);
 
     try {
-      // Generate magma colormap first
+      // Generate magma colormap
       const colorMap = generateMagmaColormap();
 
-      // Initialize wavesurfer first
+      // Get container dimensions for proper sizing
+      const containerRect = spectrogramContainerRef.current.getBoundingClientRect();
+
+      // Initialize wavesurfer (waveform is hidden, only spectrogram visible)
       const wavesurfer = WaveSurfer.create({
         container: waveContainer,
-        height: 50,
+        height: 1,
         waveColor: 'transparent',
         progressColor: 'transparent',
         cursorColor: 'transparent',
         interact: false,
-        minPxPerSec: 50, // Higher resolution
+        minPxPerSec: 100, // Good resolution for capture
       });
 
-      // Register spectrogram plugin AFTER wavesurfer is created
+      // Store ref for cleanup
+      wavesurferRef.current = wavesurfer;
+
+      // Register spectrogram plugin - renders visibly in the spectral section
       wavesurfer.registerPlugin(
         Spectrogram.create({
           container: spectroContainer,
-          labels: false,
-          height: 512,
-          fftSamples: 1024,  // Higher = more frequency detail
+          labels: true,  // Show wavesurfer's native labels during generation
+          height: Math.max(256, containerRect.height),
+          fftSamples: 1024,
           frequencyMin: 20,
-          frequencyMax: 20000,  // Full audible range
+          frequencyMax: 20000,
           colorMap: colorMap,
         })
       );
 
-      // Wait for ready
+      // Wait for ready and spectrogram to render
       await new Promise<void>((resolve, reject) => {
         wavesurfer.on('ready', () => {
-          // Spectrogram renders after waveform, give it time
-          setTimeout(resolve, 1000);
+          // Give spectrogram time to fully render (it renders progressively)
+          setTimeout(resolve, 1500);
         });
         wavesurfer.on('error', reject);
         wavesurfer.load(audioUrl);
       });
 
-      // Find and capture the spectrogram canvas
+      // Capture the spectrogram canvas
       const spectroCanvas = spectroContainer.querySelector('canvas');
 
       if (spectroCanvas) {
+        // Create high-resolution capture for zoom/scroll
         const bitmap = await createImageBitmap(spectroCanvas);
         setSpectrogramImage(bitmap);
         setSpectrogramReady(true);
@@ -1304,15 +1317,28 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         setTimeout(() => setSpectrogramReady(false), 5000);
       }
 
-      // Cleanup
+      // Cleanup wavesurfer - it's no longer needed
       wavesurfer.destroy();
+      wavesurferRef.current = null;
+
+      // Remove the hidden waveform container
+      if (waveContainer.parentNode) {
+        waveContainer.parentNode.removeChild(waveContainer);
+      }
+
+      // Clear the visible spectrogram container (SpectralCanvas will take over)
+      if (spectrogramContainerRef.current) {
+        spectrogramContainerRef.current.innerHTML = '';
+      }
 
     } catch (error) {
       console.error('Error generating spectrogram:', error);
-    } finally {
-      if (hiddenContainerRef.current) {
-        hiddenContainerRef.current.innerHTML = '';
+      // Cleanup on error
+      if (wavesurferRef.current) {
+        wavesurferRef.current.destroy();
+        wavesurferRef.current = null;
       }
+    } finally {
       setSpectrogramGenerating(false);
     }
   }, [generateMagmaColormap]);
@@ -2046,12 +2072,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   // Main content
   const mainContent = (
     <MainContainer>
-      {/* Hidden container for wavesurfer spectrogram generation */}
-      <div
-        ref={hiddenContainerRef}
-        style={{ position: 'absolute', left: '-9999px', overflow: 'hidden' }}
-      />
-
       {/* Overview Bar - iZotope RX-style navigation */}
       <OverviewBar
         isLoaded={!!loadedAudio}
@@ -2079,8 +2099,27 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
           flex: 1,
           position: 'relative',
           minHeight: 150,
-          backgroundColor: '#0a0a0a',
+          backgroundColor: '#000004',
         }}>
+          {/* Wavesurfer spectrogram container - visible during generation */}
+          <Box
+            ref={spectrogramContainerRef}
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: spectrogramGenerating && !spectrogramImage ? 5 : -1,
+              opacity: spectrogramGenerating && !spectrogramImage ? 1 : 0,
+              pointerEvents: spectrogramGenerating && !spectrogramImage ? 'auto' : 'none',
+              '& canvas': {
+                width: '100% !important',
+                height: '100% !important',
+              },
+            }}
+          />
+          {/* SpectralCanvas - shows after spectrogram is captured */}
           <SpectralCanvas
             isLoaded={!!loadedAudio}
             duration={loadedAudio?.duration || 0}
