@@ -106,10 +106,18 @@ export const TimeScaleBar: React.FC<TimeScaleBarProps> = ({
     draw();
   }, [draw]);
 
+  // ResizeObserver for container size changes (column collapse/expand)
   useEffect(() => {
-    const handleResize = () => draw();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const container = containerRef.current;
+    if (!container) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      draw();
+    });
+
+    resizeObserver.observe(container);
+
+    return () => resizeObserver.disconnect();
   }, [draw]);
 
   return (
