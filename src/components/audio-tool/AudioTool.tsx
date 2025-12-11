@@ -441,13 +441,13 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
         </Box>
 
         {/* dB labels */}
-        <Box sx={{ position: 'absolute', left: 36, top: 2, fontSize: 10, color: '#888', fontFamily: '"JetBrains Mono", monospace' }}>
+        <Box sx={{ position: 'absolute', left: 36, top: 2, fontSize: 11, color: '#888', fontFamily: '"JetBrains Mono", monospace' }}>
           +12
         </Box>
-        <Box sx={{ position: 'absolute', left: 36, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: '#888', fontFamily: '"JetBrains Mono", monospace' }}>
+        <Box sx={{ position: 'absolute', left: 36, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: '#888', fontFamily: '"JetBrains Mono", monospace' }}>
           0dB
         </Box>
-        <Box sx={{ position: 'absolute', left: 36, bottom: 2, fontSize: 10, color: '#888', fontFamily: '"JetBrains Mono", monospace' }}>
+        <Box sx={{ position: 'absolute', left: 36, bottom: 2, fontSize: 11, color: '#888', fontFamily: '"JetBrains Mono", monospace' }}>
           -12
         </Box>
 
@@ -561,8 +561,8 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
               gap: 0.5,
             }}
           >
-            <Typography sx={{ fontSize: 10, color: '#888', fontFamily: '"JetBrains Mono", monospace' }}>
-              {band.label}{band.freq >= 1000 ? '' : 'Hz'}
+            <Typography sx={{ fontSize: 11, color: '#888', fontFamily: '"JetBrains Mono", monospace' }}>
+              {band.freq >= 1000 ? band.label : `${band.label}Hz`}
             </Typography>
             <Box
               onClick={() => handleResetBand(i)}
@@ -1811,13 +1811,13 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
               onClick={resetEQ}
               disabled={!loadedAudio}
               sx={{
-                fontSize: 9,
-                color: '#666',
+                fontSize: 10,
+                color: '#888',
                 backgroundColor: 'transparent',
                 border: '1px solid #333',
                 minWidth: 'auto',
-                py: 0.25,
-                px: 1,
+                py: 0.5,
+                px: 1.5,
                 borderRadius: 0.5,
                 textTransform: 'none',
                 '&:hover': {
@@ -1826,7 +1826,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
                   backgroundColor: 'rgba(25, 171, 181, 0.1)',
                 },
                 '&:disabled': {
-                  color: '#333',
+                  color: '#444',
                   borderColor: '#252525',
                 },
               }}
