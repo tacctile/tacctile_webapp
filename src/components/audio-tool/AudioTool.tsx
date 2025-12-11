@@ -605,6 +605,8 @@ interface OverviewBarProps {
   zoom: number;
   /** Scroll offset (0-1) */
   scrollOffset: number;
+  /** Real waveform data from decoded audio */
+  waveformData?: Float32Array | null;
   /** Callback when user clicks to seek */
   onSeek?: (timeInSeconds: number) => void;
   /** Callback when user drags viewport */
@@ -619,6 +621,7 @@ const OverviewBar: React.FC<OverviewBarProps> = ({
   currentTime,
   zoom,
   scrollOffset,
+  waveformData,
   onSeek,
   onViewportDrag,
   onScrub,
@@ -718,25 +721,45 @@ const OverviewBar: React.FC<OverviewBarProps> = ({
 
     if (!isLoaded) return;
 
-    // Draw mini waveform
-    const waveformData = generateMiniWaveformData(width);
-
+    // Draw waveform - use real data when available, fall back to mock
     ctx.fillStyle = COLORS.waveform;
     ctx.beginPath();
     ctx.moveTo(0, centerY);
 
-    // Draw top half
-    for (let i = 0; i < width; i++) {
-      const sample = Math.abs(waveformData[i]);
-      const y = centerY - sample * (centerY - 1);
-      ctx.lineTo(i, y);
-    }
+    if (waveformData && waveformData.length > 0) {
+      // Use real waveform data - sample from the data array
+      // Draw top half
+      for (let i = 0; i < width; i++) {
+        const dataIndex = Math.floor((i / width) * waveformData.length);
+        const sample = waveformData[dataIndex] || 0;
+        const y = centerY - sample * (centerY - 2);
+        ctx.lineTo(i, y);
+      }
 
-    // Draw bottom half (mirror)
-    for (let i = width - 1; i >= 0; i--) {
-      const sample = Math.abs(waveformData[i]);
-      const y = centerY + sample * (centerY - 1);
-      ctx.lineTo(i, y);
+      // Draw bottom half (mirror)
+      for (let i = width - 1; i >= 0; i--) {
+        const dataIndex = Math.floor((i / width) * waveformData.length);
+        const sample = waveformData[dataIndex] || 0;
+        const y = centerY + sample * (centerY - 2);
+        ctx.lineTo(i, y);
+      }
+    } else {
+      // Fall back to mock data when real data isn't available yet
+      const mockData = generateMiniWaveformData(width);
+
+      // Draw top half
+      for (let i = 0; i < width; i++) {
+        const sample = Math.abs(mockData[i]);
+        const y = centerY - sample * (centerY - 1);
+        ctx.lineTo(i, y);
+      }
+
+      // Draw bottom half (mirror)
+      for (let i = width - 1; i >= 0; i--) {
+        const sample = Math.abs(mockData[i]);
+        const y = centerY + sample * (centerY - 1);
+        ctx.lineTo(i, y);
+      }
     }
 
     ctx.closePath();
@@ -766,7 +789,7 @@ const OverviewBar: React.FC<OverviewBarProps> = ({
       ctx.lineTo(playheadX, height);
       ctx.stroke();
     }
-  }, [isLoaded, duration, currentTime, zoom, generateMiniWaveformData, getViewportBounds, COLORS]);
+  }, [isLoaded, duration, currentTime, zoom, waveformData, generateMiniWaveformData, getViewportBounds, COLORS]);
 
   // Animation and resize effects
   useEffect(() => {
@@ -1835,6 +1858,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         currentTime={timestamp / 1000} // Convert from ms to seconds
         zoom={overviewZoom}
         scrollOffset={overviewScrollOffset}
+        waveformData={waveformData}
         onSeek={handleOverviewSeek}
         onViewportDrag={handleOverviewViewportDrag}
         onScrub={handleOverviewScrub}
