@@ -223,6 +223,21 @@ const EQ_BANDS = [
   { freq: 16000, label: '16k' },
 ];
 
+// Convert frequency to X position using logarithmic scale (human hearing range: 20Hz - 20kHz)
+// Returns a value between 5 and 95 (percentage of container width)
+const freqToX = (freq: number): number => {
+  const minFreq = 20;
+  const maxFreq = 20000;
+  const minX = 5;
+  const maxX = 95;
+
+  const logMin = Math.log10(minFreq);
+  const logMax = Math.log10(maxFreq);
+  const logFreq = Math.log10(freq);
+
+  return minX + ((logFreq - logMin) / (logMax - logMin)) * (maxX - minX);
+};
+
 interface IntegratedEQProps {
   values: number[];
   onChange: (index: number, value: number) => void;
@@ -274,7 +289,7 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
     if (values.length === 0) return '';
 
     const points = values.map((v, i) => ({
-      x: 5 + (i / (values.length - 1)) * 90, // 5% to 95% of width
+      x: freqToX(EQ_BANDS[i].freq), // Logarithmic positioning based on frequency
       y: dbToY(v),
     }));
 
@@ -353,8 +368,8 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
           <line x1="5" y1="95" x2="95" y2="95" stroke="#1a1a1a" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
 
           {/* Vertical grid lines for each frequency */}
-          {EQ_BANDS.map((_, i) => {
-            const x = 5 + (i / (EQ_BANDS.length - 1)) * 90;
+          {EQ_BANDS.map((band, i) => {
+            const x = freqToX(band.freq);
             return (
               <line
                 key={i}
@@ -426,7 +441,7 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
 
         {/* Draggable nodes (EQ dots) */}
         {values.map((value, i) => {
-          const x = 5 + (i / (values.length - 1)) * 90;
+          const x = freqToX(EQ_BANDS[i].freq); // Logarithmic positioning based on frequency
           const y = dbToY(value);
           return (
             <Box
@@ -474,48 +489,53 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
 
       {/* Frequency labels + reset buttons */}
       <Box sx={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        padding: '6px 5% 0',
-        alignItems: 'center',
+        position: 'relative',
+        height: 36,
+        marginTop: '6px',
       }}>
-        {EQ_BANDS.map((band, i) => (
-          <Box
-            key={band.freq}
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 0.5,
-            }}
-          >
-            <Typography sx={{ fontSize: 8, color: '#555', fontFamily: '"JetBrains Mono", monospace' }}>
-              {band.label}
-            </Typography>
+        {EQ_BANDS.map((band, i) => {
+          const x = freqToX(band.freq); // Logarithmic positioning based on frequency
+          return (
             <Box
-              onClick={() => handleResetBand(i)}
+              key={band.freq}
               sx={{
-                width: 12,
-                height: 12,
-                borderRadius: '50%',
-                border: '1px solid #333',
-                backgroundColor: values[i] === 0 ? 'transparent' : '#252525',
-                cursor: disabled ? 'default' : 'pointer',
+                position: 'absolute',
+                left: `${x}%`,
+                transform: 'translateX(-50%)',
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
-                justifyContent: 'center',
-                '&:hover': {
-                  borderColor: disabled ? '#333' : '#19abb5',
-                  backgroundColor: disabled ? 'transparent' : 'rgba(25, 171, 181, 0.1)',
-                },
+                gap: 0.5,
               }}
             >
-              {values[i] !== 0 && (
-                <Box sx={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: '#19abb5' }} />
-              )}
+              <Typography sx={{ fontSize: 8, color: '#555', fontFamily: '"JetBrains Mono", monospace' }}>
+                {band.label}
+              </Typography>
+              <Box
+                onClick={() => handleResetBand(i)}
+                sx={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: '50%',
+                  border: '1px solid #333',
+                  backgroundColor: values[i] === 0 ? 'transparent' : '#252525',
+                  cursor: disabled ? 'default' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  '&:hover': {
+                    borderColor: disabled ? '#333' : '#19abb5',
+                    backgroundColor: disabled ? 'transparent' : 'rgba(25, 171, 181, 0.1)',
+                  },
+                }}
+              >
+                {values[i] !== 0 && (
+                  <Box sx={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: '#19abb5' }} />
+                )}
+              </Box>
             </Box>
-          </Box>
-        ))}
+          );
+        })}
       </Box>
     </Box>
   );
