@@ -32,7 +32,6 @@ import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
 import { MetadataPanel, FlagsPanel, TransportControls, type Flag } from '@/components/common';
 import { ExpandVideoModal } from './ExpandVideoModal';
 import UnifiedAudioCanvas from './UnifiedAudioCanvas';
-import { SpectralCanvas } from './SpectralCanvas';
 import { WaveformCanvas } from './WaveformCanvas';
 import { TimeScaleBar } from './TimeScaleBar';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
@@ -47,9 +46,6 @@ import {
   formatGPSCoordinates,
 } from '@/utils/testMetadataGenerator';
 
-// Wavesurfer.js for spectrogram generation (used as hidden generator)
-import WaveSurfer from 'wavesurfer.js';
-import Spectrogram from 'wavesurfer.js/dist/plugins/spectrogram.esm.js';
 
 // ============================================================================
 // STYLED COMPONENTS
@@ -980,18 +976,9 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [waveformData, setWaveformData] = useState<Float32Array | null>(null);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
 
-  // Spectrogram image state (pre-generated ImageBitmap from wavesurfer)
-  const [spectrogramImage, setSpectrogramImage] = useState<ImageBitmap | null>(null);
-  const [spectrogramGenerating, setSpectrogramGenerating] = useState(false);
-  const [spectrogramReady, setSpectrogramReady] = useState(false);
-
-  // Unified container ref and width for PlayheadLine (spans Spectral + TimeScale + Waveform)
+  // Unified container ref and width for PlayheadLine (spans TimeScale + Waveform)
   const unifiedContainerRef = useRef<HTMLDivElement>(null);
   const [unifiedContainerWidth, setUnifiedContainerWidth] = useState(0);
-
-  // Visible container for wavesurfer spectrogram generation (renders in front of user)
-  const spectrogramContainerRef = useRef<HTMLDivElement>(null);
-  const wavesurferRef = useRef<WaveSurfer | null>(null);
 
   // Toast notification state
   const [toast, setToast] = useState<{
@@ -1089,258 +1076,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     }
   }, []);
 
-  // Magma color function for spectrogram generation (black → purple → red → orange → yellow)
-  const getMagmaColor = useCallback((intensity: number): { r: number; g: number; b: number; a: number } => {
-    const i = Math.max(0, Math.min(1, intensity));
-
-    let r, g, b, a;
-
-    if (i < 0.1) {
-      const t = i / 0.1;
-      r = Math.floor(2 + t * 10);
-      g = Math.floor(2 + t * 3);
-      b = Math.floor(5 + t * 15);
-      a = 0.9 + t * 0.1;
-    } else if (i < 0.25) {
-      const t = (i - 0.1) / 0.15;
-      r = Math.floor(12 + t * 40);
-      g = Math.floor(5 + t * 10);
-      b = Math.floor(20 + t * 50);
-      a = 1;
-    } else if (i < 0.4) {
-      const t = (i - 0.25) / 0.15;
-      r = Math.floor(52 + t * 80);
-      g = Math.floor(15 + t * 20);
-      b = Math.floor(70 + t * 30);
-      a = 1;
-    } else if (i < 0.55) {
-      const t = (i - 0.4) / 0.15;
-      r = Math.floor(132 + t * 70);
-      g = Math.floor(35 + t * 40);
-      b = Math.floor(100 - t * 50);
-      a = 1;
-    } else if (i < 0.7) {
-      const t = (i - 0.55) / 0.15;
-      r = Math.floor(202 + t * 35);
-      g = Math.floor(75 + t * 60);
-      b = Math.floor(50 - t * 30);
-      a = 1;
-    } else if (i < 0.85) {
-      const t = (i - 0.7) / 0.15;
-      r = Math.floor(237 + t * 15);
-      g = Math.floor(135 + t * 70);
-      b = Math.floor(20 + t * 10);
-      a = 1;
-    } else {
-      const t = (i - 0.85) / 0.15;
-      r = Math.floor(252 + t * 3);
-      g = Math.floor(205 + t * 45);
-      b = Math.floor(30 + t * 100);
-      a = 1;
-    }
-
-    return { r, g, b, a };
-  }, []);
-
-  // Generate Magma colormap for wavesurfer (256 entries, float arrays 0-1)
-  const generateMagmaColormap = useCallback((): number[][] => {
-    const colormap: number[][] = [];
-
-    for (let i = 0; i < 256; i++) {
-      const t = i / 255;
-      let r, g, b;
-
-      if (t < 0.1) {
-        r = 0.01 + t * 0.4;
-        g = 0.01 + t * 0.1;
-        b = 0.02 + t * 0.6;
-      } else if (t < 0.25) {
-        const s = (t - 0.1) / 0.15;
-        r = 0.05 + s * 0.15;
-        g = 0.02 + s * 0.04;
-        b = 0.08 + s * 0.2;
-      } else if (t < 0.4) {
-        const s = (t - 0.25) / 0.15;
-        r = 0.2 + s * 0.3;
-        g = 0.06 + s * 0.08;
-        b = 0.28 + s * 0.12;
-      } else if (t < 0.55) {
-        const s = (t - 0.4) / 0.15;
-        r = 0.5 + s * 0.28;
-        g = 0.14 + s * 0.16;
-        b = 0.4 - s * 0.2;
-      } else if (t < 0.7) {
-        const s = (t - 0.55) / 0.15;
-        r = 0.78 + s * 0.14;
-        g = 0.3 + s * 0.24;
-        b = 0.2 - s * 0.12;
-      } else if (t < 0.85) {
-        const s = (t - 0.7) / 0.15;
-        r = 0.92 + s * 0.06;
-        g = 0.54 + s * 0.26;
-        b = 0.08 + s * 0.04;
-      } else {
-        const s = (t - 0.85) / 0.15;
-        r = 0.98 + s * 0.02;
-        g = 0.8 + s * 0.18;
-        b = 0.12 + s * 0.4;
-      }
-
-      // Wavesurfer expects [r, g, b, a] as floats 0-1
-      colormap.push([r, g, b, 1]);
-    }
-
-    return colormap;
-  }, []);
-
-  // Generate spectrogram visibly using wavesurfer.js, then capture when complete
-  const generateSpectrogram = useCallback(async (audioUrl: string) => {
-    if (!spectrogramContainerRef.current) return;
-
-    setSpectrogramGenerating(true);
-    setSpectrogramReady(false);
-    setSpectrogramImage(null);
-
-    // Clear any previous content
-    spectrogramContainerRef.current.innerHTML = '';
-
-    // Get container dimensions for proper sizing
-    const containerRect = spectrogramContainerRef.current.getBoundingClientRect();
-
-    // Create a container for wavesurfer (waveform + spectrogram)
-    const wsContainer = document.createElement('div');
-    wsContainer.style.cssText = `width:${containerRect.width}px;height:${containerRect.height}px;`;
-    spectrogramContainerRef.current.appendChild(wsContainer);
-
-    try {
-      // Generate magma colormap
-      const colorMap = generateMagmaColormap();
-
-      // Initialize wavesurfer - renders in the visible container
-      const wavesurfer = WaveSurfer.create({
-        container: wsContainer,
-        height: Math.max(256, containerRect.height),
-        waveColor: 'transparent',
-        progressColor: 'transparent',
-        cursorColor: 'transparent',
-        interact: false,
-        sampleRate: 44100,
-      });
-
-      // Store ref for cleanup
-      wavesurferRef.current = wavesurfer;
-
-      // Register spectrogram plugin - renders in the same container
-      wavesurfer.registerPlugin(
-        Spectrogram.create({
-          labels: false,  // We draw our own labels
-          height: Math.max(256, containerRect.height),
-          fftSamples: 1024,
-          frequencyMin: 20,
-          frequencyMax: 20000,
-          colorMap: colorMap,
-        })
-      );
-
-      // Wait for spectrogram-ready event (fires when spectrogram finishes rendering)
-      await new Promise<void>((resolve, reject) => {
-        let spectrogramReadyFired = false;
-
-        wavesurfer.on('spectrogram-ready', () => {
-          spectrogramReadyFired = true;
-          // Small delay to ensure canvas is fully painted
-          setTimeout(resolve, 100);
-        });
-
-        wavesurfer.on('ready', () => {
-          // Fallback: if spectrogram-ready doesn't fire within 3 seconds of ready
-          setTimeout(() => {
-            if (!spectrogramReadyFired) {
-              console.log('Spectrogram ready event did not fire, using fallback');
-              resolve();
-            }
-          }, 3000);
-        });
-
-        wavesurfer.on('error', reject);
-        wavesurfer.load(audioUrl);
-      });
-
-      // Find and capture the spectrogram canvas
-      // Wavesurfer v7 renders into Shadow DOM, so we need to search there
-      let spectroCanvas: HTMLCanvasElement | null = null;
-
-      // First try regular DOM
-      const regularCanvases = wsContainer.querySelectorAll('canvas');
-
-      // Then search shadow roots
-      const allCanvases: HTMLCanvasElement[] = [...regularCanvases] as HTMLCanvasElement[];
-
-      // Search for shadow roots and their canvases
-      const searchShadowRoots = (element: Element) => {
-        if (element.shadowRoot) {
-          const shadowCanvases = element.shadowRoot.querySelectorAll('canvas');
-          allCanvases.push(...(Array.from(shadowCanvases) as HTMLCanvasElement[]));
-          element.shadowRoot.querySelectorAll('*').forEach(searchShadowRoots);
-        }
-        element.querySelectorAll('*').forEach(child => {
-          if (child.shadowRoot) {
-            const shadowCanvases = child.shadowRoot.querySelectorAll('canvas');
-            allCanvases.push(...(Array.from(shadowCanvases) as HTMLCanvasElement[]));
-          }
-        });
-      };
-      searchShadowRoots(wsContainer);
-
-      console.log(`Found ${allCanvases.length} canvases total`);
-
-      // Find the largest canvas (likely the spectrogram)
-      // The spectrogram canvas should be the one with the most pixels
-      let maxPixels = 0;
-      for (const canvas of allCanvases) {
-        const pixels = canvas.width * canvas.height;
-        console.log(`Canvas: ${canvas.width}x${canvas.height} = ${pixels} pixels`);
-        if (pixels > maxPixels) {
-          maxPixels = pixels;
-          spectroCanvas = canvas;
-        }
-      }
-
-      if (spectroCanvas && spectroCanvas.width > 0 && spectroCanvas.height > 0) {
-        console.log(`Capturing spectrogram canvas: ${spectroCanvas.width}x${spectroCanvas.height}`);
-        // Create high-resolution capture for zoom/scroll
-        const bitmap = await createImageBitmap(spectroCanvas);
-        setSpectrogramImage(bitmap);
-        setSpectrogramReady(true);
-
-        // Reset ready indicator after 5 seconds
-        setTimeout(() => setSpectrogramReady(false), 5000);
-      } else {
-        console.warn('Spectrogram canvas not found or has zero dimensions');
-      }
-
-      // Cleanup wavesurfer - it's no longer needed
-      wavesurfer.destroy();
-      wavesurferRef.current = null;
-
-      // Clear the visible container (SpectralCanvas will take over)
-      if (spectrogramContainerRef.current) {
-        spectrogramContainerRef.current.innerHTML = '';
-      }
-
-    } catch (error) {
-      console.error('Error generating spectrogram:', error);
-      // Cleanup on error
-      if (wavesurferRef.current) {
-        wavesurferRef.current.destroy();
-        wavesurferRef.current = null;
-      }
-    } finally {
-      setSpectrogramGenerating(false);
-    }
-  }, [generateMagmaColormap]);
-
-  // Load and decode real audio file - Progressive loading (waveform first, spectral in background)
+  // Load and decode real audio file
   const loadAudioFile = useCallback(async (filePath: string, fileItem: typeof audioEvidence[0]) => {
     try {
       setIsLoadingAudio(true);
@@ -1396,22 +1132,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         duration: decodedBuffer.duration,
       });
 
-      // Reset spectrogram state
-      setSpectrogramImage(null);
-      setSpectrogramGenerating(false);
-      setSpectrogramReady(false);
-      setIsLoadingAudio(false); // Waveform is ready, remove main loading overlay
-
-      // Generate spectrogram using wavesurfer (renders visibly, then captures)
-      // Use setTimeout to let UI update first
-      setTimeout(async () => {
-        try {
-          await generateSpectrogram(filePath);
-        } catch (error) {
-          console.error('Error generating spectrogram:', error);
-          setSpectrogramGenerating(false);
-        }
-      }, 100);
+      setIsLoadingAudio(false);
 
     } catch (error) {
       console.error('Error loading audio:', error);
@@ -1419,16 +1140,12 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       setLoadedAudio(fileItem);
       setSelectedEvidence(fileItem);
       setIsLoadingAudio(false);
-      setSpectrogramGenerating(false);
     }
-  }, [generateSpectrogram]);
+  }, []);
 
   const handleDoubleClick = useCallback((item: typeof audioEvidence[0]) => {
-    // Clear previous real audio data and reset spectrogram state
+    // Clear previous real audio data
     setWaveformData(null);
-    setSpectrogramImage(null);
-    setSpectrogramGenerating(false);
-    setSpectrogramReady(false);
 
     if (item.path) {
       // Load real audio file
@@ -1583,76 +1300,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     // Stop propagation to prevent parent handlers from triggering (e.g., fullscreen exit)
     e.stopPropagation();
   }, []);
-
-  // Render spectrogram placeholder (with drop zone when no file)
-  const renderSpectrogram = () => {
-    if (!loadedAudio) {
-      return (
-        <FileDropZone
-          isActive={isFileDragOver}
-          onDragEnter={handleFileDragEnter}
-          onDragLeave={handleFileDragLeave}
-          onDragOver={handleFileDragOver}
-          onDrop={handleFileDrop}
-          onClick={handleDropZoneClick}
-        >
-          <MicIcon sx={{ fontSize: 64, mb: 2, opacity: isFileDragOver ? 0.8 : 0.3 }} />
-          <Typography sx={{ fontSize: 14, color: isFileDragOver ? '#19abb5' : '#555' }}>
-            {isFileDragOver ? 'Drop audio file here' : 'No audio loaded'}
-          </Typography>
-          <Typography sx={{ fontSize: 12, color: '#444', mt: 0.5 }}>
-            {isFileDragOver ? 'Release to import' : 'Drag & drop or click to import audio files'}
-          </Typography>
-          <Typography sx={{ fontSize: 10, color: '#333', mt: 1 }}>
-            .mp3, .wav, .ogg, .m4a, .flac, .aac
-          </Typography>
-        </FileDropZone>
-      );
-    }
-
-    return (
-      <Box sx={{
-        width: '100%',
-        height: '100%',
-        background: 'linear-gradient(180deg, #0a0612 0%, #0d1a2e 30%, #1a2a1a 60%, #1a1a0a 100%)',
-        position: 'relative',
-      }}>
-        {/* Fake spectrogram visualization */}
-        {Array.from({ length: 60 }).map((_, i) => (
-          <Box
-            key={i}
-            sx={{
-              position: 'absolute',
-              left: `${(i / 60) * 100}%`,
-              top: 0,
-              bottom: 0,
-              width: '1.5%',
-              background: `linear-gradient(180deg,
-                rgba(255,100,0,${Math.random() * 0.4}) 0%,
-                rgba(255,150,0,${Math.random() * 0.6 + 0.2}) 30%,
-                rgba(200,200,0,${Math.random() * 0.5}) 50%,
-                rgba(0,150,100,${Math.random() * 0.4}) 70%,
-                rgba(0,50,100,${Math.random() * 0.2}) 100%
-              )`,
-              opacity: 0.6 + Math.random() * 0.4,
-            }}
-          />
-        ))}
-
-        {/* Playhead */}
-        <Box sx={{
-          position: 'absolute',
-          left: '35%',
-          top: 0,
-          bottom: 0,
-          width: 2,
-          backgroundColor: '#19abb5',
-          boxShadow: '0 0 8px rgba(25, 171, 181, 0.5)',
-          zIndex: 5,
-        }} />
-      </Box>
-    );
-  };
 
   // Waveform seek handler - converts seconds to milliseconds for playhead store
   const handleWaveformSeek = useCallback((timeInSeconds: number) => {
@@ -2073,44 +1720,16 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         position: 'relative',
       }}>
 
-        {/* Spectral Section - takes remaining space */}
+        {/* Audio Visualization Section - placeholder for spectrum analyzer, level meters, etc. */}
         <Box sx={{
           flex: 1,
           position: 'relative',
           minHeight: 150,
           backgroundColor: '#000004',
         }}>
-          {/* Wavesurfer spectrogram container - visible during generation */}
-          <Box
-            ref={spectrogramContainerRef}
-            sx={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              zIndex: spectrogramGenerating && !spectrogramImage ? 5 : -1,
-              opacity: spectrogramGenerating && !spectrogramImage ? 1 : 0,
-              pointerEvents: spectrogramGenerating && !spectrogramImage ? 'auto' : 'none',
-              '& canvas': {
-                width: '100% !important',
-                height: '100% !important',
-              },
-            }}
-          />
-          {/* SpectralCanvas - shows after spectrogram is captured */}
-          <SpectralCanvas
-            isLoaded={!!loadedAudio}
-            duration={loadedAudio?.duration || 0}
-            zoom={overviewZoom}
-            scrollOffset={overviewScrollOffset}
-            spectrogramImage={spectrogramImage}
-            spectrogramGenerating={spectrogramGenerating}
-            onSeek={handleOverviewSeek}
-            onZoomChange={handleZoomChange}
-            onScrollChange={handleScrollChange}
-          />
-          {/* Zoom Controls - positioned left of Hz bar (44px + 12px spacing) */}
+          {/* TODO: Add spectrum analyzer, level meters, stereo field display */}
+
+          {/* Zoom Controls */}
           {loadedAudio && (
             <Box sx={{
               position: 'absolute',
