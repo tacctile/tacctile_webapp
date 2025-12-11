@@ -336,6 +336,10 @@ export interface AudioToolState {
   zoom: number;
   /** Scroll position (seconds) */
   scrollPosition: number;
+  /** Waveform selection start time (seconds) */
+  waveformSelectionStart: number | null;
+  /** Waveform selection end time (seconds) */
+  waveformSelectionEnd: number | null;
 }
 
 // ============================================================================

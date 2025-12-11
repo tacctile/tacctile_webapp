@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { Box, Tooltip } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
@@ -187,16 +187,36 @@ export const TransportControls: React.FC<TransportControlsProps> = () => {
   const isPlaying = usePlayheadStore((state) => state.isPlaying);
   const isReversePlaying = usePlayheadStore((state) => state.isReversePlaying);
   const playbackSpeed = usePlayheadStore((state) => state.playbackSpeed);
+  const timestamp = usePlayheadStore((state) => state.timestamp);
   const togglePlayback = usePlayheadStore((state) => state.togglePlayback);
+  const setTimestamp = usePlayheadStore((state) => state.setTimestamp);
   const toggleReversePlayback = usePlayheadStore((state) => state.toggleReversePlayback);
   const setPlaybackSpeed = usePlayheadStore((state) => state.setPlaybackSpeed);
   const stepForward = usePlayheadStore((state) => state.stepForward);
   const stepBackward = usePlayheadStore((state) => state.stepBackward);
   const jumpToStart = usePlayheadStore((state) => state.jumpToStart);
 
-  // Audio tool store for loop toggle
+  // Audio tool store for loop toggle and selection
   const looping = useAudioToolStore((state) => state.playback.looping);
   const toggleLooping = useAudioToolStore((state) => state.toggleLooping);
+  const selectionStart = useAudioToolStore((state) => state.waveformSelectionStart);
+  const selectionEnd = useAudioToolStore((state) => state.waveformSelectionEnd);
+
+  // Handle play/pause with selection awareness
+  const handlePlayPause = useCallback(() => {
+    // If starting playback and selection exists
+    if (!isPlaying && selectionStart !== null && selectionEnd !== null) {
+      const currentTimeSec = timestamp / 1000;
+      const selStart = Math.min(selectionStart, selectionEnd);
+      const selEnd = Math.max(selectionStart, selectionEnd);
+
+      // If playhead is outside selection, jump to selection start
+      if (currentTimeSec < selStart || currentTimeSec > selEnd) {
+        setTimestamp(selStart * 1000);
+      }
+    }
+    togglePlayback();
+  }, [isPlaying, selectionStart, selectionEnd, timestamp, setTimestamp, togglePlayback]);
 
   // Cycle through playback speeds: 0.5x, 1x, 1.5x, 2x
   const handleSpeedCycle = () => {
@@ -214,7 +234,7 @@ export const TransportControls: React.FC<TransportControlsProps> = () => {
       switch (e.code) {
         case 'Space':
           e.preventDefault();
-          togglePlayback();
+          handlePlayPause();
           break;
         case 'ArrowLeft':
           e.preventDefault();
@@ -243,7 +263,7 @@ export const TransportControls: React.FC<TransportControlsProps> = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [togglePlayback, stepForward, stepBackward, jumpToStart, toggleLooping, toggleReversePlayback]);
+  }, [handlePlayPause, stepForward, stepBackward, jumpToStart, toggleLooping, toggleReversePlayback]);
 
   return (
     <TransportContainer>
@@ -275,7 +295,7 @@ export const TransportControls: React.FC<TransportControlsProps> = () => {
       {/* Play/Pause - Main button, larger */}
       <Tooltip title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}>
         <PlayButton
-          onClick={togglePlayback}
+          onClick={handlePlayPause}
           $isPlaying={isPlaying}
           aria-label={isPlaying ? 'Pause' : 'Play'}
         >
