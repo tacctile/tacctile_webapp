@@ -1,6 +1,6 @@
 /**
  * TimeScaleBar Component
- * Shared time scale bar between spectral and waveform sections
+ * Time scale bar for waveform visualization
  */
 
 import React, { useRef, useEffect, useCallback } from 'react';
