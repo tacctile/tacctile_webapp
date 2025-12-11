@@ -1,6 +1,6 @@
 /**
  * SpectralCanvas Component
- * Renders spectral visualization (aurora borealis style)
+ * Renders spectral visualization (magma/inferno style)
  */
 
 import React, { useRef, useEffect, useCallback, useState } from 'react';
@@ -49,53 +49,60 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
   const [panStartX, setPanStartX] = useState(0);
   const [panStartOffset, setPanStartOffset] = useState(0);
 
-  // Aurora borealis color function
-  const getAuroraColor = useCallback((intensity: number): { r: number; g: number; b: number; a: number } => {
+  // Magma/Inferno color function (black → purple → red → orange → yellow)
+  const getMagmaColor = useCallback((intensity: number): { r: number; g: number; b: number; a: number } => {
     const i = Math.max(0, Math.min(1, intensity));
 
     let r, g, b, a;
 
-    if (i < 0.15) {
-      const t = i / 0.15;
-      r = Math.floor(15 + t * 30);
-      g = Math.floor(8 + t * 19);
-      b = Math.floor(35 + t * 43);
+    if (i < 0.1) {
+      // Near silence: black/very dark purple
+      const t = i / 0.1;
+      r = Math.floor(2 + t * 10);
+      g = Math.floor(2 + t * 3);
+      b = Math.floor(5 + t * 15);
       a = 0.4 + t * 0.3;
-    } else if (i < 0.3) {
-      const t = (i - 0.15) / 0.15;
-      r = Math.floor(45 + t * 25);
-      g = Math.floor(27 + t * 40);
-      b = Math.floor(78 + t * 30);
+    } else if (i < 0.25) {
+      // Low: dark purple
+      const t = (i - 0.1) / 0.15;
+      r = Math.floor(12 + t * 40);
+      g = Math.floor(5 + t * 10);
+      b = Math.floor(20 + t * 50);
       a = 0.7 + t * 0.1;
-    } else if (i < 0.45) {
-      const t = (i - 0.3) / 0.15;
-      r = Math.floor(70 - t * 45);
-      g = Math.floor(67 + t * 71);
-      b = Math.floor(108 + t * 46);
+    } else if (i < 0.4) {
+      // Low-mid: purple to magenta
+      const t = (i - 0.25) / 0.15;
+      r = Math.floor(52 + t * 80);
+      g = Math.floor(15 + t * 20);
+      b = Math.floor(70 + t * 30);
       a = 0.8 + t * 0.1;
-    } else if (i < 0.6) {
-      const t = (i - 0.45) / 0.15;
-      r = Math.floor(25 + t * 10);
-      g = Math.floor(138 + t * 30);
-      b = Math.floor(154 - t * 10);
+    } else if (i < 0.55) {
+      // Mid: magenta to red-orange
+      const t = (i - 0.4) / 0.15;
+      r = Math.floor(132 + t * 70);
+      g = Math.floor(35 + t * 40);
+      b = Math.floor(100 - t * 50);
       a = 0.9;
-    } else if (i < 0.75) {
-      const t = (i - 0.6) / 0.15;
-      r = Math.floor(35 + t * 11);
-      g = Math.floor(168 + t * 36);
-      b = Math.floor(144 - t * 72);
+    } else if (i < 0.7) {
+      // Mid-high: red-orange
+      const t = (i - 0.55) / 0.15;
+      r = Math.floor(202 + t * 35);
+      g = Math.floor(75 + t * 60);
+      b = Math.floor(50 - t * 30);
       a = 0.92;
-    } else if (i < 0.9) {
-      const t = (i - 0.75) / 0.15;
-      r = Math.floor(46 + t * 30);
-      g = Math.floor(204 + t * 18);
-      b = Math.floor(72 + t * 30);
+    } else if (i < 0.85) {
+      // High: orange
+      const t = (i - 0.7) / 0.15;
+      r = Math.floor(237 + t * 15);
+      g = Math.floor(135 + t * 70);
+      b = Math.floor(20 + t * 10);
       a = 0.95;
     } else {
-      const t = (i - 0.9) / 0.1;
-      r = Math.floor(76 + t * 160);
-      g = Math.floor(222 - t * 80);
-      b = Math.floor(102 + t * 80);
+      // Peak: yellow/white hot
+      const t = (i - 0.85) / 0.15;
+      r = Math.floor(252 + t * 3);
+      g = Math.floor(205 + t * 45);
+      b = Math.floor(30 + t * 100);
       a = 1.0;
     }
 
@@ -157,7 +164,7 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
             const binIndex = Math.floor(stop * (numBins - 1));
             const magnitude = frame[binIndex];
             const intensity = Math.min(1, Math.log10(1 + magnitude * 50) / 2);
-            const color = getAuroraColor(intensity);
+            const color = getMagmaColor(intensity);
             gradient.addColorStop(stop, `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a})`);
           });
 
@@ -195,7 +202,7 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
           let intensity = (0.3 + timeVariation + freqPattern) * freqFalloff;
           intensity = Math.max(0, Math.min(1, intensity));
 
-          const color = getAuroraColor(intensity);
+          const color = getMagmaColor(intensity);
           gradient.addColorStop(stop, `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a})`);
         });
 
@@ -232,7 +239,7 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
         ctx.fill();
       }
     }
-  }, [isLoaded, duration, zoom, scrollOffset, timestamp, spectralData, spectralLoading, getAuroraColor]);
+  }, [isLoaded, duration, zoom, scrollOffset, timestamp, spectralData, spectralLoading, getMagmaColor]);
 
   useEffect(() => {
     draw();
