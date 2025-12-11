@@ -139,9 +139,16 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
 
       for (let x = 0; x < width; x += columnWidth) {
         const time = startTime + (x / width) * visibleDuration;
-        const frameIndex = Math.floor((time / duration) * spectralData.length);
 
-        if (frameIndex >= 0 && frameIndex < spectralData.length) {
+        // Don't draw beyond actual duration
+        if (time > duration) break;
+
+        const frameIndex = Math.min(
+          spectralData.length - 1,
+          Math.floor((time / duration) * spectralData.length)
+        );
+
+        if (frameIndex >= 0) {
           const frame = spectralData[frameIndex];
           const gradient = ctx.createLinearGradient(x, height, x, 0);
           const gradientStops = [0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1.0];
@@ -164,6 +171,10 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
 
       for (let x = 0; x < width; x += mockColumnWidth) {
         const colTime = startTime + (x / width) * visibleDuration;
+
+        // Don't draw beyond actual duration
+        if (colTime > duration) break;
+
         const timeRatio = colTime / duration;
 
         const gradient = ctx.createLinearGradient(x, height, x, 0);
