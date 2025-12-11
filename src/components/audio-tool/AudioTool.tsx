@@ -1136,18 +1136,22 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       // PHASE 1: Waveform (instant)
       const channelData = decodedBuffer.getChannelData(0); // Mono or left channel
       const samples = channelData.length;
-      const targetPoints = 2000; // Number of points for waveform display
+      const audioDuration = decodedBuffer.duration;
+
+      // Calculate points based on actual duration (40 points per second for good resolution)
+      // This ensures waveform data length is proportional to duration
+      const targetPoints = Math.min(4000, Math.ceil(audioDuration * 40));
       const blockSize = Math.floor(samples / targetPoints);
       const waveform = new Float32Array(targetPoints);
 
       for (let i = 0; i < targetPoints; i++) {
         let max = 0;
-        for (let j = 0; j < blockSize; j++) {
-          const idx = i * blockSize + j;
-          if (idx < samples) {
-            const val = Math.abs(channelData[idx]);
-            if (val > max) max = val;
-          }
+        const startSample = i * blockSize;
+        const endSample = Math.min(startSample + blockSize, samples); // Don't exceed actual samples
+
+        for (let j = startSample; j < endSample; j++) {
+          const val = Math.abs(channelData[j]);
+          if (val > max) max = val;
         }
         waveform[i] = max; // Use peak value for each block
       }

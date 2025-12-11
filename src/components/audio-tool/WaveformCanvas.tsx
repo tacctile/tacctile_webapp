@@ -89,8 +89,18 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
       // Top half
       for (let x = 0; x < width; x++) {
         const time = startTime + (x / width) * visibleDuration;
-        const dataIndex = Math.floor((time / duration) * waveformData.length);
-        const amplitude = dataIndex >= 0 && dataIndex < waveformData.length ? waveformData[dataIndex] : 0;
+
+        // Don't draw beyond actual duration
+        if (time > duration) {
+          ctx.lineTo(x, centerY);
+          continue;
+        }
+
+        const dataIndex = Math.min(
+          waveformData.length - 1,
+          Math.floor((time / duration) * waveformData.length)
+        );
+        const amplitude = dataIndex >= 0 ? waveformData[dataIndex] : 0;
         const y = centerY - amplitude * (height * 0.4);
         ctx.lineTo(x, y);
       }
@@ -98,8 +108,18 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
       // Bottom half (mirror)
       for (let x = width - 1; x >= 0; x--) {
         const time = startTime + (x / width) * visibleDuration;
-        const dataIndex = Math.floor((time / duration) * waveformData.length);
-        const amplitude = dataIndex >= 0 && dataIndex < waveformData.length ? waveformData[dataIndex] : 0;
+
+        // Don't draw beyond actual duration
+        if (time > duration) {
+          ctx.lineTo(x, centerY);
+          continue;
+        }
+
+        const dataIndex = Math.min(
+          waveformData.length - 1,
+          Math.floor((time / duration) * waveformData.length)
+        );
+        const amplitude = dataIndex >= 0 ? waveformData[dataIndex] : 0;
         const y = centerY + amplitude * (height * 0.4);
         ctx.lineTo(x, y);
       }
