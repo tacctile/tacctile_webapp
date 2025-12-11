@@ -29,6 +29,9 @@ import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
 import { MetadataPanel, FlagsPanel, TransportControls, type Flag } from '@/components/common';
 import { ExpandVideoModal } from './ExpandVideoModal';
 import UnifiedAudioCanvas from './UnifiedAudioCanvas';
+import { SpectralCanvas } from './SpectralCanvas';
+import { WaveformCanvas } from './WaveformCanvas';
+import { TimeScaleBar } from './TimeScaleBar';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
 import { useNavigationStore } from '@/stores/useNavigationStore';
 import {
@@ -1804,22 +1807,66 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         onScrub={handleOverviewScrub}
       />
 
-      {/* Unified Audio Canvas */}
-      <Box sx={{ flex: 1, minHeight: 300, position: 'relative' }}>
-        <UnifiedAudioCanvas
-          isLoaded={!!loadedAudio}
-          duration={loadedAudio?.duration || 0}
-          currentTime={timestamp / 1000}
-          zoom={overviewZoom}
-          scrollOffset={overviewScrollOffset}
-          onZoomChange={setOverviewZoom}
-          onScrollOffsetChange={setOverviewScrollOffset}
-          onSeek={handleOverviewSeek}
-          waveformData={waveformData}
-          spectralData={spectralData}
-          spectralLoading={spectralLoading}
-          spectralReady={spectralReady}
-        />
+      {/* Center content area - Spectral, TimeScale, Waveform */}
+      <Box sx={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        position: 'relative',
+      }}>
+
+        {/* Spectral Section - takes remaining space */}
+        <Box sx={{
+          flex: 1,
+          position: 'relative',
+          minHeight: 150,
+          backgroundColor: '#0a0a0a',
+        }}>
+          <SpectralCanvas
+            isLoaded={!!loadedAudio}
+            duration={loadedAudio?.duration || 0}
+            zoom={overviewZoom}
+            scrollOffset={overviewScrollOffset}
+            spectralData={spectralData}
+            spectralLoading={spectralLoading}
+            spectralReady={spectralReady}
+            onSeek={handleOverviewSeek}
+          />
+        </Box>
+
+        {/* Time Scale Bar - shared between sections */}
+        <Box sx={{
+          height: 24,
+          backgroundColor: '#111',
+          borderTop: '1px solid #252525',
+          borderBottom: '1px solid #252525',
+          position: 'relative',
+        }}>
+          <TimeScaleBar
+            duration={loadedAudio?.duration || 0}
+            zoom={overviewZoom}
+            scrollOffset={overviewScrollOffset}
+          />
+        </Box>
+
+        {/* Waveform Section - same height as EQ (140px) */}
+        <Box sx={{
+          height: 140,
+          position: 'relative',
+          backgroundColor: '#0a0a0a',
+          borderBottom: '1px solid #252525',
+        }}>
+          <WaveformCanvas
+            isLoaded={!!loadedAudio}
+            duration={loadedAudio?.duration || 0}
+            zoom={overviewZoom}
+            scrollOffset={overviewScrollOffset}
+            waveformData={waveformData}
+            onSeek={handleOverviewSeek}
+          />
+        </Box>
+
         {/* Loading indicator overlay */}
         {isLoadingAudio && (
           <Box sx={{
