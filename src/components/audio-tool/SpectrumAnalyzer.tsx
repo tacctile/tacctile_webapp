@@ -1,7 +1,7 @@
 /**
  * SpectrumAnalyzer Component
- * Real-time frequency spectrum visualization using Web Audio API
- * Displays animated frequency bars with peak indicators
+ * Real-time frequency spectrum visualization with integrated level meters
+ * Designed to align with EQ section below
  */
 
 import React, { useRef, useEffect, useCallback, useState } from 'react';
@@ -9,127 +9,78 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 
 interface SpectrumAnalyzerProps {
-  /** Whether audio is loaded and ready */
   isLoaded: boolean;
-  /** Audio context for Web Audio API (optional - will use simulated data if not provided) */
   audioContext?: AudioContext | null;
-  /** Audio source node to analyze (optional) */
   sourceNode?: AudioNode | null;
-  /** Number of frequency bars to display */
-  barCount?: number;
-  /** Whether to show frequency labels */
-  showLabels?: boolean;
-  /** Whether to show peak indicators */
-  showPeaks?: boolean;
-  /** Accent color for bars */
   accentColor?: string;
 }
 
-// Frequency labels for display (logarithmic distribution)
-const FREQUENCY_LABELS = ['32', '64', '125', '250', '500', '1k', '2k', '4k', '8k', '16k'];
+// EQ frequency bands to match (same as EQ component)
+const EQ_FREQUENCIES = [60, 125, 250, 500, 1000, 2000, 4000, 6000, 8000, 16000];
 
 export const SpectrumAnalyzer: React.FC<SpectrumAnalyzerProps> = ({
   isLoaded,
   audioContext,
   sourceNode,
-  barCount = 64,
-  showLabels = true,
-  showPeaks = true,
   accentColor = '#19abb5',
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
   const animationRef = useRef<number>(0);
-  const dataArrayRef = useRef<Uint8Array | null>(null);
-  const peakLevelsRef = useRef<number[]>([]);
-  const peakDecayRef = useRef<number[]>([]);
 
-  // Simulated frequency data for when no real audio is connected
-  const [simulatedData, setSimulatedData] = useState<number[]>([]);
-  const simulationPhaseRef = useRef(0);
+  // Smoothed values for interpolation
+  const smoothedLevelsRef = useRef<number[]>(new Array(10).fill(0));
+  const smoothedStereoRef = useRef<{ left: number; right: number }>({ left: 0, right: 0 });
+  const peakLevelsRef = useRef<number[]>(new Array(10).fill(0));
+  const peakDecayRef = useRef<number[]>(new Array(10).fill(0));
+  const peakHoldRef = useRef<number[]>(new Array(10).fill(0));
 
-  // Initialize analyzer when audio context and source are available
-  useEffect(() => {
-    if (audioContext && sourceNode) {
-      const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 256; // Gives us 128 frequency bins
-      analyser.smoothingTimeConstant = 0.8;
-      analyser.minDecibels = -90;
-      analyser.maxDecibels = -10;
+  // Simulated data phase
+  const phaseRef = useRef(0);
 
-      sourceNode.connect(analyser);
-      analyserRef.current = analyser;
-      dataArrayRef.current = new Uint8Array(analyser.frequencyBinCount);
+  // Generate smooth simulated frequency data
+  const generateSimulatedData = useCallback((): number[] => {
+    if (!isLoaded) return new Array(10).fill(0);
 
-      return () => {
-        analyser.disconnect();
-      };
-    }
-  }, [audioContext, sourceNode]);
+    phaseRef.current += 0.03; // Slower phase for smoother animation
+    const phase = phaseRef.current;
 
-  // Initialize peak arrays
-  useEffect(() => {
-    peakLevelsRef.current = new Array(barCount).fill(0);
-    peakDecayRef.current = new Array(barCount).fill(0);
-  }, [barCount]);
+    return EQ_FREQUENCIES.map((freq, i) => {
+      // Natural frequency distribution curve
+      const normalizedFreq = Math.log10(freq) / Math.log10(20000);
+      const baseCurve = Math.exp(-normalizedFreq * 1.5) * 0.6 + 0.15;
 
-  // Generate simulated frequency data for demo/preview
-  const generateSimulatedData = useCallback(() => {
-    if (!isLoaded) return [];
+      // Smooth sine waves for movement
+      const wave1 = Math.sin(phase * 0.8 + i * 0.4) * 0.12;
+      const wave2 = Math.sin(phase * 1.3 + i * 0.7) * 0.08;
+      const wave3 = Math.sin(phase * 0.4 + i * 0.2) * 0.15;
 
-    const data: number[] = [];
-    simulationPhaseRef.current += 0.05;
-    const phase = simulationPhaseRef.current;
+      // Subtle variation
+      const variation = Math.sin(phase * 2 + i) * 0.05;
 
-    for (let i = 0; i < barCount; i++) {
-      // Create a natural-looking frequency distribution
-      // More energy in low-mids, less in highs
-      const freqPosition = i / barCount;
-      const baseCurve = Math.exp(-freqPosition * 2) * 0.7 + 0.1;
+      let level = baseCurve + wave1 + wave2 + wave3 + variation;
 
-      // Add some movement/variation
-      const wave1 = Math.sin(phase + i * 0.3) * 0.15;
-      const wave2 = Math.sin(phase * 1.7 + i * 0.5) * 0.1;
-      const wave3 = Math.sin(phase * 0.5 + i * 0.1) * 0.2;
-
-      // Random variation for organic feel
-      const noise = (Math.random() - 0.5) * 0.1;
-
-      // Combine all factors
-      let level = baseCurve + wave1 + wave2 + wave3 + noise;
-
-      // Add occasional "beats" in low frequencies
-      if (i < barCount * 0.3 && Math.sin(phase * 2) > 0.7) {
-        level += 0.2;
+      // Occasional gentle pulses in bass
+      if (i < 3 && Math.sin(phase * 1.5) > 0.6) {
+        level += 0.15 * (1 - i / 3);
       }
 
-      // Clamp to 0-1
-      level = Math.max(0, Math.min(1, level));
+      return Math.max(0.02, Math.min(0.95, level));
+    });
+  }, [isLoaded]);
 
-      data.push(level);
-    }
+  // Generate simulated stereo levels
+  const generateStereoLevels = useCallback((): { left: number; right: number } => {
+    if (!isLoaded) return { left: 0, right: 0 };
 
-    return data;
-  }, [isLoaded, barCount]);
+    const phase = phaseRef.current;
+    const baseLevel = 0.5 + Math.sin(phase * 0.7) * 0.2;
 
-  // Animation loop for simulated data
-  useEffect(() => {
-    if (!isLoaded || (audioContext && sourceNode)) return;
-
-    const animate = () => {
-      setSimulatedData(generateSimulatedData());
-      animationRef.current = requestAnimationFrame(animate);
+    return {
+      left: Math.max(0.1, Math.min(0.9, baseLevel + Math.sin(phase * 1.1) * 0.15)),
+      right: Math.max(0.1, Math.min(0.9, baseLevel + Math.sin(phase * 1.3 + 0.5) * 0.15)),
     };
-
-    animationRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, [isLoaded, audioContext, sourceNode, generateSimulatedData]);
+  }, [isLoaded]);
 
   // Main drawing function
   const draw = useCallback(() => {
@@ -140,7 +91,6 @@ export const SpectrumAnalyzer: React.FC<SpectrumAnalyzerProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Handle DPI scaling
     const dpr = window.devicePixelRatio || 1;
     const rect = container.getBoundingClientRect();
     canvas.width = rect.width * dpr;
@@ -151,123 +101,179 @@ export const SpectrumAnalyzer: React.FC<SpectrumAnalyzerProps> = ({
 
     const width = rect.width;
     const height = rect.height;
-    const labelHeight = showLabels ? 20 : 0;
-    const graphHeight = height - labelHeight;
+
+    // Layout constants (matching EQ section - uses 5% to 95% positioning)
+    // The EQ uses percentage-based positioning with bars at 5% to 95%
+    const graphStartX = width * 0.05;  // 5% from left
+    const graphEndX = width * 0.95;    // 95% from left
+    const graphWidth = graphEndX - graphStartX; // 90% of width
+    const graphHeight = height - 8; // Small top/bottom padding
 
     // Clear canvas
-    ctx.fillStyle = '#000004';
+    ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, width, height);
 
     if (!isLoaded) {
-      // Draw placeholder state
-      ctx.fillStyle = '#1a1a1a';
-      ctx.font = '11px Inter, system-ui, sans-serif';
+      ctx.fillStyle = '#333';
+      ctx.font = '10px Inter, system-ui, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('No audio loaded', width / 2, height / 2);
       return;
     }
 
-    // Get frequency data
-    let frequencyData: number[];
+    // Get frequency data (simulated for now)
+    const rawLevels = generateSimulatedData();
+    const stereoLevels = generateStereoLevels();
 
-    if (analyserRef.current && dataArrayRef.current) {
-      // Real audio data
-      analyserRef.current.getByteFrequencyData(dataArrayRef.current);
-      frequencyData = Array.from(dataArrayRef.current).map(v => v / 255);
-    } else {
-      // Simulated data
-      frequencyData = simulatedData;
-    }
+    // Smooth interpolation for levels (reduces jumpiness)
+    const smoothingFactor = 0.15;
+    rawLevels.forEach((level, i) => {
+      smoothedLevelsRef.current[i] += (level - smoothedLevelsRef.current[i]) * smoothingFactor;
+    });
 
-    if (frequencyData.length === 0) return;
+    // Smooth stereo levels
+    smoothedStereoRef.current.left += (stereoLevels.left - smoothedStereoRef.current.left) * smoothingFactor;
+    smoothedStereoRef.current.right += (stereoLevels.right - smoothedStereoRef.current.right) * smoothingFactor;
 
-    // Calculate bar dimensions
-    const barWidth = (width - 40) / barCount; // 20px padding on each side
-    const barGap = Math.max(1, barWidth * 0.15);
-    const actualBarWidth = barWidth - barGap;
-    const startX = 20;
+    const levels = smoothedLevelsRef.current;
 
-    // Draw bars
+    // ========== DRAW LEVEL METERS (LEFT SIDE - in 0-5% area) ==========
+    const meterAreaWidth = graphStartX - 4; // Available space in left margin
+    const meterWidth = Math.max(4, Math.min(6, meterAreaWidth / 3));
+    const meterGap = Math.max(2, meterWidth / 2);
+    const meterHeight = graphHeight - 10;
+    const meterY = 5;
+
+    // Left channel meter - positioned in left margin
+    const leftMeterX = (graphStartX - (meterWidth * 2 + meterGap)) / 2;
+    const leftLevel = smoothedStereoRef.current.left;
+
+    // Meter background
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(leftMeterX, meterY, meterWidth, meterHeight);
+
+    // Meter fill with gradient
+    const leftFillHeight = leftLevel * meterHeight;
+    const leftGradient = ctx.createLinearGradient(0, meterY + meterHeight, 0, meterY + meterHeight - leftFillHeight);
+    leftGradient.addColorStop(0, 'rgba(25, 171, 181, 0.4)');
+    leftGradient.addColorStop(0.7, 'rgba(25, 171, 181, 0.7)');
+    leftGradient.addColorStop(1, leftLevel > 0.85 ? '#ff6b6b' : accentColor);
+    ctx.fillStyle = leftGradient;
+    ctx.fillRect(leftMeterX, meterY + meterHeight - leftFillHeight, meterWidth, leftFillHeight);
+
+    // Right channel meter
+    const rightMeterX = leftMeterX + meterWidth + meterGap;
+    const rightLevel = smoothedStereoRef.current.right;
+
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(rightMeterX, meterY, meterWidth, meterHeight);
+
+    const rightFillHeight = rightLevel * meterHeight;
+    const rightGradient = ctx.createLinearGradient(0, meterY + meterHeight, 0, meterY + meterHeight - rightFillHeight);
+    rightGradient.addColorStop(0, 'rgba(25, 171, 181, 0.4)');
+    rightGradient.addColorStop(0.7, 'rgba(25, 171, 181, 0.7)');
+    rightGradient.addColorStop(1, rightLevel > 0.85 ? '#ff6b6b' : accentColor);
+    ctx.fillStyle = rightGradient;
+    ctx.fillRect(rightMeterX, meterY + meterHeight - rightFillHeight, meterWidth, rightFillHeight);
+
+    // L/R labels
+    ctx.fillStyle = '#444';
+    ctx.font = '7px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('L', leftMeterX + meterWidth / 2, height - 1);
+    ctx.fillText('R', rightMeterX + meterWidth / 2, height - 1);
+
+    // ========== DRAW SPECTRUM BARS ==========
+    // Position bars to align with EQ nodes: bars centered at same X positions as EQ dots
+    // EQ dots are at: 5 + (i / 9) * 90 percent for i = 0 to 9
+    const barCount = levels.length;
+    const maxBarWidth = graphWidth / barCount * 0.85; // Max width with some gap
+    const actualBarWidth = Math.min(maxBarWidth, 24); // Cap at 24px for larger screens
+
     for (let i = 0; i < barCount; i++) {
-      // Map frequency data to bar (logarithmic mapping for better visualization)
-      const dataIndex = Math.floor(Math.pow(i / barCount, 1.5) * frequencyData.length);
-      const level = frequencyData[Math.min(dataIndex, frequencyData.length - 1)] || 0;
-
-      const barHeight = level * (graphHeight - 10);
-      const x = startX + i * barWidth;
-      const y = graphHeight - barHeight;
+      const level = levels[i];
+      const barHeight = Math.max(2, level * (graphHeight - 4));
+      // Center each bar at the same X position as the EQ dot
+      const centerX = graphStartX + (i / (barCount - 1)) * graphWidth;
+      const x = centerX - actualBarWidth / 2;
+      const y = graphHeight - barHeight + 2;
 
       // Create gradient for bar
       const gradient = ctx.createLinearGradient(0, graphHeight, 0, y);
+      const intensity = Math.min(1, level * 1.3);
+      gradient.addColorStop(0, `rgba(25, 171, 181, ${0.2 * intensity})`);
+      gradient.addColorStop(0.5, `rgba(25, 171, 181, ${0.5 * intensity})`);
+      gradient.addColorStop(1, `rgba(25, 171, 181, ${0.85 * intensity})`);
 
-      // Color gradient: dark at bottom, accent color at top, with intensity based on level
-      const intensity = Math.min(1, level * 1.2);
-      gradient.addColorStop(0, `rgba(25, 171, 181, ${0.3 * intensity})`);
-      gradient.addColorStop(0.5, `rgba(25, 171, 181, ${0.6 * intensity})`);
-      gradient.addColorStop(1, `rgba(25, 171, 181, ${0.9 * intensity})`);
-
-      // Draw bar with rounded top
       ctx.fillStyle = gradient;
+
+      // Draw bar with subtle rounded corners
+      const radius = Math.min(actualBarWidth / 2, 2);
       ctx.beginPath();
-      const radius = Math.min(actualBarWidth / 2, 3);
-      ctx.moveTo(x, graphHeight);
+      ctx.moveTo(x, graphHeight + 2);
       ctx.lineTo(x, y + radius);
       ctx.quadraticCurveTo(x, y, x + radius, y);
       ctx.lineTo(x + actualBarWidth - radius, y);
       ctx.quadraticCurveTo(x + actualBarWidth, y, x + actualBarWidth, y + radius);
-      ctx.lineTo(x + actualBarWidth, graphHeight);
+      ctx.lineTo(x + actualBarWidth, graphHeight + 2);
       ctx.closePath();
       ctx.fill();
 
-      // Add glow effect for high levels
-      if (level > 0.6) {
-        ctx.shadowColor = accentColor;
-        ctx.shadowBlur = 8 * (level - 0.6) / 0.4;
-        ctx.fill();
-        ctx.shadowBlur = 0;
+      // Update peak levels with hold
+      if (level > peakLevelsRef.current[i]) {
+        peakLevelsRef.current[i] = level;
+        peakHoldRef.current[i] = 30; // Hold for 30 frames
+        peakDecayRef.current[i] = 0;
+      } else if (peakHoldRef.current[i] > 0) {
+        peakHoldRef.current[i]--;
+      } else {
+        peakDecayRef.current[i] += 0.003;
+        peakLevelsRef.current[i] = Math.max(0, peakLevelsRef.current[i] - peakDecayRef.current[i]);
       }
 
-      // Update and draw peak indicators
-      if (showPeaks) {
-        // Update peak level
-        if (level > peakLevelsRef.current[i]) {
-          peakLevelsRef.current[i] = level;
-          peakDecayRef.current[i] = 0;
-        } else {
-          peakDecayRef.current[i] += 0.02;
-          peakLevelsRef.current[i] = Math.max(0, peakLevelsRef.current[i] - peakDecayRef.current[i] * 0.05);
-        }
-
-        const peakY = graphHeight - peakLevelsRef.current[i] * (graphHeight - 10);
-
-        // Draw peak indicator
-        ctx.fillStyle = peakLevelsRef.current[i] > 0.85 ? '#ff6b6b' : '#ffffff';
-        ctx.fillRect(x, peakY - 2, actualBarWidth, 2);
-      }
+      // Draw peak indicator line (slightly wider than bar for visibility)
+      const peakY = graphHeight - peakLevelsRef.current[i] * (graphHeight - 4) + 2;
+      const peakLineWidth = actualBarWidth + 4;
+      ctx.fillStyle = peakLevelsRef.current[i] > 0.85 ? 'rgba(255, 107, 107, 0.9)' : 'rgba(255, 255, 255, 0.7)';
+      ctx.fillRect(centerX - peakLineWidth / 2, peakY - 1, peakLineWidth, 2);
     }
 
-    // Draw frequency labels
-    if (showLabels) {
-      ctx.fillStyle = '#555';
-      ctx.font = '9px "JetBrains Mono", monospace';
-      ctx.textAlign = 'center';
+    // ========== DRAW PEAK INDICATOR (RIGHT SIDE - in 95-100% area) ==========
+    // Calculate overall peak
+    const overallPeak = Math.max(...levels);
+    const peakDb = overallPeak > 0 ? Math.round(20 * Math.log10(overallPeak)) : -60;
 
-      const labelPositions = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.95];
-      labelPositions.forEach((pos, i) => {
-        if (FREQUENCY_LABELS[i]) {
-          const x = startX + pos * (width - 40);
-          ctx.fillText(FREQUENCY_LABELS[i], x, height - 4);
-        }
-      });
-    }
+    // Right margin area
+    const rightMarginStart = graphEndX + 4;
+    const rightMarginWidth = width - rightMarginStart - 4;
 
-    // Draw dB scale on left
-    ctx.fillStyle = '#333';
-    ctx.font = '8px "JetBrains Mono", monospace';
-    ctx.textAlign = 'right';
-    ctx.fillText('0dB', 16, 12);
-    ctx.fillText('-∞', 16, graphHeight - 2);
-  }, [isLoaded, simulatedData, barCount, showLabels, showPeaks, accentColor]);
+    // Peak value display
+    ctx.fillStyle = overallPeak > 0.85 ? '#ff6b6b' : '#666';
+    ctx.font = '9px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${peakDb > -60 ? peakDb : '-∞'}`, rightMarginStart + rightMarginWidth / 2, 12);
+    ctx.fillStyle = '#444';
+    ctx.font = '7px "JetBrains Mono", monospace';
+    ctx.fillText('dB', rightMarginStart + rightMarginWidth / 2, 20);
+
+    // Small peak meter
+    const peakMeterWidth = Math.max(4, Math.min(6, rightMarginWidth / 2));
+    const peakMeterX = rightMarginStart + (rightMarginWidth - peakMeterWidth) / 2;
+    const peakMeterHeight = graphHeight - 34;
+    const peakMeterY = 26;
+
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(peakMeterX, peakMeterY, peakMeterWidth, peakMeterHeight);
+
+    const peakFillHeight = overallPeak * peakMeterHeight;
+    const peakGradient = ctx.createLinearGradient(0, peakMeterY + peakMeterHeight, 0, peakMeterY);
+    peakGradient.addColorStop(0, 'rgba(25, 171, 181, 0.3)');
+    peakGradient.addColorStop(0.8, accentColor);
+    peakGradient.addColorStop(1, '#ff6b6b');
+    ctx.fillStyle = peakGradient;
+    ctx.fillRect(peakMeterX, peakMeterY + peakMeterHeight - peakFillHeight, peakMeterWidth, peakFillHeight);
+
+  }, [isLoaded, generateSimulatedData, generateStereoLevels, accentColor]);
 
   // Animation loop
   useEffect(() => {
@@ -309,7 +315,7 @@ export const SpectrumAnalyzer: React.FC<SpectrumAnalyzerProps> = ({
         width: '100%',
         height: '100%',
         position: 'relative',
-        backgroundColor: '#000004',
+        backgroundColor: '#0a0a0a',
       }}
     >
       <canvas
@@ -322,22 +328,6 @@ export const SpectrumAnalyzer: React.FC<SpectrumAnalyzerProps> = ({
           height: '100%',
         }}
       />
-
-      {/* Corner label */}
-      <Typography
-        sx={{
-          position: 'absolute',
-          top: 8,
-          left: 12,
-          fontSize: 9,
-          color: '#444',
-          fontFamily: '"JetBrains Mono", monospace',
-          textTransform: 'uppercase',
-          letterSpacing: 1,
-        }}
-      >
-        Spectrum
-      </Typography>
     </Box>
   );
 };

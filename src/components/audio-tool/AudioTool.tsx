@@ -1721,28 +1721,46 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         position: 'relative',
       }}>
 
-        {/* Audio Visualization Section - Spectrum Analyzer (compact) */}
+        {/* Time Scale Bar - shared between sections */}
         <Box sx={{
-          height: 120,
+          height: 24,
+          backgroundColor: '#111',
+          borderTop: '1px solid #252525',
+          borderBottom: '1px solid #252525',
           position: 'relative',
-          backgroundColor: '#000004',
+        }}>
+          <TimeScaleBar
+            duration={loadedAudio?.duration || 0}
+            zoom={overviewZoom}
+            scrollOffset={overviewScrollOffset}
+          />
+        </Box>
+
+        {/* Waveform Section - primary display, takes remaining space */}
+        <Box sx={{
+          flex: 1,
+          minHeight: 150,
+          position: 'relative',
+          backgroundColor: '#0a0a0a',
           borderBottom: '1px solid #252525',
         }}>
-          {/* Spectrum Analyzer */}
-          <SpectrumAnalyzer
+          <WaveformCanvas
             isLoaded={!!loadedAudio}
-            audioContext={audioContextRef.current}
-            barCount={64}
-            showLabels={true}
-            showPeaks={true}
+            duration={loadedAudio?.duration || 0}
+            zoom={overviewZoom}
+            scrollOffset={overviewScrollOffset}
+            waveformData={waveformData}
+            onSeek={handleOverviewSeek}
+            onZoomChange={handleZoomChange}
+            onScrollChange={handleScrollChange}
           />
 
-          {/* Zoom Controls */}
+          {/* Zoom Controls - positioned in waveform area */}
           {loadedAudio && (
             <Box sx={{
               position: 'absolute',
               top: 8,
-              right: 56,
+              right: 8,
               display: 'flex',
               alignItems: 'center',
               gap: 0.5,
@@ -1808,41 +1826,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
           )}
         </Box>
 
-        {/* Time Scale Bar - shared between sections */}
-        <Box sx={{
-          height: 24,
-          backgroundColor: '#111',
-          borderTop: '1px solid #252525',
-          borderBottom: '1px solid #252525',
-          position: 'relative',
-        }}>
-          <TimeScaleBar
-            duration={loadedAudio?.duration || 0}
-            zoom={overviewZoom}
-            scrollOffset={overviewScrollOffset}
-          />
-        </Box>
-
-        {/* Waveform Section - primary display, takes remaining space */}
-        <Box sx={{
-          flex: 1,
-          minHeight: 150,
-          position: 'relative',
-          backgroundColor: '#0a0a0a',
-          borderBottom: '1px solid #252525',
-        }}>
-          <WaveformCanvas
-            isLoaded={!!loadedAudio}
-            duration={loadedAudio?.duration || 0}
-            zoom={overviewZoom}
-            scrollOffset={overviewScrollOffset}
-            waveformData={waveformData}
-            onSeek={handleOverviewSeek}
-            onZoomChange={handleZoomChange}
-            onScrollChange={handleScrollChange}
-          />
-        </Box>
-
         {/* Loading indicator overlay */}
         {isLoadingAudio && (
           <Box sx={{
@@ -1862,6 +1845,18 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             <Typography sx={{ color: '#888', mt: 1, fontSize: 12 }}>Loading audio...</Typography>
           </Box>
         )}
+      </Box>
+
+      {/* Spectrum Analyzer - positioned directly above EQ, frequencies aligned */}
+      <Box sx={{
+        height: 80,
+        backgroundColor: '#0a0a0a',
+        borderBottom: '1px solid #252525',
+      }}>
+        <SpectrumAnalyzer
+          isLoaded={!!loadedAudio}
+          audioContext={audioContextRef.current}
+        />
       </Box>
 
       {/* EQ Section - no header row, Reset button positioned on right near 0dB */}
