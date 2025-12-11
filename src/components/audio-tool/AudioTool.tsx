@@ -1267,11 +1267,47 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       });
 
       // Find and capture the spectrogram canvas
-      const canvases = wsContainer.querySelectorAll('canvas');
-      // The spectrogram canvas is typically the second one (first is waveform)
-      const spectroCanvas = canvases.length > 1 ? canvases[1] : canvases[0];
+      // Wavesurfer v7 renders into Shadow DOM, so we need to search there
+      let spectroCanvas: HTMLCanvasElement | null = null;
+
+      // First try regular DOM
+      const regularCanvases = wsContainer.querySelectorAll('canvas');
+
+      // Then search shadow roots
+      const allCanvases: HTMLCanvasElement[] = [...regularCanvases] as HTMLCanvasElement[];
+
+      // Search for shadow roots and their canvases
+      const searchShadowRoots = (element: Element) => {
+        if (element.shadowRoot) {
+          const shadowCanvases = element.shadowRoot.querySelectorAll('canvas');
+          allCanvases.push(...(Array.from(shadowCanvases) as HTMLCanvasElement[]));
+          element.shadowRoot.querySelectorAll('*').forEach(searchShadowRoots);
+        }
+        element.querySelectorAll('*').forEach(child => {
+          if (child.shadowRoot) {
+            const shadowCanvases = child.shadowRoot.querySelectorAll('canvas');
+            allCanvases.push(...(Array.from(shadowCanvases) as HTMLCanvasElement[]));
+          }
+        });
+      };
+      searchShadowRoots(wsContainer);
+
+      console.log(`Found ${allCanvases.length} canvases total`);
+
+      // Find the largest canvas (likely the spectrogram)
+      // The spectrogram canvas should be the one with the most pixels
+      let maxPixels = 0;
+      for (const canvas of allCanvases) {
+        const pixels = canvas.width * canvas.height;
+        console.log(`Canvas: ${canvas.width}x${canvas.height} = ${pixels} pixels`);
+        if (pixels > maxPixels) {
+          maxPixels = pixels;
+          spectroCanvas = canvas;
+        }
+      }
 
       if (spectroCanvas && spectroCanvas.width > 0 && spectroCanvas.height > 0) {
+        console.log(`Capturing spectrogram canvas: ${spectroCanvas.width}x${spectroCanvas.height}`);
         // Create high-resolution capture for zoom/scroll
         const bitmap = await createImageBitmap(spectroCanvas);
         setSpectrogramImage(bitmap);
