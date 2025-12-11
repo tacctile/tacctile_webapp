@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Box, Tooltip } from '@mui/material';
+import React, { useEffect, useState } from 'react';
+import { Box, Tooltip, Menu, MenuItem } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
 import { useAudioToolStore } from '@/stores/useAudioToolStore';
@@ -167,13 +167,6 @@ const LoopIcon = () => (
 );
 
 // ============================================================================
-// HELPERS
-// ============================================================================
-
-// Speed options for cycling
-const SPEEDS = [0.5, 1, 1.5, 2];
-
-// ============================================================================
 // COMPONENT
 // ============================================================================
 
@@ -198,12 +191,9 @@ export const TransportControls: React.FC<TransportControlsProps> = () => {
   const looping = useAudioToolStore((state) => state.playback.looping);
   const toggleLooping = useAudioToolStore((state) => state.toggleLooping);
 
-  // Cycle through playback speeds: 0.5x, 1x, 1.5x, 2x
-  const handleSpeedCycle = () => {
-    const currentIndex = SPEEDS.indexOf(playbackSpeed);
-    const nextIndex = (currentIndex + 1) % SPEEDS.length;
-    setPlaybackSpeed(SPEEDS[nextIndex]);
-  };
+  // Speed menu state
+  const [speedMenuAnchor, setSpeedMenuAnchor] = useState<null | HTMLElement>(null);
+  const speedMenuOpen = Boolean(speedMenuAnchor);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -302,11 +292,64 @@ export const TransportControls: React.FC<TransportControlsProps> = () => {
       </Tooltip>
 
       {/* Playback Speed */}
-      <Tooltip title="Playback speed (click to cycle)">
-        <SpeedButton onClick={handleSpeedCycle} aria-label="Playback speed">
+      <Tooltip title="Playback speed">
+        <SpeedButton
+          onClick={(e) => setSpeedMenuAnchor(e.currentTarget)}
+          aria-label="Playback speed"
+          style={{ color: playbackSpeed !== 1 ? '#19abb5' : '#888' }}
+        >
           {playbackSpeed}x
         </SpeedButton>
       </Tooltip>
+
+      <Menu
+        anchorEl={speedMenuAnchor}
+        open={speedMenuOpen}
+        onClose={() => setSpeedMenuAnchor(null)}
+        anchorOrigin={{
+          vertical: 'top',
+          horizontal: 'center',
+        }}
+        transformOrigin={{
+          vertical: 'bottom',
+          horizontal: 'center',
+        }}
+        sx={{
+          '& .MuiPaper-root': {
+            backgroundColor: '#1a1a1a',
+            border: '1px solid #333',
+            minWidth: 60,
+          },
+        }}
+      >
+        {[2, 1.5, 1, 0.75, 0.5].map((speed) => (
+          <MenuItem
+            key={speed}
+            onClick={() => {
+              setPlaybackSpeed(speed);
+              setSpeedMenuAnchor(null);
+            }}
+            selected={playbackSpeed === speed}
+            sx={{
+              fontSize: 11,
+              fontFamily: '"JetBrains Mono", monospace',
+              color: playbackSpeed === speed ? '#19abb5' : '#888',
+              backgroundColor: 'transparent',
+              justifyContent: 'center',
+              py: 0.5,
+              '&:hover': {
+                backgroundColor: 'rgba(25, 171, 181, 0.1)',
+                color: '#19abb5',
+              },
+              '&.Mui-selected': {
+                backgroundColor: 'rgba(25, 171, 181, 0.15)',
+              },
+            }}
+          >
+            {speed}x
+          </MenuItem>
+        ))}
+      </Menu>
     </TransportContainer>
   );
 };
