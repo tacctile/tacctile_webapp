@@ -978,14 +978,9 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   // Real audio data state (Web Audio API)
   const audioContextRef = useRef<AudioContext | null>(null);
   const [waveformData, setWaveformData] = useState<Float32Array | null>(null);
-  const [spectralData, setSpectralData] = useState<Float32Array[] | null>(null);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
 
-  // Spectral loading state for progressive UX
-  const [spectralLoading, setSpectralLoading] = useState(false);
-  const [spectralReady, setSpectralReady] = useState(false);
-
-  // Spectrogram image state (pre-generated ImageBitmap for fast rendering)
+  // Spectrogram image state (pre-generated ImageBitmap from wavesurfer)
   const [spectrogramImage, setSpectrogramImage] = useState<ImageBitmap | null>(null);
   const [spectrogramGenerating, setSpectrogramGenerating] = useState(false);
   const [spectrogramReady, setSpectrogramReady] = useState(false);
@@ -1092,47 +1087,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       resizeObserver.observe(unifiedContainerRef.current);
       return () => resizeObserver.disconnect();
     }
-  }, []);
-
-  // Background spectral generation (chunked to not block UI)
-  // Ultra resolution: 80 frames per second, 256 frequency bins for smooth 10x zoom
-  const generateSpectralInBackground = useCallback(async (buffer: AudioBuffer): Promise<Float32Array[]> => {
-    const channelData = buffer.getChannelData(0);
-    const samples = channelData.length;
-    const targetFrames = Math.min(4000, Math.floor(buffer.duration * 80)); // 80 frames per second for smooth 10x zoom
-    const samplesPerFrame = Math.floor(samples / targetFrames);
-    const spectralFrames: Float32Array[] = [];
-
-    // Process in chunks to keep UI responsive
-    const chunkSize = 50;
-
-    for (let chunk = 0; chunk < Math.ceil(targetFrames / chunkSize); chunk++) {
-      // Let UI breathe between chunks
-      await new Promise(resolve => setTimeout(resolve, 0));
-
-      const startFrame = chunk * chunkSize;
-      const endFrame = Math.min(startFrame + chunkSize, targetFrames);
-
-      for (let i = startFrame; i < endFrame; i++) {
-        const startSample = i * samplesPerFrame;
-        const frame = new Float32Array(256); // 256 frequency bins for higher vertical resolution
-
-        for (let bin = 0; bin < 256; bin++) {
-          let energy = 0;
-          const binSize = Math.floor(samplesPerFrame / 256);
-          for (let j = 0; j < binSize; j++) {
-            const idx = startSample + bin * binSize + j;
-            if (idx < channelData.length) {
-              energy += Math.abs(channelData[idx]);
-            }
-          }
-          frame[bin] = energy / binSize;
-        }
-        spectralFrames.push(frame);
-      }
-    }
-
-    return spectralFrames;
   }, []);
 
   // Magma color function for spectrogram generation (black → purple → red → orange → yellow)
@@ -1399,33 +1353,19 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         duration: decodedBuffer.duration,
       });
 
-      // Reset spectral and spectrogram state
-      setSpectralData(null);
-      setSpectralReady(false);
-      setSpectralLoading(true);
+      // Reset spectrogram state
       setSpectrogramImage(null);
       setSpectrogramGenerating(false);
       setSpectrogramReady(false);
       setIsLoadingAudio(false); // Waveform is ready, remove main loading overlay
 
-      // PHASE 2: Generate high-resolution spectrogram image (background)
+      // Generate spectrogram using wavesurfer (renders visibly, then captures)
       // Use setTimeout to let UI update first
       setTimeout(async () => {
         try {
-          // Generate the pre-rendered spectrogram image using wavesurfer.js
           await generateSpectrogram(filePath);
-
-          // Also generate legacy spectral data as fallback
-          const spectral = await generateSpectralInBackground(decodedBuffer);
-          setSpectralData(spectral);
-          setSpectralLoading(false);
-          setSpectralReady(true);
-
-          // Reset "ready" indicator after 5 seconds
-          setTimeout(() => setSpectralReady(false), 5000);
-        } catch (spectralError) {
-          console.error('Error generating spectral data:', spectralError);
-          setSpectralLoading(false);
+        } catch (error) {
+          console.error('Error generating spectrogram:', error);
           setSpectrogramGenerating(false);
         }
       }, 100);
@@ -1436,17 +1376,13 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       setLoadedAudio(fileItem);
       setSelectedEvidence(fileItem);
       setIsLoadingAudio(false);
-      setSpectralLoading(false);
       setSpectrogramGenerating(false);
     }
-  }, [generateSpectralInBackground, generateSpectrogram]);
+  }, [generateSpectrogram]);
 
   const handleDoubleClick = useCallback((item: typeof audioEvidence[0]) => {
-    // Clear previous real audio data and reset spectral/spectrogram state
+    // Clear previous real audio data and reset spectrogram state
     setWaveformData(null);
-    setSpectralData(null);
-    setSpectralLoading(false);
-    setSpectralReady(false);
     setSpectrogramImage(null);
     setSpectrogramGenerating(false);
     setSpectrogramReady(false);
@@ -2125,12 +2061,8 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             duration={loadedAudio?.duration || 0}
             zoom={overviewZoom}
             scrollOffset={overviewScrollOffset}
-            spectralData={spectralData}
-            spectralLoading={spectralLoading}
-            spectralReady={spectralReady}
             spectrogramImage={spectrogramImage}
             spectrogramGenerating={spectrogramGenerating}
-            spectrogramReady={spectrogramReady}
             onSeek={handleOverviewSeek}
             onZoomChange={handleZoomChange}
             onScrollChange={handleScrollChange}
