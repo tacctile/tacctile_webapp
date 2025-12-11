@@ -120,7 +120,7 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
 
   // Draw Hz scale overlay on the right side (translucent, doesn't compress spectral area)
   const drawHzScale = useCallback((ctx: CanvasRenderingContext2D, width: number, height: number) => {
-    const scaleWidth = 36;
+    const scaleWidth = 44; // Same width as dB scale for consistency
     const scaleX = width - scaleWidth;
 
     // Translucent background
@@ -129,7 +129,7 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
 
     // Frequency labels (logarithmic scale matching wavesurfer)
     const frequencies = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
-    const labels = ['20', '50', '100', '200', '500', '1k', '2k', '5k', '10k', '20k'];
+    const labels = ['20 Hz', '50 Hz', '100 Hz', '200 Hz', '500 Hz', '1k Hz', '2k Hz', '5k Hz', '10k Hz', '20k Hz'];
 
     ctx.fillStyle = '#888';
     ctx.font = '9px Inter, system-ui, sans-serif';
@@ -151,18 +151,14 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
       ctx.lineTo(scaleX + 5, y);
       ctx.stroke();
 
-      // Label
+      // Label with Hz abbreviation
       ctx.fillText(labels[i], scaleX + scaleWidth - 4, y + 3);
     });
-
-    // "Hz" label at top
-    ctx.fillStyle = '#666';
-    ctx.fillText('Hz', scaleX + scaleWidth - 4, 12);
   }, []);
 
   // Draw dB scale overlay on the left side (translucent, doesn't compress spectral area)
   const drawDbScale = useCallback((ctx: CanvasRenderingContext2D, height: number) => {
-    const scaleWidth = 28;
+    const scaleWidth = 44; // Same width as Hz scale for consistency
 
     // Translucent background
     ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
@@ -188,13 +184,9 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
       ctx.lineTo(scaleWidth, y);
       ctx.stroke();
 
-      // Label
-      ctx.fillText(`${db}`, 4, y + 3);
+      // Label with dB abbreviation
+      ctx.fillText(`${db} dB`, 4, y + 3);
     });
-
-    // "dB" label at top
-    ctx.fillStyle = '#666';
-    ctx.fillText('dB', 4, 12);
   }, []);
 
   const draw = useCallback(() => {

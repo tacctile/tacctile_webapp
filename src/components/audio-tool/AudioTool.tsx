@@ -1187,7 +1187,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     return { r, g, b, a };
   }, []);
 
-  // Generate Magma colormap for wavesurfer (256 entries, values 0-1)
+  // Generate Magma colormap for wavesurfer (256 entries, float arrays 0-1)
   const generateMagmaColormap = useCallback((): number[][] => {
     const colormap: number[][] = [];
 
@@ -1196,41 +1196,42 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       let r, g, b;
 
       if (t < 0.1) {
-        r = (2 + t * 100) / 255;
-        g = (2 + t * 30) / 255;
-        b = (5 + t * 150) / 255;
+        r = 0.01 + t * 0.4;
+        g = 0.01 + t * 0.1;
+        b = 0.02 + t * 0.6;
       } else if (t < 0.25) {
         const s = (t - 0.1) / 0.15;
-        r = (12 + s * 40) / 255;
-        g = (5 + s * 10) / 255;
-        b = (20 + s * 50) / 255;
+        r = 0.05 + s * 0.15;
+        g = 0.02 + s * 0.04;
+        b = 0.08 + s * 0.2;
       } else if (t < 0.4) {
         const s = (t - 0.25) / 0.15;
-        r = (52 + s * 80) / 255;
-        g = (15 + s * 20) / 255;
-        b = (70 + s * 30) / 255;
+        r = 0.2 + s * 0.3;
+        g = 0.06 + s * 0.08;
+        b = 0.28 + s * 0.12;
       } else if (t < 0.55) {
         const s = (t - 0.4) / 0.15;
-        r = (132 + s * 70) / 255;
-        g = (35 + s * 40) / 255;
-        b = (100 - s * 50) / 255;
+        r = 0.5 + s * 0.28;
+        g = 0.14 + s * 0.16;
+        b = 0.4 - s * 0.2;
       } else if (t < 0.7) {
         const s = (t - 0.55) / 0.15;
-        r = (202 + s * 35) / 255;
-        g = (75 + s * 60) / 255;
-        b = (50 - s * 30) / 255;
+        r = 0.78 + s * 0.14;
+        g = 0.3 + s * 0.24;
+        b = 0.2 - s * 0.12;
       } else if (t < 0.85) {
         const s = (t - 0.7) / 0.15;
-        r = (237 + s * 15) / 255;
-        g = (135 + s * 70) / 255;
-        b = (20 + s * 10) / 255;
+        r = 0.92 + s * 0.06;
+        g = 0.54 + s * 0.26;
+        b = 0.08 + s * 0.04;
       } else {
         const s = (t - 0.85) / 0.15;
-        r = (252 + s * 3) / 255;
-        g = (205 + s * 45) / 255;
-        b = (30 + s * 100) / 255;
+        r = 0.98 + s * 0.02;
+        g = 0.8 + s * 0.18;
+        b = 0.12 + s * 0.4;
       }
 
+      // Wavesurfer expects [r, g, b, a] as floats 0-1
       colormap.push([r, g, b, 1]);
     }
 
@@ -1244,60 +1245,57 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     setSpectrogramGenerating(true);
     setSpectrogramReady(false);
 
-    // Create hidden container for wavesurfer
+    // Create hidden containers with proper sizing for high-quality output
     const waveContainer = document.createElement('div');
-    waveContainer.style.position = 'absolute';
-    waveContainer.style.left = '-9999px';
-    waveContainer.style.width = '4000px';
-    waveContainer.style.height = '1px';
+    waveContainer.style.cssText = 'position:absolute;left:-9999px;width:4000px;height:50px;';
     hiddenContainerRef.current.appendChild(waveContainer);
 
-    // Create hidden container for spectrogram
     const spectroContainer = document.createElement('div');
-    spectroContainer.style.position = 'absolute';
-    spectroContainer.style.left = '-9999px';
-    spectroContainer.style.width = '4000px';
-    spectroContainer.style.height = '400px';
+    spectroContainer.style.cssText = 'position:absolute;left:-9999px;width:4000px;height:512px;';
     hiddenContainerRef.current.appendChild(spectroContainer);
 
     try {
-      // Initialize wavesurfer with spectrogram plugin
+      // Generate magma colormap first
+      const colorMap = generateMagmaColormap();
+
+      // Initialize wavesurfer first
       const wavesurfer = WaveSurfer.create({
         container: waveContainer,
-        height: 1,
+        height: 50,
         waveColor: 'transparent',
         progressColor: 'transparent',
         cursorColor: 'transparent',
         interact: false,
-        plugins: [
-          Spectrogram.create({
-            container: spectroContainer,
-            labels: false,
-            height: 400,
-            fftSamples: 1024,
-            frequencyMin: 20,
-            frequencyMax: 20000,
-            scale: 'logarithmic',
-            colorMap: generateMagmaColormap(),
-          }),
-        ],
+        minPxPerSec: 50, // Higher resolution
       });
 
-      // Wait for audio to load and spectrogram to render
+      // Register spectrogram plugin AFTER wavesurfer is created
+      wavesurfer.registerPlugin(
+        Spectrogram.create({
+          container: spectroContainer,
+          labels: false,
+          height: 512,
+          fftSamples: 1024,  // Higher = more frequency detail
+          frequencyMin: 20,
+          frequencyMax: 20000,  // Full audible range
+          colorMap: colorMap,
+        })
+      );
+
+      // Wait for ready
       await new Promise<void>((resolve, reject) => {
         wavesurfer.on('ready', () => {
-          // Give spectrogram a moment to finish rendering
-          setTimeout(resolve, 500);
+          // Spectrogram renders after waveform, give it time
+          setTimeout(resolve, 1000);
         });
         wavesurfer.on('error', reject);
         wavesurfer.load(audioUrl);
       });
 
-      // Find the spectrogram canvas
+      // Find and capture the spectrogram canvas
       const spectroCanvas = spectroContainer.querySelector('canvas');
 
       if (spectroCanvas) {
-        // Capture as ImageBitmap
         const bitmap = await createImageBitmap(spectroCanvas);
         setSpectrogramImage(bitmap);
         setSpectrogramReady(true);
@@ -1306,13 +1304,12 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         setTimeout(() => setSpectrogramReady(false), 5000);
       }
 
-      // Cleanup - destroy wavesurfer
+      // Cleanup
       wavesurfer.destroy();
 
     } catch (error) {
       console.error('Error generating spectrogram:', error);
     } finally {
-      // Remove hidden containers
       if (hiddenContainerRef.current) {
         hiddenContainerRef.current.innerHTML = '';
       }
@@ -2099,12 +2096,12 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             onZoomChange={handleZoomChange}
             onScrollChange={handleScrollChange}
           />
-          {/* Zoom Controls */}
+          {/* Zoom Controls - positioned left of Hz bar (44px + 12px spacing) */}
           {loadedAudio && (
             <Box sx={{
               position: 'absolute',
               top: 8,
-              right: 8,
+              right: 56,
               display: 'flex',
               alignItems: 'center',
               gap: 0.5,
