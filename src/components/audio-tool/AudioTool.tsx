@@ -17,8 +17,6 @@ import FileUploadIcon from '@mui/icons-material/FileUpload';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import NorthWestIcon from '@mui/icons-material/NorthWest';
-import CropFreeIcon from '@mui/icons-material/CropFree';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
@@ -26,6 +24,9 @@ import VolumeDownIcon from '@mui/icons-material/VolumeDown';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
+import NearMeIcon from '@mui/icons-material/NearMe';
+import HighlightAltIcon from '@mui/icons-material/HighlightAlt';
+import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
 
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
@@ -187,57 +188,8 @@ const InspectorSlider = styled(Slider)({
   },
 });
 
-// Spectral tools grid container - 2x3 layout (2 columns, 3 rows)
-const SpectralToolsGrid = styled(Box)({
-  display: 'grid',
-  gridTemplateColumns: 'repeat(2, 1fr)',
-  gap: 8,
-  padding: '4px 12px 8px 12px',
-});
-
-// Spectral tool button styling
-const SpectralToolButton = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 6,
-  height: 30,
-  padding: '0 8px',
-  cursor: 'pointer',
-  backgroundColor: isActive ? 'rgba(25, 171, 181, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-  border: isActive ? '1px solid #19abb5' : '1px solid #333',
-  borderRadius: 5,
-  '&:hover': {
-    backgroundColor: isActive ? 'rgba(25, 171, 181, 0.15)' : 'rgba(255, 255, 255, 0.1)',
-    '& .spectral-tool-icon': {
-      color: isActive ? '#19abb5' : '#fff',
-    },
-    '& .spectral-tool-name': {
-      color: isActive ? '#19abb5' : '#fff',
-    },
-  },
-}));
-
-const SpectralToolIcon = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: 16,
-  height: 16,
-  color: isActive ? '#19abb5' : '#888',
-  '& svg': {
-    fontSize: 16,
-  },
-}));
-
-const SpectralToolName = styled(Typography)<{ isActive: boolean }>(({ isActive }) => ({
-  fontSize: 11,
-  color: isActive ? '#19abb5' : '#999',
-  whiteSpace: 'nowrap',
-}));
-
-// Spectral tool type
-type SpectralToolType = 'selection' | 'marquee' | 'repair' | 'voiceIsolate' | 'gain' | 'attenuate';
+// Tool type for left toolbar
+type ToolType = 'selection' | 'marqueeZoom' | 'marqueeSelect' | 'repair' | 'voiceIso' | 'gain' | 'attenuate';
 
 // File drop zone for center canvas when no file loaded
 const FileDropZone = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
@@ -974,8 +926,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [loadedAudio, setLoadedAudio] = useState<typeof audioEvidence[0] | null>(null);
   const [videoRefCollapsed, setVideoRefCollapsed] = useState(true); // collapsed by default, expands when video exists
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
-  const [spectralToolsCollapsed, setSpectralToolsCollapsed] = useState(false);
-  const [activeSpectralTool, setActiveSpectralTool] = useState<SpectralToolType>('selection');
+  const [activeTool, setActiveTool] = useState<ToolType>('selection');
   const [flags, setFlags] = useState<Flag[]>(mockFlags);
   const [expandVideoModalOpen, setExpandVideoModalOpen] = useState(false);
 
@@ -1033,7 +984,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [overviewZoom, setOverviewZoom] = useState(1); // 1 = fit to view
   const [overviewScrollOffset, setOverviewScrollOffset] = useState(0); // 0-1 position
   const [isScrubbing, setIsScrubbing] = useState(false);
-  const [zoomToolActive, setZoomToolActive] = useState(false);
 
   // Playhead store for waveform integration
   const timestamp = usePlayheadStore((state) => state.timestamp);
@@ -1621,105 +1571,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         )}
       </InspectorSection>
 
-      {/* Spectral Tools - collapsible section */}
-      <InspectorSection sx={{ flexShrink: 0 }}>
-        <InspectorSectionHeader onClick={() => setSpectralToolsCollapsed(!spectralToolsCollapsed)}>
-          <InspectorSectionTitle>Spectral Tools</InspectorSectionTitle>
-          {spectralToolsCollapsed ? (
-            <ChevronRightIcon sx={{ fontSize: 16, color: '#666' }} />
-          ) : (
-            <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} />
-          )}
-        </InspectorSectionHeader>
-        {!spectralToolsCollapsed && (
-          <SpectralToolsGrid>
-            <Tooltip title="Default selection tool" placement="top" arrow>
-              <SpectralToolButton
-                isActive={activeSpectralTool === 'selection'}
-                onClick={() => setActiveSpectralTool('selection')}
-              >
-                <SpectralToolIcon className="spectral-tool-icon" isActive={activeSpectralTool === 'selection'}>
-                  <NorthWestIcon />
-                </SpectralToolIcon>
-                <SpectralToolName className="spectral-tool-name" isActive={activeSpectralTool === 'selection'}>
-                  Selection
-                </SpectralToolName>
-              </SpectralToolButton>
-            </Tooltip>
-
-            <Tooltip title="Draw rectangle to select time + frequency range" placement="top" arrow>
-              <SpectralToolButton
-                isActive={activeSpectralTool === 'marquee'}
-                onClick={() => setActiveSpectralTool('marquee')}
-              >
-                <SpectralToolIcon className="spectral-tool-icon" isActive={activeSpectralTool === 'marquee'}>
-                  <CropFreeIcon />
-                </SpectralToolIcon>
-                <SpectralToolName className="spectral-tool-name" isActive={activeSpectralTool === 'marquee'}>
-                  Marquee
-                </SpectralToolName>
-              </SpectralToolButton>
-            </Tooltip>
-
-            <Tooltip title="Paint over unwanted sounds to remove them" placement="top" arrow>
-              <SpectralToolButton
-                isActive={activeSpectralTool === 'repair'}
-                onClick={() => setActiveSpectralTool('repair')}
-              >
-                <SpectralToolIcon className="spectral-tool-icon" isActive={activeSpectralTool === 'repair'}>
-                  <AutoFixHighIcon />
-                </SpectralToolIcon>
-                <SpectralToolName className="spectral-tool-name" isActive={activeSpectralTool === 'repair'}>
-                  Repair
-                </SpectralToolName>
-              </SpectralToolButton>
-            </Tooltip>
-
-            <Tooltip title="AI-powered voice extraction" placement="bottom" arrow>
-              <SpectralToolButton
-                isActive={activeSpectralTool === 'voiceIsolate'}
-                onClick={() => setActiveSpectralTool('voiceIsolate')}
-              >
-                <SpectralToolIcon className="spectral-tool-icon" isActive={activeSpectralTool === 'voiceIsolate'}>
-                  <RecordVoiceOverIcon />
-                </SpectralToolIcon>
-                <SpectralToolName className="spectral-tool-name" isActive={activeSpectralTool === 'voiceIsolate'}>
-                  Voice Iso
-                </SpectralToolName>
-              </SpectralToolButton>
-            </Tooltip>
-
-            <Tooltip title="Paint to boost audio in selected region" placement="bottom" arrow>
-              <SpectralToolButton
-                isActive={activeSpectralTool === 'gain'}
-                onClick={() => setActiveSpectralTool('gain')}
-              >
-                <SpectralToolIcon className="spectral-tool-icon" isActive={activeSpectralTool === 'gain'}>
-                  <VolumeUpIcon />
-                </SpectralToolIcon>
-                <SpectralToolName className="spectral-tool-name" isActive={activeSpectralTool === 'gain'}>
-                  Gain
-                </SpectralToolName>
-              </SpectralToolButton>
-            </Tooltip>
-
-            <Tooltip title="Paint to reduce audio in selected region" placement="bottom" arrow>
-              <SpectralToolButton
-                isActive={activeSpectralTool === 'attenuate'}
-                onClick={() => setActiveSpectralTool('attenuate')}
-              >
-                <SpectralToolIcon className="spectral-tool-icon" isActive={activeSpectralTool === 'attenuate'}>
-                  <VolumeDownIcon />
-                </SpectralToolIcon>
-                <SpectralToolName className="spectral-tool-name" isActive={activeSpectralTool === 'attenuate'}>
-                  Attenuate
-                </SpectralToolName>
-              </SpectralToolButton>
-            </Tooltip>
-          </SpectralToolsGrid>
-        )}
-      </InspectorSection>
-
       {/* Filters - collapsible section */}
       <InspectorSection sx={{ flexShrink: 0 }}>
         <InspectorSectionHeader onClick={() => setFiltersCollapsed(!filtersCollapsed)}>
@@ -1864,14 +1715,184 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         onScrub={handleOverviewScrub}
       />
 
-      {/* Center content area - Spectral, TimeScale, Waveform */}
-      <Box sx={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        position: 'relative',
-      }}>
+      {/* Main workspace area */}
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'row', overflow: 'hidden' }}>
+
+        {/* Left Toolbar Strip - 40px fixed width */}
+        <Box sx={{
+          width: 40,
+          backgroundColor: '#0d0d0d',
+          borderRight: '1px solid #252525',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          paddingTop: 1,
+          gap: 0.5,
+          flexShrink: 0,
+        }}>
+
+          {/* === GROUP 1: Navigation & View === */}
+
+          {/* Selection Tool (Default) */}
+          <Tooltip title="Selection - Click to seek, drag playhead to scrub" placement="right" arrow>
+            <IconButton
+              size="small"
+              onClick={() => setActiveTool('selection')}
+              sx={{
+                color: activeTool === 'selection' ? '#19abb5' : '#666',
+                padding: '8px',
+                borderRadius: 1,
+                backgroundColor: activeTool === 'selection' ? 'rgba(25, 171, 181, 0.15)' : 'transparent',
+                '&:hover': {
+                  color: '#19abb5',
+                  backgroundColor: 'rgba(25, 171, 181, 0.1)'
+                },
+              }}
+            >
+              <NearMeIcon sx={{ fontSize: 20 }} />
+            </IconButton>
+          </Tooltip>
+
+          {/* Marquee Zoom */}
+          <Tooltip title="Marquee Zoom - Draw rectangle to zoom into area" placement="right" arrow>
+            <IconButton
+              size="small"
+              onClick={() => setActiveTool('marqueeZoom')}
+              sx={{
+                color: activeTool === 'marqueeZoom' ? '#19abb5' : '#666',
+                padding: '8px',
+                borderRadius: 1,
+                backgroundColor: activeTool === 'marqueeZoom' ? 'rgba(25, 171, 181, 0.15)' : 'transparent',
+                '&:hover': {
+                  color: '#19abb5',
+                  backgroundColor: 'rgba(25, 171, 181, 0.1)'
+                },
+              }}
+            >
+              <ZoomInIcon sx={{ fontSize: 20 }} />
+            </IconButton>
+          </Tooltip>
+
+          {/* Divider */}
+          <Box sx={{ width: 24, height: 1, backgroundColor: '#333', my: 1 }} />
+
+          {/* === GROUP 2: Region Selection === */}
+
+          {/* Marquee Select */}
+          <Tooltip title="Marquee Select - Draw rectangle to select region for editing" placement="right" arrow>
+            <IconButton
+              size="small"
+              onClick={() => setActiveTool('marqueeSelect')}
+              sx={{
+                color: activeTool === 'marqueeSelect' ? '#19abb5' : '#666',
+                padding: '8px',
+                borderRadius: 1,
+                backgroundColor: activeTool === 'marqueeSelect' ? 'rgba(25, 171, 181, 0.15)' : 'transparent',
+                '&:hover': {
+                  color: '#19abb5',
+                  backgroundColor: 'rgba(25, 171, 181, 0.1)'
+                },
+              }}
+            >
+              <HighlightAltIcon sx={{ fontSize: 20 }} />
+            </IconButton>
+          </Tooltip>
+
+          {/* Divider */}
+          <Box sx={{ width: 24, height: 1, backgroundColor: '#333', my: 1 }} />
+
+          {/* === GROUP 3: Spectral Effects === */}
+
+          {/* Repair */}
+          <Tooltip title="Repair - Fix clicks, pops, and audio blemishes" placement="right" arrow>
+            <IconButton
+              size="small"
+              onClick={() => setActiveTool('repair')}
+              sx={{
+                color: activeTool === 'repair' ? '#19abb5' : '#666',
+                padding: '8px',
+                borderRadius: 1,
+                backgroundColor: activeTool === 'repair' ? 'rgba(25, 171, 181, 0.15)' : 'transparent',
+                '&:hover': {
+                  color: '#19abb5',
+                  backgroundColor: 'rgba(25, 171, 181, 0.1)'
+                },
+              }}
+            >
+              <AutoFixHighIcon sx={{ fontSize: 20 }} />
+            </IconButton>
+          </Tooltip>
+
+          {/* Voice Isolation */}
+          <Tooltip title="Voice Isolation - Isolate speech, reduce background noise" placement="right" arrow>
+            <IconButton
+              size="small"
+              onClick={() => setActiveTool('voiceIso')}
+              sx={{
+                color: activeTool === 'voiceIso' ? '#19abb5' : '#666',
+                padding: '8px',
+                borderRadius: 1,
+                backgroundColor: activeTool === 'voiceIso' ? 'rgba(25, 171, 181, 0.15)' : 'transparent',
+                '&:hover': {
+                  color: '#19abb5',
+                  backgroundColor: 'rgba(25, 171, 181, 0.1)'
+                },
+              }}
+            >
+              <RecordVoiceOverIcon sx={{ fontSize: 20 }} />
+            </IconButton>
+          </Tooltip>
+
+          {/* Gain */}
+          <Tooltip title="Gain - Increase volume of selected region" placement="right" arrow>
+            <IconButton
+              size="small"
+              onClick={() => setActiveTool('gain')}
+              sx={{
+                color: activeTool === 'gain' ? '#19abb5' : '#666',
+                padding: '8px',
+                borderRadius: 1,
+                backgroundColor: activeTool === 'gain' ? 'rgba(25, 171, 181, 0.15)' : 'transparent',
+                '&:hover': {
+                  color: '#19abb5',
+                  backgroundColor: 'rgba(25, 171, 181, 0.1)'
+                },
+              }}
+            >
+              <VolumeUpIcon sx={{ fontSize: 20 }} />
+            </IconButton>
+          </Tooltip>
+
+          {/* Attenuate */}
+          <Tooltip title="Attenuate - Decrease volume of selected region" placement="right" arrow>
+            <IconButton
+              size="small"
+              onClick={() => setActiveTool('attenuate')}
+              sx={{
+                color: activeTool === 'attenuate' ? '#19abb5' : '#666',
+                padding: '8px',
+                borderRadius: 1,
+                backgroundColor: activeTool === 'attenuate' ? 'rgba(25, 171, 181, 0.15)' : 'transparent',
+                '&:hover': {
+                  color: '#19abb5',
+                  backgroundColor: 'rgba(25, 171, 181, 0.1)'
+                },
+              }}
+            >
+              <VolumeDownIcon sx={{ fontSize: 20 }} />
+            </IconButton>
+          </Tooltip>
+
+        </Box>
+
+        {/* Center content area - Spectral, TimeScale, Waveform */}
+        <Box sx={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          position: 'relative',
+        }}>
 
         {/* Spectral Section - takes remaining space */}
         <Box sx={{
@@ -1891,6 +1912,8 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             onSeek={handleOverviewSeek}
             onZoomChange={handleZoomChange}
             onScrollChange={handleScrollChange}
+            activeTool={activeTool}
+            onToolComplete={() => setActiveTool('selection')}
           />
           {/* Zoom Controls */}
           {loadedAudio && (
@@ -1906,18 +1929,21 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
               padding: '4px 8px',
               zIndex: 10,
             }}>
-              {/* Zoom Tool (Marquee) */}
-              <Tooltip title={zoomToolActive ? "Cancel Zoom Tool" : "Zoom Tool - Draw to zoom"}>
+              {/* Reset to 1x */}
+              <Tooltip title="Reset zoom to 1x">
                 <IconButton
                   size="small"
-                  onClick={() => setZoomToolActive(!zoomToolActive)}
+                  onClick={() => {
+                    setOverviewZoom(1);
+                    setOverviewScrollOffset(0);
+                  }}
                   sx={{
-                    color: zoomToolActive ? '#19abb5' : '#888',
+                    color: overviewZoom === 1 ? '#555' : '#888',
                     padding: '2px',
                     '&:hover': { color: '#19abb5' },
                   }}
                 >
-                  <ZoomInIcon sx={{ fontSize: 16 }} />
+                  <CenterFocusStrongIcon sx={{ fontSize: 16 }} />
                 </IconButton>
               </Tooltip>
 
@@ -1994,6 +2020,8 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             onSeek={handleOverviewSeek}
             onZoomChange={handleZoomChange}
             onScrollChange={handleScrollChange}
+            activeTool={activeTool}
+            onToolComplete={() => setActiveTool('selection')}
           />
         </Box>
 
@@ -2016,6 +2044,8 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             <Typography sx={{ color: '#888', mt: 1, fontSize: 12 }}>Loading audio...</Typography>
           </Box>
         )}
+        </Box>
+
       </Box>
 
       {/* EQ Section - no header row, Reset button positioned on right near 0dB */}
