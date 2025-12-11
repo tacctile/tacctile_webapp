@@ -87,16 +87,6 @@ const OverviewBarContent = styled(Box)({
   overflow: 'hidden',
 });
 
-const OverviewTimeLabel = styled(Typography)({
-  fontSize: 9,
-  color: '#555',
-  fontFamily: '"JetBrains Mono", monospace',
-  position: 'absolute',
-  bottom: 1,
-  pointerEvents: 'none',
-  userSelect: 'none',
-});
-
 const ToolbarSection = styled(Box)({
   height: 28,
   backgroundColor: '#161616',
@@ -931,16 +921,6 @@ const OverviewBar: React.FC<OverviewBarProps> = ({
             height: '100%',
           }}
         />
-        {/* Time labels */}
-        <OverviewTimeLabel sx={{ left: 4 }}>
-          {formatTime(0)}
-        </OverviewTimeLabel>
-        <OverviewTimeLabel sx={{ left: '50%', transform: 'translateX(-50%)' }}>
-          {formatTime(duration / 2)}
-        </OverviewTimeLabel>
-        <OverviewTimeLabel sx={{ right: 4 }}>
-          {formatTime(duration)}
-        </OverviewTimeLabel>
       </OverviewBarContent>
     </OverviewBarContainer>
   );
