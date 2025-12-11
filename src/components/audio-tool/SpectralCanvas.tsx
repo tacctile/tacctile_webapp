@@ -3,13 +3,10 @@
  * Renders spectral visualization (aurora borealis style)
  */
 
-import React, { useRef, useEffect, useCallback, useState } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
-import IconButton from '@mui/material/IconButton';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import GridOnIcon from '@mui/icons-material/GridOn';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
 
 interface SpectralCanvasProps {
@@ -21,6 +18,8 @@ interface SpectralCanvasProps {
   spectralLoading?: boolean;
   spectralReady?: boolean;
   onSeek?: (timeInSeconds: number) => void;
+  onZoomChange?: (zoom: number) => void;
+  onScrollChange?: (scrollOffset: number) => void;
 }
 
 export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
@@ -32,13 +31,17 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
   spectralLoading = false,
   spectralReady = false,
   onSeek,
+  onZoomChange,
+  onScrollChange,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const timestamp = usePlayheadStore((state) => state.timestamp);
   const setTimestamp = usePlayheadStore((state) => state.setTimestamp);
 
-  const [showSpectral, setShowSpectral] = useState(true);
+  // Track spacebar state for panning
+  const isPanningRef = useRef(false);
+  const panStartRef = useRef({ x: 0, scrollOffset: 0 });
 
   // Aurora borealis color function
   const getAuroraColor = useCallback((intensity: number): { r: number; g: number; b: number; a: number } => {
@@ -116,7 +119,7 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, width, height);
 
-    if (!isLoaded || !showSpectral || spectralLoading) return;
+    if (!isLoaded || spectralLoading) return;
 
     // Calculate visible time range
     const visibleDuration = duration / zoom;
@@ -212,7 +215,7 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
         ctx.fill();
       }
     }
-  }, [isLoaded, duration, zoom, scrollOffset, timestamp, showSpectral, spectralData, spectralLoading, getAuroraColor]);
+  }, [isLoaded, duration, zoom, scrollOffset, timestamp, spectralData, spectralLoading, getAuroraColor]);
 
   useEffect(() => {
     draw();
@@ -226,7 +229,7 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
 
   // Click to seek
   const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isLoaded || duration <= 0) return;
+    if (!isLoaded || duration <= 0 || isPanningRef.current) return;
 
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -242,11 +245,83 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
     onSeek?.(clickTime);
   }, [isLoaded, duration, zoom, scrollOffset, setTimestamp, onSeek]);
 
+  // Wheel zoom handler
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    if (!isLoaded || duration <= 0 || !onZoomChange || !onScrollChange) return;
+    e.preventDefault();
+
+    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+    const newZoom = Math.max(1, Math.min(10, zoom * zoomFactor));
+
+    // Center zoom on playhead
+    const playheadTime = timestamp / 1000;
+    const newVisibleDuration = duration / newZoom;
+    const newScrollOffset = Math.max(0, Math.min(1 - 1 / newZoom,
+      (playheadTime - newVisibleDuration / 2) / duration));
+
+    onZoomChange(newZoom);
+    onScrollChange(newScrollOffset);
+  }, [isLoaded, duration, zoom, timestamp, onZoomChange, onScrollChange]);
+
+  // Spacebar + drag panning
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !e.repeat) {
+        isPanningRef.current = true;
+        document.body.style.cursor = 'grab';
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        isPanningRef.current = false;
+        document.body.style.cursor = '';
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (isPanningRef.current) {
+      panStartRef.current = { x: e.clientX, scrollOffset };
+      document.body.style.cursor = 'grabbing';
+    }
+  }, [scrollOffset]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isPanningRef.current || !onScrollChange || !containerRef.current) return;
+
+    const deltaX = e.clientX - panStartRef.current.x;
+    const containerWidth = containerRef.current.getBoundingClientRect().width;
+    const visibleWidth = 1 / zoom;
+    const deltaOffset = -(deltaX / containerWidth) * visibleWidth;
+    const newOffset = Math.max(0, Math.min(1 - visibleWidth, panStartRef.current.scrollOffset + deltaOffset));
+
+    onScrollChange(newOffset);
+  }, [zoom, onScrollChange]);
+
+  const handleMouseUp = useCallback(() => {
+    if (isPanningRef.current) {
+      document.body.style.cursor = 'grab';
+    }
+  }, []);
+
   return (
     <Box ref={containerRef} sx={{ width: '100%', height: '100%', position: 'relative' }}>
       <canvas
         ref={canvasRef}
         onClick={handleClick}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
         style={{
           position: 'absolute',
           top: 0,
@@ -274,51 +349,6 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
           <Typography sx={{ color: '#666', mt: 1, fontSize: 11 }}>
             Generating spectral...
           </Typography>
-        </Box>
-      )}
-      {/* Spectral toggle */}
-      {isLoaded && (
-        <Box sx={{
-          position: 'absolute',
-          top: 8,
-          left: 8,
-          display: 'flex',
-          gap: 0.5,
-          backgroundColor: 'rgba(0, 0, 0, 0.6)',
-          borderRadius: 1,
-          padding: '4px',
-        }}>
-          <Tooltip title={
-            spectralLoading
-              ? "Loading spectral analysis..."
-              : showSpectral
-                ? "Hide Spectral"
-                : "Show Spectral"
-          }>
-            <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-              <IconButton
-                size="small"
-                onClick={() => !spectralLoading && setShowSpectral(!showSpectral)}
-                disabled={spectralLoading}
-                sx={{
-                  color: spectralLoading ? '#555' : showSpectral ? '#19abb5' : '#555',
-                  padding: '4px',
-                  '&:hover': { backgroundColor: 'rgba(25, 171, 181, 0.1)' },
-                  animation: spectralReady ? 'spectralPulse 1s ease-in-out 5' : 'none',
-                  '@keyframes spectralPulse': {
-                    '0%, 100%': { boxShadow: '0 0 0 0 rgba(25, 171, 181, 0)' },
-                    '50%': { boxShadow: '0 0 0 8px rgba(25, 171, 181, 0.3)' },
-                  },
-                }}
-              >
-                {spectralLoading ? (
-                  <CircularProgress size={16} sx={{ color: '#19abb5' }} />
-                ) : (
-                  <GridOnIcon sx={{ fontSize: 18 }} />
-                )}
-              </IconButton>
-            </Box>
-          </Tooltip>
         </Box>
       )}
     </Box>
