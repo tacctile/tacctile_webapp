@@ -994,12 +994,12 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   // Time selection state (separate from marquee zoom - for selecting audio regions to play/loop)
   const [selectionStart, setSelectionStart] = useState<number | null>(null);
   const [selectionEnd, setSelectionEnd] = useState<number | null>(null);
-  const [isSelecting, setIsSelecting] = useState(false);
-  const [isDraggingHandle, setIsDraggingHandle] = useState<'start' | 'end' | null>(null);
 
-  // Mouse tracking state for distinguishing click vs drag
-  const [mouseDownPos, setMouseDownPos] = useState<{ x: number; y: number } | null>(null);
+  // Enhanced interaction state for proper waveform behaviors
+  const [mouseDownPos, setMouseDownPos] = useState<{ x: number; time: number } | null>(null);
   const [hasDragged, setHasDragged] = useState(false);
+  const [interactionType, setInteractionType] = useState<'none' | 'scrubPlayhead' | 'createSelection' | 'moveSelection' | 'adjustHandleStart' | 'adjustHandleEnd'>('none');
+  const [selectionDragOffset, setSelectionDragOffset] = useState<number>(0);
 
   // Ref for waveform container to calculate selection positions
   const waveformContainerRef = useRef<HTMLDivElement>(null);
@@ -1471,8 +1471,38 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     return relativeTime * containerWidth;
   }, [loadedAudio?.duration, overviewZoom, overviewScrollOffset]);
 
-  // Handle selection mouse down on waveform
-  const handleSelectionMouseDown = useCallback((e: React.MouseEvent) => {
+  // Determine what element was clicked on the waveform
+  const getClickTarget = useCallback((x: number, containerWidth: number): 'playhead' | 'selection' | 'handleStart' | 'handleEnd' | 'waveform' => {
+    // Check playhead (within 6 pixels)
+    const playheadPixel = timeToPixel(timestamp / 1000, containerWidth);
+    if (Math.abs(x - playheadPixel) < 6) {
+      return 'playhead';
+    }
+
+    // Check selection handles and area (if selection exists)
+    if (selectionStart !== null && selectionEnd !== null) {
+      const startPixel = timeToPixel(Math.min(selectionStart, selectionEnd), containerWidth);
+      const endPixel = timeToPixel(Math.max(selectionStart, selectionEnd), containerWidth);
+
+      // Handle start (within 8 pixels)
+      if (Math.abs(x - startPixel) < 8) {
+        return 'handleStart';
+      }
+      // Handle end (within 8 pixels)
+      if (Math.abs(x - endPixel) < 8) {
+        return 'handleEnd';
+      }
+      // Inside selection area
+      if (x > startPixel && x < endPixel) {
+        return 'selection';
+      }
+    }
+
+    return 'waveform';
+  }, [timeToPixel, timestamp, selectionStart, selectionEnd]);
+
+  // Handle waveform mouse down - detect what was clicked and set interaction type
+  const handleWaveformMouseDown = useCallback((e: React.MouseEvent) => {
     if (!loadedAudio || zoomToolActive) return;
 
     const rect = waveformContainerRef.current?.getBoundingClientRect();
@@ -1481,160 +1511,188 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     const x = e.clientX - rect.left;
     const time = pixelToTime(x, rect.width);
 
-    // Store initial mouse position for click vs drag detection
-    setMouseDownPos({ x: e.clientX, y: e.clientY });
+    setMouseDownPos({ x: e.clientX, time });
     setHasDragged(false);
 
-    // Check if clicking on a handle (when selection exists)
-    if (selectionStart !== null && selectionEnd !== null) {
-      const startPixel = timeToPixel(Math.min(selectionStart, selectionEnd), rect.width);
-      const endPixel = timeToPixel(Math.max(selectionStart, selectionEnd), rect.width);
+    const target = getClickTarget(x, rect.width);
 
-      // Within 8 pixels of start handle
-      if (Math.abs(x - startPixel) < 8) {
-        setIsDraggingHandle('start');
-        e.stopPropagation();
-        return;
-      }
-      // Within 8 pixels of end handle
-      if (Math.abs(x - endPixel) < 8) {
-        setIsDraggingHandle('end');
-        e.stopPropagation();
-        return;
-      }
+    switch (target) {
+      case 'playhead':
+        setInteractionType('scrubPlayhead');
+        break;
+      case 'handleStart':
+        setInteractionType('adjustHandleStart');
+        break;
+      case 'handleEnd':
+        setInteractionType('adjustHandleEnd');
+        break;
+      case 'selection':
+        setInteractionType('moveSelection');
+        // Store offset from click position to selection start
+        setSelectionDragOffset(time - (selectionStart || 0));
+        break;
+      case 'waveform':
+        setInteractionType('createSelection');
+        // Don't start selection yet - wait for drag
+        break;
     }
+  }, [loadedAudio, zoomToolActive, pixelToTime, getClickTarget, selectionStart]);
 
-    // Prepare for potential selection (but don't finalize until we know it's a drag)
-    setIsSelecting(true);
-    setSelectionStart(time);
-    setSelectionEnd(time);
-  }, [loadedAudio, zoomToolActive, pixelToTime, timeToPixel, selectionStart, selectionEnd]);
-
-  // Handle selection mouse move on waveform
-  const handleSelectionMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!loadedAudio) return;
+  // Handle waveform mouse move - process dragging based on interaction type
+  const handleWaveformMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!loadedAudio || interactionType === 'none') return;
 
     const rect = waveformContainerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
     const x = e.clientX - rect.left;
     const time = pixelToTime(x, rect.width);
+    const clampedTime = Math.max(0, Math.min(loadedAudio.duration, time));
 
-    // Clamp time to valid range
-    const duration = loadedAudio.duration || 0;
-    const clampedTime = Math.max(0, Math.min(duration, time));
-
-    // Check if we've dragged more than 5 pixels (threshold for drag vs click)
+    // Check if we've moved enough to count as a drag
     if (mouseDownPos && !hasDragged) {
-      const distance = Math.sqrt(
-        Math.pow(e.clientX - mouseDownPos.x, 2) +
-        Math.pow(e.clientY - mouseDownPos.y, 2)
-      );
+      const distance = Math.abs(e.clientX - mouseDownPos.x);
       if (distance > 5) {
         setHasDragged(true);
+
+        // If creating selection, initialize it now
+        if (interactionType === 'createSelection') {
+          setSelectionStart(mouseDownPos.time);
+          setSelectionEnd(mouseDownPos.time);
+        }
       }
     }
 
-    // Only update selection if we've actually dragged
-    if (isSelecting && hasDragged) {
-      setSelectionEnd(clampedTime);
-    } else if (isDraggingHandle === 'start') {
-      // When dragging start handle, we need to keep the lower value as start
-      const currentEnd = selectionEnd ?? 0;
-      setHasDragged(true);
-      if (clampedTime < currentEnd) {
-        setSelectionStart(clampedTime);
-      } else {
-        // Swap: start becomes end, dragged position becomes new end
-        setSelectionStart(currentEnd);
-        setSelectionEnd(clampedTime);
-        setIsDraggingHandle('end');
-      }
-    } else if (isDraggingHandle === 'end') {
-      const currentStart = selectionStart ?? 0;
-      setHasDragged(true);
-      if (clampedTime > currentStart) {
-        setSelectionEnd(clampedTime);
-      } else {
-        // Swap: end becomes start, dragged position becomes new start
-        setSelectionEnd(currentStart);
-        setSelectionStart(clampedTime);
-        setIsDraggingHandle('start');
-      }
-    }
-  }, [loadedAudio, pixelToTime, isSelecting, isDraggingHandle, selectionStart, selectionEnd, mouseDownPos, hasDragged]);
+    if (!hasDragged) return;
 
-  // Handle selection mouse up on waveform
-  const handleSelectionMouseUp = useCallback((e?: React.MouseEvent) => {
+    switch (interactionType) {
+      case 'scrubPlayhead':
+        setTimestamp(clampedTime * 1000);
+        break;
+
+      case 'createSelection':
+        setSelectionEnd(clampedTime);
+        break;
+
+      case 'adjustHandleStart': {
+        const currentEnd = selectionEnd ?? 0;
+        if (clampedTime < currentEnd) {
+          setSelectionStart(clampedTime);
+        } else {
+          // Swap: start becomes end, dragged position becomes new end
+          setSelectionStart(currentEnd);
+          setSelectionEnd(clampedTime);
+          setInteractionType('adjustHandleEnd');
+        }
+        break;
+      }
+
+      case 'adjustHandleEnd': {
+        const currentStart = selectionStart ?? 0;
+        if (clampedTime > currentStart) {
+          setSelectionEnd(clampedTime);
+        } else {
+          // Swap: end becomes start, dragged position becomes new start
+          setSelectionEnd(currentStart);
+          setSelectionStart(clampedTime);
+          setInteractionType('adjustHandleStart');
+        }
+        break;
+      }
+
+      case 'moveSelection':
+        if (selectionStart !== null && selectionEnd !== null) {
+          const selectionDuration = Math.abs(selectionEnd - selectionStart);
+          const newStart = clampedTime - selectionDragOffset;
+          const newEnd = newStart + selectionDuration;
+
+          // Keep selection within bounds
+          if (newStart >= 0 && newEnd <= loadedAudio.duration) {
+            setSelectionStart(newStart);
+            setSelectionEnd(newEnd);
+          } else if (newStart < 0) {
+            setSelectionStart(0);
+            setSelectionEnd(selectionDuration);
+          } else {
+            setSelectionStart(loadedAudio.duration - selectionDuration);
+            setSelectionEnd(loadedAudio.duration);
+          }
+        }
+        break;
+    }
+  }, [loadedAudio, interactionType, pixelToTime, mouseDownPos, hasDragged, selectionStart, selectionEnd, selectionDragOffset, setTimestamp]);
+
+  // Handle waveform mouse up - finalize interaction
+  const handleWaveformMouseUp = useCallback((e?: React.MouseEvent) => {
     if (!loadedAudio) {
-      // Reset all states
-      setIsSelecting(false);
-      setIsDraggingHandle(null);
+      setInteractionType('none');
       setMouseDownPos(null);
       setHasDragged(false);
+      setSelectionDragOffset(0);
       return;
     }
 
-    // If it was a click (not a drag) and not dragging a handle, move playhead
-    if (!hasDragged && !isDraggingHandle) {
-      // Calculate clicked time position
-      const rect = waveformContainerRef.current?.getBoundingClientRect();
-      if (rect && e) {
-        const x = e.clientX - rect.left;
-        const time = pixelToTime(x, rect.width);
-        const duration = loadedAudio.duration || 0;
-        const clampedTime = Math.max(0, Math.min(duration, time));
-
-        // Move playhead to clicked position
-        setTimestamp(clampedTime * 1000);
+    // Single click (no drag)
+    if (!hasDragged) {
+      if (interactionType === 'createSelection' || interactionType === 'none') {
+        // Single click on waveform = move playhead
+        const rect = waveformContainerRef.current?.getBoundingClientRect();
+        if (rect && e) {
+          const x = e.clientX - rect.left;
+          const time = pixelToTime(x, rect.width);
+          const clampedTime = Math.max(0, Math.min(loadedAudio.duration, time));
+          setTimestamp(clampedTime * 1000);
+        }
       }
-
-      // Clear any partial selection that was started
-      setSelectionStart(null);
-      setSelectionEnd(null);
+      // Single click on playhead, selection, or handles = do nothing (no drag occurred)
     }
-    // If it was a drag, finalize the selection
-    else if (isSelecting && hasDragged && selectionStart !== null && selectionEnd !== null) {
-      // Normalize: ensure start < end
-      const start = Math.min(selectionStart, selectionEnd);
-      const end = Math.max(selectionStart, selectionEnd);
+    // Drag completed
+    else {
+      if (interactionType === 'createSelection') {
+        // Finalize selection
+        if (selectionStart !== null && selectionEnd !== null) {
+          const finalStart = Math.min(selectionStart, selectionEnd);
+          const finalEnd = Math.max(selectionStart, selectionEnd);
 
-      // Clear selection if too small (less than 0.05 seconds)
-      if (Math.abs(end - start) < 0.05) {
-        setSelectionStart(null);
-        setSelectionEnd(null);
-      } else {
-        setSelectionStart(start);
-        setSelectionEnd(end);
+          // Clear if too small
+          if (finalEnd - finalStart < 0.05) {
+            setSelectionStart(null);
+            setSelectionEnd(null);
+          } else {
+            setSelectionStart(finalStart);
+            setSelectionEnd(finalEnd);
+          }
+        }
       }
+      // Other drag types (scrub, move selection, adjust handles) are already applied
     }
 
-    // Reset all states
-    setIsSelecting(false);
-    setIsDraggingHandle(null);
+    // Reset interaction state
+    setInteractionType('none');
     setMouseDownPos(null);
     setHasDragged(false);
-  }, [loadedAudio, isSelecting, selectionStart, selectionEnd, hasDragged, isDraggingHandle, pixelToTime, setTimestamp]);
+    setSelectionDragOffset(0);
+  }, [loadedAudio, hasDragged, interactionType, selectionStart, selectionEnd, pixelToTime, setTimestamp]);
 
   // Handle mouse leaving the waveform area
   const handleWaveformMouseLeave = useCallback(() => {
-    if (isSelecting && !hasDragged) {
-      // Cancel partial selection if user leaves without dragging
+    // If we were creating a selection but hadn't dragged yet, cancel it
+    if (interactionType === 'createSelection' && !hasDragged) {
       setSelectionStart(null);
       setSelectionEnd(null);
     }
-    setIsSelecting(false);
-    setIsDraggingHandle(null);
+
+    setInteractionType('none');
     setMouseDownPos(null);
     setHasDragged(false);
-  }, [isSelecting, hasDragged]);
+    setSelectionDragOffset(0);
+  }, [interactionType, hasDragged]);
 
   // Clear selection function
   const clearSelection = useCallback(() => {
     setSelectionStart(null);
     setSelectionEnd(null);
-    setIsSelecting(false);
-    setIsDraggingHandle(null);
+    setInteractionType('none');
   }, []);
 
   // Keyboard handler to clear selection on Escape
@@ -2012,9 +2070,15 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             minHeight: 100,
             cursor: zoomToolActive
               ? 'crosshair'
-              : (isSelecting || isDraggingHandle)
+              : interactionType === 'scrubPlayhead'
                 ? 'ew-resize'
-                : 'default',
+              : interactionType === 'moveSelection'
+                ? 'grabbing'
+              : (interactionType === 'adjustHandleStart' || interactionType === 'adjustHandleEnd')
+                ? 'ew-resize'
+              : interactionType === 'createSelection'
+                ? 'crosshair'
+                : 'crosshair',
           }}
           onMouseDown={(e) => {
             // Zoom marquee takes priority when active
@@ -2022,21 +2086,21 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
               const rect = e.currentTarget.getBoundingClientRect();
               handleMarqueeMouseDown(e, rect);
             } else {
-              // Time selection when zoom tool is not active
-              handleSelectionMouseDown(e);
+              // Waveform interactions when zoom tool is not active
+              handleWaveformMouseDown(e);
             }
           }}
           onMouseMove={(e) => {
             if (zoomToolActive) {
               const rect = e.currentTarget.getBoundingClientRect();
               handleMarqueeMouseMove(e, rect);
-            } else if (isSelecting || isDraggingHandle) {
-              handleSelectionMouseMove(e);
+            } else if (interactionType !== 'none') {
+              handleWaveformMouseMove(e);
             }
           }}
           onMouseUp={(e) => {
             handleMarqueeMouseUp();
-            handleSelectionMouseUp(e);
+            handleWaveformMouseUp(e);
           }}
           onMouseLeave={() => {
             handleMarqueeMouseUp();
@@ -2147,7 +2211,8 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
                       }}
                       onMouseDown={(e) => {
                         e.stopPropagation();
-                        setIsDraggingHandle('start');
+                        setInteractionType('adjustHandleStart');
+                        setHasDragged(true); // Handle dragging starts immediately
                       }}
                     />
                   )}
@@ -2169,7 +2234,8 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
                       }}
                       onMouseDown={(e) => {
                         e.stopPropagation();
-                        setIsDraggingHandle('end');
+                        setInteractionType('adjustHandleEnd');
+                        setHasDragged(true); // Handle dragging starts immediately
                       }}
                     />
                   )}
