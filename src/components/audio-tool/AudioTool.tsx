@@ -34,6 +34,7 @@ import { ExpandVideoModal } from './ExpandVideoModal';
 import UnifiedAudioCanvas from './UnifiedAudioCanvas';
 import { WaveformCanvas } from './WaveformCanvas';
 import { TimeScaleBar } from './TimeScaleBar';
+import { SpectrumAnalyzer } from './SpectrumAnalyzer';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
 import { useNavigationStore } from '@/stores/useNavigationStore';
 import {
@@ -1720,14 +1721,21 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         position: 'relative',
       }}>
 
-        {/* Audio Visualization Section - placeholder for spectrum analyzer, level meters, etc. */}
+        {/* Audio Visualization Section - Spectrum Analyzer */}
         <Box sx={{
           flex: 1,
           position: 'relative',
           minHeight: 150,
           backgroundColor: '#000004',
         }}>
-          {/* TODO: Add spectrum analyzer, level meters, stereo field display */}
+          {/* Spectrum Analyzer */}
+          <SpectrumAnalyzer
+            isLoaded={!!loadedAudio}
+            audioContext={audioContextRef.current}
+            barCount={64}
+            showLabels={true}
+            showPeaks={true}
+          />
 
           {/* Zoom Controls */}
           {loadedAudio && (
