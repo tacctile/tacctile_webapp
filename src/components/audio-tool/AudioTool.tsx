@@ -796,10 +796,18 @@ const OverviewBar: React.FC<OverviewBarProps> = ({
     drawOverview();
   }, [drawOverview]);
 
+  // ResizeObserver for container size changes (column collapse/expand)
   useEffect(() => {
-    const handleResize = () => drawOverview();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const container = containerRef.current;
+    if (!container) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      drawOverview();
+    });
+
+    resizeObserver.observe(container);
+
+    return () => resizeObserver.disconnect();
   }, [drawOverview]);
 
   // Format time for labels
