@@ -118,21 +118,23 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
     return { r, g, b, a };
   }, []);
 
-  // Draw Hz scale overlay on the right side (translucent, doesn't compress spectral area)
-  const drawHzScale = useCallback((ctx: CanvasRenderingContext2D, width: number, height: number) => {
-    const scaleWidth = 44; // Same width as dB scale for consistency
-    const scaleX = width - scaleWidth;
+  // Draw Hz scale overlay on the left side (matching wavesurfer convention)
+  const drawHzScale = useCallback((ctx: CanvasRenderingContext2D, _width: number, height: number) => {
+    const scaleWidth = 50;
 
-    // Translucent background
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    ctx.fillRect(scaleX, 0, scaleWidth, height);
+    // Translucent background gradient for better blending
+    const bgGradient = ctx.createLinearGradient(0, 0, scaleWidth, 0);
+    bgGradient.addColorStop(0, 'rgba(0, 0, 4, 0.85)');
+    bgGradient.addColorStop(0.7, 'rgba(0, 0, 4, 0.7)');
+    bgGradient.addColorStop(1, 'rgba(0, 0, 4, 0)');
+    ctx.fillStyle = bgGradient;
+    ctx.fillRect(0, 0, scaleWidth, height);
 
     // Frequency labels (logarithmic scale matching wavesurfer)
     const frequencies = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
-    const labels = ['20 Hz', '50 Hz', '100 Hz', '200 Hz', '500 Hz', '1k Hz', '2k Hz', '5k Hz', '10k Hz', '20k Hz'];
+    const labels = ['20', '50', '100', '200', '500', '1k', '2k', '5k', '10k', '20k'];
 
-    ctx.fillStyle = '#888';
-    ctx.font = '9px Inter, system-ui, sans-serif';
+    ctx.font = '10px Inter, system-ui, sans-serif';
     ctx.textAlign = 'right';
 
     const logMin = Math.log10(20);
@@ -143,50 +145,93 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
       const ratio = (logFreq - logMin) / (logMax - logMin);
       const y = height - (ratio * height);
 
-      // Tick mark
-      ctx.strokeStyle = '#555';
+      // Skip if too close to edges
+      if (y < 8 || y > height - 8) return;
+
+      // Tick mark (subtle line extending into the spectrogram)
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(scaleX, y);
-      ctx.lineTo(scaleX + 5, y);
+      ctx.moveTo(scaleWidth - 5, y);
+      ctx.lineTo(scaleWidth + 10, y);
       ctx.stroke();
 
-      // Label with Hz abbreviation
-      ctx.fillText(labels[i], scaleX + scaleWidth - 4, y + 3);
+      // Label
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.fillText(labels[i], scaleWidth - 8, y + 3);
     });
+
+    // "Hz" unit label at bottom
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.font = '9px Inter, system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Hz', 4, height - 4);
   }, []);
 
-  // Draw dB scale overlay on the left side (translucent, doesn't compress spectral area)
-  const drawDbScale = useCallback((ctx: CanvasRenderingContext2D, height: number) => {
-    const scaleWidth = 44; // Same width as Hz scale for consistency
+  // Draw dB scale overlay on the right side (color intensity legend)
+  const drawDbScale = useCallback((ctx: CanvasRenderingContext2D, width: number, height: number) => {
+    const scaleWidth = 50;
+    const scaleX = width - scaleWidth;
+    const barWidth = 12;
+    const barX = scaleX + 8;
 
-    // Translucent background
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    ctx.fillRect(0, 0, scaleWidth, height);
+    // Translucent background gradient
+    const bgGradient = ctx.createLinearGradient(scaleX, 0, width, 0);
+    bgGradient.addColorStop(0, 'rgba(0, 0, 4, 0)');
+    bgGradient.addColorStop(0.3, 'rgba(0, 0, 4, 0.7)');
+    bgGradient.addColorStop(1, 'rgba(0, 0, 4, 0.85)');
+    ctx.fillStyle = bgGradient;
+    ctx.fillRect(scaleX, 0, scaleWidth, height);
 
-    // dB levels (0dB at top, -60dB at bottom)
-    const dbLevels = [0, -12, -24, -36, -48, -60];
+    // Draw color gradient bar showing the magma colormap
+    const gradientBarHeight = height - 40;
+    const gradientBarY = 20;
+    const colorGradient = ctx.createLinearGradient(0, gradientBarY + gradientBarHeight, 0, gradientBarY);
 
-    ctx.fillStyle = '#888';
+    // Magma colormap stops (matching the spectrogram colors)
+    colorGradient.addColorStop(0, 'rgb(0, 0, 4)');        // -60dB (silence)
+    colorGradient.addColorStop(0.15, 'rgb(30, 12, 55)');  // Dark purple
+    colorGradient.addColorStop(0.3, 'rgb(85, 30, 100)');  // Purple
+    colorGradient.addColorStop(0.45, 'rgb(150, 50, 90)'); // Magenta
+    colorGradient.addColorStop(0.6, 'rgb(210, 80, 50)');  // Orange-red
+    colorGradient.addColorStop(0.75, 'rgb(245, 140, 35)');// Orange
+    colorGradient.addColorStop(0.9, 'rgb(252, 210, 80)'); // Yellow
+    colorGradient.addColorStop(1, 'rgb(255, 250, 200)');  // 0dB (peak)
+
+    ctx.fillStyle = colorGradient;
+    ctx.fillRect(barX, gradientBarY, barWidth, gradientBarHeight);
+
+    // Border around the color bar
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(barX, gradientBarY, barWidth, gradientBarHeight);
+
+    // dB level labels
+    const dbLevels = [0, -20, -40, -60];
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
     ctx.font = '9px Inter, system-ui, sans-serif';
     ctx.textAlign = 'left';
 
     dbLevels.forEach(db => {
       // Map dB to y position (0dB = top, -60dB = bottom)
       const ratio = (db + 60) / 60;
-      const y = height - (ratio * height);
+      const y = gradientBarY + gradientBarHeight - (ratio * gradientBarHeight);
 
-      // Tick mark
-      ctx.strokeStyle = '#555';
-      ctx.lineWidth = 1;
+      // Small tick mark
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
       ctx.beginPath();
-      ctx.moveTo(scaleWidth - 5, y);
-      ctx.lineTo(scaleWidth, y);
+      ctx.moveTo(barX + barWidth, y);
+      ctx.lineTo(barX + barWidth + 4, y);
       ctx.stroke();
 
-      // Label with dB abbreviation
-      ctx.fillText(`${db} dB`, 4, y + 3);
+      // Label
+      ctx.fillText(`${db}`, barX + barWidth + 6, y + 3);
     });
+
+    // "dB" unit label
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.textAlign = 'right';
+    ctx.fillText('dB', width - 4, height - 4);
   }, []);
 
   const draw = useCallback(() => {
@@ -208,8 +253,8 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
     const width = rect.width;
     const height = rect.height;
 
-    // Clear canvas
-    ctx.fillStyle = '#0a0a0a';
+    // Clear canvas with dark background
+    ctx.fillStyle = '#000004';
     ctx.fillRect(0, 0, width, height);
 
     if (!isLoaded) return;
@@ -223,18 +268,28 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
       // Use pre-generated ImageBitmap for high-quality, fast rendering
       // Calculate source rectangle based on zoom/scroll
       const visibleFraction = 1 / zoom;
-      const sourceX = scrollOffset * spectrogramImage.width;
-      const sourceWidth = spectrogramImage.width * visibleFraction;
+      const sourceX = Math.floor(scrollOffset * spectrogramImage.width);
+      const sourceWidth = Math.ceil(spectrogramImage.width * visibleFraction);
+
+      // Ensure we don't exceed image bounds
+      const clampedSourceX = Math.max(0, Math.min(sourceX, spectrogramImage.width - 1));
+      const clampedSourceWidth = Math.min(sourceWidth, spectrogramImage.width - clampedSourceX);
+
+      // Enable image smoothing for better quality when scaling
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
 
       // Draw the visible portion scaled to canvas
       ctx.drawImage(
         spectrogramImage,
-        sourceX, 0, sourceWidth, spectrogramImage.height,  // Source rect
-        0, 0, width, height  // Dest rect
+        clampedSourceX, 0, clampedSourceWidth, spectrogramImage.height,  // Source rect
+        0, 0, width, height  // Dest rect (full canvas)
       );
     } else if (spectrogramGenerating) {
-      // Show loading state while generating spectrogram - don't draw anything
-      // The overlay will show "Generating spectrogram..."
+      // Show loading state while generating spectrogram
+      // Draw a subtle placeholder pattern
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(0, 0, width, height);
     } else if (spectralData && spectralData.length > 0) {
       // Fallback: Use legacy spectral data rendering
       const numBins = spectralData[0].length;
@@ -312,7 +367,7 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
     // Only draw scales when there's actual spectrogram content
     if (spectrogramImage || (spectralData && spectralData.length > 0) || isLoaded) {
       drawHzScale(ctx, width, height);
-      drawDbScale(ctx, height);
+      drawDbScale(ctx, width, height);
     }
 
     // Draw playhead
