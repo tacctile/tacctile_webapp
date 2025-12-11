@@ -982,6 +982,14 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [zoomToolActive, setZoomToolActive] = useState(false);
 
+  // Zoom section state (inspector panel)
+  const [zoomSectionOpen, setZoomSectionOpen] = useState(true);
+  const [waveformHeight, setWaveformHeight] = useState(1); // 0.5 to 2.0
+
+  // Marquee zoom selection state
+  const [marqueeStart, setMarqueeStart] = useState<number | null>(null);
+  const [marqueeEnd, setMarqueeEnd] = useState<number | null>(null);
+
   // Playhead store for waveform integration
   const timestamp = usePlayheadStore((state) => state.timestamp);
   const isPlaying = usePlayheadStore((state) => state.isPlaying);
@@ -1322,6 +1330,73 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     setOverviewScrollOffset(newScrollOffset);
   }, [overviewZoom, timestamp, loadedAudio?.duration]);
 
+  // Zoom slider handler - keeps playhead centered (same logic as +/- buttons)
+  const handleZoomSliderChange = useCallback((newZoom: number) => {
+    const duration = loadedAudio?.duration || 1;
+    const playheadRatio = (timestamp / 1000) / duration;
+
+    // Calculate the visible window at new zoom level
+    const visibleDuration = duration / newZoom;
+
+    // Center the scroll offset on the playhead
+    const newScrollOffset = Math.max(0, Math.min(1 - (1 / newZoom), playheadRatio - (0.5 / newZoom)));
+
+    setOverviewZoom(newZoom);
+    setOverviewScrollOffset(newScrollOffset);
+  }, [timestamp, loadedAudio?.duration]);
+
+  // Marquee zoom handlers
+  const handleMarqueeMouseDown = useCallback((e: React.MouseEvent, containerRect: DOMRect) => {
+    if (!zoomToolActive || !loadedAudio) return;
+
+    const x = (e.clientX - containerRect.left) / containerRect.width;
+    // Account for zoom and scroll when calculating time
+    const visibleDuration = loadedAudio.duration / overviewZoom;
+    const visibleStart = overviewScrollOffset * loadedAudio.duration;
+    const time = visibleStart + x * visibleDuration;
+
+    setMarqueeStart(time);
+    setMarqueeEnd(time);
+  }, [zoomToolActive, loadedAudio, overviewZoom, overviewScrollOffset]);
+
+  const handleMarqueeMouseMove = useCallback((e: React.MouseEvent, containerRect: DOMRect) => {
+    if (!zoomToolActive || marqueeStart === null || !loadedAudio) return;
+
+    const x = (e.clientX - containerRect.left) / containerRect.width;
+    // Account for zoom and scroll when calculating time
+    const visibleDuration = loadedAudio.duration / overviewZoom;
+    const visibleStart = overviewScrollOffset * loadedAudio.duration;
+    const time = visibleStart + x * visibleDuration;
+
+    setMarqueeEnd(time);
+  }, [zoomToolActive, marqueeStart, loadedAudio, overviewZoom, overviewScrollOffset]);
+
+  const handleMarqueeMouseUp = useCallback(() => {
+    if (!zoomToolActive || marqueeStart === null || marqueeEnd === null || !loadedAudio) {
+      setMarqueeStart(null);
+      setMarqueeEnd(null);
+      return;
+    }
+
+    const startTime = Math.min(marqueeStart, marqueeEnd);
+    const endTime = Math.max(marqueeStart, marqueeEnd);
+    const selectionDuration = endTime - startTime;
+
+    if (selectionDuration > 0.1) { // Minimum selection of 0.1 seconds
+      // Calculate zoom level to fit selection
+      const newZoom = Math.min(10, loadedAudio.duration / selectionDuration);
+      const newScrollOffset = startTime / loadedAudio.duration;
+
+      setOverviewZoom(newZoom);
+      setOverviewScrollOffset(newScrollOffset);
+      setTimestamp(startTime * 1000); // Place playhead at start of selection (convert to ms)
+    }
+
+    setMarqueeStart(null);
+    setMarqueeEnd(null);
+    setZoomToolActive(false);
+  }, [zoomToolActive, marqueeStart, marqueeEnd, loadedAudio, setTimestamp]);
+
   // Click-to-seek handler for unified container
   // Calculates time position accounting for zoom and scroll
   const handleUnifiedContainerClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -1424,6 +1499,97 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
                 </Typography>
               </Box>
             )}
+          </InspectorSectionContent>
+        )}
+      </InspectorSection>
+
+      {/* Zoom - collapsible section */}
+      <InspectorSection sx={{ flexShrink: 0 }}>
+        <InspectorSectionHeader onClick={() => setZoomSectionOpen(!zoomSectionOpen)}>
+          <InspectorSectionTitle>Zoom</InspectorSectionTitle>
+          {zoomSectionOpen ? (
+            <ExpandLessIcon sx={{ fontSize: 18, color: '#666' }} />
+          ) : (
+            <ExpandMoreIcon sx={{ fontSize: 18, color: '#666' }} />
+          )}
+        </InspectorSectionHeader>
+        {zoomSectionOpen && (
+          <InspectorSectionContent>
+            {/* Zoom controls */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <Tooltip title="Zoom to selection">
+                <IconButton
+                  size="small"
+                  onClick={() => setZoomToolActive(!zoomToolActive)}
+                  disabled={!loadedAudio}
+                  sx={{
+                    color: zoomToolActive ? '#19abb5' : '#888',
+                    padding: '4px',
+                    '&:hover': { color: '#19abb5' },
+                    '&.Mui-disabled': { color: '#444' },
+                  }}
+                >
+                  <ZoomInIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              </Tooltip>
+              <IconButton
+                size="small"
+                onClick={handleZoomOut}
+                disabled={!loadedAudio}
+                sx={{ color: '#888', padding: '4px', '&:hover': { color: '#19abb5' }, '&.Mui-disabled': { color: '#444' } }}
+              >
+                <RemoveIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+              <Slider
+                value={overviewZoom}
+                min={1}
+                max={10}
+                step={0.1}
+                onChange={(_, value) => handleZoomSliderChange(value as number)}
+                disabled={!loadedAudio}
+                sx={{
+                  flex: 1,
+                  color: '#19abb5',
+                  '& .MuiSlider-thumb': { width: 12, height: 12 },
+                  '& .MuiSlider-track': { height: 3 },
+                  '& .MuiSlider-rail': { height: 3, backgroundColor: '#333' },
+                }}
+              />
+              <IconButton
+                size="small"
+                onClick={handleZoomIn}
+                disabled={!loadedAudio}
+                sx={{ color: '#888', padding: '4px', '&:hover': { color: '#19abb5' }, '&.Mui-disabled': { color: '#444' } }}
+              >
+                <AddIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+              <Typography sx={{ color: '#888', fontSize: 11, minWidth: 35, fontFamily: '"JetBrains Mono", monospace' }}>
+                {overviewZoom.toFixed(1)}x
+              </Typography>
+            </Box>
+
+            {/* Waveform height control */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography sx={{ fontSize: 11, color: '#888', minWidth: 50 }}>Height</Typography>
+              <Slider
+                value={waveformHeight}
+                min={0.5}
+                max={2}
+                step={0.1}
+                onChange={(_, value) => setWaveformHeight(value as number)}
+                disabled={!loadedAudio}
+                sx={{
+                  flex: 1,
+                  color: '#19abb5',
+                  '& .MuiSlider-thumb': { width: 12, height: 12 },
+                  '& .MuiSlider-track': { height: 3 },
+                  '& .MuiSlider-rail': { height: 3, backgroundColor: '#333' },
+                }}
+              />
+              <Typography sx={{ color: '#888', fontSize: 11, minWidth: 30, fontFamily: '"JetBrains Mono", monospace' }}>
+                {waveformHeight.toFixed(1)}x
+              </Typography>
+            </Box>
           </InspectorSectionContent>
         )}
       </InspectorSection>
@@ -1582,90 +1748,79 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       }}>
 
         {/* Waveform Section - fills remaining space */}
-        <Box sx={{
-          flex: 1,
-          position: 'relative',
-          backgroundColor: '#0a0a0a',
-          minHeight: 100,
-        }}>
+        <Box
+          sx={{
+            flex: 1,
+            position: 'relative',
+            backgroundColor: '#0a0a0a',
+            minHeight: 100,
+            cursor: zoomToolActive ? 'crosshair' : 'default',
+          }}
+          onMouseDown={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            handleMarqueeMouseDown(e, rect);
+          }}
+          onMouseMove={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            handleMarqueeMouseMove(e, rect);
+          }}
+          onMouseUp={handleMarqueeMouseUp}
+          onMouseLeave={handleMarqueeMouseUp}
+        >
           <WaveformCanvas
             isLoaded={!!loadedAudio}
             duration={loadedAudio?.duration || 0}
             zoom={overviewZoom}
             scrollOffset={overviewScrollOffset}
             waveformData={waveformData}
+            waveformHeight={waveformHeight}
             onSeek={handleOverviewSeek}
             onZoomChange={handleZoomChange}
             onScrollChange={handleScrollChange}
           />
 
-          {/* Zoom Controls - positioned over waveform */}
-          {loadedAudio && (
-            <Box sx={{
-              position: 'absolute',
-              top: 8,
-              right: 8,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.5,
-              backgroundColor: 'rgba(0, 0, 0, 0.6)',
-              borderRadius: 1,
-              padding: '4px 8px',
-              zIndex: 10,
-            }}>
-              {/* Zoom Tool (Marquee) */}
-              <Tooltip title={zoomToolActive ? "Cancel Zoom Tool" : "Zoom Tool - Draw to zoom"}>
-                <IconButton
-                  size="small"
-                  onClick={() => setZoomToolActive(!zoomToolActive)}
-                  sx={{
-                    color: zoomToolActive ? '#19abb5' : '#888',
-                    padding: '2px',
-                    '&:hover': { color: '#19abb5' },
-                  }}
-                >
-                  <ZoomInIcon sx={{ fontSize: 16 }} />
-                </IconButton>
-              </Tooltip>
+          {/* Marquee selection overlay */}
+          {zoomToolActive && marqueeStart !== null && marqueeEnd !== null && loadedAudio && (
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 0,
+                bottom: 0,
+                left: (() => {
+                  const visibleDuration = loadedAudio.duration / overviewZoom;
+                  const visibleStart = overviewScrollOffset * loadedAudio.duration;
+                  const startTime = Math.min(marqueeStart, marqueeEnd);
+                  return `${((startTime - visibleStart) / visibleDuration) * 100}%`;
+                })(),
+                width: (() => {
+                  const visibleDuration = loadedAudio.duration / overviewZoom;
+                  return `${(Math.abs(marqueeEnd - marqueeStart) / visibleDuration) * 100}%`;
+                })(),
+                backgroundColor: 'rgba(25, 171, 181, 0.2)',
+                border: '1px solid #19abb5',
+                pointerEvents: 'none',
+                zIndex: 5,
+              }}
+            />
+          )}
 
-              {/* Zoom out */}
-              <IconButton
-                size="small"
-                onClick={handleZoomOut}
-                sx={{ color: '#888', padding: '2px', '&:hover': { color: '#19abb5' } }}
-              >
-                <RemoveIcon sx={{ fontSize: 16 }} />
-              </IconButton>
-
-              {/* Zoom slider */}
-              <Slider
-                value={overviewZoom}
-                min={1}
-                max={10}
-                step={0.1}
-                onChange={(_, value) => handleZoomChange(value as number)}
-                sx={{
-                  width: 80,
-                  color: '#19abb5',
-                  '& .MuiSlider-thumb': { width: 12, height: 12 },
-                  '& .MuiSlider-track': { height: 3 },
-                  '& .MuiSlider-rail': { height: 3, backgroundColor: '#333' },
-                }}
-              />
-
-              {/* Zoom in */}
-              <IconButton
-                size="small"
-                onClick={handleZoomIn}
-                sx={{ color: '#888', padding: '2px', '&:hover': { color: '#19abb5' } }}
-              >
-                <AddIcon sx={{ fontSize: 16 }} />
-              </IconButton>
-
-              {/* Zoom level display */}
-              <Typography sx={{ color: '#888', fontSize: 10, minWidth: 30 }}>
-                {overviewZoom.toFixed(1)}x
-              </Typography>
+          {/* Zoom tool active indicator */}
+          {zoomToolActive && (
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 8,
+                left: 8,
+                backgroundColor: 'rgba(25, 171, 181, 0.9)',
+                color: '#fff',
+                fontSize: 10,
+                padding: '2px 8px',
+                borderRadius: 1,
+                pointerEvents: 'none',
+                zIndex: 10,
+              }}
+            >
+              Click and drag to zoom
             </Box>
           )}
         </Box>
