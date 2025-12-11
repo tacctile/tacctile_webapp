@@ -5,6 +5,10 @@
 
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import Box from '@mui/material/Box';
+import Slider from '@mui/material/Slider';
+import IconButton from '@mui/material/IconButton';
+import AddIcon from '@mui/icons-material/Add';
+import RemoveIcon from '@mui/icons-material/Remove';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
 
 interface WaveformCanvasProps {
@@ -42,6 +46,9 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
   const [isPanning, setIsPanning] = useState(false);
   const [panStartX, setPanStartX] = useState(0);
   const [panStartOffset, setPanStartOffset] = useState(0);
+
+  // Amplitude scale state (0.5 to 3.0)
+  const [amplitudeScale, setAmplitudeScale] = useState(1);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -100,7 +107,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
           waveformData.length - 1,
           Math.floor((time / duration) * waveformData.length)
         );
-        const amplitude = dataIndex >= 0 ? waveformData[dataIndex] : 0;
+        const amplitude = (dataIndex >= 0 ? waveformData[dataIndex] : 0) * amplitudeScale;
         const y = centerY - amplitude * (height * 0.4);
         ctx.lineTo(x, y);
       }
@@ -119,7 +126,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
           waveformData.length - 1,
           Math.floor((time / duration) * waveformData.length)
         );
-        const amplitude = dataIndex >= 0 ? waveformData[dataIndex] : 0;
+        const amplitude = (dataIndex >= 0 ? waveformData[dataIndex] : 0) * amplitudeScale;
         const y = centerY + amplitude * (height * 0.4);
         ctx.lineTo(x, y);
       }
@@ -139,13 +146,13 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
 
       // Top half
       for (let i = 0; i < waveformPoints.length; i++) {
-        const y = centerY - Math.abs(waveformPoints[i]) * height * 0.4;
+        const y = centerY - Math.abs(waveformPoints[i]) * amplitudeScale * height * 0.4;
         ctx.lineTo(i, y);
       }
 
       // Bottom half (mirror)
       for (let i = waveformPoints.length - 1; i >= 0; i--) {
-        const y = centerY + Math.abs(waveformPoints[i]) * height * 0.4;
+        const y = centerY + Math.abs(waveformPoints[i]) * amplitudeScale * height * 0.4;
         ctx.lineTo(i, y);
       }
     }
@@ -196,7 +203,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
         ctx.fill();
       }
     }
-  }, [isLoaded, duration, zoom, scrollOffset, timestamp, waveformData]);
+  }, [isLoaded, duration, zoom, scrollOffset, timestamp, waveformData, amplitudeScale]);
 
   useEffect(() => {
     draw();
@@ -366,6 +373,65 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
           cursor: getCursor(),
         }}
       />
+      {/* Amplitude Slider - right edge */}
+      <Box sx={{
+        position: 'absolute',
+        right: 4,
+        top: 8,
+        bottom: 8,
+        width: 20,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 0.5,
+        zIndex: 10,
+      }}>
+        {/* Plus button */}
+        <IconButton
+          size="small"
+          onClick={() => setAmplitudeScale(Math.min(3, amplitudeScale + 0.25))}
+          sx={{
+            color: '#666',
+            padding: '2px',
+            '&:hover': { color: '#19abb5' },
+          }}
+        >
+          <AddIcon sx={{ fontSize: 14 }} />
+        </IconButton>
+
+        {/* Vertical Slider */}
+        <Slider
+          orientation="vertical"
+          value={amplitudeScale}
+          min={0.5}
+          max={3}
+          step={0.1}
+          onChange={(_, value) => setAmplitudeScale(value as number)}
+          sx={{
+            flex: 1,
+            color: '#19abb5',
+            '& .MuiSlider-thumb': {
+              width: 10,
+              height: 10,
+            },
+            '& .MuiSlider-track': { width: 3 },
+            '& .MuiSlider-rail': { width: 3, backgroundColor: '#333' },
+          }}
+        />
+
+        {/* Minus button */}
+        <IconButton
+          size="small"
+          onClick={() => setAmplitudeScale(Math.max(0.5, amplitudeScale - 0.25))}
+          sx={{
+            color: '#666',
+            padding: '2px',
+            '&:hover': { color: '#19abb5' },
+          }}
+        >
+          <RemoveIcon sx={{ fontSize: 14 }} />
+        </IconButton>
+      </Box>
     </Box>
   );
 };
