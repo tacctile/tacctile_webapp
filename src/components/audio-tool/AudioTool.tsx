@@ -23,6 +23,9 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import VolumeDownIcon from '@mui/icons-material/VolumeDown';
+import ZoomInIcon from '@mui/icons-material/ZoomIn';
+import AddIcon from '@mui/icons-material/Add';
+import RemoveIcon from '@mui/icons-material/Remove';
 
 import { WorkspaceLayout } from '@/components/layout';
 import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
@@ -1007,6 +1010,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [overviewZoom, setOverviewZoom] = useState(1); // 1 = fit to view
   const [overviewScrollOffset, setOverviewScrollOffset] = useState(0); // 0-1 position
   const [isScrubbing, setIsScrubbing] = useState(false);
+  const [zoomToolActive, setZoomToolActive] = useState(false);
 
   // Playhead store for waveform integration
   const timestamp = usePlayheadStore((state) => state.timestamp);
@@ -1459,6 +1463,31 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     setOverviewScrollOffset(newOffset);
   }, []);
 
+  // Zoom in/out button handlers
+  const handleZoomIn = useCallback(() => {
+    const newZoom = Math.min(10, overviewZoom * 1.2);
+    const playheadTime = timestamp / 1000;
+    const duration = loadedAudio?.duration || 0;
+    const newVisibleDuration = duration / newZoom;
+    const newScrollOffset = Math.max(0, Math.min(1 - 1 / newZoom,
+      (playheadTime - newVisibleDuration / 2) / duration));
+
+    setOverviewZoom(newZoom);
+    setOverviewScrollOffset(newScrollOffset);
+  }, [overviewZoom, timestamp, loadedAudio?.duration]);
+
+  const handleZoomOut = useCallback(() => {
+    const newZoom = Math.max(1, overviewZoom / 1.2);
+    const playheadTime = timestamp / 1000;
+    const duration = loadedAudio?.duration || 0;
+    const newVisibleDuration = duration / newZoom;
+    const newScrollOffset = Math.max(0, Math.min(1 - 1 / newZoom,
+      (playheadTime - newVisibleDuration / 2) / duration));
+
+    setOverviewZoom(newZoom);
+    setOverviewScrollOffset(newScrollOffset);
+  }, [overviewZoom, timestamp, loadedAudio?.duration]);
+
   // Click-to-seek handler for unified container (Spectral + Waveform)
   // Calculates time position accounting for zoom and scroll
   const handleUnifiedContainerClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -1832,7 +1861,78 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             spectralLoading={spectralLoading}
             spectralReady={spectralReady}
             onSeek={handleOverviewSeek}
+            onZoomChange={handleZoomChange}
+            onScrollChange={handleScrollChange}
           />
+          {/* Zoom Controls */}
+          {loadedAudio && (
+            <Box sx={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              backgroundColor: 'rgba(0, 0, 0, 0.6)',
+              borderRadius: 1,
+              padding: '4px 8px',
+              zIndex: 10,
+            }}>
+              {/* Zoom Tool (Marquee) */}
+              <Tooltip title={zoomToolActive ? "Cancel Zoom Tool" : "Zoom Tool - Draw to zoom"}>
+                <IconButton
+                  size="small"
+                  onClick={() => setZoomToolActive(!zoomToolActive)}
+                  sx={{
+                    color: zoomToolActive ? '#19abb5' : '#888',
+                    padding: '2px',
+                    '&:hover': { color: '#19abb5' },
+                  }}
+                >
+                  <ZoomInIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Tooltip>
+
+              {/* Zoom out */}
+              <IconButton
+                size="small"
+                onClick={handleZoomOut}
+                sx={{ color: '#888', padding: '2px', '&:hover': { color: '#19abb5' } }}
+              >
+                <RemoveIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+
+              {/* Zoom slider */}
+              <Slider
+                value={overviewZoom}
+                min={1}
+                max={10}
+                step={0.1}
+                onChange={(_, value) => handleZoomChange(value as number)}
+                sx={{
+                  width: 80,
+                  color: '#19abb5',
+                  '& .MuiSlider-thumb': { width: 12, height: 12 },
+                  '& .MuiSlider-track': { height: 3 },
+                  '& .MuiSlider-rail': { height: 3, backgroundColor: '#333' },
+                }}
+              />
+
+              {/* Zoom in */}
+              <IconButton
+                size="small"
+                onClick={handleZoomIn}
+                sx={{ color: '#888', padding: '2px', '&:hover': { color: '#19abb5' } }}
+              >
+                <AddIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+
+              {/* Zoom level display */}
+              <Typography sx={{ color: '#888', fontSize: 10, minWidth: 30 }}>
+                {overviewZoom.toFixed(1)}x
+              </Typography>
+            </Box>
+          )}
         </Box>
 
         {/* Time Scale Bar - shared between sections */}
@@ -1864,6 +1964,8 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             scrollOffset={overviewScrollOffset}
             waveformData={waveformData}
             onSeek={handleOverviewSeek}
+            onZoomChange={handleZoomChange}
+            onScrollChange={handleScrollChange}
           />
         </Box>
 
