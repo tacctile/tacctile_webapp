@@ -3,7 +3,7 @@
  * Renders spectral visualization (aurora borealis style)
  */
 
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
@@ -39,9 +39,15 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
   const timestamp = usePlayheadStore((state) => state.timestamp);
   const setTimestamp = usePlayheadStore((state) => state.setTimestamp);
 
-  // Track spacebar state for panning
-  const isPanningRef = useRef(false);
-  const panStartRef = useRef({ x: 0, scrollOffset: 0 });
+  // Scrubbing state (drag playhead)
+  const [isDragging, setIsDragging] = useState(false);
+  const [isNearPlayhead, setIsNearPlayhead] = useState(false);
+
+  // Spacebar + drag panning state
+  const [isSpaceHeld, setIsSpaceHeld] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStartX, setPanStartX] = useState(0);
+  const [panStartOffset, setPanStartOffset] = useState(0);
 
   // Aurora borealis color function
   const getAuroraColor = useCallback((intensity: number): { r: number; g: number; b: number; a: number } => {
@@ -227,23 +233,93 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, [draw]);
 
-  // Click to seek
-  const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isLoaded || duration <= 0 || isPanningRef.current) return;
+  // Helper to check if mouse is near playhead
+  const checkNearPlayhead = useCallback((e: React.MouseEvent) => {
+    if (!canvasRef.current || duration <= 0) return false;
 
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    const x = e.clientX - rect.left;
-    const clickRatio = x / rect.width;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
 
     const visibleDuration = duration / zoom;
     const startTime = scrollOffset * duration;
-    const clickTime = startTime + clickRatio * visibleDuration;
+    const playheadX = ((timestamp / 1000 - startTime) / visibleDuration) * rect.width;
+
+    return Math.abs(mouseX - playheadX) < 10;
+  }, [duration, zoom, scrollOffset, timestamp]);
+
+  // Seek to position helper
+  const seekToPosition = useCallback((e: React.MouseEvent) => {
+    if (!canvasRef.current || duration <= 0) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const clickRatio = Math.max(0, Math.min(1, mouseX / rect.width));
+
+    const visibleDuration = duration / zoom;
+    const startTime = scrollOffset * duration;
+    const clickTime = startTime + (clickRatio * visibleDuration);
 
     setTimestamp(clickTime * 1000);
     onSeek?.(clickTime);
-  }, [isLoaded, duration, zoom, scrollOffset, setTimestamp, onSeek]);
+  }, [duration, zoom, scrollOffset, setTimestamp, onSeek]);
+
+  // Mouse handlers for scrubbing and panning
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isLoaded || duration <= 0) return;
+
+    // Spacebar held = start panning
+    if (isSpaceHeld && zoom > 1) {
+      setIsPanning(true);
+      setPanStartX(e.clientX);
+      setPanStartOffset(scrollOffset);
+      return;
+    }
+
+    // Near playhead = start scrubbing
+    if (checkNearPlayhead(e)) {
+      setIsDragging(true);
+      return;
+    }
+
+    // Otherwise click to seek
+    seekToPosition(e);
+  }, [isLoaded, duration, isSpaceHeld, zoom, scrollOffset, checkNearPlayhead, seekToPosition]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    // Panning
+    if (isPanning && canvasRef.current && onScrollChange) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const deltaX = e.clientX - panStartX;
+      const deltaRatio = deltaX / rect.width;
+      const visibleFraction = 1 / zoom;
+
+      const newOffset = Math.max(0, Math.min(1 - visibleFraction,
+        panStartOffset - deltaRatio * visibleFraction));
+      onScrollChange(newOffset);
+      return;
+    }
+
+    // Update cursor based on proximity to playhead
+    if (!isSpaceHeld) {
+      setIsNearPlayhead(checkNearPlayhead(e));
+    }
+
+    // Scrubbing
+    if (isDragging) {
+      seekToPosition(e);
+    }
+  }, [isPanning, panStartX, panStartOffset, zoom, onScrollChange, isSpaceHeld, checkNearPlayhead, isDragging, seekToPosition]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+    setIsPanning(false);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setIsDragging(false);
+    setIsPanning(false);
+    setIsNearPlayhead(false);
+  }, []);
 
   // Wheel zoom handler
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -263,19 +339,19 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
     onScrollChange(newScrollOffset);
   }, [isLoaded, duration, zoom, timestamp, onZoomChange, onScrollChange]);
 
-  // Spacebar + drag panning
+  // Spacebar keyboard listener for panning
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' && !e.repeat) {
-        isPanningRef.current = true;
-        document.body.style.cursor = 'grab';
+        e.preventDefault();
+        setIsSpaceHeld(true);
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
-        isPanningRef.current = false;
-        document.body.style.cursor = '';
+        setIsSpaceHeld(false);
+        setIsPanning(false);
       }
     };
 
@@ -288,47 +364,31 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
     };
   }, []);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (isPanningRef.current) {
-      panStartRef.current = { x: e.clientX, scrollOffset };
-      document.body.style.cursor = 'grabbing';
-    }
-  }, [scrollOffset]);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isPanningRef.current || !onScrollChange || !containerRef.current) return;
-
-    const deltaX = e.clientX - panStartRef.current.x;
-    const containerWidth = containerRef.current.getBoundingClientRect().width;
-    const visibleWidth = 1 / zoom;
-    const deltaOffset = -(deltaX / containerWidth) * visibleWidth;
-    const newOffset = Math.max(0, Math.min(1 - visibleWidth, panStartRef.current.scrollOffset + deltaOffset));
-
-    onScrollChange(newOffset);
-  }, [zoom, onScrollChange]);
-
-  const handleMouseUp = useCallback(() => {
-    if (isPanningRef.current) {
-      document.body.style.cursor = 'grab';
-    }
-  }, []);
+  // Determine cursor based on state
+  const getCursor = () => {
+    if (isPanning) return 'grabbing';
+    if (isSpaceHeld) return 'grab';
+    if (isNearPlayhead || isDragging) return 'ew-resize';
+    if (isLoaded) return 'crosshair';
+    return 'default';
+  };
 
   return (
     <Box ref={containerRef} sx={{ width: '100%', height: '100%', position: 'relative' }}>
       <canvas
         ref={canvasRef}
-        onClick={handleClick}
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
         style={{
           position: 'absolute',
           top: 0,
           left: 0,
           width: '100%',
           height: '100%',
-          cursor: isLoaded ? 'crosshair' : 'default',
+          cursor: getCursor(),
         }}
       />
       {/* Loading overlay */}
