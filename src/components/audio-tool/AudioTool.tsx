@@ -1014,8 +1014,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   // EQ values (-12 to +12 dB for each band)
   const [eqValues, setEqValues] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
-  // EQ bypass state
-  const [eqBypassed, setEqBypassed] = useState(false);
 
   // Simulated meter levels (would come from Web Audio API in real implementation)
   const [meterLevels, setMeterLevels] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
@@ -1769,71 +1767,38 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             analyzerData={meterLevels}
             disabled={!loadedAudio}
           />
-          {/* EQ controls - Bypass toggle and Reset button positioned at top-right */}
-          <Box sx={{
-            position: 'absolute',
-            top: 8,
-            right: 8,
-            display: 'flex',
-            gap: 0.5,
-            alignItems: 'center',
-          }}>
-            <Button
-              size="small"
-              onClick={() => setEqBypassed(!eqBypassed)}
-              disabled={!loadedAudio}
-              sx={{
-                fontSize: 9,
-                color: eqBypassed ? '#888' : '#19abb5',
-                backgroundColor: eqBypassed ? 'transparent' : 'rgba(25, 171, 181, 0.15)',
-                border: '1px solid',
-                borderColor: eqBypassed ? '#333' : '#19abb5',
-                minWidth: 'auto',
-                py: 0.25,
-                px: 1,
-                borderRadius: 0.5,
-                textTransform: 'none',
-                '&:hover': {
-                  backgroundColor: eqBypassed ? 'rgba(25, 171, 181, 0.1)' : 'rgba(25, 171, 181, 0.25)',
-                  borderColor: '#19abb5',
-                },
-                '&:disabled': {
-                  color: '#333',
-                  borderColor: '#252525',
-                  backgroundColor: 'transparent',
-                },
-              }}
-            >
-              {eqBypassed ? 'OFF' : 'ON'}
-            </Button>
-            <Button
-              size="small"
-              onClick={resetEQ}
-              disabled={!loadedAudio}
-              sx={{
-                fontSize: 10,
-                color: '#888',
-                backgroundColor: 'transparent',
-                border: '1px solid #333',
-                minWidth: 'auto',
-                py: 0.5,
-                px: 1.5,
-                borderRadius: 0.5,
-                textTransform: 'none',
-                '&:hover': {
-                  color: '#19abb5',
-                  borderColor: '#19abb5',
-                  backgroundColor: 'rgba(25, 171, 181, 0.1)',
-                },
-                '&:disabled': {
-                  color: '#444',
-                  borderColor: '#252525',
-                },
-              }}
-            >
-              Reset
-            </Button>
-          </Box>
+          {/* Reset button - vertically centered on right side (aligned with 0dB line) */}
+          <Button
+            size="small"
+            onClick={resetEQ}
+            disabled={!loadedAudio}
+            sx={{
+              position: 'absolute',
+              right: 12,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              fontSize: 10,
+              color: '#888',
+              backgroundColor: 'transparent',
+              border: '1px solid #333',
+              minWidth: 'auto',
+              py: 0.5,
+              px: 1.5,
+              borderRadius: 0.5,
+              textTransform: 'none',
+              '&:hover': {
+                color: '#19abb5',
+                borderColor: '#19abb5',
+                backgroundColor: 'rgba(25, 171, 181, 0.1)',
+              },
+              '&:disabled': {
+                color: '#444',
+                borderColor: '#252525',
+              },
+            }}
+          >
+            Reset
+          </Button>
         </Box>
       </EQSection>
 
