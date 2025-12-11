@@ -147,6 +147,92 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
     const visibleDuration = duration / zoom;
     const startTime = scrollOffset * duration;
 
+    // Scale margins
+    const leftMargin = 30;  // dB scale
+    const rightMargin = 40; // Hz scale
+    const spectrogramWidth = width - leftMargin - rightMargin;
+
+    // Draw Hz scale on right side
+    const drawHzScale = () => {
+      const scaleWidth = rightMargin;
+      const scaleX = width - scaleWidth;
+
+      // Semi-transparent background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.fillRect(scaleX, 0, scaleWidth, height);
+
+      // Frequency markers (logarithmic spacing)
+      const frequencies = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+      const labels = ['20', '50', '100', '200', '500', '1k', '2k', '5k', '10k', '20k'];
+
+      ctx.fillStyle = '#888';
+      ctx.font = '9px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'right';
+
+      const logMin = Math.log10(20);
+      const logMax = Math.log10(20000);
+
+      frequencies.forEach((freq, i) => {
+        const logFreq = Math.log10(freq);
+        const ratio = (logFreq - logMin) / (logMax - logMin);
+        const y = height - (ratio * height);
+
+        // Tick mark
+        ctx.strokeStyle = '#555';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(scaleX, y);
+        ctx.lineTo(scaleX + 5, y);
+        ctx.stroke();
+
+        // Label
+        ctx.fillStyle = '#888';
+        ctx.fillText(labels[i], scaleX + scaleWidth - 4, y + 3);
+      });
+
+      // "Hz" label at top
+      ctx.fillStyle = '#666';
+      ctx.fillText('Hz', scaleX + scaleWidth - 4, 12);
+    };
+
+    // Draw dB scale on left side
+    const drawDbScale = () => {
+      const scaleWidth = leftMargin;
+
+      // Semi-transparent background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.fillRect(0, 0, scaleWidth, height);
+
+      // dB markers
+      const dbLevels = [0, -12, -24, -36, -48, -60];
+
+      ctx.fillStyle = '#888';
+      ctx.font = '9px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'left';
+
+      dbLevels.forEach(db => {
+        // Map -60 to 0 dB to bottom to top
+        const ratio = (db + 60) / 60;
+        const y = height - (ratio * height);
+
+        // Tick mark
+        ctx.strokeStyle = '#555';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(scaleWidth - 5, y);
+        ctx.lineTo(scaleWidth, y);
+        ctx.stroke();
+
+        // Label
+        ctx.fillStyle = '#888';
+        ctx.fillText(`${db}`, 4, y + 3);
+      });
+
+      // "dB" label at top
+      ctx.fillStyle = '#666';
+      ctx.fillText('dB', 4, 12);
+    };
+
     // Draw spectral visualization - prioritize pre-generated spectrogram image
     if (spectrogramImage) {
       // Use pre-generated ImageBitmap for high-quality, fast rendering
@@ -155,12 +241,16 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
       const sourceX = scrollOffset * spectrogramImage.width;
       const sourceWidth = spectrogramImage.width * visibleFraction;
 
-      // Draw the visible portion scaled to canvas
+      // Draw the visible portion scaled to canvas with margins for scales
       ctx.drawImage(
         spectrogramImage,
         sourceX, 0, sourceWidth, spectrogramImage.height,  // Source rect
-        0, 0, width, height  // Dest rect
+        leftMargin, 0, spectrogramWidth, height  // Dest rect with margins
       );
+
+      // Draw scales on top
+      drawHzScale();
+      drawDbScale();
     } else if (spectrogramGenerating) {
       // Show loading state while generating spectrogram - don't draw anything
       // The overlay will show "Generating spectrogram..."
@@ -237,12 +327,19 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
       }
     }
 
-    // Draw playhead
+    // Draw playhead (accounting for scale margins when spectrogram is displayed)
     if (duration > 0) {
       const playheadTime = timestamp / 1000;
-      const playheadX = ((playheadTime - startTime) / visibleDuration) * width;
+      // Position playhead within the spectrogram area (between margins)
+      const playheadRatio = (playheadTime - startTime) / visibleDuration;
+      const playheadX = spectrogramImage
+        ? leftMargin + (playheadRatio * spectrogramWidth)
+        : playheadRatio * width;
 
-      if (playheadX >= 0 && playheadX <= width) {
+      const minX = spectrogramImage ? leftMargin : 0;
+      const maxX = spectrogramImage ? width - rightMargin : width;
+
+      if (playheadX >= minX && playheadX <= maxX) {
         ctx.shadowColor = '#19abb5';
         ctx.shadowBlur = 8;
 
@@ -292,12 +389,20 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
     const rect = canvasRef.current.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
 
+    // Account for margins when spectrogram is displayed
+    const leftMargin = spectrogramImage ? 30 : 0;
+    const rightMargin = spectrogramImage ? 40 : 0;
+    const spectrogramWidth = rect.width - leftMargin - rightMargin;
+
     const visibleDuration = duration / zoom;
     const startTime = scrollOffset * duration;
-    const playheadX = ((timestamp / 1000 - startTime) / visibleDuration) * rect.width;
+    const playheadRatio = (timestamp / 1000 - startTime) / visibleDuration;
+    const playheadX = spectrogramImage
+      ? leftMargin + (playheadRatio * spectrogramWidth)
+      : playheadRatio * rect.width;
 
     return Math.abs(mouseX - playheadX) < 10;
-  }, [duration, zoom, scrollOffset, timestamp]);
+  }, [duration, zoom, scrollOffset, timestamp, spectrogramImage]);
 
   // Seek to position helper
   const seekToPosition = useCallback((e: React.MouseEvent) => {
@@ -305,7 +410,16 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
 
     const rect = canvasRef.current.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
-    const clickRatio = Math.max(0, Math.min(1, mouseX / rect.width));
+
+    // Account for margins when spectrogram is displayed
+    const leftMargin = spectrogramImage ? 30 : 0;
+    const rightMargin = spectrogramImage ? 40 : 0;
+    const spectrogramWidth = rect.width - leftMargin - rightMargin;
+
+    // Adjust click position relative to spectrogram area
+    const adjustedX = spectrogramImage ? mouseX - leftMargin : mouseX;
+    const effectiveWidth = spectrogramImage ? spectrogramWidth : rect.width;
+    const clickRatio = Math.max(0, Math.min(1, adjustedX / effectiveWidth));
 
     const visibleDuration = duration / zoom;
     const startTime = scrollOffset * duration;
@@ -313,7 +427,7 @@ export const SpectralCanvas: React.FC<SpectralCanvasProps> = ({
 
     setTimestamp(clickTime * 1000);
     onSeek?.(clickTime);
-  }, [duration, zoom, scrollOffset, setTimestamp, onSeek]);
+  }, [duration, zoom, scrollOffset, setTimestamp, onSeek, spectrogramImage]);
 
   // Mouse handlers for scrubbing and panning
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {

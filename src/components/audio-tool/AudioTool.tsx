@@ -1189,15 +1189,15 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       const channelData = audioBuffer.getChannelData(0);
       const sampleRate = audioBuffer.sampleRate;
 
-      // FFT parameters - Ultra quality
-      const fftSize = 2048;
+      // FFT parameters - Balanced for performance
+      const fftSize = 1024;  // Smaller FFT = faster
       const hopSize = fftSize / 4; // 75% overlap
       const numBins = fftSize / 2;
 
       // Calculate dimensions
       const numFrames = Math.floor((channelData.length - fftSize) / hopSize);
-      const imageWidth = Math.min(4000, numFrames); // Cap width for performance
-      const imageHeight = 512; // Frequency resolution
+      const imageWidth = Math.min(2000, numFrames);  // Half the width
+      const imageHeight = 256;  // Half the height
 
       // Create off-screen canvas
       const offscreen = new OffscreenCanvas(imageWidth, imageHeight);
@@ -1256,11 +1256,12 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
           }
 
           // Simple DFT for magnitude spectrum
-          // Only compute bins we'll display (first 256 for performance)
-          const displayBins = Math.min(256, numBins);
-          const magnitudes = new Float32Array(displayBins);
+          // Fewer bins to compute for performance
+          const displayBins = 128;
+          const magnitudes = new Float32Array(numBins);
 
-          for (let k = 0; k < displayBins; k++) {
+          // Compute all bins up to Nyquist
+          for (let k = 0; k < numBins; k++) {
             let real = 0, imag = 0;
             const freq = k * sampleRate / fftSize;
 
@@ -1276,18 +1277,35 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             magnitudes[k] = Math.sqrt(real * real + imag * imag) / fftSize;
           }
 
-          // Draw column of pixels
+          // Draw column of pixels with proper 20Hz-20kHz logarithmic mapping
+          const minFreq = 20;
+          const maxFreq = 20000;
+          const logMin = Math.log10(minFreq);
+          const logMax = Math.log10(maxFreq);
+
           for (let bin = 0; bin < displayBins; bin++) {
-            // Logarithmic frequency mapping
-            const freqRatio = Math.log10(1 + bin) / Math.log10(1 + displayBins);
+            // Map bin to frequency (0 to Nyquist)
+            const freq = (bin / displayBins) * (sampleRate / 2);
+
+            // Skip if outside audible range
+            if (freq < 20 || freq > 20000) continue;
+
+            // Logarithmic Y position (low freq at bottom, high at top)
+            // Map 20Hz-20kHz to 0-1 logarithmically
+            const logFreq = Math.log10(Math.max(freq, minFreq));
+            const freqRatio = (logFreq - logMin) / (logMax - logMin);
+
             const y = imageHeight - 1 - Math.floor(freqRatio * imageHeight);
 
             if (y < 0 || y >= imageHeight) continue;
 
+            // Get magnitude from the corresponding FFT bin
+            const fftBin = Math.floor(freq * fftSize / sampleRate);
+            const magnitude = fftBin < magnitudes.length ? magnitudes[fftBin] : 0;
+
             // Convert magnitude to dB, normalize
-            const magnitude = magnitudes[bin];
             const db = 20 * Math.log10(Math.max(magnitude, 1e-10));
-            const normalized = Math.max(0, Math.min(1, (db + 80) / 80)); // -80dB to 0dB range
+            const normalized = Math.max(0, Math.min(1, (db + 60) / 60)); // -60dB to 0dB range
 
             // Get Magma color
             const color = getMagmaColor(normalized);
