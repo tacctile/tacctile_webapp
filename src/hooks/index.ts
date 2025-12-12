@@ -9,23 +9,23 @@ export { useSubscription, useRequirePro, useQuotaStatus } from './useSubscriptio
 // Cloud Storage
 export { useCloudStorage, useFileBrowser } from './useCloudStorage';
 
-// Investigations & Evidence
+// Investigations & Project Files
 export {
   useInvestigations,
   useInvestigation,
-  useEvidence,
+  useProjectFiles,
   useTeamMembers,
   useSyncedPlayback,
 } from './useInvestigation';
 
-// Evidence Flags
+// File Flags
 export {
-  useEvidenceFlags,
+  useFileFlags,
   useFlagComments,
   useFlagTypeSuggestion,
   useFlagTypes,
   useFlagExport,
-} from './useEvidenceFlags';
+} from './useFileFlags';
 
 // Keyboard Shortcuts
 export {

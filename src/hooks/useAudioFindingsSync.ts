@@ -1,14 +1,14 @@
 /**
  * useAudioFindingsSync Hook
- * Syncs audio findings to EvidenceFlag system
+ * Syncs audio findings to FileFlag system
  */
 
 import { useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { evidenceFlaggingService } from '../services/evidence/EvidenceFlaggingService';
+import { fileFlaggingService } from '../services/file-flagging/FileFlaggingService';
 import { useAudioToolStore } from '../stores/useAudioToolStore';
 import type { AudioFinding } from '../types/audio';
-import type { EvidenceFlag, FlagType } from '../types';
+import type { FileFlag, FlagType } from '../types';
 
 // ============================================================================
 // TYPES
@@ -24,7 +24,7 @@ interface SyncResult {
 // HOOK
 // ============================================================================
 
-export function useAudioFindingsSync(evidenceId: string) {
+export function useAudioFindingsSync(fileId: string) {
   const { user } = useAuth();
   const { findings, updateFinding } = useAudioToolStore();
 
@@ -72,7 +72,7 @@ export function useAudioFindingsSync(evidenceId: string) {
   }, []);
 
   /**
-   * Sync a finding to the EvidenceFlag system
+   * Sync a finding to the FileFlag system
    */
   const syncFinding = useCallback(
     async (findingId: string): Promise<SyncResult> => {
@@ -91,12 +91,12 @@ export function useAudioFindingsSync(evidenceId: string) {
 
       try {
         // Initialize service if needed
-        await evidenceFlaggingService.init();
+        await fileFlaggingService.init();
 
         // Create flag from finding
         const flagType = determineFlagType(finding);
-        const flag = await evidenceFlaggingService.createFlag({
-          evidenceId,
+        const flag = await fileFlaggingService.createFlag({
+          fileId,
           user,
           type: flagType,
           timestamp: finding.selection.startTime,
@@ -120,7 +120,7 @@ export function useAudioFindingsSync(evidenceId: string) {
         };
       }
     },
-    [user, findings, evidenceId, determineFlagType, updateFinding]
+    [user, findings, fileId, determineFlagType, updateFinding]
   );
 
   /**
@@ -153,7 +153,7 @@ export function useAudioFindingsSync(evidenceId: string) {
 
       try {
         const flagType = determineFlagType(finding);
-        await evidenceFlaggingService.updateFlag(finding.flagId, {
+        await fileFlaggingService.updateFlag(finding.flagId, {
           type: flagType,
           title: finding.title,
           description: buildFlagDescription(finding),
@@ -176,13 +176,13 @@ export function useAudioFindingsSync(evidenceId: string) {
   /**
    * Get flags that correspond to audio findings
    */
-  const getSyncedFlags = useCallback(async (): Promise<EvidenceFlag[]> => {
+  const getSyncedFlags = useCallback(async (): Promise<FileFlag[]> => {
     const syncedFindingIds = findings.filter((f) => f.flagId).map((f) => f.flagId!);
     if (syncedFindingIds.length === 0) return [];
 
-    const allFlags = await evidenceFlaggingService.getFlags(evidenceId);
+    const allFlags = await fileFlaggingService.getFlags(fileId);
     return allFlags.filter((flag) => syncedFindingIds.includes(flag.id));
-  }, [findings, evidenceId]);
+  }, [findings, fileId]);
 
   /**
    * Check if a finding is synced

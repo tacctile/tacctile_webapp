@@ -8,8 +8,8 @@ import { supabaseConfig } from '@/config';
 import type {
   User,
   Investigation,
-  Evidence,
-  EvidenceFlag,
+  ProjectFile,
+  FileFlag,
   FlagComment,
   TeamMember,
   InvestigationInvite,
@@ -18,7 +18,7 @@ import type {
   CollaborationCursor,
   SyncedPlaybackState,
   InvestigationFilter,
-  EvidenceFlagFilter,
+  FileFlagFilter,
   CloudStorageProvider,
 } from '@/types';
 
@@ -574,33 +574,33 @@ class SupabaseService {
   }
 
   // ============================================================================
-  // EVIDENCE MANAGEMENT
+  // FILE MANAGEMENT
   // ============================================================================
 
   /**
-   * Create evidence
+   * Create file
    */
-  async createEvidence(
-    evidence: Omit<Evidence, 'id' | 'createdAt' | 'updatedAt' | 'flagCount' | 'flags'>
-  ): Promise<Evidence> {
+  async createFile(
+    file: Omit<ProjectFile, 'id' | 'createdAt' | 'updatedAt' | 'flagCount' | 'flags'>
+  ): Promise<ProjectFile> {
     if (!this.client) throw new Error('Supabase not initialized');
 
     const { data, error } = await this.client
       .from('evidence')
       .insert({
-        investigation_id: evidence.investigationId,
-        user_id: evidence.userId,
-        type: evidence.type,
-        title: evidence.title,
-        description: evidence.description || null,
-        file_name: evidence.fileName,
-        file_size: evidence.fileSize,
-        mime_type: evidence.mimeType,
-        duration: evidence.duration || null,
-        cloud_file_id: evidence.cloudFileId,
-        cloud_provider: evidence.cloudProvider,
-        thumbnail_url: evidence.thumbnailUrl || null,
-        metadata: evidence.metadata as unknown as Record<string, unknown>,
+        investigation_id: file.investigationId,
+        user_id: file.userId,
+        type: file.type,
+        title: file.title,
+        description: file.description || null,
+        file_name: file.fileName,
+        file_size: file.fileSize,
+        mime_type: file.mimeType,
+        duration: file.duration || null,
+        cloud_file_id: file.cloudFileId,
+        cloud_provider: file.cloudProvider,
+        thumbnail_url: file.thumbnailUrl || null,
+        metadata: file.metadata as unknown as Record<string, unknown>,
         flag_count: 0,
       })
       .select()
@@ -608,16 +608,16 @@ class SupabaseService {
 
     if (error) throw this.handleError(error);
 
-    // Update investigation evidence count
-    await this.incrementEvidenceCount(evidence.investigationId);
+    // Update investigation file count
+    await this.incrementFileCount(file.investigationId);
 
-    return this.rowToEvidence(data);
+    return this.rowToFile(data);
   }
 
   /**
-   * Get evidence for investigation
+   * Get files for investigation
    */
-  async getEvidence(investigationId: string): Promise<Evidence[]> {
+  async getFiles(investigationId: string): Promise<ProjectFile[]> {
     if (!this.client) return [];
 
     const { data, error } = await this.client
@@ -627,19 +627,19 @@ class SupabaseService {
       .order('created_at', { ascending: false });
 
     if (error) throw this.handleError(error);
-    return (data || []).map((row) => this.rowToEvidence(row));
+    return (data || []).map((row) => this.rowToFile(row));
   }
 
   /**
-   * Get single evidence by ID
+   * Get single file by ID
    */
-  async getEvidenceById(evidenceId: string): Promise<Evidence | null> {
+  async getFileById(fileId: string): Promise<ProjectFile | null> {
     if (!this.client) return null;
 
     const { data, error } = await this.client
       .from('evidence')
       .select('*')
-      .eq('id', evidenceId)
+      .eq('id', fileId)
       .single();
 
     if (error) {
@@ -647,16 +647,16 @@ class SupabaseService {
       throw this.handleError(error);
     }
 
-    return this.rowToEvidence(data);
+    return this.rowToFile(data);
   }
 
   /**
-   * Update evidence
+   * Update file
    */
-  async updateEvidence(
-    evidenceId: string,
-    updates: Partial<Evidence>
-  ): Promise<Evidence> {
+  async updateFile(
+    fileId: string,
+    updates: Partial<ProjectFile>
+  ): Promise<ProjectFile> {
     if (!this.client) throw new Error('Supabase not initialized');
 
     const updateData: Partial<EvidenceRow> = {};
@@ -668,47 +668,47 @@ class SupabaseService {
     const { data, error } = await this.client
       .from('evidence')
       .update(updateData)
-      .eq('id', evidenceId)
+      .eq('id', fileId)
       .select()
       .single();
 
     if (error) throw this.handleError(error);
-    return this.rowToEvidence(data);
+    return this.rowToFile(data);
   }
 
   /**
-   * Delete evidence
+   * Delete file
    */
-  async deleteEvidence(evidenceId: string, investigationId: string): Promise<void> {
+  async deleteFile(fileId: string, investigationId: string): Promise<void> {
     if (!this.client) throw new Error('Supabase not initialized');
 
     const { error } = await this.client
       .from('evidence')
       .delete()
-      .eq('id', evidenceId);
+      .eq('id', fileId);
 
     if (error) throw this.handleError(error);
 
-    // Update investigation evidence count
-    await this.decrementEvidenceCount(investigationId);
+    // Update investigation file count
+    await this.decrementFileCount(investigationId);
   }
 
   // ============================================================================
-  // EVIDENCE FLAGS MANAGEMENT
+  // FILE FLAGS MANAGEMENT
   // ============================================================================
 
   /**
-   * Create evidence flag
+   * Create file flag
    */
   async createFlag(
-    flag: Omit<EvidenceFlag, 'id' | 'createdAt' | 'updatedAt' | 'commentCount' | 'comments'>
-  ): Promise<EvidenceFlag> {
+    flag: Omit<FileFlag, 'id' | 'createdAt' | 'updatedAt' | 'commentCount' | 'comments'>
+  ): Promise<FileFlag> {
     if (!this.client) throw new Error('Supabase not initialized');
 
     const { data, error } = await this.client
       .from('evidence_flags')
       .insert({
-        evidence_id: flag.evidenceId,
+        evidence_id: flag.fileId,
         user_id: flag.userId,
         user_display_name: flag.userDisplayName,
         user_photo_url: flag.userPhotoURL || null,
@@ -729,22 +729,22 @@ class SupabaseService {
 
     if (error) throw this.handleError(error);
 
-    // Update evidence and investigation flag counts
-    await this.incrementFlagCount(flag.evidenceId);
+    // Update file and investigation flag counts
+    await this.incrementFlagCount(flag.fileId);
 
     return this.rowToFlag(data);
   }
 
   /**
-   * Get flags for evidence
+   * Get flags for file
    */
-  async getFlags(evidenceId: string, filter?: EvidenceFlagFilter): Promise<EvidenceFlag[]> {
+  async getFlags(fileId: string, filter?: FileFlagFilter): Promise<FileFlag[]> {
     if (!this.client) return [];
 
     let query = this.client
       .from('evidence_flags')
       .select('*')
-      .eq('evidence_id', evidenceId);
+      .eq('evidence_id', fileId);
 
     // Apply filters
     if (filter?.types?.length) {
@@ -794,8 +794,8 @@ class SupabaseService {
    */
   async updateFlag(
     flagId: string,
-    updates: Partial<EvidenceFlag>
-  ): Promise<EvidenceFlag> {
+    updates: Partial<FileFlag>
+  ): Promise<FileFlag> {
     if (!this.client) throw new Error('Supabase not initialized');
 
     const updateData: Partial<FlagRow> = {};
@@ -822,7 +822,7 @@ class SupabaseService {
   /**
    * Delete flag
    */
-  async deleteFlag(flagId: string, evidenceId: string): Promise<void> {
+  async deleteFlag(flagId: string, fileId: string): Promise<void> {
     if (!this.client) throw new Error('Supabase not initialized');
 
     const { error } = await this.client
@@ -832,8 +832,8 @@ class SupabaseService {
 
     if (error) throw this.handleError(error);
 
-    // Update evidence flag count
-    await this.decrementFlagCount(evidenceId);
+    // Update file flag count
+    await this.decrementFlagCount(fileId);
   }
 
   // ============================================================================
@@ -1019,8 +1019,8 @@ class SupabaseService {
   subscribeToInvestigation(
     investigationId: string,
     callbacks: {
-      onEvidenceChange?: (evidence: Evidence, event: 'INSERT' | 'UPDATE' | 'DELETE') => void;
-      onFlagChange?: (flag: EvidenceFlag, event: 'INSERT' | 'UPDATE' | 'DELETE') => void;
+      onFileChange?: (file: ProjectFile, event: 'INSERT' | 'UPDATE' | 'DELETE') => void;
+      onFlagChange?: (flag: FileFlag, event: 'INSERT' | 'UPDATE' | 'DELETE') => void;
       onCommentChange?: (comment: FlagComment, event: 'INSERT' | 'UPDATE' | 'DELETE') => void;
       onPresenceChange?: (presence: PresenceState[]) => void;
     }
@@ -1036,8 +1036,8 @@ class SupabaseService {
 
     const channel = this.client.channel(channelName);
 
-    // Evidence changes
-    if (callbacks.onEvidenceChange) {
+    // File changes
+    if (callbacks.onFileChange) {
       channel.on(
         'postgres_changes',
         {
@@ -1049,7 +1049,7 @@ class SupabaseService {
         (payload) => {
           const event = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE';
           const data = (event === 'DELETE' ? payload.old : payload.new) as EvidenceRow;
-          callbacks.onEvidenceChange!(this.rowToEvidence(data), event);
+          callbacks.onFileChange!(this.rowToFile(data), event);
         }
       );
     }
@@ -1128,12 +1128,12 @@ class SupabaseService {
    * Subscribe to synced playback
    */
   subscribeToSyncedPlayback(
-    evidenceId: string,
+    fileId: string,
     onPlaybackChange: (state: SyncedPlaybackState) => void
   ): () => void {
     if (!this.client) return () => {};
 
-    const channelName = `playback:${evidenceId}`;
+    const channelName = `playback:${fileId}`;
 
     if (this.realtimeChannels.has(channelName)) {
       return () => this.unsubscribeFromChannel(channelName);
@@ -1155,10 +1155,10 @@ class SupabaseService {
    * Broadcast playback state
    */
   async broadcastPlaybackState(
-    evidenceId: string,
+    fileId: string,
     state: SyncedPlaybackState
   ): Promise<void> {
-    const channelName = `playback:${evidenceId}`;
+    const channelName = `playback:${fileId}`;
     const channel = this.realtimeChannels.get(channelName);
 
     if (!channel) {
@@ -1196,12 +1196,12 @@ class SupabaseService {
   // PRIVATE HELPERS
   // ============================================================================
 
-  private async incrementEvidenceCount(investigationId: string): Promise<void> {
+  private async incrementFileCount(investigationId: string): Promise<void> {
     if (!this.client) return;
     await this.client.rpc('increment_evidence_count', { investigation_id: investigationId });
   }
 
-  private async decrementEvidenceCount(investigationId: string): Promise<void> {
+  private async decrementFileCount(investigationId: string): Promise<void> {
     if (!this.client) return;
     await this.client.rpc('decrement_evidence_count', { investigation_id: investigationId });
   }
@@ -1299,12 +1299,12 @@ class SupabaseService {
     };
   }
 
-  private rowToEvidence(row: EvidenceRow): Evidence {
+  private rowToFile(row: EvidenceRow): ProjectFile {
     return {
       id: row.id,
       investigationId: row.investigation_id,
       userId: row.user_id,
-      type: row.type as Evidence['type'],
+      type: row.type as ProjectFile['type'],
       title: row.title,
       description: row.description || undefined,
       fileName: row.file_name,
@@ -1314,7 +1314,7 @@ class SupabaseService {
       cloudFileId: row.cloud_file_id,
       cloudProvider: row.cloud_provider as CloudStorageProvider,
       thumbnailUrl: row.thumbnail_url || undefined,
-      metadata: row.metadata as unknown as Evidence['metadata'],
+      metadata: row.metadata as unknown as ProjectFile['metadata'],
       flags: [], // Loaded separately
       flagCount: row.flag_count,
       createdAt: new Date(row.created_at),
@@ -1322,14 +1322,14 @@ class SupabaseService {
     };
   }
 
-  private rowToFlag(row: FlagRow): EvidenceFlag {
+  private rowToFlag(row: FlagRow): FileFlag {
     return {
       id: row.id,
-      evidenceId: row.evidence_id,
+      fileId: row.evidence_id,
       userId: row.user_id,
       userDisplayName: row.user_display_name,
       userPhotoURL: row.user_photo_url || undefined,
-      type: row.type as EvidenceFlag['type'],
+      type: row.type as FileFlag['type'],
       customType: row.custom_type || undefined,
       timestamp: row.timestamp,
       endTimestamp: row.end_timestamp || undefined,
@@ -1337,9 +1337,9 @@ class SupabaseService {
       description: row.description || undefined,
       comments: [], // Loaded separately
       commentCount: row.comment_count,
-      confidence: row.confidence as EvidenceFlag['confidence'],
+      confidence: row.confidence as FileFlag['confidence'],
       aiSummary: row.ai_summary || undefined,
-      aiAnalysis: row.ai_analysis as unknown as EvidenceFlag['aiAnalysis'],
+      aiAnalysis: row.ai_analysis as unknown as FileFlag['aiAnalysis'],
       tags: row.tags,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),

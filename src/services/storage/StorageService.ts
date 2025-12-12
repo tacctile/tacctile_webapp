@@ -264,20 +264,20 @@ class StorageService {
   }
 
   /**
-   * Save evidence
+   * Save file
    */
-  async saveEvidence(evidence: any): Promise<void> {
+  async saveFile(file: any): Promise<void> {
     await this.init();
     await this.db!.put('evidence', {
-      ...evidence,
-      createdAt: evidence.createdAt || Date.now(),
+      ...file,
+      createdAt: file.createdAt || Date.now(),
     });
   }
 
   /**
-   * Get evidence by investigation ID
+   * Get files by investigation ID
    */
-  async getEvidenceByInvestigation(investigationId: string) {
+  async getFilesByInvestigation(investigationId: string) {
     await this.init();
     const tx = this.db!.transaction('evidence', 'readonly');
     const index = tx.store.index('investigationId');
