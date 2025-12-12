@@ -60,7 +60,7 @@ export function useSubscription() {
   // Check if limit is reached
   const hasReachedLimit = useCallback(
     (
-      limit: 'maxInvestigations' | 'maxTeamMembers' | 'maxEvidencePerInvestigation',
+      limit: 'maxInvestigations' | 'maxTeamMembers' | 'maxFilesPerProject',
       currentCount: number
     ): boolean => {
       return stripeService.hasReachedLimit(tier, limit, currentCount);
@@ -186,7 +186,7 @@ export function useRequirePro(featureName: string): void {
  * Hook for checking remaining quota
  */
 export function useQuotaStatus(
-  limit: 'maxInvestigations' | 'maxTeamMembers' | 'maxEvidencePerInvestigation',
+  limit: 'maxInvestigations' | 'maxTeamMembers' | 'maxFilesPerProject',
   currentCount: number
 ): {
   remaining: number;

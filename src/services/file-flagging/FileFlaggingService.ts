@@ -1,5 +1,5 @@
 /**
- * Evidence Flagging Service
+ * File Flagging Service
  * Handles markers with timestamps, comments, user attribution, filtering, and AI summarization
  */
 
@@ -7,14 +7,14 @@ import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
 import { aiConfig } from '@/config';
 import { supabaseService } from '@/services/supabase/SupabaseService';
 import type {
-  EvidenceFlag,
+  FileFlag,
   FlagComment,
   FlagType,
   AIFlagAnalysis,
   AISummarizationRequest,
   AISummarizationResponse,
-  EvidenceFlagFilter,
-  Evidence,
+  FileFlagFilter,
+  ProjectFile,
   User,
 } from '@/types';
 
@@ -147,10 +147,10 @@ export const FLAG_TYPES: FlagTypeMetadata[] = [
 ];
 
 // ============================================================================
-// EVIDENCE FLAGGING SERVICE
+// FILE FLAGGING SERVICE
 // ============================================================================
 
-class EvidenceFlaggingService {
+class FileFlaggingService {
   private genAI: GoogleGenerativeAI | null = null;
   private model: GenerativeModel | null = null;
   private initialized = false;
@@ -171,15 +171,15 @@ class EvidenceFlaggingService {
             temperature: aiConfig.temperature,
           },
         });
-        console.log('[EvidenceFlagging] AI summarization enabled');
+        console.log('[FileFlagging] AI summarization enabled');
       } else {
-        console.warn('[EvidenceFlagging] No Gemini API key, AI features disabled');
+        console.warn('[FileFlagging] No Gemini API key, AI features disabled');
       }
 
       this.initialized = true;
-      console.log('[EvidenceFlagging] Initialized');
+      console.log('[FileFlagging] Initialized');
     } catch (error) {
-      console.error('[EvidenceFlagging] Initialization failed:', error);
+      console.error('[FileFlagging] Initialization failed:', error);
       throw error;
     }
   }
@@ -214,10 +214,10 @@ class EvidenceFlaggingService {
   // ============================================================================
 
   /**
-   * Create a new flag/marker on evidence
+   * Create a new flag/marker on a file
    */
   async createFlag(params: {
-    evidenceId: string;
+    fileId: string;
     user: User;
     type: FlagType;
     customType?: string;
@@ -228,9 +228,9 @@ class EvidenceFlaggingService {
     confidence: 'low' | 'medium' | 'high';
     tags?: string[];
     generateAISummary?: boolean;
-  }): Promise<EvidenceFlag> {
+  }): Promise<FileFlag> {
     const flag = await supabaseService.createFlag({
-      evidenceId: params.evidenceId,
+      fileId: params.fileId,
       userId: params.user.id,
       userDisplayName: params.user.displayName || params.user.email,
       userPhotoURL: params.user.photoURL || undefined,
@@ -255,7 +255,7 @@ class EvidenceFlaggingService {
           });
         }
       } catch (error) {
-        console.error('[EvidenceFlagging] AI analysis failed:', error);
+        console.error('[FileFlagging] AI analysis failed:', error);
       }
     }
 
@@ -263,18 +263,18 @@ class EvidenceFlaggingService {
   }
 
   /**
-   * Get flags for evidence with optional filtering
+   * Get flags for a file with optional filtering
    */
-  async getFlags(evidenceId: string, filter?: EvidenceFlagFilter): Promise<EvidenceFlag[]> {
-    return supabaseService.getFlags(evidenceId, filter);
+  async getFlags(fileId: string, filter?: FileFlagFilter): Promise<FileFlag[]> {
+    return supabaseService.getFlags(fileId, filter);
   }
 
   /**
    * Get flags grouped by type
    */
-  async getFlagsGroupedByType(evidenceId: string): Promise<Map<FlagType, EvidenceFlag[]>> {
-    const flags = await this.getFlags(evidenceId);
-    const grouped = new Map<FlagType, EvidenceFlag[]>();
+  async getFlagsGroupedByType(fileId: string): Promise<Map<FlagType, FileFlag[]>> {
+    const flags = await this.getFlags(fileId);
+    const grouped = new Map<FlagType, FileFlag[]>();
 
     for (const flag of flags) {
       const existing = grouped.get(flag.type) || [];
@@ -288,19 +288,19 @@ class EvidenceFlaggingService {
   /**
    * Get flags by user
    */
-  async getFlagsByUser(evidenceId: string, userId: string): Promise<EvidenceFlag[]> {
-    return this.getFlags(evidenceId, { userIds: [userId] });
+  async getFlagsByUser(fileId: string, userId: string): Promise<FileFlag[]> {
+    return this.getFlags(fileId, { userIds: [userId] });
   }
 
   /**
    * Get flags in time range
    */
   async getFlagsInTimeRange(
-    evidenceId: string,
+    fileId: string,
     startTime: number,
     endTime: number
-  ): Promise<EvidenceFlag[]> {
-    return this.getFlags(evidenceId, {
+  ): Promise<FileFlag[]> {
+    return this.getFlags(fileId, {
       timestampRange: { start: startTime, end: endTime },
     });
   }
@@ -310,16 +310,16 @@ class EvidenceFlaggingService {
    */
   async updateFlag(
     flagId: string,
-    updates: Partial<Pick<EvidenceFlag, 'type' | 'customType' | 'title' | 'description' | 'confidence' | 'tags'>>
-  ): Promise<EvidenceFlag> {
+    updates: Partial<Pick<FileFlag, 'type' | 'customType' | 'title' | 'description' | 'confidence' | 'tags'>>
+  ): Promise<FileFlag> {
     return supabaseService.updateFlag(flagId, updates);
   }
 
   /**
    * Delete a flag
    */
-  async deleteFlag(flagId: string, evidenceId: string): Promise<void> {
-    return supabaseService.deleteFlag(flagId, evidenceId);
+  async deleteFlag(flagId: string, fileId: string): Promise<void> {
+    return supabaseService.deleteFlag(flagId, fileId);
   }
 
   // ============================================================================
@@ -383,9 +383,9 @@ class EvidenceFlaggingService {
     hasAiSummary?: boolean;
     search?: string;
     tags?: string[];
-    sortBy?: EvidenceFlagFilter['sortBy'];
+    sortBy?: FileFlagFilter['sortBy'];
     sortOrder?: 'asc' | 'desc';
-  }): EvidenceFlagFilter {
+  }): FileFlagFilter {
     return {
       types: options.types,
       userIds: options.users,
@@ -402,9 +402,9 @@ class EvidenceFlaggingService {
   }
 
   /**
-   * Get flag statistics for evidence
+   * Get flag statistics for a file
    */
-  async getFlagStatistics(evidenceId: string): Promise<{
+  async getFlagStatistics(fileId: string): Promise<{
     totalFlags: number;
     byType: Record<FlagType, number>;
     byUser: Record<string, { count: number; displayName: string }>;
@@ -412,7 +412,7 @@ class EvidenceFlaggingService {
     totalComments: number;
     withAiSummary: number;
   }> {
-    const flags = await this.getFlags(evidenceId);
+    const flags = await this.getFlags(fileId);
 
     const byType: Record<string, number> = {};
     const byUser: Record<string, { count: number; displayName: string }> = {};
@@ -459,15 +459,15 @@ class EvidenceFlaggingService {
   /**
    * Analyze a single flag with AI
    */
-  async analyzeFlag(flag: EvidenceFlag, additionalContext?: string): Promise<AIFlagAnalysis | null> {
+  async analyzeFlag(flag: FileFlag, additionalContext?: string): Promise<AIFlagAnalysis | null> {
     if (!this.model) {
-      console.warn('[EvidenceFlagging] AI model not available');
+      console.warn('[FileFlagging] AI model not available');
       return null;
     }
 
     const typeMetadata = this.getFlagTypeMetadata(flag.type);
 
-    const prompt = `You are an expert field investigator and evidence analyst. Analyze this flagged evidence marker:
+    const prompt = `You are an expert field investigator and file analyst. Analyze this flagged file marker:
 
 Type: ${typeMetadata?.label || flag.type}
 Title: ${flag.title}
@@ -494,7 +494,7 @@ Be objective and thorough. Consider multiple possible explanations. Focus on act
       // Extract JSON from response
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        console.error('[EvidenceFlagging] Failed to parse AI response');
+        console.error('[FileFlagging] Failed to parse AI response');
         return null;
       }
 
@@ -505,28 +505,28 @@ Be objective and thorough. Consider multiple possible explanations. Focus on act
         analyzedAt: new Date(),
       };
     } catch (error) {
-      console.error('[EvidenceFlagging] AI analysis error:', error);
+      console.error('[FileFlagging] AI analysis error:', error);
       return null;
     }
   }
 
   /**
-   * Generate AI summary for multiple flags (investigation-level)
+   * Generate AI summary for multiple flags (project-level)
    */
-  async generateInvestigationSummary(
+  async generateProjectSummary(
     request: AISummarizationRequest,
-    evidence: Evidence[],
-    flags: EvidenceFlag[]
+    files: ProjectFile[],
+    flags: FileFlag[]
   ): Promise<AISummarizationResponse | null> {
     if (!this.model) {
-      console.warn('[EvidenceFlagging] AI model not available');
+      console.warn('[FileFlagging] AI model not available');
       return null;
     }
 
-    // Filter to requested evidence/flags
+    // Filter to requested files/flags
     let relevantFlags = flags;
-    if (request.evidenceIds?.length) {
-      relevantFlags = flags.filter((f) => request.evidenceIds!.includes(f.evidenceId));
+    if (request.fileIds?.length) {
+      relevantFlags = flags.filter((f) => request.fileIds!.includes(f.fileId));
     }
     if (request.flagIds?.length) {
       relevantFlags = relevantFlags.filter((f) => request.flagIds!.includes(f.id));
@@ -534,29 +534,29 @@ Be objective and thorough. Consider multiple possible explanations. Focus on act
 
     // Build context
     const flagSummaries = relevantFlags.map((f) => {
-      const evidence = evidence.find((e) => e.id === f.evidenceId);
-      return `- [${f.type.toUpperCase()}] ${f.title} at ${this.formatTimestamp(f.timestamp)} (${f.confidence} confidence)${evidence ? ` in "${evidence.title}"` : ''}`;
+      const file = files.find((e) => e.id === f.fileId);
+      return `- [${f.type.toUpperCase()}] ${f.title} at ${this.formatTimestamp(f.timestamp)} (${f.confidence} confidence)${file ? ` in "${file.title}"` : ''}`;
     }).join('\n');
 
-    const evidenceOverview = evidence.map((e) =>
+    const filesOverview = files.map((e) =>
       `- ${e.title} (${e.type}): ${e.flagCount} flags`
     ).join('\n');
 
-    const prompt = `You are an expert field investigator creating a comprehensive investigation summary.
+    const prompt = `You are an expert field investigator creating a comprehensive project summary.
 
-EVIDENCE COLLECTED:
-${evidenceOverview}
+FILES COLLECTED:
+${filesOverview}
 
 FLAGGED OCCURRENCES:
 ${flagSummaries}
 
-Generate a ${request.options.detailLevel} investigation summary in the following JSON format:
+Generate a ${request.options.detailLevel} project summary in the following JSON format:
 {
   "summary": "Comprehensive narrative summary of all findings (${request.options.detailLevel === 'brief' ? '2-3 sentences' : request.options.detailLevel === 'standard' ? '1-2 paragraphs' : '3-4 paragraphs'})",
   "keyFindings": ["Key finding 1", "Key finding 2", "Key finding 3"],
   "anomalyCounts": {${FLAG_TYPES.filter(t => t.category === 'investigation').map(t => `"${t.type}": 0`).join(', ')}},
   "timeline": [
-    {"timestamp": "ISO date string", "description": "What happened", "evidenceIds": [], "flagIds": []}
+    {"timestamp": "ISO date string", "description": "What happened", "fileIds": [], "flagIds": []}
   ],
   "recommendations": ["Recommendation 1", "Recommendation 2"]
 }
@@ -569,7 +569,7 @@ Be thorough but concise. Highlight the most significant findings. Provide action
 
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        console.error('[EvidenceFlagging] Failed to parse AI summary response');
+        console.error('[FileFlagging] Failed to parse AI summary response');
         return null;
       }
 
@@ -583,11 +583,11 @@ Be thorough but concise. Highlight the most significant findings. Provide action
 
       return {
         id: crypto.randomUUID(),
-        investigationId: request.investigationId,
+        projectId: request.projectId,
         summary: summary.summary,
         keyFindings: summary.keyFindings || [],
         anomalyCounts,
-        timeline: (summary.timeline || []).map((t: { timestamp: string; description: string; evidenceIds: string[]; flagIds: string[] }) => ({
+        timeline: (summary.timeline || []).map((t: { timestamp: string; description: string; fileIds: string[]; flagIds: string[] }) => ({
           ...t,
           timestamp: new Date(t.timestamp),
         })),
@@ -597,7 +597,7 @@ Be thorough but concise. Highlight the most significant findings. Provide action
         tokensUsed: 0, // Gemini doesn't easily expose token counts
       };
     } catch (error) {
-      console.error('[EvidenceFlagging] AI summary error:', error);
+      console.error('[FileFlagging] AI summary error:', error);
       return null;
     }
   }
@@ -639,7 +639,7 @@ Respond in JSON format:
 
       return JSON.parse(jsonMatch[0]);
     } catch (error) {
-      console.error('[EvidenceFlagging] Flag type suggestion error:', error);
+      console.error('[FileFlagging] Flag type suggestion error:', error);
       return null;
     }
   }
@@ -647,7 +647,7 @@ Respond in JSON format:
   /**
    * Regenerate AI summary for a flag
    */
-  async regenerateAISummary(flagId: string): Promise<EvidenceFlag | null> {
+  async regenerateAISummary(flagId: string): Promise<FileFlag | null> {
     const flags = await supabaseService.getFlags('', { searchQuery: flagId });
     const flag = flags.find((f) => f.id === flagId);
 
@@ -669,8 +669,8 @@ Respond in JSON format:
   /**
    * Export flags to JSON
    */
-  async exportFlagsToJSON(evidenceId: string): Promise<string> {
-    const flags = await this.getFlags(evidenceId);
+  async exportFlagsToJSON(fileId: string): Promise<string> {
+    const flags = await this.getFlags(fileId);
 
     // Load comments for each flag
     const flagsWithComments = await Promise.all(
@@ -686,8 +686,8 @@ Respond in JSON format:
   /**
    * Export flags to CSV
    */
-  async exportFlagsToCSV(evidenceId: string): Promise<string> {
-    const flags = await this.getFlags(evidenceId);
+  async exportFlagsToCSV(fileId: string): Promise<string> {
+    const flags = await this.getFlags(fileId);
 
     const headers = [
       'ID',
@@ -740,7 +740,7 @@ Respond in JSON format:
 }
 
 // Export singleton
-export const evidenceFlaggingService = new EvidenceFlaggingService();
+export const fileFlaggingService = new FileFlaggingService();
 
 // Export class for testing
-export { EvidenceFlaggingService };
+export { FileFlaggingService };

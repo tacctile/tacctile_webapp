@@ -1,43 +1,43 @@
 /**
- * Evidence Flags Hook
+ * File Flags Hook
  * Provides flag management with filtering and AI summarization
  */
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
-  evidenceFlaggingService,
+  fileFlaggingService,
   FLAG_TYPES,
   FlagTypeMetadata,
-} from '@/services/evidence/EvidenceFlaggingService';
+} from '@/services/file-flagging/FileFlaggingService';
 import { supabaseService } from '@/services/supabase/SupabaseService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import type {
-  EvidenceFlag,
+  FileFlag,
   FlagComment,
   FlagType,
-  EvidenceFlagFilter,
+  FileFlagFilter,
   AIFlagAnalysis,
 } from '@/types';
 
 // ============================================================================
-// EVIDENCE FLAGS HOOK
+// FILE FLAGS HOOK
 // ============================================================================
 
-interface UseEvidenceFlagsOptions {
+interface UseFileFlagsOptions {
   autoRefresh?: boolean;
-  initialFilter?: EvidenceFlagFilter;
+  initialFilter?: FileFlagFilter;
 }
 
-export function useEvidenceFlags(
-  evidenceId: string | null,
-  options: UseEvidenceFlagsOptions = {}
+export function useFileFlags(
+  fileId: string | null,
+  options: UseFileFlagsOptions = {}
 ) {
   const { user } = useAuth();
   const { isPro, hasFeature } = useSubscription();
 
-  const [flags, setFlags] = useState<EvidenceFlag[]>([]);
-  const [filter, setFilter] = useState<EvidenceFlagFilter>(
+  const [flags, setFlags] = useState<FileFlag[]>([]);
+  const [filter, setFilter] = useState<FileFlagFilter>(
     options.initialFilter || {}
   );
   const [isLoading, setIsLoading] = useState(true);
@@ -50,7 +50,7 @@ export function useEvidenceFlags(
 
   // Load flags
   const loadFlags = useCallback(async () => {
-    if (!evidenceId) {
+    if (!fileId) {
       setFlags([]);
       setIsLoading(false);
       return;
@@ -60,20 +60,20 @@ export function useEvidenceFlags(
     setError(null);
 
     try {
-      const data = await evidenceFlaggingService.getFlags(evidenceId, filter);
+      const data = await fileFlaggingService.getFlags(fileId, filter);
       setFlags(data);
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setIsLoading(false);
     }
-  }, [evidenceId, filter]);
+  }, [fileId, filter]);
 
   // Subscribe to real-time updates
   useEffect(() => {
-    if (!evidenceId || !isPro || !options.autoRefresh) return;
+    if (!fileId || !isPro || !options.autoRefresh) return;
 
-    // Note: We subscribe at the investigation level in useInvestigation
+    // Note: We subscribe at the project level in useProject
     // This hook uses the data from there or fetches independently
 
     return () => {
@@ -82,7 +82,7 @@ export function useEvidenceFlags(
         unsubscribeRef.current = null;
       }
     };
-  }, [evidenceId, isPro, options.autoRefresh]);
+  }, [fileId, isPro, options.autoRefresh]);
 
   // Initial load
   useEffect(() => {
@@ -101,13 +101,13 @@ export function useEvidenceFlags(
       confidence: 'low' | 'medium' | 'high';
       tags?: string[];
       generateAISummary?: boolean;
-    }): Promise<EvidenceFlag> => {
+    }): Promise<FileFlag> => {
       if (!user) throw new Error('User not authenticated');
-      if (!evidenceId) throw new Error('No evidence loaded');
+      if (!fileId) throw new Error('No file loaded');
 
-      const flag = await evidenceFlaggingService.createFlag({
+      const flag = await fileFlaggingService.createFlag({
         ...params,
-        evidenceId,
+        fileId,
         user,
         generateAISummary: params.generateAISummary && aiEnabled,
       });
@@ -127,7 +127,7 @@ export function useEvidenceFlags(
 
       return flag;
     },
-    [user, evidenceId, aiEnabled, filter]
+    [user, fileId, aiEnabled, filter]
   );
 
   // Update flag
@@ -135,10 +135,10 @@ export function useEvidenceFlags(
     async (
       flagId: string,
       updates: Partial<
-        Pick<EvidenceFlag, 'type' | 'customType' | 'title' | 'description' | 'confidence' | 'tags'>
+        Pick<FileFlag, 'type' | 'customType' | 'title' | 'description' | 'confidence' | 'tags'>
       >
-    ): Promise<EvidenceFlag> => {
-      const updated = await evidenceFlaggingService.updateFlag(flagId, updates);
+    ): Promise<FileFlag> => {
+      const updated = await fileFlaggingService.updateFlag(flagId, updates);
       setFlags((prev) => prev.map((f) => (f.id === flagId ? updated : f)));
       return updated;
     },
@@ -148,20 +148,20 @@ export function useEvidenceFlags(
   // Delete flag
   const deleteFlag = useCallback(
     async (flagId: string): Promise<void> => {
-      if (!evidenceId) throw new Error('No evidence loaded');
+      if (!fileId) throw new Error('No file loaded');
 
-      await evidenceFlaggingService.deleteFlag(flagId, evidenceId);
+      await fileFlaggingService.deleteFlag(flagId, fileId);
       setFlags((prev) => prev.filter((f) => f.id !== flagId));
     },
-    [evidenceId]
+    [fileId]
   );
 
   // Regenerate AI summary for flag
   const regenerateAISummary = useCallback(
-    async (flagId: string): Promise<EvidenceFlag | null> => {
+    async (flagId: string): Promise<FileFlag | null> => {
       if (!aiEnabled) throw new Error('AI summarization requires Pro plan');
 
-      const updated = await evidenceFlaggingService.regenerateAISummary(flagId);
+      const updated = await fileFlaggingService.regenerateAISummary(flagId);
       if (updated) {
         setFlags((prev) => prev.map((f) => (f.id === flagId ? updated : f)));
       }
@@ -171,7 +171,7 @@ export function useEvidenceFlags(
   );
 
   // Update filter
-  const updateFilter = useCallback((updates: Partial<EvidenceFlagFilter>) => {
+  const updateFilter = useCallback((updates: Partial<FileFlagFilter>) => {
     setFilter((prev) => ({ ...prev, ...updates }));
   }, []);
 
@@ -182,7 +182,7 @@ export function useEvidenceFlags(
 
   // Get flags at specific timestamp
   const getFlagsAtTimestamp = useCallback(
-    (timestamp: number, tolerance = 1): EvidenceFlag[] => {
+    (timestamp: number, tolerance = 1): FileFlag[] => {
       return flags.filter((f) => {
         const start = f.timestamp - tolerance;
         const end = f.endTimestamp ? f.endTimestamp + tolerance : f.timestamp + tolerance;
@@ -251,7 +251,7 @@ export function useFlagComments(flagId: string | null) {
     setError(null);
 
     try {
-      const data = await evidenceFlaggingService.getComments(flagId);
+      const data = await fileFlaggingService.getComments(flagId);
       setComments(data);
     } catch (err) {
       setError((err as Error).message);
@@ -271,7 +271,7 @@ export function useFlagComments(flagId: string | null) {
       if (!user) throw new Error('User not authenticated');
       if (!flagId) throw new Error('No flag selected');
 
-      const comment = await evidenceFlaggingService.addComment({
+      const comment = await fileFlaggingService.addComment({
         flagId,
         user,
         content,
@@ -287,7 +287,7 @@ export function useFlagComments(flagId: string | null) {
   // Update comment
   const updateComment = useCallback(
     async (commentId: string, content: string): Promise<FlagComment> => {
-      const updated = await evidenceFlaggingService.updateComment(commentId, content);
+      const updated = await fileFlaggingService.updateComment(commentId, content);
       setComments((prev) =>
         prev.map((c) => (c.id === commentId ? updated : c))
       );
@@ -301,7 +301,7 @@ export function useFlagComments(flagId: string | null) {
     async (commentId: string): Promise<void> => {
       if (!flagId) throw new Error('No flag selected');
 
-      await evidenceFlaggingService.deleteComment(commentId, flagId);
+      await fileFlaggingService.deleteComment(commentId, flagId);
       setComments((prev) => prev.filter((c) => c.id !== commentId));
     },
     [flagId]
@@ -342,7 +342,7 @@ export function useFlagTypeSuggestion() {
 
       setIsLoading(true);
       try {
-        const result = await evidenceFlaggingService.suggestFlagType(description);
+        const result = await fileFlaggingService.suggestFlagType(description);
         setSuggestion(result);
         return result;
       } catch (err) {
@@ -380,7 +380,7 @@ export function useFlagTypes() {
   // Get by type
   const getTypeMetadata = useCallback(
     (type: FlagType): FlagTypeMetadata | undefined => {
-      return evidenceFlaggingService.getFlagTypeMetadata(type);
+      return fileFlaggingService.getFlagTypeMetadata(type);
     },
     []
   );
@@ -388,7 +388,7 @@ export function useFlagTypes() {
   // Get by category
   const getTypesByCategory = useCallback(
     (category: 'investigation' | 'technical' | 'review'): FlagTypeMetadata[] => {
-      return evidenceFlaggingService.getFlagTypesByCategory(category);
+      return fileFlaggingService.getFlagTypesByCategory(category);
     },
     []
   );
@@ -425,7 +425,7 @@ export function useFlagTypes() {
 // FLAG EXPORT HOOK
 // ============================================================================
 
-export function useFlagExport(evidenceId: string | null) {
+export function useFlagExport(fileId: string | null) {
   const { isExportFormatAvailable } = useSubscription();
 
   const [isExporting, setIsExporting] = useState(false);
@@ -433,7 +433,7 @@ export function useFlagExport(evidenceId: string | null) {
 
   // Export to JSON
   const exportToJSON = useCallback(async (): Promise<string> => {
-    if (!evidenceId) throw new Error('No evidence selected');
+    if (!fileId) throw new Error('No file selected');
     if (!isExportFormatAvailable('json')) {
       throw new Error('JSON export not available on your plan');
     }
@@ -442,18 +442,18 @@ export function useFlagExport(evidenceId: string | null) {
     setError(null);
 
     try {
-      return await evidenceFlaggingService.exportFlagsToJSON(evidenceId);
+      return await fileFlaggingService.exportFlagsToJSON(fileId);
     } catch (err) {
       setError((err as Error).message);
       throw err;
     } finally {
       setIsExporting(false);
     }
-  }, [evidenceId, isExportFormatAvailable]);
+  }, [fileId, isExportFormatAvailable]);
 
   // Export to CSV
   const exportToCSV = useCallback(async (): Promise<string> => {
-    if (!evidenceId) throw new Error('No evidence selected');
+    if (!fileId) throw new Error('No file selected');
     if (!isExportFormatAvailable('csv')) {
       throw new Error('CSV export requires Pro plan');
     }
@@ -462,14 +462,14 @@ export function useFlagExport(evidenceId: string | null) {
     setError(null);
 
     try {
-      return await evidenceFlaggingService.exportFlagsToCSV(evidenceId);
+      return await fileFlaggingService.exportFlagsToCSV(fileId);
     } catch (err) {
       setError((err as Error).message);
       throw err;
     } finally {
       setIsExporting(false);
     }
-  }, [evidenceId, isExportFormatAvailable]);
+  }, [fileId, isExportFormatAvailable]);
 
   // Download file
   const downloadExport = useCallback(
@@ -482,13 +482,13 @@ export function useFlagExport(evidenceId: string | null) {
 
       const a = document.createElement('a');
       a.href = url;
-      a.download = filename || `flags_${evidenceId}.${format}`;
+      a.download = filename || `flags_${fileId}.${format}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     },
-    [evidenceId, exportToJSON, exportToCSV]
+    [fileId, exportToJSON, exportToCSV]
   );
 
   return {

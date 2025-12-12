@@ -9,11 +9,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import type {
   Investigation,
-  Evidence,
+  ProjectFile,
   TeamMember,
   InvestigationFilter,
   PresenceState,
-  EvidenceFlag,
+  FileFlag,
   FlagComment,
 } from '@/types';
 
@@ -125,7 +125,7 @@ export function useInvestigation(investigationId: string | null) {
   const { isPro } = useSubscription();
 
   const [investigation, setInvestigation] = useState<Investigation | null>(null);
-  const [evidence, setEvidence] = useState<Evidence[]>([]);
+  const [files, setFiles] = useState<ProjectFile[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [presence, setPresence] = useState<PresenceState[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -137,7 +137,7 @@ export function useInvestigation(investigationId: string | null) {
   const loadInvestigation = useCallback(async () => {
     if (!investigationId) {
       setInvestigation(null);
-      setEvidence([]);
+      setFiles([]);
       setTeamMembers([]);
       setIsLoading(false);
       return;
@@ -147,14 +147,14 @@ export function useInvestigation(investigationId: string | null) {
     setError(null);
 
     try {
-      const [inv, evid, members] = await Promise.all([
+      const [inv, projectFiles, members] = await Promise.all([
         supabaseService.getInvestigation(investigationId),
-        supabaseService.getEvidence(investigationId),
+        supabaseService.getFiles(investigationId),
         supabaseService.getTeamMembers(investigationId),
       ]);
 
       setInvestigation(inv);
-      setEvidence(evid);
+      setFiles(projectFiles);
       setTeamMembers(members);
     } catch (err) {
       setError((err as Error).message);
@@ -176,8 +176,8 @@ export function useInvestigation(investigationId: string | null) {
     unsubscribeRef.current = supabaseService.subscribeToInvestigation(
       investigationId,
       {
-        onEvidenceChange: (item, event) => {
-          setEvidence((prev) => {
+        onFileChange: (item, event) => {
+          setFiles((prev) => {
             if (event === 'INSERT') return [item, ...prev];
             if (event === 'UPDATE')
               return prev.map((e) => (e.id === item.id ? item : e));
@@ -242,7 +242,7 @@ export function useInvestigation(investigationId: string | null) {
 
   return {
     investigation,
-    evidence,
+    files,
     teamMembers,
     presence,
     isLoading,
@@ -257,21 +257,21 @@ export function useInvestigation(investigationId: string | null) {
 }
 
 // ============================================================================
-// EVIDENCE HOOK
+// PROJECT FILES HOOK
 // ============================================================================
 
-export function useEvidence(investigationId: string | null) {
+export function useProjectFiles(investigationId: string | null) {
   const { user } = useAuth();
   const { hasReachedLimit, limits } = useSubscription();
 
-  const [evidence, setEvidence] = useState<Evidence[]>([]);
+  const [files, setFiles] = useState<ProjectFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load evidence
-  const loadEvidence = useCallback(async () => {
+  // Load files
+  const loadFiles = useCallback(async () => {
     if (!investigationId) {
-      setEvidence([]);
+      setFiles([]);
       setIsLoading(false);
       return;
     }
@@ -280,8 +280,8 @@ export function useEvidence(investigationId: string | null) {
     setError(null);
 
     try {
-      const data = await supabaseService.getEvidence(investigationId);
-      setEvidence(data);
+      const data = await supabaseService.getFiles(investigationId);
+      setFiles(data);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -291,67 +291,67 @@ export function useEvidence(investigationId: string | null) {
 
   // Initial load
   useEffect(() => {
-    loadEvidence();
-  }, [loadEvidence]);
+    loadFiles();
+  }, [loadFiles]);
 
-  // Can add evidence
-  const canAddEvidence = !hasReachedLimit(
-    'maxEvidencePerInvestigation',
-    evidence.length
+  // Can add file
+  const canAddFile = !hasReachedLimit(
+    'maxFilesPerProject',
+    files.length
   );
 
-  // Add evidence
-  const addEvidence = useCallback(
+  // Add file
+  const addFile = useCallback(
     async (
-      data: Omit<Evidence, 'id' | 'createdAt' | 'updatedAt' | 'flagCount' | 'flags'>
-    ): Promise<Evidence> => {
+      data: Omit<ProjectFile, 'id' | 'createdAt' | 'updatedAt' | 'flagCount' | 'flags'>
+    ): Promise<ProjectFile> => {
       if (!user) throw new Error('User not authenticated');
       if (!investigationId) throw new Error('No investigation loaded');
-      if (!canAddEvidence) {
+      if (!canAddFile) {
         throw new Error(
-          `You've reached the maximum of ${limits.maxEvidencePerInvestigation} evidence items on your plan`
+          `You've reached the maximum of ${limits.maxFilesPerProject} files on your plan`
         );
       }
 
-      const item = await supabaseService.createEvidence(data);
-      setEvidence((prev) => [item, ...prev]);
+      const item = await supabaseService.createFile(data);
+      setFiles((prev) => [item, ...prev]);
       return item;
     },
-    [user, investigationId, canAddEvidence, limits.maxEvidencePerInvestigation]
+    [user, investigationId, canAddFile, limits.maxFilesPerProject]
   );
 
-  // Update evidence
-  const updateEvidence = useCallback(
-    async (evidenceId: string, updates: Partial<Evidence>): Promise<Evidence> => {
-      const updated = await supabaseService.updateEvidence(evidenceId, updates);
-      setEvidence((prev) =>
-        prev.map((e) => (e.id === evidenceId ? updated : e))
+  // Update file
+  const updateFile = useCallback(
+    async (fileId: string, updates: Partial<ProjectFile>): Promise<ProjectFile> => {
+      const updated = await supabaseService.updateFile(fileId, updates);
+      setFiles((prev) =>
+        prev.map((e) => (e.id === fileId ? updated : e))
       );
       return updated;
     },
     []
   );
 
-  // Delete evidence
-  const deleteEvidence = useCallback(
-    async (evidenceId: string): Promise<void> => {
+  // Delete file
+  const deleteFile = useCallback(
+    async (fileId: string): Promise<void> => {
       if (!investigationId) throw new Error('No investigation loaded');
 
-      await supabaseService.deleteEvidence(evidenceId, investigationId);
-      setEvidence((prev) => prev.filter((e) => e.id !== evidenceId));
+      await supabaseService.deleteFile(fileId, investigationId);
+      setFiles((prev) => prev.filter((e) => e.id !== fileId));
     },
     [investigationId]
   );
 
   return {
-    evidence,
+    files,
     isLoading,
     error,
-    canAddEvidence,
-    addEvidence,
-    updateEvidence,
-    deleteEvidence,
-    refresh: loadEvidence,
+    canAddFile,
+    addFile,
+    updateFile,
+    deleteFile,
+    refresh: loadFiles,
   };
 }
 
@@ -459,7 +459,7 @@ export function useTeamMembers(investigationId: string | null) {
 // SYNCED PLAYBACK HOOK
 // ============================================================================
 
-export function useSyncedPlayback(evidenceId: string | null) {
+export function useSyncedPlayback(fileId: string | null) {
   const { user } = useAuth();
   const { isPro } = useSubscription();
 
@@ -472,10 +472,10 @@ export function useSyncedPlayback(evidenceId: string | null) {
 
   // Subscribe to playback updates
   useEffect(() => {
-    if (!evidenceId || !isPro) return;
+    if (!fileId || !isPro) return;
 
     unsubscribeRef.current = supabaseService.subscribeToSyncedPlayback(
-      evidenceId,
+      fileId,
       (state) => {
         setIsPlaying(state.isPlaying);
         setCurrentTime(state.currentTime);
@@ -490,15 +490,15 @@ export function useSyncedPlayback(evidenceId: string | null) {
         unsubscribeRef.current = null;
       }
     };
-  }, [evidenceId, isPro]);
+  }, [fileId, isPro]);
 
   // Broadcast playback state
   const broadcastState = useCallback(
     async (state: { isPlaying?: boolean; currentTime?: number; playbackRate?: number }) => {
-      if (!evidenceId || !user || !isPro) return;
+      if (!fileId || !user || !isPro) return;
 
-      await supabaseService.broadcastPlaybackState(evidenceId, {
-        evidenceId,
+      await supabaseService.broadcastPlaybackState(fileId, {
+        fileId,
         isPlaying: state.isPlaying ?? isPlaying,
         currentTime: state.currentTime ?? currentTime,
         playbackRate: state.playbackRate ?? playbackRate,
@@ -506,7 +506,7 @@ export function useSyncedPlayback(evidenceId: string | null) {
         updatedAt: new Date(),
       });
     },
-    [evidenceId, user, isPro, isPlaying, currentTime, playbackRate]
+    [fileId, user, isPro, isPlaying, currentTime, playbackRate]
   );
 
   // Control functions

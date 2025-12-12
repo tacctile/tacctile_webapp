@@ -23,14 +23,14 @@ export const PRICING_PLANS: PricingPlan[] = [
   {
     tier: 'free',
     name: 'Free',
-    description: 'Perfect for getting started with evidence analysis',
+    description: 'Perfect for getting started with file analysis',
     priceMonthly: 0,
     priceYearly: 0,
     stripePriceIdMonthly: null,
     stripePriceIdYearly: null,
     features: [
       'Up to 3 investigations',
-      'Basic evidence upload (50 items per investigation)',
+      'Basic file upload (50 files per project)',
       'Google Drive integration',
       'JSON export',
       'Community support',
@@ -39,7 +39,7 @@ export const PRICING_PLANS: PricingPlan[] = [
       maxInvestigations: 3,
       maxTeamMembers: 1,
       maxStorageGB: 1,
-      maxEvidencePerInvestigation: 50,
+      maxFilesPerProject: 50,
       aiSummarizationEnabled: false,
       realTimeCollaborationEnabled: false,
       exportFormats: ['json'],
@@ -56,7 +56,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     stripePriceIdYearly: stripeConfig.prices.proYearly,
     features: [
       'Unlimited investigations',
-      'Unlimited evidence per investigation',
+      'Unlimited files per project',
       'Up to 10 team members',
       'All cloud storage providers (Google Drive, Dropbox, OneDrive)',
       'Real-time collaboration',
@@ -68,7 +68,7 @@ export const PRICING_PLANS: PricingPlan[] = [
       maxInvestigations: Infinity,
       maxTeamMembers: 10,
       maxStorageGB: 100,
-      maxEvidencePerInvestigation: Infinity,
+      maxFilesPerProject: Infinity,
       aiSummarizationEnabled: true,
       realTimeCollaborationEnabled: true,
       exportFormats: ['pdf', 'csv', 'json'],
@@ -251,7 +251,7 @@ class StripeService {
    */
   hasReachedLimit(
     tier: SubscriptionTier,
-    limit: 'maxInvestigations' | 'maxTeamMembers' | 'maxEvidencePerInvestigation',
+    limit: 'maxInvestigations' | 'maxTeamMembers' | 'maxFilesPerProject',
     currentCount: number
   ): boolean {
     const limits = this.getTierLimits(tier);
