@@ -23,11 +23,11 @@ interface AudioProcessingChain {
 }
 
 interface UseAudioToolOptions {
-  /** Evidence ID */
-  evidenceId?: string;
+  /** File ID */
+  fileId?: string;
   /** Investigation ID */
   investigationId?: string;
-  /** Callback when a finding should be synced to EvidenceFlag */
+  /** Callback when a finding should be synced to FileFlag */
   onSyncFinding?: (finding: AudioFinding, flagData: CreateFlagData) => Promise<void>;
 }
 

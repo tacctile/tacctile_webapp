@@ -72,7 +72,7 @@ export function useAudioFindingsSync(fileId: string) {
   }, []);
 
   /**
-   * Sync a finding to the EvidenceFlag system
+   * Sync a finding to the FileFlag system
    */
   const syncFinding = useCallback(
     async (findingId: string): Promise<SyncResult> => {
