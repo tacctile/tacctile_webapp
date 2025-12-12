@@ -295,19 +295,19 @@ const ContentArea = styled(Box)({
   },
 });
 
-const SessionsGrid = styled(Box)({
+const ProjectsGrid = styled(Box)({
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
   gap: 16,
 });
 
-const SessionsList = styled(Box)({
+const ProjectsList = styled(Box)({
   display: 'flex',
   flexDirection: 'column',
   gap: 8,
 });
 
-const SessionCard = styled(Box)({
+const ProjectCard = styled(Box)({
   backgroundColor: '#1e1e1e',
   borderRadius: 2,
   border: '1px solid #252525',
@@ -321,7 +321,7 @@ const SessionCard = styled(Box)({
   },
 });
 
-const SessionThumbnail = styled(Box)({
+const ProjectThumbnail = styled(Box)({
   height: 120,
   backgroundColor: '#0d0d0d',
   display: 'flex',
@@ -331,11 +331,11 @@ const SessionThumbnail = styled(Box)({
   overflow: 'hidden',
 });
 
-const SessionInfo = styled(Box)({
+const ProjectInfo = styled(Box)({
   padding: 12,
 });
 
-const SessionName = styled(Typography)({
+const ProjectName = styled(Typography)({
   fontSize: 13,
   fontWeight: 500,
   color: '#e1e1e1',
@@ -345,7 +345,7 @@ const SessionName = styled(Typography)({
   whiteSpace: 'nowrap',
 });
 
-const SessionMeta = styled(Box)({
+const ProjectMeta = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   gap: 12,
@@ -353,13 +353,13 @@ const SessionMeta = styled(Box)({
   color: '#666',
 });
 
-const SessionStat = styled(Box)({
+const ProjectStat = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   gap: 4,
 });
 
-const SessionListItem = styled(Box)({
+const ProjectListItem = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   gap: 12,
@@ -728,8 +728,8 @@ export const HomePage: React.FC = () => {
 
   // Render project card (grid view)
   const renderProjectCard = (project: Project) => (
-    <SessionCard key={project.id} onClick={() => handleProjectClick(project)}>
-      <SessionThumbnail>
+    <ProjectCard key={project.id} onClick={() => handleProjectClick(project)}>
+      <ProjectThumbnail>
         {project.thumbnail ? (
           <img src={project.thumbnail} alt={project.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
@@ -739,37 +739,37 @@ export const HomePage: React.FC = () => {
             <PhotoIcon sx={{ fontSize: 24 }} />
           </Box>
         )}
-      </SessionThumbnail>
-      <SessionInfo>
-        <SessionName>{project.name}</SessionName>
-        <SessionMeta>
-          <SessionStat>
+      </ProjectThumbnail>
+      <ProjectInfo>
+        <ProjectName>{project.name}</ProjectName>
+        <ProjectMeta>
+          <ProjectStat>
             <Typography sx={{ fontSize: 11, color: '#666' }}>
               {project.evidenceCount} items
             </Typography>
-          </SessionStat>
-          <SessionStat>
+          </ProjectStat>
+          <ProjectStat>
             <FlagIcon sx={{ fontSize: 12, color: '#19abb5' }} />
             <Typography sx={{ fontSize: 11, color: '#666' }}>
               {project.flagCount}
             </Typography>
-          </SessionStat>
+          </ProjectStat>
           <Typography sx={{ fontSize: 11, color: '#555', marginLeft: 'auto' }}>
             {formatDate(project.modifiedAt)}
           </Typography>
-        </SessionMeta>
-      </SessionInfo>
-    </SessionCard>
+        </ProjectMeta>
+      </ProjectInfo>
+    </ProjectCard>
   );
 
   // Render project row (list view)
   const renderProjectListItem = (project: Project) => (
-    <SessionListItem key={project.id} onClick={() => handleProjectClick(project)}>
+    <ProjectListItem key={project.id} onClick={() => handleProjectClick(project)}>
       <Box sx={{ width: 40, height: 40, backgroundColor: '#0d0d0d', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <FolderIcon sx={{ color: '#444' }} />
       </Box>
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <SessionName>{project.name}</SessionName>
+        <ProjectName>{project.name}</ProjectName>
         <Typography sx={{ fontSize: 10, color: '#555' }}>
           {project.evidenceCount} items · {project.flagCount} flags
         </Typography>
@@ -777,7 +777,7 @@ export const HomePage: React.FC = () => {
       <Typography sx={{ fontSize: 11, color: '#555' }}>
         {formatDate(project.modifiedAt)}
       </Typography>
-    </SessionListItem>
+    </ProjectListItem>
   );
 
   return (
@@ -785,7 +785,7 @@ export const HomePage: React.FC = () => {
       {/* Left Panel - Storage & Quick Analyze */}
       {renderStoragePanel()}
 
-      {/* Right Panel - Sessions */}
+      {/* Right Panel - Projects */}
       <RightPanel>
         {/* Header */}
         <RightHeader>
@@ -848,13 +848,13 @@ export const HomePage: React.FC = () => {
               </PrimaryButton>
             </EmptyState>
           ) : viewMode === 'grid' ? (
-            <SessionsGrid>
+            <ProjectsGrid>
               {projects.map(renderProjectCard)}
-            </SessionsGrid>
+            </ProjectsGrid>
           ) : (
-            <SessionsList>
+            <ProjectsList>
               {projects.map(renderProjectListItem)}
-            </SessionsList>
+            </ProjectsList>
           )}
         </ContentArea>
 

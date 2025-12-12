@@ -1,7 +1,7 @@
 /**
  * ImagesViewer Component
  * Simplified images viewer for multi-view pop-out window
- * Displays session images in a grid with basic zoom
+ * Displays project images in a grid with basic zoom
  */
 
 import React, { useState, useCallback } from 'react';
@@ -175,7 +175,7 @@ export const ImagesViewer: React.FC<ImagesViewerProps> = ({ className }) => {
           <PlaceholderContent>
             <MaterialSymbol icon="photo_library" size={48} />
             <Typography sx={{ mt: 2, color: '#666', fontSize: 14 }}>
-              No images in session
+              No images in project
             </Typography>
             <Typography sx={{ color: '#444', fontSize: 12, mt: 1 }}>
               Images will appear here

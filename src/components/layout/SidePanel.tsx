@@ -232,12 +232,12 @@ const SidePanel: React.FC<SidePanelProps> = ({
     const titles: { [key: string]: string } = {
       photo: 'Photo Evidence',
       video: 'Video Recordings',
-      audio: 'Audio Sessions',
+      audio: 'Audio Recordings',
       sensor: 'Sensor Readings',
       analysis: 'Data Analysis',
       thermal: 'Thermal Images',
       motion: 'Motion Events',
-      radiosweep: 'Radio Sweep Sessions',
+      radiosweep: 'Radio Sweeps',
       settings: 'Settings',
     };
     return titles[selectedTool] || 'Explorer';

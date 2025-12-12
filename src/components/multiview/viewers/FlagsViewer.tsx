@@ -1,7 +1,7 @@
 /**
  * FlagsViewer Component
  * Simplified flags viewer for multi-view pop-out window
- * Displays session flags with ability to add new flags and jump to timestamps
+ * Displays project flags with ability to add new flags and jump to timestamps
  */
 
 import React, { useState, useCallback } from 'react';

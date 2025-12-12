@@ -119,9 +119,9 @@ const StatusBar: React.FC<StatusBarProps> = ({
 
   return (
     <StyledStatusBar>
-      {/* Left section - Session & User */}
+      {/* Left section - Project & User */}
       <StatusSection>
-        <Tooltip title="Current Session">
+        <Tooltip title="Current Project">
           <StatusItem>
             <FolderIcon sx={{ fontSize: 14 }} />
             <Typography variant="caption" sx={{ fontWeight: 500 }}>

@@ -636,7 +636,7 @@ export const EvidenceBank: React.FC<EvidenceBankProps> = ({
           color: '#666',
           fontSize: '13px',
         }}>
-          {items.length === 0 ? 'No evidence in session' : 'No matching evidence'}
+          {items.length === 0 ? 'No evidence in project' : 'No matching evidence'}
         </Box>
       ) : (
         <SectionsContainer ref={containerRef}>
