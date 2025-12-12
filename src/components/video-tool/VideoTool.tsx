@@ -8,7 +8,7 @@ import FlagIcon from '@mui/icons-material/Flag';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import { WorkspaceLayout } from '@/components/layout';
-import { EvidenceBank } from '@/components/evidence-bank';
+import { FileLibrary } from '@/components/file-library';
 import { MetadataPanel, PrecisionSlider, FlagsPanel, ResizablePanelSplit, TransportControls, type Flag } from '@/components/common';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
 import { useNavigationStore } from '@/stores/useNavigationStore';
@@ -144,8 +144,8 @@ const ImportButton = styled(Button)({
   },
 });
 
-// Mock video evidence
-const videoEvidence = [
+// Mock video files
+const videoFiles = [
   { id: 'v1', type: 'video' as const, fileName: 'camera_01_main_hall.mp4', duration: 3847, capturedAt: Date.now() - 7200000, user: 'Sarah', deviceInfo: 'Sony A7IV', flagCount: 3, hasFindings: true, format: 'H.265 / 4K', gps: '39.95°N, 75.16°W' },
   { id: 'v2', type: 'video' as const, fileName: 'camera_02_basement.mp4', duration: 3902, capturedAt: Date.now() - 7000000, user: 'Mike', deviceInfo: 'GoPro Hero 11', flagCount: 1, hasFindings: false, format: 'H.264 / 4K', gps: '39.95°N, 75.16°W' },
   { id: 'v3', type: 'video' as const, fileName: 'static_cam_attic.mp4', duration: 7200, capturedAt: Date.now() - 4800000, user: 'Jen', deviceInfo: 'Wyze Cam v3', flagCount: 0, hasFindings: false, format: 'H.264 / 1080p', gps: null },
@@ -182,7 +182,7 @@ interface VideoToolProps {
 }
 
 export const VideoTool: React.FC<VideoToolProps> = ({ investigationId }) => {
-  const [selectedEvidence, setSelectedEvidence] = useState<any>(null);
+  const [selectedFile, setSelectedFile] = useState<any>(null);
   const [loadedVideo, setLoadedVideo] = useState<any>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(100);
@@ -215,10 +215,10 @@ export const VideoTool: React.FC<VideoToolProps> = ({ investigationId }) => {
   useEffect(() => {
     if (loadedFileId) {
       // Find the file in evidence and load it
-      const file = videoEvidence.find((e) => e.id === loadedFileId);
+      const file = videoFiles.find((e) => e.id === loadedFileId);
       if (file) {
         setLoadedVideo(file);
-        setSelectedEvidence(file);
+        setSelectedFile(file);
         // Reset filters when loading new video
         setFilters(defaultFilters);
       }
@@ -305,7 +305,7 @@ export const VideoTool: React.FC<VideoToolProps> = ({ investigationId }) => {
     };
 
     setLoadedVideo(mockItem);
-    setSelectedEvidence(mockItem);
+    setSelectedFile(mockItem);
     setFilters(defaultFilters);
     showToast(`Loaded: ${file.name}`, 'success');
   }, [showToast]);
@@ -777,10 +777,10 @@ export const VideoTool: React.FC<VideoToolProps> = ({ investigationId }) => {
               </ImportButton>
             </Box>
             <Box sx={{ flex: 1, minHeight: 0 }}>
-              <EvidenceBank
-                items={videoEvidence}
-                selectedId={selectedEvidence?.id}
-                onSelect={(item) => setSelectedEvidence(item)}
+              <FileLibrary
+                items={videoFiles}
+                selectedId={selectedFile?.id}
+                onSelect={(item) => setSelectedFile(item)}
                 onDoubleClick={handleDoubleClick}
                 filterByType="video"
               />
@@ -789,15 +789,15 @@ export const VideoTool: React.FC<VideoToolProps> = ({ investigationId }) => {
         }
         metadataPanel={
           <MetadataPanel
-            data={selectedEvidence ? {
-              fileName: selectedEvidence.fileName,
-              capturedAt: selectedEvidence.capturedAt,
-              duration: selectedEvidence.duration,
-              user: selectedEvidence.user,
-              device: selectedEvidence.deviceInfo,
-              format: selectedEvidence.format,
-              gps: selectedEvidence.gps,
-              flagCount: selectedEvidence.flagCount,
+            data={selectedFile ? {
+              fileName: selectedFile.fileName,
+              capturedAt: selectedFile.capturedAt,
+              duration: selectedFile.duration,
+              user: selectedFile.user,
+              device: selectedFile.deviceInfo,
+              format: selectedFile.format,
+              gps: selectedFile.gps,
+              flagCount: selectedFile.flagCount,
             } : null}
             type="video"
           />

@@ -169,7 +169,7 @@ const EditorArea: React.FC<EditorAreaProps> = ({
     // Handle file drops
     const files = Array.from(e.dataTransfer.files);
     files.forEach(file => {
-      // Process dropped files (evidence, etc.)
+      // Process dropped files
       console.log('Dropped file:', file.name);
     });
   };
@@ -224,7 +224,7 @@ const EditorArea: React.FC<EditorAreaProps> = ({
           <ErrorBoundary toolName="Image Tool">
             <Suspense fallback={<ToolLoader />}>
               <ImageTool
-                evidenceId={activeTabInfo.id}
+                fileId={activeTabInfo.id}
                 investigationId="current-investigation"
                 imageUrl={activeTabInfo.url}
               />
@@ -236,7 +236,7 @@ const EditorArea: React.FC<EditorAreaProps> = ({
           <ErrorBoundary toolName="Audio Tool">
             <Suspense fallback={<ToolLoader />}>
               <AudioTool
-                evidenceId={activeTabInfo.id}
+                fileId={activeTabInfo.id}
                 investigationId="current-investigation"
                 audioUrl={activeTabInfo.url}
               />
@@ -348,13 +348,13 @@ const EditorArea: React.FC<EditorAreaProps> = ({
               Welcome to Tacctile
             </Typography>
             <Typography variant="body2" sx={{ mb: 3 }}>
-              Professional Evidence Analysis Platform
+              Professional Media Analysis Platform
             </Typography>
             <Typography variant="caption" display="block" sx={{ mb: 1 }}>
               • Select a tool from the activity bar to begin
             </Typography>
             <Typography variant="caption" display="block" sx={{ mb: 1 }}>
-              • Drop evidence files here to analyze
+              • Drop files here to analyze
             </Typography>
             <Typography variant="caption" display="block">
               • Press Ctrl+N to start a new investigation

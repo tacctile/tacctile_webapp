@@ -1,6 +1,6 @@
 /**
  * VideoTimeline Component
- * Multi-track timeline with waveform, playhead, and evidence markers
+ * Multi-track timeline with waveform, playhead, and file markers
  */
 
 import React, { useRef, useCallback, useEffect, useState, memo, useMemo } from 'react';

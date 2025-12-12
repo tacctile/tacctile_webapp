@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Box } from '@mui/material';
 import { WorkspaceLayout } from '@/components/layout';
-import { EvidenceBank, EvidenceItem } from '@/components/evidence-bank';
+import { FileLibrary, FileItem } from '@/components/file-library';
 
 // Mock data for testing
-const mockEvidence: EvidenceItem[] = [
+const mockFiles: FileItem[] = [
   {
     id: '1',
     type: 'video',
@@ -83,7 +83,7 @@ const mockEvidence: EvidenceItem[] = [
 ];
 
 // Extended mock data with full metadata
-const getFullMetadata = (item: EvidenceItem) => ({
+const getFullMetadata = (item: FileItem) => ({
   ...item,
   fileSize: Math.floor(Math.random() * 2000000000) + 100000000,
   resolution: item.type === 'video' ? '3840x2160' : item.type === 'image' ? '4000x3000' : undefined,
@@ -93,13 +93,13 @@ const getFullMetadata = (item: EvidenceItem) => ({
 });
 
 export const WorkspaceDemo: React.FC = () => {
-  const [selectedItem, setSelectedItem] = useState<EvidenceItem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<FileItem | null>(null);
 
-  const handleSelect = (item: EvidenceItem) => {
+  const handleSelect = (item: FileItem) => {
     setSelectedItem(item);
   };
 
-  const handleDoubleClick = (item: EvidenceItem) => {
+  const handleDoubleClick = (item: FileItem) => {
     console.log('Open in tool:', item.type, item.fileName);
     // This will eventually navigate to the appropriate tool
     alert(`Would open ${item.fileName} in ${item.type} tool`);
@@ -139,7 +139,7 @@ export const WorkspaceDemo: React.FC = () => {
     <Box sx={{ padding: 2 }}>
       {!selectedItem ? (
         <Box sx={{ color: '#666', fontSize: '13px', textAlign: 'center', marginTop: 4 }}>
-          Select evidence to view metadata
+          Select file to view metadata
         </Box>
       ) : (
         <>
@@ -219,8 +219,8 @@ export const WorkspaceDemo: React.FC = () => {
     <Box sx={{ height: '100vh', width: '100vw' }}>
       <WorkspaceLayout
         evidencePanel={
-          <EvidenceBank
-            items={mockEvidence}
+          <FileLibrary
+            items={mockFiles}
             selectedId={selectedItem?.id}
             onSelect={handleSelect}
             onDoubleClick={handleDoubleClick}
@@ -229,7 +229,7 @@ export const WorkspaceDemo: React.FC = () => {
         inspectorPanel={inspectorContent}
         mainContent={mainContent}
         timelineContent={timelineContent}
-        evidenceTitle="Evidence"
+        evidenceTitle="Files"
         inspectorTitle="Metadata"
         showTransport={true}
       />

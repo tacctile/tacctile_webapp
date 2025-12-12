@@ -119,7 +119,7 @@ const CollapseButton = styled(IconButton)({
 // METADATA INSPECTOR COMPONENT
 // ============================================================================
 
-export interface SelectedEvidence {
+export interface SelectedFile {
   id: string;
   type: 'video' | 'audio' | 'image';
   fileName: string;
@@ -137,7 +137,7 @@ export interface SelectedEvidence {
   hash?: string;
 }
 
-export const MetadataInspector: React.FC<{ item: SelectedEvidence | null }> = ({ item }) => {
+export const MetadataInspector: React.FC<{ item: SelectedFile | null }> = ({ item }) => {
   if (!item) {
     return (
       <Box sx={{
@@ -147,7 +147,7 @@ export const MetadataInspector: React.FC<{ item: SelectedEvidence | null }> = ({
         textAlign: 'center',
         marginTop: 4,
       }}>
-        Select evidence to view metadata
+        Select file to view metadata
       </Box>
     );
   }
@@ -306,7 +306,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
   return (
     <LayoutContainer>
       <MainRow>
-        {/* Left Panel - Evidence Bank + Metadata */}
+        {/* Left Panel - File Library + Metadata */}
         {(evidencePanel || metadataPanel) && (
           evidenceCollapsed ? (
             <Tooltip title="Show panel" placement="right">
@@ -321,7 +321,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
             </Tooltip>
           ) : (
             <LeftPanel width={EVIDENCE_PANEL_WIDTH}>
-              {/* Evidence Bank - flexible top section */}
+              {/* File Library - flexible top section */}
               {evidencePanel && (
                 <Box sx={{
                   flex: 1,

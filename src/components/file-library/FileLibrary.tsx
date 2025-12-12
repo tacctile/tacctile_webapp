@@ -10,7 +10,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 
 // Types
-export interface EvidenceItem {
+export interface FileItem {
   id: string;
   type: 'video' | 'audio' | 'image';
   fileName: string;
@@ -196,8 +196,8 @@ const ListItem = styled(Box)<{ selected?: boolean; borderColor: string }>(({ sel
   },
 }));
 
-// EvidenceList with zebra striping applied via nth-child
-const EvidenceList = styled(Box)({
+// FileList with zebra striping applied via nth-child
+const FileList = styled(Box)({
   display: 'flex',
   flexDirection: 'column',
   gap: 2,
@@ -282,11 +282,11 @@ const getTypeIcon = (type: 'video' | 'audio' | 'image', size: number = 16) => {
 };
 
 // Props
-interface EvidenceBankProps {
-  items?: EvidenceItem[];
+interface FileLibraryProps {
+  items?: FileItem[];
   selectedId?: string | null;
-  onSelect?: (item: EvidenceItem) => void;
-  onDoubleClick?: (item: EvidenceItem) => void;
+  onSelect?: (item: FileItem) => void;
+  onDoubleClick?: (item: FileItem) => void;
   filterByType?: MediaFilter; // Force filter to specific type (for tool-specific views)
   filter?: MediaFilter; // Controlled filter state (for parent control)
   onFilterChange?: (filter: MediaFilter) => void; // Called when filter changes
@@ -294,7 +294,7 @@ interface EvidenceBankProps {
   onDragEnd?: () => void; // Called when drag ends
 }
 
-export const EvidenceBank: React.FC<EvidenceBankProps> = ({
+export const FileLibrary: React.FC<FileLibraryProps> = ({
   items = [],
   selectedId = null,
   onSelect,
@@ -350,7 +350,7 @@ export const EvidenceBank: React.FC<EvidenceBankProps> = ({
     }));
   }, []);
 
-  const sortItems = useCallback((itemsToSort: EvidenceItem[]): EvidenceItem[] => {
+  const sortItems = useCallback((itemsToSort: FileItem[]): FileItem[] => {
     return [...itemsToSort].sort((a, b) => {
       switch (sortBy) {
         case 'timestamp':
@@ -396,15 +396,15 @@ export const EvidenceBank: React.FC<EvidenceBankProps> = ({
     return { videos, audios, images };
   }, [filteredItems, sortItems]);
 
-  const handleClick = useCallback((item: EvidenceItem) => {
+  const handleClick = useCallback((item: FileItem) => {
     onSelect?.(item);
   }, [onSelect]);
 
-  const handleDoubleClick = useCallback((item: EvidenceItem) => {
+  const handleDoubleClick = useCallback((item: FileItem) => {
     onDoubleClick?.(item);
   }, [onDoubleClick]);
 
-  const handleDragStart = useCallback((e: React.DragEvent, item: EvidenceItem) => {
+  const handleDragStart = useCallback((e: React.DragEvent, item: FileItem) => {
     e.dataTransfer.setData('text/plain', item.id);
     e.dataTransfer.effectAllowed = 'move';
     onDragStart?.(item.id);
@@ -421,7 +421,7 @@ export const EvidenceBank: React.FC<EvidenceBankProps> = ({
     image: items.filter(i => i.type === 'image').length,
   }), [items]);
 
-  const renderListItem = (item: EvidenceItem) => (
+  const renderListItem = (item: FileItem) => (
     <ListItem
       key={item.id}
       ref={(el: HTMLDivElement | null) => { itemRefs.current[item.id] = el; }}
@@ -473,7 +473,7 @@ export const EvidenceBank: React.FC<EvidenceBankProps> = ({
     </ListItem>
   );
 
-  const renderGridItem = (item: EvidenceItem) => (
+  const renderGridItem = (item: FileItem) => (
     <GridItem
       key={item.id}
       ref={(el: HTMLDivElement | null) => { itemRefs.current[item.id] = el; }}
@@ -517,7 +517,7 @@ export const EvidenceBank: React.FC<EvidenceBankProps> = ({
 
   const renderSection = (
     type: 'video' | 'audio' | 'image',
-    items: EvidenceItem[],
+    items: FileItem[],
     label: string,
     isGallery: boolean = false
   ) => {
@@ -550,9 +550,9 @@ export const EvidenceBank: React.FC<EvidenceBankProps> = ({
               {items.map(renderGridItem)}
             </ImageGrid>
           ) : (
-            <EvidenceList>
+            <FileList>
               {items.map(renderListItem)}
-            </EvidenceList>
+            </FileList>
           )}
         </Collapse>
       </Box>
@@ -567,7 +567,7 @@ export const EvidenceBank: React.FC<EvidenceBankProps> = ({
       <SearchRow>
         <SearchField
           size="small"
-          placeholder="Search evidence..."
+          placeholder="Search files..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           InputProps={{
@@ -626,7 +626,7 @@ export const EvidenceBank: React.FC<EvidenceBankProps> = ({
         </FilterBar>
       )}
 
-      {/* Evidence Items - Grouped by Type */}
+      {/* File Items - Grouped by Type */}
       {filteredItems.length === 0 ? (
         <Box sx={{
           flex: 1,
@@ -636,7 +636,7 @@ export const EvidenceBank: React.FC<EvidenceBankProps> = ({
           color: '#666',
           fontSize: '13px',
         }}>
-          {items.length === 0 ? 'No evidence in project' : 'No matching evidence'}
+          {items.length === 0 ? 'No files in project' : 'No matching files'}
         </Box>
       ) : (
         <SectionsContainer ref={containerRef}>
@@ -652,4 +652,4 @@ export const EvidenceBank: React.FC<EvidenceBankProps> = ({
   );
 };
 
-export default EvidenceBank;
+export default FileLibrary;
