@@ -1,5 +1,5 @@
 /**
- * SessionTimeline Component
+ * Timeline Component
  * Rebuilt to match the exact layout structure and styling of Video, Audio, and Image Tools
  *
  * Layout:
@@ -845,11 +845,11 @@ const FlagLine = styled(Box)<{ color?: string; clipHeight?: number }>(({ color, 
 // COMPONENT
 // ============================================================================
 
-interface SessionTimelineProps {
+interface TimelineProps {
   investigationId?: string;
 }
 
-export const SessionTimeline: React.FC<SessionTimelineProps> = ({
+export const Timeline: React.FC<TimelineProps> = ({
   investigationId = 'demo-investigation',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1052,7 +1052,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   // Global playhead store
   const globalTimestamp = usePlayheadStore((state) => state.timestamp);
   const setGlobalTimestamp = usePlayheadStore((state) => state.setTimestamp);
-  const setSessionBounds = usePlayheadStore((state) => state.setSessionBounds);
+  const setTimelineBounds = usePlayheadStore((state) => state.setTimelineBounds);
   const isPlaying = usePlayheadStore((state) => state.isPlaying);
   const togglePlayback = usePlayheadStore((state) => state.togglePlayback);
   const jumpToStart = usePlayheadStore((state) => state.jumpToStart);
@@ -1087,16 +1087,16 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     return () => clearTimeout(timer);
   }, []);
 
-  // Set session bounds when time range changes
+  // Set timeline bounds when time range changes
   useEffect(() => {
     if (timeRange) {
-      setSessionBounds(timeRange.start, timeRange.end);
+      setTimelineBounds(timeRange.start, timeRange.end);
       // Initialize playhead to start if not set
       if (globalTimestamp < timeRange.start || globalTimestamp > timeRange.end) {
         setGlobalTimestamp(timeRange.start);
       }
     }
-  }, [timeRange, setSessionBounds, setGlobalTimestamp, globalTimestamp]);
+  }, [timeRange, setTimelineBounds, setGlobalTimestamp, globalTimestamp]);
 
   // Initialize active file to first video on mount
   useEffect(() => {
@@ -3682,4 +3682,4 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   );
 };
 
-export default SessionTimeline;
+export default Timeline;

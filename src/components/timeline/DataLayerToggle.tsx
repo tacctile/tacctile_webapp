@@ -14,7 +14,7 @@ import {
   Collapse,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import type { DataLayer, DataLayerType } from '../../types/session';
+import type { DataLayer, DataLayerType } from '../../types/timeline';
 
 // ============================================================================
 // MATERIAL SYMBOL COMPONENT

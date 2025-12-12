@@ -6,8 +6,8 @@
 import React, { useMemo } from 'react';
 import { Box, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import type { TimelineItem, TimeRange, ZoomLevel, DataLayer } from '../../types/session';
-import { EVIDENCE_TYPE_COLORS, formatDuration, formatTimelineTimestamp } from '../../types/session';
+import type { TimelineItem, TimeRange, ZoomLevel, DataLayer } from '../../types/timeline';
+import { EVIDENCE_TYPE_COLORS, formatDuration, formatTimelineTimestamp } from '../../types/timeline';
 import type { EvidenceType } from '../../types/index';
 
 // ============================================================================

@@ -32,7 +32,7 @@ import ErrorIcon from '@mui/icons-material/Error';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import DevicesIcon from '@mui/icons-material/Devices';
 import SyncIcon from '@mui/icons-material/Sync';
-import type { ClockSyncPromptState, DeviceClockInfo, ClockSyncStatus } from '../../types/session';
+import type { ClockSyncPromptState, DeviceClockInfo, ClockSyncStatus } from '../../types/timeline';
 
 // ============================================================================
 // STYLED COMPONENTS

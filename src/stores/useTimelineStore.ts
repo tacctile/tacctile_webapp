@@ -1,5 +1,5 @@
 /**
- * Session Timeline Store
+ * Timeline Store
  * Zustand store for managing the chronological "truth" view of all investigation media
  */
 
@@ -8,21 +8,21 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import { createSelector } from 'reselect';
 import type {
-  SessionTimelineState,
-  SessionTimelineActions,
+  TimelineState,
+  TimelineActions,
   TimelineItem,
   DataLayer,
   DataLayerType,
   ZoomLevel,
   TimeRange,
   DeviceClockInfo,
-} from '../types/session';
+} from '../types/timeline';
 import {
   DEFAULT_DATA_LAYERS,
   ZOOM_LEVELS,
   EVIDENCE_TYPE_TO_LAYER,
   evidenceToTimelineItem,
-} from '../types/session';
+} from '../types/timeline';
 import type { Evidence, EvidenceFlag } from '../types/index';
 
 // ============================================================================
@@ -271,7 +271,7 @@ const generateMockData = (): { items: TimelineItem[]; timeRange: TimeRange } => 
 // INITIAL STATE
 // ============================================================================
 
-const initialState: SessionTimelineState = {
+const initialState: TimelineState = {
   investigationId: null,
   investigationTitle: '',
   items: [],
@@ -352,7 +352,7 @@ const updateLayerCounts = (items: TimelineItem[], layers: DataLayer[]): DataLaye
 // STORE IMPLEMENTATION
 // ============================================================================
 
-export const useSessionTimelineStore = create<SessionTimelineState & SessionTimelineActions>()(
+export const useTimelineStore = create<TimelineState & TimelineActions>()(
   persist(
     immer((set, get) => ({
       ...initialState,
@@ -637,7 +637,7 @@ export const useSessionTimelineStore = create<SessionTimelineState & SessionTime
       },
     })),
     {
-      name: 'tacctile-session-timeline',
+      name: 'tacctile-timeline',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         // Only persist user preferences - never persist dynamic data
@@ -651,7 +651,7 @@ export const useSessionTimelineStore = create<SessionTimelineState & SessionTime
       }),
       // Merge function to safely handle hydration without overwriting runtime state
       merge: (persistedState, currentState) => {
-        const persisted = persistedState as Partial<SessionTimelineState> | undefined;
+        const persisted = persistedState as Partial<TimelineState> | undefined;
         if (!persisted) return currentState;
 
         return {
@@ -675,21 +675,21 @@ export const useSessionTimelineStore = create<SessionTimelineState & SessionTime
 // SELECTOR FUNCTIONS
 // ============================================================================
 
-export const selectTimelineItems = (state: SessionTimelineState) => state.items;
-export const selectDataLayers = (state: SessionTimelineState) => state.dataLayers;
-export const selectZoomLevel = (state: SessionTimelineState) => state.zoomLevel;
-export const selectTimeRange = (state: SessionTimelineState) => state.fullTimeRange;
-export const selectVisibleTimeRange = (state: SessionTimelineState) => state.visibleTimeRange;
-export const selectPlayheadPosition = (state: SessionTimelineState) => state.playheadPosition;
-export const selectIsPlaying = (state: SessionTimelineState) => state.isPlaying;
-export const selectClockSyncPrompt = (state: SessionTimelineState) => state.clockSyncPrompt;
-export const selectTimelineLoading = (state: SessionTimelineState) => state.isLoading;
-export const selectTimelineError = (state: SessionTimelineState) => state.error;
-export const selectInvestigationTitle = (state: SessionTimelineState) => state.investigationTitle;
+export const selectTimelineItems = (state: TimelineState) => state.items;
+export const selectDataLayers = (state: TimelineState) => state.dataLayers;
+export const selectZoomLevel = (state: TimelineState) => state.zoomLevel;
+export const selectTimeRange = (state: TimelineState) => state.fullTimeRange;
+export const selectVisibleTimeRange = (state: TimelineState) => state.visibleTimeRange;
+export const selectPlayheadPosition = (state: TimelineState) => state.playheadPosition;
+export const selectIsPlaying = (state: TimelineState) => state.isPlaying;
+export const selectClockSyncPrompt = (state: TimelineState) => state.clockSyncPrompt;
+export const selectTimelineLoading = (state: TimelineState) => state.isLoading;
+export const selectTimelineError = (state: TimelineState) => state.error;
+export const selectInvestigationTitle = (state: TimelineState) => state.investigationTitle;
 
 // Memoized selector for visible items - prevents new array reference on every call
 export const selectVisibleItems = createSelector(
-  [(state: SessionTimelineState) => state.items, (state: SessionTimelineState) => state.dataLayers],
+  [(state: TimelineState) => state.items, (state: TimelineState) => state.dataLayers],
   (items, dataLayers) => {
     const visibleLayerIds = dataLayers.filter((l) => l.visible).map((l) => l.id);
     return items.filter((item) => {
@@ -701,7 +701,7 @@ export const selectVisibleItems = createSelector(
 
 // Memoized selector for selected item - prevents unnecessary re-renders
 export const selectSelectedItem = createSelector(
-  [(state: SessionTimelineState) => state.items, (state: SessionTimelineState) => state.selectedItemId],
+  [(state: TimelineState) => state.items, (state: TimelineState) => state.selectedItemId],
   (items, selectedItemId) => {
     if (!selectedItemId) return null;
     return items.find((item) => item.id === selectedItemId) || null;
@@ -710,11 +710,11 @@ export const selectSelectedItem = createSelector(
 
 // Memoized selector for hovered item - prevents unnecessary re-renders
 export const selectHoveredItem = createSelector(
-  [(state: SessionTimelineState) => state.items, (state: SessionTimelineState) => state.hoveredItemId],
+  [(state: TimelineState) => state.items, (state: TimelineState) => state.hoveredItemId],
   (items, hoveredItemId) => {
     if (!hoveredItemId) return null;
     return items.find((item) => item.id === hoveredItemId) || null;
   }
 );
 
-export default useSessionTimelineStore;
+export default useTimelineStore;

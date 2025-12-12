@@ -27,7 +27,7 @@ const TOOL_TRANSITION_DURATION = 175;
 // Lazy load heavy tool components - only load when user opens that tool
 const HomePage = lazy(() => import('@/components/home/HomePage'));
 const StreamingTool = lazy(() => import('@/components/streaming-tool/StreamingTool'));
-const SessionTimeline = lazy(() => import('@/components/session-timeline/SessionTimeline'));
+const Timeline = lazy(() => import('@/components/timeline/Timeline'));
 const AudioTool = lazy(() => import('@/components/audio-tool/AudioTool'));
 const ImageTool = lazy(() => import('@/components/image-tool/ImageTool'));
 const VideoTool = lazy(() => import('@/components/video-tool/VideoTool'));
@@ -290,7 +290,7 @@ const App: React.FC = () => {
   const shortcuts = useMemo(() => [
     ...createNavigationShortcuts({
       goToHome: () => setActiveTool('home'),
-      goToSession: () => setActiveTool('session'),
+      goToTimeline: () => setActiveTool('session'),
       goToVideo: () => setActiveTool('video'),
       goToAudio: () => setActiveTool('audio'),
       goToImages: () => setActiveTool('images'),
@@ -329,9 +329,9 @@ const App: React.FC = () => {
         );
       case 'session':
         return (
-          <ErrorBoundary toolName="Session Timeline">
+          <ErrorBoundary toolName="Timeline">
             <Suspense fallback={toolFallback}>
-              <SessionTimeline investigationId="current-investigation" />
+              <Timeline investigationId="current-investigation" />
             </Suspense>
           </ErrorBoundary>
         );
