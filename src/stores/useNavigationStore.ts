@@ -79,15 +79,15 @@ export const useNavigationStore = create<NavigationState>()(
 );
 
 // Helper hook for components
-export const useNavigateToEvidence = () => {
+export const useNavigateToFile = () => {
   const navigateToTool = useNavigationStore((state) => state.navigateToTool);
 
-  return (evidence: { id: string; type: 'video' | 'audio' | 'image' }) => {
+  return (file: { id: string; type: 'video' | 'audio' | 'image' }) => {
     const toolMap = {
       video: 'video' as const,
       audio: 'audio' as const,
-      image: 'images' as const, // Map 'image' evidence type to 'images' tool
+      image: 'images' as const, // Map 'image' file type to 'images' tool
     };
-    navigateToTool(toolMap[evidence.type], evidence.id);
+    navigateToTool(toolMap[file.type], file.id);
   };
 };

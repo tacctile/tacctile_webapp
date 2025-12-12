@@ -25,11 +25,11 @@ export interface Project {
   storageType: StorageType;
   location?: string;
   thumbnail?: string;
-  evidenceCount: number;
+  fileCount: number;
   flagCount: number;
   createdAt: number;
   modifiedAt: number;
-  evidence?: unknown[];
+  files?: unknown[];
   flags?: unknown[];
   notes?: unknown[];
 }
@@ -108,7 +108,7 @@ const dummyProjects: Project[] = [
     storageType: 'local',
     location: 'Industrial District, Portland',
     thumbnail: undefined,
-    evidenceCount: 12,
+    fileCount: 12,
     flagCount: 8,
     createdAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
     modifiedAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
@@ -120,7 +120,7 @@ const dummyProjects: Project[] = [
     storageId: 'local',
     storageType: 'local',
     thumbnail: undefined,
-    evidenceCount: 5,
+    fileCount: 5,
     flagCount: 3,
     createdAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
     modifiedAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
@@ -133,7 +133,7 @@ const dummyProjects: Project[] = [
     storageType: 'local',
     location: 'Observatory Hill',
     thumbnail: undefined,
-    evidenceCount: 2,
+    fileCount: 2,
     flagCount: 1,
     createdAt: Date.now() - 14 * 24 * 60 * 60 * 1000,
     modifiedAt: Date.now() - 1 * 24 * 60 * 60 * 1000,
@@ -146,7 +146,7 @@ const dummyProjects: Project[] = [
     storageType: 'dropbox',
     location: 'Old Town Historic District',
     thumbnail: undefined,
-    evidenceCount: 8,
+    fileCount: 8,
     flagCount: 4,
     createdAt: Date.now() - 60 * 24 * 60 * 60 * 1000,
     modifiedAt: Date.now() - 10 * 24 * 60 * 60 * 1000,

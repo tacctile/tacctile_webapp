@@ -20,10 +20,10 @@ import type {
 import {
   DEFAULT_DATA_LAYERS,
   ZOOM_LEVELS,
-  EVIDENCE_TYPE_TO_LAYER,
-  evidenceToTimelineItem,
+  FILE_TYPE_TO_LAYER,
+  fileToTimelineItem,
 } from '../types/timeline';
-import type { Evidence, EvidenceFlag } from '../types/index';
+import type { ProjectFile, FileFlag } from '../types/index';
 
 // ============================================================================
 // MOCK DATA GENERATION (for development)
@@ -36,7 +36,7 @@ const generateMockData = (): { items: TimelineItem[]; timeRange: TimeRange } => 
   const mockItems: TimelineItem[] = [
     {
       id: 'timeline-video-1',
-      evidenceId: 'video-1',
+      fileId: 'video-1',
       type: 'video',
       title: 'Main Camera - Entry Hall',
       fileName: 'entry_hall_001.mp4',
@@ -74,7 +74,7 @@ const generateMockData = (): { items: TimelineItem[]; timeRange: TimeRange } => 
     },
     {
       id: 'timeline-audio-1',
-      evidenceId: 'audio-1',
+      fileId: 'audio-1',
       type: 'audio',
       title: 'Audio Recording - Master Bedroom',
       fileName: 'master_bedroom_audio.wav',
@@ -122,7 +122,7 @@ const generateMockData = (): { items: TimelineItem[]; timeRange: TimeRange } => 
     },
     {
       id: 'timeline-photo-1',
-      evidenceId: 'photo-1',
+      fileId: 'photo-1',
       type: 'photo',
       title: 'Sensor Spike Location',
       fileName: 'sensor_spike_corner.jpg',
@@ -139,7 +139,7 @@ const generateMockData = (): { items: TimelineItem[]; timeRange: TimeRange } => 
     },
     {
       id: 'timeline-sensor-1',
-      evidenceId: 'sensor-1',
+      fileId: 'sensor-1',
       type: 'sensor_reading',
       title: 'Sensor Log - Full Session',
       fileName: 'sensor_log_session.csv',
@@ -167,7 +167,7 @@ const generateMockData = (): { items: TimelineItem[]; timeRange: TimeRange } => 
     },
     {
       id: 'timeline-thermal-1',
-      evidenceId: 'thermal-1',
+      fileId: 'thermal-1',
       type: 'thermal',
       title: 'Thermal Scan - Hallway',
       fileName: 'thermal_hallway.mp4',
@@ -195,7 +195,7 @@ const generateMockData = (): { items: TimelineItem[]; timeRange: TimeRange } => 
     },
     {
       id: 'timeline-photo-2',
-      evidenceId: 'photo-2',
+      fileId: 'photo-2',
       type: 'photo',
       title: 'Anomaly in Window',
       fileName: 'window_anomaly.jpg',
@@ -223,7 +223,7 @@ const generateMockData = (): { items: TimelineItem[]; timeRange: TimeRange } => 
     },
     {
       id: 'timeline-audio-2',
-      evidenceId: 'audio-2',
+      fileId: 'audio-2',
       type: 'radio_sweep',
       title: 'Radio Sweep Session',
       fileName: 'radio_sweep_session.wav',
@@ -335,7 +335,7 @@ const updateLayerCounts = (items: TimelineItem[], layers: DataLayer[]): DataLaye
   };
 
   items.forEach((item) => {
-    const layerType = EVIDENCE_TYPE_TO_LAYER[item.type];
+    const layerType = FILE_TYPE_TO_LAYER[item.type];
     if (layerType) {
       counts[layerType]++;
     }
@@ -368,8 +368,8 @@ export const useTimelineStore = create<TimelineState & TimelineActions>()(
         try {
           // TODO: Replace with actual API call
           // const investigation = await supabaseService.getInvestigation(investigationId);
-          // const evidence = await supabaseService.getEvidenceForInvestigation(investigationId);
-          // const flags = await evidenceFlaggingService.getFlagsForInvestigation(investigationId);
+          // const files = await supabaseService.getFilesForInvestigation(investigationId);
+          // const flags = await fileFlaggingService.getFlagsForInvestigation(investigationId);
 
           // For now, use mock data
           await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate network delay
@@ -693,7 +693,7 @@ export const selectVisibleItems = createSelector(
   (items, dataLayers) => {
     const visibleLayerIds = dataLayers.filter((l) => l.visible).map((l) => l.id);
     return items.filter((item) => {
-      const layerType = EVIDENCE_TYPE_TO_LAYER[item.type];
+      const layerType = FILE_TYPE_TO_LAYER[item.type];
       return visibleLayerIds.includes(layerType);
     });
   }
