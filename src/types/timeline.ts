@@ -3,7 +3,7 @@
  * Types for the chronological "truth" view of all investigation media
  */
 
-import type { Evidence, EvidenceFlag, EvidenceType, FlagType } from './index';
+import type { ProjectFile, FileFlag, FileType, FlagType } from './index';
 
 // ============================================================================
 // TIMELINE ITEM TYPES
@@ -15,8 +15,8 @@ import type { Evidence, EvidenceFlag, EvidenceType, FlagType } from './index';
  */
 export interface TimelineItem {
   id: string;
-  evidenceId: string;
-  type: EvidenceType;
+  fileId: string;
+  type: FileType;
   title: string;
   fileName: string;
   thumbnailUrl?: string;
@@ -230,9 +230,9 @@ export interface TimelineActions {
 // ============================================================================
 
 /**
- * Maps EvidenceType to DataLayerType
+ * Maps FileType to DataLayerType
  */
-export const EVIDENCE_TYPE_TO_LAYER: Record<EvidenceType, DataLayerType> = {
+export const FILE_TYPE_TO_LAYER: Record<FileType, DataLayerType> = {
   video: 'video',
   audio: 'audio',
   photo: 'photo',
@@ -245,9 +245,9 @@ export const EVIDENCE_TYPE_TO_LAYER: Record<EvidenceType, DataLayerType> = {
 };
 
 /**
- * Get color for evidence type
+ * Get color for file type
  */
-export const EVIDENCE_TYPE_COLORS: Record<EvidenceType, string> = {
+export const FILE_TYPE_COLORS: Record<FileType, string> = {
   video: '#ff6b6b',
   audio: '#4ecdc4',
   photo: '#ffe66d',
@@ -260,18 +260,18 @@ export const EVIDENCE_TYPE_COLORS: Record<EvidenceType, string> = {
 };
 
 /**
- * Convert Evidence to TimelineItem
+ * Convert ProjectFile to TimelineItem
  */
-export function evidenceToTimelineItem(
-  evidence: Evidence,
-  flags: EvidenceFlag[],
+export function fileToTimelineItem(
+  file: ProjectFile,
+  flags: FileFlag[],
   trackIndex: number
 ): TimelineItem {
-  const capturedAt = evidence.metadata.capturedAt
-    ? new Date(evidence.metadata.capturedAt).getTime()
-    : new Date(evidence.createdAt).getTime();
+  const capturedAt = file.metadata.capturedAt
+    ? new Date(file.metadata.capturedAt).getTime()
+    : new Date(file.createdAt).getTime();
 
-  const durationMs = evidence.duration ? evidence.duration * 1000 : undefined;
+  const durationMs = file.duration ? file.duration * 1000 : undefined;
 
   const timelineFlags: TimelineItemFlag[] = flags.map(flag => ({
     id: flag.id,
@@ -285,20 +285,20 @@ export function evidenceToTimelineItem(
   }));
 
   return {
-    id: `timeline-${evidence.id}`,
-    evidenceId: evidence.id,
-    type: evidence.type,
-    title: evidence.title,
-    fileName: evidence.fileName,
-    thumbnailUrl: evidence.thumbnailUrl,
+    id: `timeline-${file.id}`,
+    fileId: file.id,
+    type: file.type,
+    title: file.title,
+    fileName: file.fileName,
+    thumbnailUrl: file.thumbnailUrl,
     capturedAt,
-    duration: evidence.duration,
+    duration: file.duration,
     endAt: durationMs ? capturedAt + durationMs : undefined,
     flags: timelineFlags,
     flagCount: flags.length,
     hasEdits: false, // Will be set based on edit history
-    capturedBy: evidence.userId,
-    deviceInfo: evidence.metadata.device,
+    capturedBy: file.userId,
+    deviceInfo: file.metadata.device,
     trackIndex,
   };
 }

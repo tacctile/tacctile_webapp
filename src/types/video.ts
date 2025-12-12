@@ -37,7 +37,7 @@ export interface VideoSource {
 }
 
 /**
- * Represents an evidence marker on the timeline
+ * Represents a file marker on the timeline
  */
 export interface VideoMarker {
   id: string;
@@ -49,7 +49,7 @@ export interface VideoMarker {
   notes?: string;
   /** Marker color */
   color: string;
-  /** Confidence level for evidence */
+  /** Confidence level for file flag */
   confidence?: 'low' | 'medium' | 'high';
   /** User who created this marker */
   userId: string;
@@ -228,7 +228,7 @@ export interface VideoToolState {
   adjustments: VideoAdjustments;
 
   // Markers
-  /** Evidence markers on timeline */
+  /** File markers on timeline */
   markers: VideoMarker[];
 
   // Camera Grid
@@ -370,11 +370,11 @@ export const VIDEO_SHORTCUTS = {
 } as const;
 
 /**
- * Marker colors for evidence types
+ * Marker colors for file types
  */
 export const MARKER_COLORS = {
   default: '#19abb5',
-  evidence: '#4caf50',
+  file: '#4caf50',
   anomaly: '#ff9800',
   critical: '#f44336',
   note: '#9c27b0',

@@ -1,6 +1,6 @@
 /**
  * Tacctile Core Types
- * Type definitions for authentication, billing, storage, and evidence systems
+ * Type definitions for authentication, billing, storage, and file systems
  */
 
 // ============================================================================
@@ -67,7 +67,7 @@ export interface TierLimits {
   maxInvestigations: number;
   maxTeamMembers: number;
   maxStorageGB: number;
-  maxEvidencePerInvestigation: number;
+  maxFilesPerInvestigation: number;
   aiSummarizationEnabled: boolean;
   realTimeCollaborationEnabled: boolean;
   exportFormats: ('pdf' | 'csv' | 'json')[];
@@ -79,7 +79,7 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     maxInvestigations: 3,
     maxTeamMembers: 1,
     maxStorageGB: 1,
-    maxEvidencePerInvestigation: 50,
+    maxFilesPerInvestigation: 50,
     aiSummarizationEnabled: false,
     realTimeCollaborationEnabled: false,
     exportFormats: ['json'],
@@ -89,7 +89,7 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     maxInvestigations: Infinity,
     maxTeamMembers: 10,
     maxStorageGB: 100,
-    maxEvidencePerInvestigation: Infinity,
+    maxFilesPerInvestigation: Infinity,
     aiSummarizationEnabled: true,
     realTimeCollaborationEnabled: true,
     exportFormats: ['pdf', 'csv', 'json'],
@@ -178,7 +178,7 @@ export interface Investigation {
   endDate?: Date;
   status: 'planning' | 'active' | 'completed' | 'archived';
   teamMembers: TeamMember[];
-  evidenceCount: number;
+  fileCount: number;
   flagCount: number;
   cloudStorageProvider?: CloudStorageProvider;
   cloudFolderId?: string;
@@ -219,10 +219,10 @@ export interface InvestigationInvite {
 }
 
 // ============================================================================
-// EVIDENCE TYPES
+// FILE TYPES (ProjectFile in code, "File" in UI)
 // ============================================================================
 
-export type EvidenceType =
+export type FileType =
   | 'photo'
   | 'video'
   | 'audio'
@@ -233,11 +233,11 @@ export type EvidenceType =
   | 'document'
   | 'other';
 
-export interface Evidence {
+export interface ProjectFile {
   id: string;
   investigationId: string;
   userId: string;
-  type: EvidenceType;
+  type: FileType;
   title: string;
   description?: string;
   fileName: string;
@@ -247,14 +247,14 @@ export interface Evidence {
   cloudFileId: string;
   cloudProvider: CloudStorageProvider;
   thumbnailUrl?: string;
-  metadata: EvidenceMetadata;
-  flags: EvidenceFlag[];
+  metadata: FileMetadata;
+  flags: FileFlag[];
   flagCount: number;
   createdAt: Date;
   updatedAt: Date;
 }
 
-export interface EvidenceMetadata {
+export interface FileMetadata {
   // Common metadata
   capturedAt?: Date;
   device?: string;
@@ -291,7 +291,7 @@ export interface EvidenceMetadata {
 }
 
 // ============================================================================
-// EVIDENCE FLAGGING SYSTEM TYPES
+// FILE FLAGGING SYSTEM TYPES
 // ============================================================================
 
 export type FlagType =
@@ -310,9 +310,9 @@ export type FlagType =
   | 'highlight'         // Important/noteworthy
   | 'custom';           // Custom flag type
 
-export interface EvidenceFlag {
+export interface FileFlag {
   id: string;
-  evidenceId: string;
+  fileId: string;
   userId: string;
   userDisplayName: string;
   userPhotoURL?: string;
@@ -365,7 +365,7 @@ export interface AIFlagAnalysis {
 // FILTER & QUERY TYPES
 // ============================================================================
 
-export interface EvidenceFlagFilter {
+export interface FileFlagFilter {
   types?: FlagType[];
   userIds?: string[];
   timestampRange?: {
@@ -393,7 +393,7 @@ export interface InvestigationFilter {
   };
   searchQuery?: string;
   tags?: string[];
-  sortBy?: 'title' | 'startDate' | 'createdAt' | 'updatedAt' | 'evidenceCount';
+  sortBy?: 'title' | 'startDate' | 'createdAt' | 'updatedAt' | 'fileCount';
   sortOrder?: 'asc' | 'desc';
 }
 
@@ -406,7 +406,7 @@ export interface PresenceState {
   displayName: string;
   photoURL?: string;
   currentInvestigationId?: string;
-  currentEvidenceId?: string;
+  currentFileId?: string;
   currentTimestamp?: number; // For synced playback
   lastActiveAt: Date;
   status: 'online' | 'away' | 'offline';
@@ -438,10 +438,10 @@ export interface SyncedPlaybackState {
 
 export interface AISummarizationRequest {
   investigationId: string;
-  evidenceIds?: string[]; // If empty, summarize all evidence
+  fileIds?: string[]; // If empty, summarize all files
   flagIds?: string[]; // If empty, summarize all flags
   options: {
-    includeEvidence: boolean;
+    includeFiles: boolean;
     includeFlags: boolean;
     includeComments: boolean;
     detailLevel: 'brief' | 'standard' | 'detailed';
@@ -458,7 +458,7 @@ export interface AISummarizationResponse {
   timeline: {
     timestamp: Date;
     description: string;
-    evidenceIds: string[];
+    fileIds: string[];
     flagIds: string[];
   }[];
   recommendations: string[];
@@ -473,7 +473,7 @@ export interface AISummarizationResponse {
 
 export interface ExportOptions {
   format: 'pdf' | 'csv' | 'json';
-  includeEvidence: boolean;
+  includeFiles: boolean;
   includeFlags: boolean;
   includeComments: boolean;
   includeAISummary: boolean;

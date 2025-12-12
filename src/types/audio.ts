@@ -149,8 +149,8 @@ export interface FilterRecipe {
  */
 export interface AudioIteration {
   id: string;
-  /** Parent evidence ID */
-  evidenceId: string;
+  /** Parent file ID */
+  fileId: string;
   /** Iteration name/label */
   name: string;
   /** Description of what this iteration represents */
@@ -177,15 +177,15 @@ export interface AudioIteration {
 
 /**
  * An audio finding (time selection saved with notes)
- * Links to the main EvidenceFlag system
+ * Links to the main FileFlag system
  */
 export interface AudioFinding {
   id: string;
-  /** Parent evidence ID */
-  evidenceId: string;
+  /** Parent file ID */
+  fileId: string;
   /** Investigation ID */
   investigationId: string;
-  /** Linked evidence flag ID */
+  /** Linked file flag ID */
   flagId?: string;
   /** Time selection that defined this finding */
   selection: TimeSelection;
@@ -290,8 +290,8 @@ export interface AudioAnalysisData {
  * Full state for audio tool
  */
 export interface AudioToolState {
-  /** Current evidence ID */
-  evidenceId: string | null;
+  /** Current file ID */
+  fileId: string | null;
   /** Investigation ID */
   investigationId: string | null;
   /** Audio buffer */
