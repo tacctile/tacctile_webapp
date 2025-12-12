@@ -1,6 +1,6 @@
 /**
  * Home Page Store - Manages home page state including storage connections,
- * sessions, and view preferences
+ * projects, and view preferences
  */
 
 import { create } from 'zustand';
@@ -17,7 +17,7 @@ export interface StorageLocation {
 
 export type StorageType = 'local' | 'google_drive' | 'dropbox' | 'onedrive';
 
-export interface Session {
+export interface Project {
   id: string;
   name: string;
   path: string;
@@ -53,8 +53,8 @@ interface HomeState {
   storageLocations: StorageLocation[];
   activeStorageId: string | null;
 
-  // Sessions & Files
-  sessions: Session[];
+  // Projects & Files
+  projects: Project[];
   mediaFiles: MediaFile[];
   selectedItemId: string | null;
 
@@ -77,10 +77,10 @@ interface HomeState {
   removeStorageLocation: (id: string) => void;
   setActiveStorage: (id: string | null) => void;
 
-  setSessions: (sessions: Session[]) => void;
-  addSession: (session: Session) => void;
-  updateSession: (id: string, updates: Partial<Session>) => void;
-  removeSession: (id: string) => void;
+  setProjects: (projects: Project[]) => void;
+  addProject: (project: Project) => void;
+  updateProject: (id: string, updates: Partial<Project>) => void;
+  removeProject: (id: string) => void;
 
   setMediaFiles: (files: MediaFile[]) => void;
   setSelectedItem: (id: string | null) => void;
@@ -94,16 +94,16 @@ interface HomeState {
   setStoragePanelCollapsed: (collapsed: boolean) => void;
 
   // Derived
-  getFilteredSessions: () => Session[];
+  getFilteredProjects: () => Project[];
   getFilteredMediaFiles: () => MediaFile[];
 }
 
 // Dummy data for testing
-const dummySessions: Session[] = [
+const dummyProjects: Project[] = [
   {
-    id: 'session-1',
+    id: 'project-1',
     name: 'Warehouse_Site_2024',
-    path: '/local/sessions/warehouse_site_2024',
+    path: '/local/projects/warehouse_site_2024',
     storageId: 'local',
     storageType: 'local',
     location: 'Industrial District, Portland',
@@ -114,9 +114,9 @@ const dummySessions: Session[] = [
     modifiedAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
   },
   {
-    id: 'session-2',
-    name: 'Audio_Session_Oct',
-    path: '/local/sessions/audio_session_oct',
+    id: 'project-2',
+    name: 'Audio_Project_Oct',
+    path: '/local/projects/audio_project_oct',
     storageId: 'local',
     storageType: 'local',
     thumbnail: undefined,
@@ -126,9 +126,9 @@ const dummySessions: Session[] = [
     modifiedAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
   },
   {
-    id: 'session-3',
+    id: 'project-3',
     name: 'Shadow_Analysis_Review',
-    path: '/local/sessions/shadow_analysis_review',
+    path: '/local/projects/shadow_analysis_review',
     storageId: 'local',
     storageType: 'local',
     location: 'Observatory Hill',
@@ -139,9 +139,9 @@ const dummySessions: Session[] = [
     modifiedAt: Date.now() - 1 * 24 * 60 * 60 * 1000,
   },
   {
-    id: 'session-4',
+    id: 'project-4',
     name: 'Historic_Site_Survey',
-    path: '/dropbox/sessions/historic_site_survey',
+    path: '/dropbox/projects/historic_site_survey',
     storageId: 'dropbox',
     storageType: 'dropbox',
     location: 'Old Town Historic District',
@@ -166,7 +166,7 @@ export const useHomeStore = create<HomeState>()(
       // Initial state
       storageLocations: defaultStorageLocations,
       activeStorageId: null,
-      sessions: dummySessions,
+      projects: dummyProjects,
       mediaFiles: [],
       selectedItemId: null,
       viewMode: 'grid',
@@ -194,19 +194,19 @@ export const useHomeStore = create<HomeState>()(
         })),
       setActiveStorage: (id) => set({ activeStorageId: id }),
 
-      // Session actions
-      setSessions: (sessions) => set({ sessions }),
-      addSession: (session) =>
-        set((state) => ({ sessions: [...state.sessions, session] })),
-      updateSession: (id, updates) =>
+      // Project actions
+      setProjects: (projects) => set({ projects }),
+      addProject: (project) =>
+        set((state) => ({ projects: [...state.projects, project] })),
+      updateProject: (id, updates) =>
         set((state) => ({
-          sessions: state.sessions.map((s) =>
-            s.id === id ? { ...s, ...updates } : s
+          projects: state.projects.map((p) =>
+            p.id === id ? { ...p, ...updates } : p
           ),
         })),
-      removeSession: (id) =>
+      removeProject: (id) =>
         set((state) => ({
-          sessions: state.sessions.filter((s) => s.id !== id),
+          projects: state.projects.filter((p) => p.id !== id),
         })),
 
       // Media file actions
@@ -224,21 +224,21 @@ export const useHomeStore = create<HomeState>()(
       setStoragePanelCollapsed: (collapsed) => set({ storagePanelCollapsed: collapsed }),
 
       // Derived getters
-      getFilteredSessions: () => {
-        const { sessions, activeStorageId, searchQuery, sortBy, sortOrder } = get();
+      getFilteredProjects: () => {
+        const { projects, activeStorageId, searchQuery, sortBy, sortOrder } = get();
 
-        let filtered = sessions;
+        let filtered = projects;
 
         // Filter by storage
         if (activeStorageId) {
-          filtered = filtered.filter((s) => s.storageId === activeStorageId);
+          filtered = filtered.filter((p) => p.storageId === activeStorageId);
         }
 
         // Filter by search
         if (searchQuery) {
           const query = searchQuery.toLowerCase();
-          filtered = filtered.filter((s) =>
-            s.name.toLowerCase().includes(query)
+          filtered = filtered.filter((p) =>
+            p.name.toLowerCase().includes(query)
           );
         }
 
@@ -296,7 +296,7 @@ export const useHomeStore = create<HomeState>()(
       },
     }),
     {
-      name: 'tacctile-home',
+      name: 'tacctile-home-v2',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         viewMode: state.viewMode,
