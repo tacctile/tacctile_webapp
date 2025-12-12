@@ -80,7 +80,7 @@ interface NavItem {
 
 // TOP SECTION - Tools
 const toolsSection: NavItem[] = [
-  { id: 'home', icon: 'home', label: 'Home', tooltip: 'Home - Sessions & Storage', route: '/home' },
+  { id: 'home', icon: 'home', label: 'Home', tooltip: 'Home - Projects & Storage', route: '/home' },
   { id: 'session', icon: 'timeline', label: 'Session', tooltip: 'Session Overview timeline', route: '/session' },
   { id: 'video', icon: 'movie', label: 'Video', tooltip: 'Video analysis tool', route: '/video' },
   { id: 'audio', icon: 'graphic_eq', label: 'Audio', tooltip: 'Audio analysis tool', route: '/audio' },

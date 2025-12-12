@@ -21,7 +21,7 @@ export interface NavTool {
 }
 
 export const NAV_TOOLS: NavTool[] = [
-  { id: 'home', icon: 'home', label: 'Home', tooltip: 'Home - Sessions & Storage' },
+  { id: 'home', icon: 'home', label: 'Home', tooltip: 'Home - Projects & Storage' },
   { id: 'session', icon: 'calendar_month', label: 'Session', tooltip: 'Session Timeline' },
   { id: 'video', icon: 'movie', label: 'Video', tooltip: 'Video Analysis' },
   { id: 'audio', icon: 'graphic_eq', label: 'Audio', tooltip: 'Audio Analysis' },

@@ -57,7 +57,7 @@ export const BottomBar: React.FC = () => {
         padding: '0 16px',
       }}
     >
-      {/* Left group: Logo, Session, Users, Sync */}
+      {/* Left group: Logo, Project, Users, Sync */}
       <Box sx={{ display: 'flex', alignItems: 'center' }}>
         {/* Logo */}
         <Box
@@ -72,7 +72,7 @@ export const BottomBar: React.FC = () => {
 
         <Divider />
 
-        {/* Session name */}
+        {/* Project name */}
         <Typography
           sx={{
             color: '#999',
@@ -80,7 +80,7 @@ export const BottomBar: React.FC = () => {
             whiteSpace: 'nowrap',
           }}
         >
-          Session-3
+          Project-3
         </Typography>
 
         <Divider />
