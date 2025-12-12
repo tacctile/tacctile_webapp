@@ -214,7 +214,7 @@ export const VideoTool: React.FC<VideoToolProps> = ({ investigationId }) => {
   // Load video when navigated to from another tool
   useEffect(() => {
     if (loadedFileId) {
-      // Find the file in evidence and load it
+      // Find the file and load it
       const file = videoFiles.find((e) => e.id === loadedFileId);
       if (file) {
         setLoadedVideo(file);
@@ -760,7 +760,7 @@ export const VideoTool: React.FC<VideoToolProps> = ({ investigationId }) => {
       />
 
       <WorkspaceLayout
-        evidencePanel={
+        filesPanel={
           <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             {/* Import button header - full width */}
             <Box sx={{
@@ -804,7 +804,7 @@ export const VideoTool: React.FC<VideoToolProps> = ({ investigationId }) => {
         }
         inspectorPanel={inspectorContent}
         mainContent={mainContent}
-        evidenceTitle="Video Files"
+        filesTitle="Video Files"
         inspectorTitle="Filters"
         showTransport={false}
       />

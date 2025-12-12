@@ -7,8 +7,8 @@ import React, { useMemo } from 'react';
 import { Box, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import type { TimelineItem, TimeRange, ZoomLevel, DataLayer } from '../../types/timeline';
-import { EVIDENCE_TYPE_COLORS, formatDuration, formatTimelineTimestamp } from '../../types/timeline';
-import type { EvidenceType } from '../../types/index';
+import { FILE_TYPE_COLORS, formatDuration, formatTimelineTimestamp } from '../../types/timeline';
+import type { FileType } from '../../types/index';
 
 // ============================================================================
 // MATERIAL SYMBOL COMPONENT
@@ -178,7 +178,7 @@ const InstantMarker = styled(Box)<{ color: string }>(({ color }) => ({
 // HELPER FUNCTIONS
 // ============================================================================
 
-const getTypeIcon = (type: EvidenceType): React.ReactNode => {
+const getTypeIcon = (type: FileType): React.ReactNode => {
   const iconProps = { size: 16, color: '#888' };
   switch (type) {
     case 'video':
@@ -200,8 +200,8 @@ const getTypeIcon = (type: EvidenceType): React.ReactNode => {
   }
 };
 
-const getTypeName = (type: EvidenceType): string => {
-  const names: Record<EvidenceType, string> = {
+const getTypeName = (type: FileType): string => {
+  const names: Record<FileType, string> = {
     video: 'Video',
     audio: 'Audio',
     photo: 'Photos',
@@ -321,7 +321,7 @@ export const TimelineTrack: React.FC<TimelineTrackProps> = ({
           }}
         >
           {itemPositions.map(({ item, left, width, isInstant }) => {
-            const color = EVIDENCE_TYPE_COLORS[item.type];
+            const color = FILE_TYPE_COLORS[item.type];
             const isSelected = selectedItemId === item.id;
             const isHovered = hoveredItemId === item.id;
 

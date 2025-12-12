@@ -424,7 +424,7 @@ export interface CollaborationCursor {
 }
 
 export interface SyncedPlaybackState {
-  evidenceId: string;
+  fileId: string;
   isPlaying: boolean;
   currentTime: number;
   playbackRate: number;

@@ -176,7 +176,7 @@ interface VideoTimelineProps {
   currentTime: number;
   /** Frame rate */
   fps: number;
-  /** Evidence markers */
+  /** Flag markers */
   markers: VideoMarker[];
   /** Timeline tracks */
   tracks: TimelineTrack[];

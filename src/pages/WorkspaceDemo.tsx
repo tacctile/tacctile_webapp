@@ -218,7 +218,7 @@ export const WorkspaceDemo: React.FC = () => {
   return (
     <Box sx={{ height: '100vh', width: '100vw' }}>
       <WorkspaceLayout
-        evidencePanel={
+        filesPanel={
           <FileLibrary
             items={mockFiles}
             selectedId={selectedItem?.id}
@@ -229,7 +229,7 @@ export const WorkspaceDemo: React.FC = () => {
         inspectorPanel={inspectorContent}
         mainContent={mainContent}
         timelineContent={timelineContent}
-        evidenceTitle="Files"
+        filesTitle="Files"
         inspectorTitle="Metadata"
         showTransport={true}
       />

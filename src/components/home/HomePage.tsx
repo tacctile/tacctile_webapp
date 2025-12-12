@@ -535,11 +535,11 @@ export const HomePage: React.FC = () => {
       storageType: projectData.storageType,
       location: projectData.location || undefined,
       thumbnail: undefined,
-      evidenceCount: 0,
+      fileCount: 0,
       flagCount: 0,
       createdAt: projectData.createdAt,
       modifiedAt: projectData.modifiedAt,
-      evidence: [],
+      files: [],
       flags: [],
       notes: [],
     };
@@ -745,7 +745,7 @@ export const HomePage: React.FC = () => {
         <ProjectMeta>
           <ProjectStat>
             <Typography sx={{ fontSize: 11, color: '#666' }}>
-              {project.evidenceCount} items
+              {project.fileCount} items
             </Typography>
           </ProjectStat>
           <ProjectStat>
@@ -771,7 +771,7 @@ export const HomePage: React.FC = () => {
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <ProjectName>{project.name}</ProjectName>
         <Typography sx={{ fontSize: 10, color: '#555' }}>
-          {project.evidenceCount} items · {project.flagCount} flags
+          {project.fileCount} items · {project.flagCount} flags
         </Typography>
       </Box>
       <Typography sx={{ fontSize: 11, color: '#555' }}>

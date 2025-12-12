@@ -1111,7 +1111,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       />
 
       <WorkspaceLayout
-        evidencePanel={
+        filesPanel={
           <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             {/* Import button header - full width */}
             <Box sx={{
@@ -1155,7 +1155,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         }
         inspectorPanel={inspectorContent}
         mainContent={mainContent}
-        evidenceTitle="Image Files"
+        filesTitle="Image Files"
         inspectorTitle=""
         showTransport={false}
       />

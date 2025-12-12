@@ -40,7 +40,7 @@ export interface NewProjectData {
   createdAt: number;
   modifiedAt: number;
   storageType: StorageType;
-  evidence: never[];
+  files: never[];
   flags: never[];
   notes: never[];
 }
@@ -237,7 +237,7 @@ export const NewProjectDialog: React.FC<NewProjectDialogProps> = ({
       createdAt: now,
       modifiedAt: now,
       storageType: mapStorageTypeId(selectedStorageId),
-      evidence: [],
+      files: [],
       flags: [],
       notes: [],
     };

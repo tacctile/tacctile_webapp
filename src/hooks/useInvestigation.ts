@@ -1,6 +1,6 @@
 /**
  * Investigation Hooks
- * Provides investigation and evidence management with real-time collaboration
+ * Provides investigation and file management with real-time collaboration
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';

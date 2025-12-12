@@ -2382,7 +2382,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       />
 
       <WorkspaceLayout
-        evidencePanel={
+        filesPanel={
           <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             {/* Import button header - full width */}
             <Box sx={{
@@ -2426,7 +2426,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         }
         inspectorPanel={inspectorContent}
         mainContent={mainContent}
-        evidenceTitle="Audio Files"
+        filesTitle="Audio Files"
         inspectorTitle=""
         showTransport={false}
       />

@@ -166,7 +166,7 @@ const DUMMY_MESSAGES: ChatMessage[] = [
   {
     id: 'dummy-1',
     role: 'assistant',
-    content: 'Hello! I\'m Knox. I can help you analyze your evidence and understand the tools. What would you like to know?',
+    content: 'Hello! I\'m Knox. I can help you analyze your files and understand the tools. What would you like to know?',
     timestamp: new Date(Date.now() - 60000),
   },
   {
@@ -178,7 +178,7 @@ const DUMMY_MESSAGES: ChatMessage[] = [
   {
     id: 'dummy-3',
     role: 'assistant',
-    content: 'I can help you with:\n\n- **Understanding tools**: Explain how to use the audio, video, and image analysis features\n- **Analyzing evidence**: Help interpret findings and anomalies\n- **Workflow guidance**: Suggest best practices for your investigation\n- **Context awareness**: I can see which tool you\'re using and what file is loaded\n\nJust ask me anything!',
+    content: 'I can help you with:\n\n- **Understanding tools**: Explain how to use the audio, video, and image analysis features\n- **Analyzing files**: Help interpret findings and anomalies\n- **Workflow guidance**: Suggest best practices for your investigation\n- **Context awareness**: I can see which tool you\'re using and what file is loaded\n\nJust ask me anything!',
     timestamp: new Date(Date.now() - 30000),
   },
 ];
