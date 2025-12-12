@@ -373,8 +373,8 @@ export const MultiViewLayoutPicker: React.FC<MultiViewLayoutPickerProps> = ({
     tile4: null,
   });
 
-  // Get active session info for naming the window
-  const activeSessionId = useAppPersistence((state) => state.activeSessionId);
+  // Get active project info for naming the window
+  const activeProjectId = useAppPersistence((state) => state.activeProjectId);
 
   const handleBackdropClick = useCallback((e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
@@ -414,8 +414,8 @@ export const MultiViewLayoutPicker: React.FC<MultiViewLayoutPickerProps> = ({
     const windowHeight = layoutConfig?.defaultHeight || 800;
 
     // Build the multi-view URL
-    const sessionName = activeSessionId ? `Session_${activeSessionId.slice(0, 8)}` : 'Multi-View Session';
-    const url = buildMultiViewUrl(selectedLayout, tileAssignments, activeSessionId || undefined, sessionName);
+    const projectName = activeProjectId ? `Project_${activeProjectId.slice(0, 8)}` : 'Multi-View';
+    const url = buildMultiViewUrl(selectedLayout, tileAssignments, activeProjectId || undefined, projectName);
 
     // Calculate window position (center on screen or offset from main window)
     const left = Math.max(0, (window.screen.width - windowWidth) / 2);
@@ -449,7 +449,7 @@ export const MultiViewLayoutPicker: React.FC<MultiViewLayoutPickerProps> = ({
 
     // Close the modal
     onClose();
-  }, [hasToolSelected, selectedLayout, tileAssignments, activeSessionId, onOpenMultiView, onClose]);
+  }, [hasToolSelected, selectedLayout, tileAssignments, activeProjectId, onOpenMultiView, onClose]);
 
   // Render layout preview based on selected layout
   const renderLayoutPreview = () => {

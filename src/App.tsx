@@ -35,7 +35,7 @@ const WorkspaceDemo = lazy(() => import('@/pages/WorkspaceDemo'));
 const AISidekickPanel = lazy(() => import('@/components/ai-sidekick/AISidekickPanel'));
 
 // Tool IDs for navigation
-const TOOLS = ['home', 'session', 'video', 'audio', 'images', 'streaming', 'export', 'notes', 'team', 'settings', 'workspace-demo'] as const;
+const TOOLS = ['home', 'timeline', 'video', 'audio', 'images', 'streaming', 'export', 'notes', 'team', 'settings', 'workspace-demo'] as const;
 type ToolId = typeof TOOLS[number];
 
 // Professional DaVinci-style Dark Theme
@@ -212,7 +212,7 @@ const ToolLoadingFallback: React.FC<{ tool: ToolId }> = ({ tool }) => {
       case 'video': return 'generic';
       case 'images': return 'image';
       case 'streaming': return 'streaming';
-      case 'session': return 'timeline';
+      case 'timeline': return 'timeline';
       default: return 'generic';
     }
   }, [tool]);
@@ -232,7 +232,7 @@ const App: React.FC = () => {
   // Use navigation store for tool selection
   const selectedTool = useNavigationStore((state) => state.activeTool);
   const setActiveTool = useNavigationStore((state) => state.setActiveTool);
-  const activeSessionId = useAppPersistence((state) => state.activeSessionId);
+  const activeProjectId = useAppPersistence((state) => state.activeProjectId);
 
   // Track tool transitions for crossfade animation
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -290,7 +290,7 @@ const App: React.FC = () => {
   const shortcuts = useMemo(() => [
     ...createNavigationShortcuts({
       goToHome: () => setActiveTool('home'),
-      goToTimeline: () => setActiveTool('session'),
+      goToTimeline: () => setActiveTool('timeline'),
       goToVideo: () => setActiveTool('video'),
       goToAudio: () => setActiveTool('audio'),
       goToImages: () => setActiveTool('images'),
@@ -327,7 +327,7 @@ const App: React.FC = () => {
             </Suspense>
           </ErrorBoundary>
         );
-      case 'session':
+      case 'timeline':
         return (
           <ErrorBoundary toolName="Timeline">
             <Suspense fallback={toolFallback}>
