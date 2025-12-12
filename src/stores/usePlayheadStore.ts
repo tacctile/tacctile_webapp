@@ -16,7 +16,7 @@ interface PlayheadState {
   isReversePlaying: boolean; // Play backwards for reverse audio analysis
   playbackSpeed: number; // 0.25, 0.5, 1, 1.5, 2
 
-  // Session time boundaries (set when session loads)
+  // Project time boundaries (set when project loads)
   sessionStart: number | null;
   sessionEnd: number | null;
 
@@ -46,7 +46,7 @@ export const usePlayheadStore = create<PlayheadState>()(
 
       setTimestamp: (timestamp) => {
         const { sessionStart, sessionEnd } = get();
-        // Clamp to session bounds if set
+        // Clamp to project bounds if set
         let clamped = timestamp;
         if (sessionStart !== null && timestamp < sessionStart) clamped = sessionStart;
         if (sessionEnd !== null && timestamp > sessionEnd) clamped = sessionEnd;
