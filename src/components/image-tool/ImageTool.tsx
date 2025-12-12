@@ -34,7 +34,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 
 import { WorkspaceLayout } from '@/components/layout';
-import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
+import { FileLibrary, type FileItem } from '@/components/file-library';
 import { MetadataPanel, PrecisionSlider } from '@/components/common';
 import { useNavigationStore } from '@/stores/useNavigationStore';
 import {
@@ -357,7 +357,7 @@ const defaultFilters: ImageFilters = {
 // MOCK DATA
 // ============================================================================
 
-const imageEvidence: (EvidenceItem & { format?: string; gps?: string | null; dimensions?: string })[] = [
+const imageFiles: (FileItem & { format?: string; gps?: string | null; dimensions?: string })[] = [
   { id: 'i1', type: 'image', fileName: 'thermal_anomaly_001.jpg', capturedAt: Date.now() - 5400000, user: 'Mike', deviceInfo: 'FLIR E8', flagCount: 1, hasFindings: true, format: 'JPEG / sRGB', gps: '39.95°N, 75.16°W', dimensions: '640 x 480' },
   { id: 'i2', type: 'image', fileName: 'full_spectrum_023.jpg', capturedAt: Date.now() - 5200000, user: 'Sarah', deviceInfo: 'Modified Canon', flagCount: 0, hasFindings: false, format: 'RAW / Adobe RGB', gps: '39.95°N, 75.16°W', dimensions: '6000 x 4000' },
   { id: 'i3', type: 'image', fileName: 'shadow_figure_frame.jpg', capturedAt: Date.now() - 4900000, user: 'Jen', deviceInfo: 'Sony A7IV', flagCount: 3, hasFindings: true, format: 'JPEG / sRGB', gps: '39.95°N, 75.16°W', dimensions: '4240 x 2832' },
@@ -431,8 +431,8 @@ interface ImageToolProps {
 }
 
 export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
-  const [selectedEvidence, setSelectedEvidence] = useState<typeof imageEvidence[0] | null>(null);
-  const [loadedImage, setLoadedImage] = useState<typeof imageEvidence[0] | null>(null);
+  const [selectedFile, setSelectedFile] = useState<typeof imageFiles[0] | null>(null);
+  const [loadedImage, setLoadedImage] = useState<typeof imageFiles[0] | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('single');
   const [zoom, setZoom] = useState(100);
   const [activeTool, setActiveTool] = useState<AnnotationTool>(null);
@@ -472,18 +472,18 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   // Load image when navigated to
   useEffect(() => {
     if (loadedFileId) {
-      const file = imageEvidence.find(f => f.id === loadedFileId);
+      const file = imageFiles.find(f => f.id === loadedFileId);
       if (file) {
         setLoadedImage(file);
-        setSelectedEvidence(file);
+        setSelectedFile(file);
         setFilters(defaultFilters);
       }
     }
   }, [loadedFileId]);
 
-  const handleDoubleClick = useCallback((item: typeof imageEvidence[0]) => {
+  const handleDoubleClick = useCallback((item: typeof imageFiles[0]) => {
     setLoadedImage(item);
-    setSelectedEvidence(item);
+    setSelectedFile(item);
     setFilters(defaultFilters);
   }, []);
 
@@ -559,7 +559,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     };
 
     setLoadedImage(mockItem);
-    setSelectedEvidence(mockItem);
+    setSelectedFile(mockItem);
     setFilters(defaultFilters);
     showToast(`Loaded: ${file.name}`, 'success');
   }, [showToast]);
@@ -1128,11 +1128,11 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               </ImportButton>
             </Box>
             <Box sx={{ flex: 1, minHeight: 0 }}>
-              <EvidenceBank
-                items={imageEvidence}
-                selectedId={selectedEvidence?.id}
-                onSelect={(item) => setSelectedEvidence(item as typeof imageEvidence[0])}
-                onDoubleClick={(item) => handleDoubleClick(item as typeof imageEvidence[0])}
+              <FileLibrary
+                items={imageFiles}
+                selectedId={selectedFile?.id}
+                onSelect={(item) => setSelectedFile(item as typeof imageFiles[0])}
+                onDoubleClick={(item) => handleDoubleClick(item as typeof imageFiles[0])}
                 filterByType="image"
               />
             </Box>
@@ -1140,15 +1140,15 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         }
         metadataPanel={
           <MetadataPanel
-            data={selectedEvidence ? {
-              fileName: selectedEvidence.fileName,
-              capturedAt: selectedEvidence.capturedAt,
-              resolution: selectedEvidence.dimensions,
-              user: selectedEvidence.user,
-              device: selectedEvidence.deviceInfo,
-              format: selectedEvidence.format,
-              gps: selectedEvidence.gps || undefined,
-              flagCount: selectedEvidence.flagCount,
+            data={selectedFile ? {
+              fileName: selectedFile.fileName,
+              capturedAt: selectedFile.capturedAt,
+              resolution: selectedFile.dimensions,
+              user: selectedFile.user,
+              device: selectedFile.deviceInfo,
+              format: selectedFile.format,
+              gps: selectedFile.gps || undefined,
+              flagCount: selectedFile.flagCount,
             } : null}
             type="image"
           />

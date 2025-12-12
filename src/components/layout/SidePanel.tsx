@@ -69,7 +69,7 @@ const mockFileTree: FileNode[] = [
     children: [
       {
         id: '2',
-        name: 'Evidence',
+        name: 'Files',
         type: 'folder',
         children: [
           { id: '3', name: 'photo_001.jpg', type: 'file', extension: 'jpg' },
@@ -230,7 +230,7 @@ const SidePanel: React.FC<SidePanelProps> = ({
 
   const getPanelTitle = () => {
     const titles: { [key: string]: string } = {
-      photo: 'Photo Evidence',
+      photo: 'Photo Files',
       video: 'Video Recordings',
       audio: 'Audio Recordings',
       sensor: 'Sensor Readings',

@@ -841,7 +841,7 @@ export const HomePage: React.FC = () => {
                 Create your first project
               </Typography>
               <Typography sx={{ fontSize: 12, color: '#555', mb: 3, maxWidth: 300 }}>
-                Projects help you organize your field investigation evidence - videos, audio recordings, and images.
+                Projects help you organize your field investigation files - videos, audio recordings, and images.
               </Typography>
               <PrimaryButton onClick={handleNewProject} startIcon={<AddIcon />}>
                 New Project

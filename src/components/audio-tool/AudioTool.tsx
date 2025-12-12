@@ -22,7 +22,7 @@ import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 
 import { WorkspaceLayout } from '@/components/layout';
-import { EvidenceBank, type EvidenceItem } from '@/components/evidence-bank';
+import { FileLibrary, type FileItem } from '@/components/file-library';
 import { MetadataPanel, FlagsPanel, TransportControls, type Flag } from '@/components/common';
 import { ExpandVideoModal } from './ExpandVideoModal';
 import { WaveformCanvas } from './WaveformCanvas';
@@ -897,7 +897,7 @@ const OverviewBar: React.FC<OverviewBarProps> = ({
 // MOCK DATA
 // ============================================================================
 
-const audioEvidence: (EvidenceItem & { format?: string; gps?: string | null; hasVideo?: boolean; path?: string })[] = [
+const audioFiles: (FileItem & { format?: string; gps?: string | null; hasVideo?: boolean; path?: string })[] = [
   { id: 'test-drums-1', type: 'audio', fileName: 'test_drums1.mp3', duration: 0, capturedAt: Date.now(), user: 'You', deviceInfo: 'Imported', flagCount: 0, hasFindings: false, format: '44.1kHz / 16-bit', gps: null, hasVideo: false, path: '/audio/test_drums1.mp3' },
   { id: 'a1', type: 'audio', fileName: 'ambient_baseline.wav', duration: 1080, capturedAt: Date.now() - 7200000, user: 'Mike', deviceInfo: 'Zoom H6', flagCount: 0, hasFindings: false, format: '48kHz / 24-bit', gps: null, hasVideo: false },
   { id: 'a2', type: 'audio', fileName: 'recorder_01_audio_session.wav', duration: 1834, capturedAt: Date.now() - 6500000, user: 'Sarah', deviceInfo: 'Zoom H6', flagCount: 7, hasFindings: true, format: '48kHz / 24-bit', gps: '39.95°N, 75.16°W', hasVideo: false },
@@ -924,8 +924,8 @@ interface AudioToolProps {
 }
 
 export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
-  const [selectedEvidence, setSelectedEvidence] = useState<typeof audioEvidence[0] | null>(null);
-  const [loadedAudio, setLoadedAudio] = useState<typeof audioEvidence[0] | null>(null);
+  const [selectedFile, setSelectedFile] = useState<typeof audioFiles[0] | null>(null);
+  const [loadedAudio, setLoadedAudio] = useState<typeof audioFiles[0] | null>(null);
   const [videoRefCollapsed, setVideoRefCollapsed] = useState(true); // collapsed by default, expands when video exists
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
   const [flags, setFlags] = useState<Flag[]>(mockFlags);
@@ -1039,10 +1039,10 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   // Load file when navigated to
   useEffect(() => {
     if (loadedFileId) {
-      const file = audioEvidence.find(f => f.id === loadedFileId);
+      const file = audioFiles.find(f => f.id === loadedFileId);
       if (file) {
         setLoadedAudio(file);
-        setSelectedEvidence(file);
+        setSelectedFile(file);
       }
     }
   }, [loadedFileId]);
@@ -1096,7 +1096,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   }, [isPlaying, looping, timestamp, selectionStart, selectionEnd, loadedAudio, setTimestamp]);
 
   // Load and decode real audio file
-  const loadAudioFile = useCallback(async (filePath: string, fileItem: typeof audioEvidence[0]) => {
+  const loadAudioFile = useCallback(async (filePath: string, fileItem: typeof audioFiles[0]) => {
     try {
       setIsLoadingAudio(true);
 
@@ -1146,7 +1146,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         ...fileItem,
         duration: decodedBuffer.duration,
       });
-      setSelectedEvidence({
+      setSelectedFile({
         ...fileItem,
         duration: decodedBuffer.duration,
       });
@@ -1157,12 +1157,12 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       console.error('Error loading audio:', error);
       // Fall back to mock data on error
       setLoadedAudio(fileItem);
-      setSelectedEvidence(fileItem);
+      setSelectedFile(fileItem);
       setIsLoadingAudio(false);
     }
   }, []);
 
-  const handleDoubleClick = useCallback((item: typeof audioEvidence[0]) => {
+  const handleDoubleClick = useCallback((item: typeof audioFiles[0]) => {
     // Clear previous real audio data
     setWaveformData(null);
 
@@ -1172,7 +1172,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     } else {
       // Use mock data for files without a path
       setLoadedAudio(item);
-      setSelectedEvidence(item);
+      setSelectedFile(item);
     }
   }, [loadAudioFile]);
 
@@ -1250,7 +1250,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     };
 
     setLoadedAudio(mockItem);
-    setSelectedEvidence(mockItem);
+    setSelectedFile(mockItem);
     showToast(`Loaded: ${file.name}`, 'success');
   }, [showToast]);
 
@@ -2399,11 +2399,11 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
               </ImportButton>
             </Box>
             <Box sx={{ flex: 1, minHeight: 0 }}>
-              <EvidenceBank
-                items={audioEvidence}
-                selectedId={selectedEvidence?.id}
-                onSelect={(item) => setSelectedEvidence(item as typeof audioEvidence[0])}
-                onDoubleClick={(item) => handleDoubleClick(item as typeof audioEvidence[0])}
+              <FileLibrary
+                items={audioFiles}
+                selectedId={selectedFile?.id}
+                onSelect={(item) => setSelectedFile(item as typeof audioFiles[0])}
+                onDoubleClick={(item) => handleDoubleClick(item as typeof audioFiles[0])}
                 filterByType="audio"
               />
             </Box>
@@ -2411,15 +2411,15 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         }
         metadataPanel={
           <MetadataPanel
-            data={selectedEvidence ? {
-              fileName: selectedEvidence.fileName,
-              capturedAt: selectedEvidence.capturedAt,
-              duration: selectedEvidence.duration,
-              user: selectedEvidence.user,
-              device: selectedEvidence.deviceInfo,
-              format: selectedEvidence.format,
-              gps: selectedEvidence.gps || undefined,
-              flagCount: selectedEvidence.flagCount,
+            data={selectedFile ? {
+              fileName: selectedFile.fileName,
+              capturedAt: selectedFile.capturedAt,
+              duration: selectedFile.duration,
+              user: selectedFile.user,
+              device: selectedFile.deviceInfo,
+              format: selectedFile.format,
+              gps: selectedFile.gps || undefined,
+              flagCount: selectedFile.flagCount,
             } : null}
             type="audio"
           />

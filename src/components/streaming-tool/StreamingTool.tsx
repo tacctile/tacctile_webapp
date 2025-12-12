@@ -122,8 +122,8 @@ const RightPanel = styled(Box)({
 interface StreamingToolProps {
   /** Investigation ID */
   investigationId?: string;
-  /** Evidence ID */
-  evidenceId?: string;
+  /** File ID */
+  fileId?: string;
   /** Callback when streaming starts */
   onStreamStart?: () => void;
   /** Callback when streaming stops */
@@ -140,7 +140,7 @@ interface StreamingToolProps {
 
 const StreamingTool: React.FC<StreamingToolProps> = ({
   investigationId: _investigationId,
-  evidenceId: _evidenceId,
+  fileId: _fileId,
   onStreamStart,
   onStreamStop,
   onRecordingStart,

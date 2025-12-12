@@ -125,7 +125,7 @@ interface FindingsPanelProps {
   onFindingSelect: (id: string) => void;
   /** Callback to seek to finding time */
   onSeekToFinding: (finding: AudioFinding) => void;
-  /** Callback to sync finding to EvidenceFlag */
+  /** Callback to sync finding to FileFlag */
   onSyncToFlag?: (findingId: string) => void;
 }
 
@@ -394,7 +394,7 @@ const FindingsPanel: React.FC<FindingsPanelProps> = ({
                         </IconButton>
                       </Tooltip>
                       {onSyncToFlag && !finding.flagId && (
-                        <Tooltip title="Sync to Evidence Flag">
+                        <Tooltip title="Sync to Flag">
                           <IconButton
                             size="small"
                             onClick={(e) => {
@@ -471,7 +471,7 @@ const FindingsPanel: React.FC<FindingsPanelProps> = ({
             >
               <MenuItem value="low">Low - Uncertain, needs review</MenuItem>
               <MenuItem value="medium">Medium - Possible anomaly</MenuItem>
-              <MenuItem value="high">High - Clear evidence</MenuItem>
+              <MenuItem value="high">High - Clear finding</MenuItem>
             </Select>
           </FormControl>
         </DialogContent>
@@ -517,7 +517,7 @@ const FindingsPanel: React.FC<FindingsPanelProps> = ({
             >
               <MenuItem value="low">Low - Uncertain, needs review</MenuItem>
               <MenuItem value="medium">Medium - Possible anomaly</MenuItem>
-              <MenuItem value="high">High - Clear evidence</MenuItem>
+              <MenuItem value="high">High - Clear finding</MenuItem>
             </Select>
           </FormControl>
         </DialogContent>

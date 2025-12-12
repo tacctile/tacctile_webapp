@@ -3,7 +3,7 @@
  * Rebuilt to match the exact layout structure and styling of Video, Audio, and Image Tools
  *
  * Layout:
- * - LEFT PANEL (280px): EvidenceBank + MetadataPanel
+ * - LEFT PANEL (280px): FileLibrary + MetadataPanel
  * - CENTER: Video preview (top) + Timeline with swim lanes (bottom)
  * - RIGHT PANEL (280px): Image preview (top) + FlagsPanel (bottom)
  * - BOTTOM: TransportControls (48px)
@@ -60,7 +60,7 @@ import FolderCopyIcon from '@mui/icons-material/FolderCopy';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 
 import { WorkspaceLayout } from '@/components/layout';
-import { EvidenceBank, type EvidenceItem, type MediaFilter } from '@/components/evidence-bank';
+import { FileLibrary, type FileItem, type MediaFilter } from '@/components/file-library';
 import { MetadataPanel, FlagsPanel, TransportControls, type Flag } from '@/components/common';
 
 import { usePlayheadStore } from '../../stores/usePlayheadStore';
@@ -84,7 +84,7 @@ import {
 
 interface TimelineMediaItem {
   id: string;
-  evidenceId: string;
+  fileId: string;
   type: 'video' | 'audio' | 'photo';
   fileName: string;
   thumbnailUrl?: string;
@@ -169,7 +169,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
     // Sarah's videos
     {
       id: 'v1',
-      evidenceId: 'ev-v1',
+      fileId: 'ev-v1',
       type: 'video',
       fileName: 'sarah_main_camera.mp4',
       capturedAt: sessionStart,
@@ -189,7 +189,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
     },
     {
       id: 'v2',
-      evidenceId: 'ev-v2',
+      fileId: 'ev-v2',
       type: 'video',
       fileName: 'sarah_handheld.mp4',
       capturedAt: sessionStart + 45 * 60 * 1000, // 45 min in
@@ -209,7 +209,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
     // Mike's videos
     {
       id: 'v3',
-      evidenceId: 'ev-v3',
+      fileId: 'ev-v3',
       type: 'video',
       fileName: 'mike_basement_cam.mp4',
       capturedAt: sessionStart + 10 * 60 * 1000, // 10 min in
@@ -228,7 +228,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
     // Jen's video
     {
       id: 'v4',
-      evidenceId: 'ev-v4',
+      fileId: 'ev-v4',
       type: 'video',
       fileName: 'jen_static_attic.mp4',
       capturedAt: sessionStart + 5 * 60 * 1000,
@@ -245,7 +245,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
     // Unassigned video (catch-all lane)
     {
       id: 'v5',
-      evidenceId: 'ev-v5',
+      fileId: 'ev-v5',
       type: 'video',
       fileName: 'imported_security_footage.mp4',
       capturedAt: sessionStart + 30 * 60 * 1000,
@@ -265,7 +265,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
     // Sarah's audio
     {
       id: 'a1',
-      evidenceId: 'ev-a1',
+      fileId: 'ev-a1',
       type: 'audio',
       fileName: 'sarah_recorder_master.wav',
       capturedAt: sessionStart + 5 * 60 * 1000,
@@ -287,7 +287,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
     // Mike's audio
     {
       id: 'a2',
-      evidenceId: 'ev-a2',
+      fileId: 'ev-a2',
       type: 'audio',
       fileName: 'mike_radio_sweep_session.wav',
       capturedAt: sessionStart + 60 * 60 * 1000, // 1 hour in
@@ -307,7 +307,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
     // Jen's audio
     {
       id: 'a3',
-      evidenceId: 'ev-a3',
+      fileId: 'ev-a3',
       type: 'audio',
       fileName: 'jen_ambient_recording.wav',
       capturedAt: sessionStart,
@@ -327,7 +327,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
     // Sarah's images
     {
       id: 'i1',
-      evidenceId: 'ev-i1',
+      fileId: 'ev-i1',
       type: 'photo',
       fileName: 'sarah_anomaly_window.jpg',
       capturedAt: sessionStart + 25 * 60 * 1000,
@@ -343,7 +343,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
     },
     {
       id: 'i2',
-      evidenceId: 'ev-i2',
+      fileId: 'ev-i2',
       type: 'photo',
       fileName: 'sarah_cold_spot.jpg',
       capturedAt: sessionStart + 52 * 60 * 1000,
@@ -358,7 +358,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
     // Mike's images
     {
       id: 'i3',
-      evidenceId: 'ev-i3',
+      fileId: 'ev-i3',
       type: 'photo',
       fileName: 'mike_orb_hallway.jpg',
       capturedAt: sessionStart + 35 * 60 * 1000,
@@ -375,7 +375,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
     },
     {
       id: 'i4',
-      evidenceId: 'ev-i4',
+      fileId: 'ev-i4',
       type: 'photo',
       fileName: 'mike_basement_corner.jpg',
       capturedAt: sessionStart + 72 * 60 * 1000,
@@ -390,7 +390,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
     // Jen's images
     {
       id: 'i5',
-      evidenceId: 'ev-i5',
+      fileId: 'ev-i5',
       type: 'photo',
       fileName: 'jen_thermal_capture.jpg',
       capturedAt: sessionStart + 45 * 60 * 1000,
@@ -406,7 +406,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
     },
     {
       id: 'i6',
-      evidenceId: 'ev-i6',
+      fileId: 'ev-i6',
       type: 'photo',
       fileName: 'jen_attic_shadow.jpg',
       capturedAt: sessionStart + 68 * 60 * 1000,
@@ -423,7 +423,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
     // Unassigned image
     {
       id: 'i7',
-      evidenceId: 'ev-i7',
+      fileId: 'ev-i7',
       type: 'photo',
       fileName: 'imported_old_photo.jpg',
       capturedAt: sessionStart + 20 * 60 * 1000,
@@ -854,7 +854,7 @@ export const Timeline: React.FC<TimelineProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const lanesContainerRef = useRef<HTMLDivElement>(null);
-  const [selectedEvidence, setSelectedEvidence] = useState<EvidenceItem | null>(null);
+  const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
 
   // Image preview modal state (for when active file is an image)
   const [imageModalOpen, setImageModalOpen] = useState(false);
@@ -870,8 +870,8 @@ export const Timeline: React.FC<TimelineProps> = ({
   // Active file visibility - only one file can be active at a time
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
 
-  // Evidence Bank filter state - tracks which filter is active (all, video, audio, image)
-  const [evidenceFilter, setEvidenceFilter] = useState<MediaFilter>('all');
+  // File Library filter state - tracks which filter is active (all, video, audio, image)
+  const [fileFilter, setFileFilter] = useState<MediaFilter>('all');
 
   // Lane height setting (persisted to localStorage)
   const [laneHeightSize, setLaneHeightSize] = useState<LaneHeightSize>(() => {
@@ -920,7 +920,7 @@ export const Timeline: React.FC<TimelineProps> = ({
   // Context menu state
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
-  // Items removed from timeline (stored by ID, can be re-added by dragging from Evidence Bank)
+  // Items removed from timeline (stored by ID, can be re-added by dragging from File Library)
   const [removedItemIds, setRemovedItemIds] = useState<Set<string>>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(STORAGE_KEY_REMOVED_ITEMS);
@@ -938,8 +938,8 @@ export const Timeline: React.FC<TimelineProps> = ({
   // Selected item for metadata panel (from timeline click)
   const [selectedTimelineItem, setSelectedTimelineItem] = useState<TimelineMediaItem | null>(null);
 
-  // Dragging from Evidence Bank
-  const [draggedEvidenceId, setDraggedEvidenceId] = useState<string | null>(null);
+  // Dragging from File Library
+  const [draggedFileId, setDraggedFileId] = useState<string | null>(null);
   const [dragOverLane, setDragOverLane] = useState<{ user: string; type: string } | null>(null);
 
   // Lane reordering state - tracks order of user lanes per section
@@ -1183,15 +1183,15 @@ export const Timeline: React.FC<TimelineProps> = ({
     return Math.max(16, laneHeight - 8);
   }, [laneHeight]);
 
-  // Filter out removed items for timeline display (items remain in Evidence Bank)
+  // Filter out removed items for timeline display (items remain in File Library)
   const visibleItems = useMemo(() => {
     return items.filter(item => !removedItemIds.has(item.id));
   }, [items, removedItemIds]);
 
 
-  // Convert timeline items to evidence items for EvidenceBank
-  const evidenceItems = useMemo(() => {
-    return items.map((item): EvidenceItem => ({
+  // Convert timeline items to file items for FileLibrary
+  const fileItems = useMemo(() => {
+    return items.map((item): FileItem => ({
       id: item.id,
       type: item.type === 'photo' ? 'image' : item.type,
       fileName: item.fileName,
@@ -1419,7 +1419,7 @@ export const Timeline: React.FC<TimelineProps> = ({
   // Handle item single click (show metadata)
   const handleItemClick = useCallback(
     (item: TimelineMediaItem) => {
-      const evidenceItem: EvidenceItem = {
+      const fileItem: FileItem = {
         id: item.id,
         type: item.type === 'photo' ? 'image' : item.type,
         fileName: item.fileName,
@@ -1430,7 +1430,7 @@ export const Timeline: React.FC<TimelineProps> = ({
         flagCount: item.flagCount,
         hasFindings: item.hasEdits || item.flagCount > 0,
       };
-      setSelectedEvidence(evidenceItem);
+      setSelectedFile(fileItem);
     },
     []
   );
@@ -1446,17 +1446,17 @@ export const Timeline: React.FC<TimelineProps> = ({
       // Also select it for metadata display
       handleItemClick(item);
 
-      // Auto-switch Evidence Bank filter if a filter is active and the selected file
+      // Auto-switch File Library filter if a filter is active and the selected file
       // is of a different type than the current filter
-      if (evidenceFilter !== 'all') {
+      if (fileFilter !== 'all') {
         // Map TimelineMediaItem type to MediaFilter type ('photo' -> 'image')
         const itemFilterType: MediaFilter = item.type === 'photo' ? 'image' : item.type;
-        if (evidenceFilter !== itemFilterType) {
-          setEvidenceFilter(itemFilterType);
+        if (fileFilter !== itemFilterType) {
+          setFileFilter(itemFilterType);
         }
       }
     },
-    [setGlobalTimestamp, handleItemClick, evidenceFilter]
+    [setGlobalTimestamp, handleItemClick, fileFilter]
   );
 
   // Handle flag click (jump to timestamp)
@@ -1469,24 +1469,24 @@ export const Timeline: React.FC<TimelineProps> = ({
 
 
   // Toggle file visibility (only one can be active at a time)
-  // Also auto-switches Evidence Bank filter if a filter is active and file type differs
+  // Also auto-switches File Library filter if a filter is active and file type differs
   const handleFileVisibilityToggle = useCallback((fileId: string, fileType?: 'video' | 'audio' | 'photo') => {
     setActiveFileId((prev) => {
       // If toggling off, just return null
       if (prev === fileId) return null;
 
       // Toggling on - also handle filter auto-switch
-      if (fileType && evidenceFilter !== 'all') {
+      if (fileType && fileFilter !== 'all') {
         // Map TimelineMediaItem type to MediaFilter type ('photo' -> 'image')
         const itemFilterType: MediaFilter = fileType === 'photo' ? 'image' : fileType;
-        if (evidenceFilter !== itemFilterType) {
-          setEvidenceFilter(itemFilterType);
+        if (fileFilter !== itemFilterType) {
+          setFileFilter(itemFilterType);
         }
       }
 
       return fileId;
     });
-  }, [evidenceFilter]);
+  }, [fileFilter]);
 
   // Format timecode from timestamp
   const formatTimecode = useCallback((timestamp: number): string => {
@@ -1836,7 +1836,7 @@ export const Timeline: React.FC<TimelineProps> = ({
       };
       const tool = toolMap[contextMenu.item.type];
       if (tool) {
-        navigateToTool(tool, contextMenu.item.evidenceId);
+        navigateToTool(tool, contextMenu.item.fileId);
       }
     }
     handleCloseContextMenu();
@@ -1876,12 +1876,12 @@ export const Timeline: React.FC<TimelineProps> = ({
   }, []);
 
   // ============================================================================
-  // DRAG AND DROP HANDLERS (Evidence Bank to Timeline)
+  // DRAG AND DROP HANDLERS (File Library to Timeline)
   // ============================================================================
 
-  // Handle drag start from Evidence Bank
+  // Handle drag start from File Library
   const handleDragStart = useCallback((itemId: string) => {
-    setDraggedEvidenceId(itemId);
+    setDraggedFileId(itemId);
   }, []);
 
   // Handle drag over a lane
@@ -1889,7 +1889,7 @@ export const Timeline: React.FC<TimelineProps> = ({
     event.preventDefault();
 
     // Find the dragged item
-    const draggedItem = items.find(i => i.id === draggedEvidenceId);
+    const draggedItem = items.find(i => i.id === draggedFileId);
     if (!draggedItem) return;
 
     // Check if item can be dropped in this lane
@@ -1899,7 +1899,7 @@ export const Timeline: React.FC<TimelineProps> = ({
     if (canDrop) {
       setDragOverLane({ user, type });
     }
-  }, [draggedEvidenceId, items]);
+  }, [draggedFileId, items]);
 
   // Handle drag leave
   const handleDragLeaveLane = useCallback(() => {
@@ -1911,9 +1911,9 @@ export const Timeline: React.FC<TimelineProps> = ({
     event.preventDefault();
     setDragOverLane(null);
 
-    if (!draggedEvidenceId) return;
+    if (!draggedFileId) return;
 
-    const draggedItem = items.find(i => i.id === draggedEvidenceId);
+    const draggedItem = items.find(i => i.id === draggedFileId);
     if (!draggedItem) return;
 
     // Check if item can be dropped in this lane
@@ -1924,17 +1924,17 @@ export const Timeline: React.FC<TimelineProps> = ({
       // Remove from removed items set (re-add to timeline)
       setRemovedItemIds(prev => {
         const next = new Set(prev);
-        next.delete(draggedEvidenceId);
+        next.delete(draggedFileId);
         return next;
       });
     }
 
-    setDraggedEvidenceId(null);
-  }, [draggedEvidenceId, items]);
+    setDraggedFileId(null);
+  }, [draggedFileId, items]);
 
   // Handle drag end
   const handleDragEnd = useCallback(() => {
-    setDraggedEvidenceId(null);
+    setDraggedFileId(null);
     setDragOverLane(null);
   }, []);
 
@@ -2013,14 +2013,14 @@ export const Timeline: React.FC<TimelineProps> = ({
 
   // Check if dragged item can be dropped in a specific lane
   const canDropInLane = useCallback((laneUser: string): boolean => {
-    if (!draggedEvidenceId) return false;
-    const draggedItem = items.find(i => i.id === draggedEvidenceId);
+    if (!draggedFileId) return false;
+    const draggedItem = items.find(i => i.id === draggedFileId);
     if (!draggedItem) return false;
 
     // Items can only go to their owner's lane or catch-all (empty user)
     const itemOwner = draggedItem.user || '';
     return !itemOwner || itemOwner === laneUser || laneUser === '';
-  }, [draggedEvidenceId, items]);
+  }, [draggedFileId, items]);
 
   // Check if a lane is currently being dragged over
   const isLaneDragOver = useCallback((user: string, type: string): boolean => {
@@ -2086,7 +2086,7 @@ export const Timeline: React.FC<TimelineProps> = ({
 
       const newItem: TimelineMediaItem = {
         id,
-        evidenceId: `ev-${id}`,
+        fileId: `ev-${id}`,
         type: type === 'image' ? 'photo' : type,
         fileName: file.name,
         capturedAt,
@@ -2823,7 +2823,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                       </SwimLane>
                     ))}
                     {/* Catch-all lane (always show when dragging for drop target) */}
-                    {(laneData.videoCatchAll.length > 0 || draggedEvidenceId) && (
+                    {(laneData.videoCatchAll.length > 0 || draggedFileId) && (
                       <SwimLane laneHeight={laneHeight}>
                         <LaneLabel laneHeight={laneHeight}>
                           <Typography sx={{ fontSize: laneHeight < 24 ? 8 : 10, color: '#666', fontStyle: 'italic' }}>
@@ -2901,7 +2901,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                         </LaneContent>
                       </SwimLane>
                     ))}
-                    {(laneData.audioCatchAll.length > 0 || draggedEvidenceId) && (
+                    {(laneData.audioCatchAll.length > 0 || draggedFileId) && (
                       <SwimLane laneHeight={laneHeight}>
                         <LaneLabel laneHeight={laneHeight}>
                           <Typography sx={{ fontSize: laneHeight < 24 ? 8 : 10, color: '#666', fontStyle: 'italic' }}>
@@ -2979,7 +2979,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                         </LaneContent>
                       </SwimLane>
                     ))}
-                    {(laneData.imagesCatchAll.length > 0 || draggedEvidenceId) && (
+                    {(laneData.imagesCatchAll.length > 0 || draggedFileId) && (
                       <SwimLane laneHeight={laneHeight}>
                         <LaneLabel laneHeight={laneHeight}>
                           <Typography sx={{ fontSize: laneHeight < 24 ? 8 : 10, color: '#666', fontStyle: 'italic' }}>
@@ -3116,7 +3116,7 @@ export const Timeline: React.FC<TimelineProps> = ({
               ))}
 
               {/* Unassigned section */}
-              {(userGroupedLaneData.hasUnassigned || draggedEvidenceId) && (
+              {(userGroupedLaneData.hasUnassigned || draggedFileId) && (
                 <SwimLaneSection>
                   <SwimLaneSectionHeader
                     color="#666"
@@ -3136,7 +3136,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                   {!userSectionCollapsed.unassigned && (
                     <>
                       {/* Video lane for unassigned */}
-                      {(userGroupedLaneData.unassigned.video.length > 0 || draggedEvidenceId) && (
+                      {(userGroupedLaneData.unassigned.video.length > 0 || draggedFileId) && (
                         <SwimLane laneHeight={laneHeight}>
                           <LaneLabel laneHeight={laneHeight}>
                             <VideocamIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: '#c45c5c' }} />
@@ -3165,7 +3165,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                         </SwimLane>
                       )}
                       {/* Audio lane for unassigned */}
-                      {(userGroupedLaneData.unassigned.audio.length > 0 || draggedEvidenceId) && (
+                      {(userGroupedLaneData.unassigned.audio.length > 0 || draggedFileId) && (
                         <SwimLane laneHeight={laneHeight}>
                           <LaneLabel laneHeight={laneHeight}>
                             <MicIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: '#5a9a6b' }} />
@@ -3194,7 +3194,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                         </SwimLane>
                       )}
                       {/* Photo lane for unassigned */}
-                      {(userGroupedLaneData.unassigned.photo.length > 0 || draggedEvidenceId) && (
+                      {(userGroupedLaneData.unassigned.photo.length > 0 || draggedFileId) && (
                         <SwimLane laneHeight={laneHeight}>
                           <LaneLabel laneHeight={laneHeight}>
                             <PhotoIcon sx={{ fontSize: laneHeight < 24 ? 10 : 12, color: '#5a7fbf' }} />
@@ -3359,15 +3359,15 @@ export const Timeline: React.FC<TimelineProps> = ({
               </PanelImportButton>
             </Box>
             <Box sx={{ flex: 1, minHeight: 0 }}>
-              <EvidenceBank
-                items={evidenceItems}
+              <FileLibrary
+                items={fileItems}
                 selectedId={activeFileId}
-                filter={evidenceFilter}
-                onFilterChange={setEvidenceFilter}
+                filter={fileFilter}
+                onFilterChange={setFileFilter}
                 onSelect={(item) => {
-                  // When clicking an item in Evidence Bank, also select it on timeline
+                  // When clicking an item in File Library, also select it on timeline
                   setActiveFileId(item.id);
-                  setSelectedEvidence(item);
+                  setSelectedFile(item);
                 }}
                 onDoubleClick={(item) => {
                   const toolMap: Record<string, 'video' | 'audio' | 'images'> = {
@@ -3389,23 +3389,23 @@ export const Timeline: React.FC<TimelineProps> = ({
         metadataPanel={
           <MetadataPanel
             data={
-              selectedEvidence
+              selectedFile
                 ? {
-                    fileName: selectedEvidence.fileName,
-                    capturedAt: selectedEvidence.capturedAt,
-                    duration: selectedEvidence.duration,
-                    user: selectedEvidence.user,
-                    device: selectedEvidence.deviceInfo,
-                    flagCount: selectedEvidence.flagCount,
+                    fileName: selectedFile.fileName,
+                    capturedAt: selectedFile.capturedAt,
+                    duration: selectedFile.duration,
+                    user: selectedFile.user,
+                    device: selectedFile.deviceInfo,
+                    flagCount: selectedFile.flagCount,
                   }
                 : null
             }
-            type={selectedEvidence?.type || 'video'}
+            type={selectedFile?.type || 'video'}
           />
         }
         inspectorPanel={inspectorContent}
         mainContent={mainContent}
-        evidenceTitle="Evidence"
+        evidenceTitle="Files"
         inspectorTitle="Flags"
         showTransport={false}
       />
@@ -3600,7 +3600,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                 variant="contained"
                 onClick={() => {
                   setImageModalOpen(false);
-                  navigateToTool('images', activeFile.evidenceId);
+                  navigateToTool('images', activeFile.fileId);
                 }}
                 startIcon={<OpenInNewIcon sx={{ fontSize: 16 }} />}
                 sx={{
