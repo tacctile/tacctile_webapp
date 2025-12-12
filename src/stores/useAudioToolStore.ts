@@ -31,7 +31,7 @@ import {
 
 interface AudioToolActions {
   // Audio loading
-  loadAudio: (evidenceId: string, investigationId: string, audioUrl: string) => void;
+  loadAudio: (fileId: string, investigationId: string, audioUrl: string) => void;
   setAudioBuffer: (buffer: AudioBuffer) => void;
   clearAudio: () => void;
 
@@ -123,7 +123,7 @@ interface AudioToolActions {
 const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 const initialState: AudioToolState = {
-  evidenceId: null,
+  fileId: null,
   investigationId: null,
   audioBuffer: null,
   audioUrl: null,
@@ -166,9 +166,9 @@ export const useAudioToolStore = create<AudioToolState & AudioToolActions>()(
       ...initialState,
 
       // Audio loading
-      loadAudio: (evidenceId, investigationId, audioUrl) => {
+      loadAudio: (fileId, investigationId, audioUrl) => {
         set((state) => {
-          state.evidenceId = evidenceId;
+          state.fileId = fileId;
           state.investigationId = investigationId;
           state.audioUrl = audioUrl;
           state.isLoading = true;
@@ -191,7 +191,7 @@ export const useAudioToolStore = create<AudioToolState & AudioToolActions>()(
 
       clearAudio: () => {
         set((state) => {
-          state.evidenceId = null;
+          state.fileId = null;
           state.investigationId = null;
           state.audioBuffer = null;
           state.audioUrl = null;
@@ -509,8 +509,8 @@ export const useAudioToolStore = create<AudioToolState & AudioToolActions>()(
 
       // Iterations
       createIteration: (name, description) => {
-        const { evidenceId, filterSettings } = get();
-        if (!evidenceId) return;
+        const { fileId, filterSettings } = get();
+        if (!fileId) return;
 
         const userId = 'current-user'; // Will be replaced with actual user ID
         const id = generateId();
@@ -519,7 +519,7 @@ export const useAudioToolStore = create<AudioToolState & AudioToolActions>()(
           state.iterations.forEach((i) => (i.active = false));
           state.iterations.push({
             id,
-            evidenceId: evidenceId,
+            fileId: fileId,
             name,
             description,
             settings: { ...filterSettings },
@@ -574,15 +574,15 @@ export const useAudioToolStore = create<AudioToolState & AudioToolActions>()(
 
       // Findings
       createFindingFromSelection: (title, notes, confidence = 'medium') => {
-        const { currentSelection, selections, evidenceId, investigationId, activeIterationId } = get();
+        const { currentSelection, selections, fileId, investigationId, activeIterationId } = get();
         const selection = currentSelection || selections[selections.length - 1];
-        if (!selection || !evidenceId || !investigationId) return;
+        if (!selection || !fileId || !investigationId) return;
 
         const userId = 'current-user'; // Will be replaced with actual user ID
         set((state) => {
           state.findings.push({
             id: generateId(),
-            evidenceId,
+            fileId,
             investigationId,
             selection: { ...selection },
             iterationId: activeIterationId ?? undefined,

@@ -32,7 +32,7 @@ import {
 
 interface ImageToolActions {
   // Image loading
-  loadImage: (evidenceId: string, investigationId: string, imageUrl: string) => void;
+  loadImage: (fileId: string, investigationId: string, imageUrl: string) => void;
   setImageElement: (element: HTMLImageElement) => void;
   clearImage: () => void;
 
@@ -120,7 +120,7 @@ const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9
 
 const initialState: ImageToolState = {
   // Image data
-  evidenceId: null,
+  fileId: null,
   investigationId: null,
   imageUrl: null,
   imageElement: null,
@@ -196,9 +196,9 @@ export const useImageToolStore = create<ImageToolState & ImageToolActions>()(
       ...initialState,
 
       // Image loading
-      loadImage: (evidenceId, investigationId, imageUrl) => {
+      loadImage: (fileId, investigationId, imageUrl) => {
         set((state) => {
-          state.evidenceId = evidenceId;
+          state.fileId = fileId;
           state.investigationId = investigationId;
           state.imageUrl = imageUrl;
           state.isLoading = true;
