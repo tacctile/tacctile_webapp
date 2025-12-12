@@ -282,7 +282,7 @@ export interface ImageEditMetadata {
 
 export interface ImageToolState {
   // Image data
-  evidenceId: string | null;
+  fileId: string | null;
   investigationId: string | null;
   imageUrl: string | null;
   imageElement: HTMLImageElement | null;
@@ -513,7 +513,7 @@ export const PRESET_FILTERS: Omit<ImageFilter, 'id'>[] = [
     isPreset: true,
   },
   {
-    name: 'Evidence Clarity',
+    name: 'File Clarity',
     category: 'forensic',
     adjustments: {
       clarity: 60,
