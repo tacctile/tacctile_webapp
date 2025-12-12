@@ -1,9 +1,9 @@
 /**
- * Session Timeline Components
- * Export all session timeline components from this index
+ * Timeline Components
+ * Export all timeline components from this index
  */
 
-export { default as SessionTimeline } from './SessionTimeline';
+export { default as Timeline } from './Timeline';
 export { TimelineRuler } from './TimelineRuler';
 export { TimelineTrack } from './TimelineTrack';
 export { FlagMarker, FlagsTrack } from './FlagMarker';

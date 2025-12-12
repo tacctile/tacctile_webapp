@@ -1,5 +1,5 @@
 /**
- * Session Timeline Types
+ * Timeline Types
  * Types for the chronological "truth" view of all investigation media
  */
 
@@ -141,10 +141,10 @@ export interface ClockSyncPromptState {
 }
 
 // ============================================================================
-// SESSION TIMELINE STATE TYPES
+// TIMELINE STATE TYPES
 // ============================================================================
 
-export interface SessionTimelineState {
+export interface TimelineState {
   // Investigation context
   investigationId: string | null;
   investigationTitle: string;
@@ -183,7 +183,7 @@ export interface SessionTimelineState {
   autoRefreshIntervalMs: number;
 }
 
-export interface SessionTimelineActions {
+export interface TimelineActions {
   // Data loading
   loadTimeline: (investigationId: string) => Promise<void>;
   refreshTimeline: () => Promise<void>;

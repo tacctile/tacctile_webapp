@@ -1,7 +1,7 @@
 /**
  * Playhead Store
  * Global store for managing cursor position across all tools
- * Foundation for synchronized scrubbing across Session Timeline, Video Tool, Audio Tool, and Image Tool
+ * Foundation for synchronized scrubbing across Timeline, Video Tool, Audio Tool, and Image Tool
  */
 
 import { create } from 'zustand';
@@ -17,8 +17,8 @@ interface PlayheadState {
   playbackSpeed: number; // 0.25, 0.5, 1, 1.5, 2
 
   // Project time boundaries (set when project loads)
-  sessionStart: number | null;
-  sessionEnd: number | null;
+  timelineStart: number | null;
+  timelineEnd: number | null;
 
   // Actions
   setTimestamp: (timestamp: number) => void;
@@ -31,7 +31,7 @@ interface PlayheadState {
   stepBackward: (ms?: number) => void;
   jumpToStart: () => void;
   jumpToEnd: () => void;
-  setSessionBounds: (start: number, end: number) => void;
+  setTimelineBounds: (start: number, end: number) => void;
 }
 
 export const usePlayheadStore = create<PlayheadState>()(
@@ -41,15 +41,15 @@ export const usePlayheadStore = create<PlayheadState>()(
       isPlaying: false,
       isReversePlaying: false,
       playbackSpeed: 1,
-      sessionStart: null,
-      sessionEnd: null,
+      timelineStart: null,
+      timelineEnd: null,
 
       setTimestamp: (timestamp) => {
-        const { sessionStart, sessionEnd } = get();
+        const { timelineStart, timelineEnd } = get();
         // Clamp to project bounds if set
         let clamped = timestamp;
-        if (sessionStart !== null && timestamp < sessionStart) clamped = sessionStart;
-        if (sessionEnd !== null && timestamp > sessionEnd) clamped = sessionEnd;
+        if (timelineStart !== null && timestamp < timelineStart) clamped = timelineStart;
+        if (timelineEnd !== null && timestamp > timelineEnd) clamped = timelineEnd;
         set({ timestamp: clamped });
       },
 
@@ -67,32 +67,32 @@ export const usePlayheadStore = create<PlayheadState>()(
       setPlaybackSpeed: (speed) => set({ playbackSpeed: speed }),
 
       stepForward: (ms = 33) => {
-        const { timestamp, sessionEnd } = get();
+        const { timestamp, timelineEnd } = get();
         const next = timestamp + ms;
-        if (sessionEnd === null || next <= sessionEnd) {
+        if (timelineEnd === null || next <= timelineEnd) {
           set({ timestamp: next, isPlaying: false });
         }
       },
 
       stepBackward: (ms = 33) => {
-        const { timestamp, sessionStart } = get();
+        const { timestamp, timelineStart } = get();
         const prev = timestamp - ms;
-        if (sessionStart === null || prev >= sessionStart) {
+        if (timelineStart === null || prev >= timelineStart) {
           set({ timestamp: prev, isPlaying: false });
         }
       },
 
       jumpToStart: () => {
-        const { sessionStart } = get();
-        if (sessionStart !== null) set({ timestamp: sessionStart, isPlaying: false });
+        const { timelineStart } = get();
+        if (timelineStart !== null) set({ timestamp: timelineStart, isPlaying: false });
       },
 
       jumpToEnd: () => {
-        const { sessionEnd } = get();
-        if (sessionEnd !== null) set({ timestamp: sessionEnd, isPlaying: false });
+        const { timelineEnd } = get();
+        if (timelineEnd !== null) set({ timestamp: timelineEnd, isPlaying: false });
       },
 
-      setSessionBounds: (start, end) => set({ sessionStart: start, sessionEnd: end }),
+      setTimelineBounds: (start, end) => set({ timelineStart: start, timelineEnd: end }),
     }),
     {
       name: 'tacctile-playhead',
@@ -110,7 +110,7 @@ export const selectTimestamp = (state: PlayheadState) => state.timestamp;
 export const selectIsPlaying = (state: PlayheadState) => state.isPlaying;
 export const selectIsReversePlaying = (state: PlayheadState) => state.isReversePlaying;
 export const selectPlaybackSpeed = (state: PlayheadState) => state.playbackSpeed;
-export const selectSessionBounds = (state: PlayheadState) => ({
-  start: state.sessionStart,
-  end: state.sessionEnd,
+export const selectTimelineBounds = (state: PlayheadState) => ({
+  start: state.timelineStart,
+  end: state.timelineEnd,
 });

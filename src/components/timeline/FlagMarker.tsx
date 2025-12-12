@@ -20,8 +20,8 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import HelpIcon from '@mui/icons-material/Help';
 import StarIcon from '@mui/icons-material/Star';
 import type { FlagType } from '../../types/index';
-import type { TimelineItemFlag, TimeRange, ZoomLevel } from '../../types/session';
-import { formatTimelineTimestamp } from '../../types/session';
+import type { TimelineItemFlag, TimeRange, ZoomLevel } from '../../types/timeline';
+import { formatTimelineTimestamp } from '../../types/timeline';
 
 // ============================================================================
 // STYLED COMPONENTS

@@ -147,7 +147,7 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({ className }) => {
   const timestamp = usePlayheadStore((state) => state.timestamp);
   const isPlaying = usePlayheadStore((state) => state.isPlaying);
   const playbackSpeed = usePlayheadStore((state) => state.playbackSpeed);
-  const sessionEnd = usePlayheadStore((state) => state.sessionEnd);
+  const timelineEnd = usePlayheadStore((state) => state.timelineEnd);
   const setTimestamp = usePlayheadStore((state) => state.setTimestamp);
   const play = usePlayheadStore((state) => state.play);
   const pause = usePlayheadStore((state) => state.pause);
@@ -159,7 +159,7 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({ className }) => {
   const [waveformBars] = useState(() => generateWaveformBars(100));
 
   // Calculate playhead position percentage
-  const duration = sessionEnd || 60000;
+  const duration = timelineEnd || 60000;
   const playheadPercent = (timestamp / duration) * 100;
 
   // Handle waveform click to jump

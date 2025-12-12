@@ -149,14 +149,14 @@ const formatRulerTime = (ms: number): string => {
 
 export const TimelineViewer: React.FC<TimelineViewerProps> = ({ className }) => {
   const timestamp = usePlayheadStore((state) => state.timestamp);
-  const sessionEnd = usePlayheadStore((state) => state.sessionEnd);
+  const timelineEnd = usePlayheadStore((state) => state.timelineEnd);
   const setTimestamp = usePlayheadStore((state) => state.setTimestamp);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [hasSession] = useState(false); // Will be true when session is loaded
 
   // Calculate playhead position percentage
-  const duration = sessionEnd || 60000;
+  const duration = timelineEnd || 60000;
   const playheadPercent = (timestamp / duration) * 100;
 
   // Generate time markers
@@ -190,7 +190,7 @@ export const TimelineViewer: React.FC<TimelineViewerProps> = ({ className }) => 
       <TimelineHeader>
         <MaterialSymbol icon="calendar_month" size={16} />
         <Typography sx={{ ml: 1, fontSize: 12, color: '#888' }}>
-          Session Timeline
+          Project Timeline
         </Typography>
         <Box sx={{ flex: 1 }} />
         <Typography sx={{ fontSize: 11, color: '#666' }}>

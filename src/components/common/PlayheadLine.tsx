@@ -1,7 +1,7 @@
 /**
  * PlayheadLine Component
  * A reusable playhead indicator line that shows current playback position
- * Used across Audio Tool, Video Tool, and Session Timeline
+ * Used across Audio Tool, Video Tool, and Timeline
  */
 
 import React from 'react';

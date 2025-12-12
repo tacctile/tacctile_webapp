@@ -401,7 +401,7 @@ export const createViewShortcuts = (handlers: {
 
 export const createNavigationShortcuts = (handlers: {
   goToHome?: () => void;
-  goToSession?: () => void;
+  goToTimeline?: () => void;
   goToVideo?: () => void;
   goToAudio?: () => void;
   goToImages?: () => void;
@@ -422,10 +422,10 @@ export const createNavigationShortcuts = (handlers: {
   {
     key: '1',
     alt: true,
-    description: 'Go to Session Timeline',
-    handler: () => handlers.goToSession?.(),
+    description: 'Go to Timeline',
+    handler: () => handlers.goToTimeline?.(),
     category: 'navigation',
-    enabled: !!handlers.goToSession,
+    enabled: !!handlers.goToTimeline,
   },
   {
     key: '2',

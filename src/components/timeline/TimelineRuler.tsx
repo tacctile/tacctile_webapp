@@ -6,8 +6,8 @@
 import React, { useMemo, useState, useCallback, useRef } from 'react';
 import { Box, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import type { TimeRange, ZoomLevel } from '../../types/session';
-import { formatTimelineTimestamp } from '../../types/session';
+import type { TimeRange, ZoomLevel } from '../../types/timeline';
+import { formatTimelineTimestamp } from '../../types/timeline';
 import { usePlayheadStore } from '../../stores/usePlayheadStore';
 
 // ============================================================================

@@ -121,7 +121,7 @@ export const VideoViewer: React.FC<VideoViewerProps> = ({ className }) => {
   const timestamp = usePlayheadStore((state) => state.timestamp);
   const isPlaying = usePlayheadStore((state) => state.isPlaying);
   const playbackSpeed = usePlayheadStore((state) => state.playbackSpeed);
-  const sessionEnd = usePlayheadStore((state) => state.sessionEnd);
+  const timelineEnd = usePlayheadStore((state) => state.timelineEnd);
   const setTimestamp = usePlayheadStore((state) => state.setTimestamp);
   const play = usePlayheadStore((state) => state.play);
   const pause = usePlayheadStore((state) => state.pause);
@@ -132,7 +132,7 @@ export const VideoViewer: React.FC<VideoViewerProps> = ({ className }) => {
   const [hasVideo] = useState(false); // Will be true when video is loaded
 
   // Calculate playhead position percentage
-  const duration = sessionEnd || 60000; // Default to 1 minute if no session
+  const duration = timelineEnd || 60000; // Default to 1 minute if no timeline
   const playheadPercent = (timestamp / duration) * 100;
 
   // Handle waveform click to jump
