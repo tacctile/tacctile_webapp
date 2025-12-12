@@ -288,7 +288,7 @@ export function useAudioTool(options: UseAudioToolOptions = {}) {
     [audioBuffer]
   );
 
-  // Sync finding to evidence flagging service
+  // Sync finding to file flagging service
   const syncFindingToFlag = useCallback(
     async (findingId: string) => {
       const finding = findings.find((f) => f.id === findingId);

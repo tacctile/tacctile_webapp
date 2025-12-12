@@ -91,7 +91,7 @@ const toolsSection: NavItem[] = [
 
 // MIDDLE SECTION
 const middleSection: NavItem[] = [
-  { id: 'evidence', icon: 'flag', label: 'Findings', tooltip: 'All flags/findings list', route: '/evidence' },
+  { id: 'findings', icon: 'flag', label: 'Findings', tooltip: 'All flags/findings list', route: '/findings' },
   { id: 'notes', icon: 'sticky_note_2', label: 'Notes', tooltip: 'Case notes and investigation log', route: '/notes' },
   { id: 'team', icon: 'group', label: 'Team', tooltip: 'Collaborators and permissions', route: '/team' },
   { id: 'export', icon: 'download', label: 'Export', tooltip: 'Generate .tacc/.teck packages', route: '/export' },

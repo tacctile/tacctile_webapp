@@ -6,7 +6,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { TransportControls } from '@/components/common';
 
 // Layout constants
-const EVIDENCE_PANEL_WIDTH = 280;
+const FILES_PANEL_WIDTH = 280;
 const INSPECTOR_PANEL_WIDTH = 280; // Was 300, now matches left column
 const COLLAPSED_WIDTH = 36;
 
@@ -246,40 +246,40 @@ export const MetadataInspector: React.FC<{ item: SelectedFile | null }> = ({ ite
 
 interface WorkspaceLayoutProps {
   // Panel content
-  evidencePanel?: ReactNode;
+  filesPanel?: ReactNode;
   metadataPanel?: ReactNode;
   inspectorPanel?: ReactNode;
   mainContent: ReactNode;
   timelineContent?: ReactNode;
 
   // Panel titles
-  evidenceTitle?: string;
+  filesTitle?: string;
   inspectorTitle?: string;
 
   // Transport controls
   showTransport?: boolean;
 
   // Initial collapse state (reads from localStorage by default)
-  defaultEvidenceCollapsed?: boolean;
+  defaultFilesCollapsed?: boolean;
   defaultInspectorCollapsed?: boolean;
 }
 
 export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
-  evidencePanel,
+  filesPanel,
   metadataPanel,
   inspectorPanel,
   mainContent,
   timelineContent,
-  evidenceTitle = 'Evidence',
+  filesTitle = 'Files',
   inspectorTitle = 'Inspector',
   showTransport = true,
-  defaultEvidenceCollapsed = false,
+  defaultFilesCollapsed = false,
   defaultInspectorCollapsed = false,
 }) => {
   // Panel collapse state - persisted to localStorage
-  const [evidenceCollapsed, setEvidenceCollapsed] = useState(() => {
-    const stored = localStorage.getItem('tacctile-evidence-collapsed');
-    return stored ? JSON.parse(stored) : defaultEvidenceCollapsed;
+  const [filesCollapsed, setFilesCollapsed] = useState(() => {
+    const stored = localStorage.getItem('tacctile-files-collapsed');
+    return stored ? JSON.parse(stored) : defaultFilesCollapsed;
   });
 
   const [inspectorCollapsed, setInspectorCollapsed] = useState(() => {
@@ -287,10 +287,10 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
     return stored ? JSON.parse(stored) : defaultInspectorCollapsed;
   });
 
-  const toggleEvidence = useCallback(() => {
-    setEvidenceCollapsed((prev: boolean) => {
+  const toggleFiles = useCallback(() => {
+    setFilesCollapsed((prev: boolean) => {
       const next = !prev;
-      localStorage.setItem('tacctile-evidence-collapsed', JSON.stringify(next));
+      localStorage.setItem('tacctile-files-collapsed', JSON.stringify(next));
       return next;
     });
   }, []);
@@ -307,12 +307,12 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
     <LayoutContainer>
       <MainRow>
         {/* Left Panel - File Library + Metadata */}
-        {(evidencePanel || metadataPanel) && (
-          evidenceCollapsed ? (
+        {(filesPanel || metadataPanel) && (
+          filesCollapsed ? (
             <Tooltip title="Show panel" placement="right">
               <CollapsedPanel
                 sx={{ borderRight: '1px solid #252525' }}
-                onClick={toggleEvidence}
+                onClick={toggleFiles}
               >
                 <CollapseButton size="small" sx={{ pointerEvents: 'none' }}>
                   <ChevronRightIcon fontSize="small" />
@@ -320,9 +320,9 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
               </CollapsedPanel>
             </Tooltip>
           ) : (
-            <LeftPanel width={EVIDENCE_PANEL_WIDTH}>
+            <LeftPanel width={FILES_PANEL_WIDTH}>
               {/* File Library - flexible top section */}
-              {evidencePanel && (
+              {filesPanel && (
                 <Box sx={{
                   flex: 1,
                   display: 'flex',
@@ -331,15 +331,15 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                   overflow: 'hidden',
                 }}>
                   <PanelHeader>
-                    <PanelTitle>{evidenceTitle}</PanelTitle>
+                    <PanelTitle>{filesTitle}</PanelTitle>
                     <Tooltip title="Hide panel">
-                      <CollapseButton onClick={toggleEvidence} size="small">
+                      <CollapseButton onClick={toggleFiles} size="small">
                         <ChevronLeftIcon fontSize="small" />
                       </CollapseButton>
                     </Tooltip>
                   </PanelHeader>
                   <PanelContent>
-                    {evidencePanel}
+                    {filesPanel}
                   </PanelContent>
                 </Box>
               )}

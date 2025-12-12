@@ -3342,7 +3342,7 @@ export const Timeline: React.FC<TimelineProps> = ({
   return (
     <>
       <WorkspaceLayout
-        evidencePanel={
+        filesPanel={
           <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             {/* Import button header - full width */}
             <Box sx={{
@@ -3405,7 +3405,7 @@ export const Timeline: React.FC<TimelineProps> = ({
         }
         inspectorPanel={inspectorContent}
         mainContent={mainContent}
-        evidenceTitle="Files"
+        filesTitle="Files"
         inspectorTitle="Flags"
         showTransport={false}
       />
