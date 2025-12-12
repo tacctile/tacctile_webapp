@@ -258,7 +258,7 @@ export const useAutosave = create<AutosaveState>((set, get) => ({
     }
   },
 
-  // Recover session data
+  // Recover project data
   recoverSession: async (sessionId) => {
     try {
       const database = await getDB();
@@ -283,7 +283,7 @@ export const useAutosave = create<AutosaveState>((set, get) => ({
   // Dismiss recovery prompt
   dismissRecovery: () => set({ pendingRecovery: null }),
 
-  // Mark session as cloud synced
+  // Mark project as cloud synced
   markCloudSynced: async (sessionId) => {
     try {
       const database = await getDB();

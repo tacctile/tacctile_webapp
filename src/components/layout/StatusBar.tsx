@@ -1,9 +1,9 @@
 /**
  * StatusBar Component
- * Bottom status bar with session info, sync status, and environmental data
+ * Bottom status bar with project info, sync status, and environmental data
  *
  * Layout:
- * - Left: Session name, User name
+ * - Left: Project name, User name
  * - Center: Sync status
  * - Right: Environmental data (temp, EMF, GPS), time
  */

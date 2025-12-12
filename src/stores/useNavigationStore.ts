@@ -7,11 +7,11 @@ interface NavigationState {
   activeTool: ToolType;
   setActiveTool: (tool: ToolType) => void;
 
-  // Active session ID (for session-based navigation)
+  // Active project ID (for project-based navigation)
   activeSessionId: string | null;
   setActiveSessionId: (id: string | null) => void;
 
-  // Quick analyze mode (no session overhead)
+  // Quick analyze mode (no project overhead)
   isQuickAnalyzeMode: boolean;
   quickAnalyzeFile: { name: string; type: 'video' | 'audio' | 'image'; url: string } | null;
   setQuickAnalyzeMode: (enabled: boolean, file?: { name: string; type: 'video' | 'audio' | 'image'; url: string } | null) => void;

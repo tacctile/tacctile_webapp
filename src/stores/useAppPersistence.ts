@@ -14,7 +14,7 @@ export interface PanelState {
 }
 
 export interface AppPersistenceState {
-  // Session state
+  // Project state
   activeSessionId: string | null;
   activeTool: string;
   playheadPosition: number;
@@ -130,7 +130,7 @@ export const useAppPersistence = create<AppPersistenceState>()(
           return 'quickAnalyze';
         }
 
-        // If there was an active session, restore to it
+        // If there was an active project, restore to it
         if (activeSessionId !== null) {
           return 'session';
         }
