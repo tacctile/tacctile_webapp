@@ -449,7 +449,7 @@ export const MultiViewLayoutPicker: React.FC<MultiViewLayoutPickerProps> = ({
 
     // Close the modal
     onClose();
-  }, [hasToolSelected, selectedLayout, tileAssignments, activeSessionId, onOpenMultiView, onClose]);
+  }, [hasToolSelected, selectedLayout, tileAssignments, activeProjectId, onOpenMultiView, onClose]);
 
   // Render layout preview based on selected layout
   const renderLayoutPreview = () => {
