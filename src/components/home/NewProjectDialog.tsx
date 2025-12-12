@@ -1,6 +1,6 @@
 /**
- * NewSessionDialog Component
- * Modal dialog for creating a new session with name, location, date/time, and storage options
+ * NewProjectDialog Component
+ * Modal dialog for creating a new project with name, location, date/time, and storage options
  */
 
 import React, { useState, useMemo } from 'react';
@@ -33,7 +33,7 @@ import type { StorageLocation } from '@/stores/useHomeStore';
 
 export type StorageType = 'local' | 'google_drive' | 'dropbox' | 'onedrive';
 
-export interface NewSessionData {
+export interface NewProjectData {
   id: string;
   name: string;
   location: string;
@@ -200,14 +200,14 @@ function mapStorageTypeId(storeType: string): StorageType {
 // COMPONENT
 // ============================================================================
 
-interface NewSessionDialogProps {
+export interface NewProjectDialogProps {
   open: boolean;
   storageLocations: StorageLocation[];
   onClose: () => void;
-  onCreate: (session: NewSessionData) => void;
+  onCreate: (project: NewProjectData) => void;
 }
 
-export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
+export const NewProjectDialog: React.FC<NewProjectDialogProps> = ({
   open,
   storageLocations,
   onClose,
@@ -230,7 +230,7 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
     if (!isValid) return;
 
     const now = new Date(dateTime).getTime();
-    const sessionData: NewSessionData = {
+    const projectData: NewProjectData = {
       id: generateUUID(),
       name: name.trim(),
       location: location.trim(),
@@ -242,7 +242,7 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
       notes: [],
     };
 
-    onCreate(sessionData);
+    onCreate(projectData);
     handleClose();
   };
 
@@ -264,10 +264,10 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
           </HeaderIcon>
           <Box>
             <Typography variant="h6" sx={{ fontWeight: 600, color: '#e1e1e1' }}>
-              New Session
+              New Project
             </Typography>
             <Typography variant="body2" sx={{ color: '#888' }}>
-              Create a new investigation session
+              Create a new investigation project
             </Typography>
           </Box>
         </Box>
@@ -277,10 +277,10 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
       </StyledDialogTitle>
 
       <DialogContent sx={{ padding: 3 }}>
-        {/* Session Name */}
+        {/* Project Name */}
         <FormField>
           <StyledTextField
-            label="Session Name"
+            label="Project Name"
             placeholder="e.g., Warehouse Investigation 2024"
             fullWidth
             required
@@ -361,11 +361,11 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
             },
           }}
         >
-          Create Session
+          Create Project
         </Button>
       </DialogActions>
     </StyledDialog>
   );
 };
 
-export default NewSessionDialog;
+export default NewProjectDialog;

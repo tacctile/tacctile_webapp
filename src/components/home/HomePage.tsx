@@ -1,10 +1,10 @@
 /**
  * HomePage Component
- * Landing screen for Tacctile - displays storage locations, sessions, and quick analyze
+ * Landing screen for Tacctile - displays storage locations, projects, and quick analyze
  *
  * Layout:
  * - LEFT PANEL (280px, same as other tools): Storage locations + Quick Analyze drop zone
- * - RIGHT PANEL (fills remaining space): Session cards grid with search, sort, and view controls
+ * - RIGHT PANEL (fills remaining space): Project cards grid with search, sort, and view controls
  */
 
 import React, { useCallback, useState, useMemo, useRef } from 'react';
@@ -22,7 +22,7 @@ import {
   Tooltip,
   Divider,
 } from '@mui/material';
-import { NewSessionDialog, type NewSessionData } from './NewSessionDialog';
+import { NewProjectDialog, type NewProjectData } from './NewProjectDialog';
 import { styled } from '@mui/material/styles';
 import SearchIcon from '@mui/icons-material/Search';
 import GridViewIcon from '@mui/icons-material/GridView';
@@ -41,7 +41,7 @@ import MovieIcon from '@mui/icons-material/Movie';
 import MicIcon from '@mui/icons-material/Mic';
 import PhotoIcon from '@mui/icons-material/Photo';
 
-import { useHomeStore, type Session, type StorageLocation, type ViewMode, type SortBy } from '@/stores/useHomeStore';
+import { useHomeStore, type Project, type StorageLocation, type ViewMode, type SortBy } from '@/stores/useHomeStore';
 import { useNavigationStore } from '@/stores/useNavigationStore';
 import { useAppPersistence } from '@/stores/useAppPersistence';
 
@@ -471,7 +471,7 @@ function getFileType(fileName: string): 'video' | 'audio' | 'image' | null {
 export const HomePage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [newSessionDialogOpen, setNewSessionDialogOpen] = useState(false);
+  const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
 
   // Store state
   const {
@@ -487,16 +487,16 @@ export const HomePage: React.FC = () => {
     setSearchQuery,
     setStoragePanelCollapsed,
     setQuickAnalyzeFile,
-    getFilteredSessions,
-    addSession,
+    getFilteredProjects,
+    addProject,
   } = useHomeStore();
 
   const navigateToTool = useNavigationStore((state) => state.navigateToTool);
   const setActiveTool = useNavigationStore((state) => state.setActiveTool);
   const { setActiveSession } = useAppPersistence();
 
-  // Get filtered sessions
-  const sessions = useMemo(() => getFilteredSessions(), [getFilteredSessions, activeStorageId, searchQuery, sortBy]);
+  // Get filtered projects
+  const projects = useMemo(() => getFilteredProjects(), [getFilteredProjects, activeStorageId, searchQuery, sortBy]);
 
   // Handlers
   const handleStorageClick = useCallback((storageId: string) => {
@@ -508,16 +508,16 @@ export const HomePage: React.FC = () => {
     console.log('Connect storage:', storage.type);
   }, []);
 
-  const handleSessionClick = useCallback((session: Session) => {
-    setActiveSession(session.id);
+  const handleProjectClick = useCallback((project: Project) => {
+    setActiveSession(project.id);
     setActiveTool('session');
   }, [setActiveSession, setActiveTool]);
 
-  const handleNewSession = useCallback(() => {
-    setNewSessionDialogOpen(true);
+  const handleNewProject = useCallback(() => {
+    setNewProjectDialogOpen(true);
   }, []);
 
-  const handleCreateSession = useCallback((sessionData: NewSessionData) => {
+  const handleCreateProject = useCallback((projectData: NewProjectData) => {
     // Map storage type to storage ID for the store
     const storageIdMap: Record<string, string> = {
       local: 'local',
@@ -526,40 +526,40 @@ export const HomePage: React.FC = () => {
       onedrive: 'onedrive',
     };
 
-    // Create session object matching the store's Session interface
-    const newSession: Session = {
-      id: sessionData.id,
-      name: sessionData.name,
-      path: `/${sessionData.storageType}/sessions/${sessionData.name.toLowerCase().replace(/\s+/g, '_')}`,
-      storageId: storageIdMap[sessionData.storageType] || 'local',
-      storageType: sessionData.storageType,
-      location: sessionData.location || undefined,
+    // Create project object matching the store's Project interface
+    const newProject: Project = {
+      id: projectData.id,
+      name: projectData.name,
+      path: `/${projectData.storageType}/projects/${projectData.name.toLowerCase().replace(/\s+/g, '_')}`,
+      storageId: storageIdMap[projectData.storageType] || 'local',
+      storageType: projectData.storageType,
+      location: projectData.location || undefined,
       thumbnail: undefined,
       evidenceCount: 0,
       flagCount: 0,
-      createdAt: sessionData.createdAt,
-      modifiedAt: sessionData.modifiedAt,
+      createdAt: projectData.createdAt,
+      modifiedAt: projectData.modifiedAt,
       evidence: [],
       flags: [],
       notes: [],
     };
 
     // Add to store
-    addSession(newSession);
+    addProject(newProject);
 
-    // Set as active session and navigate to session timeline
-    setActiveSession(newSession.id);
+    // Set as active project and navigate to session timeline
+    setActiveSession(newProject.id);
     setActiveTool('session');
-  }, [addSession, setActiveSession, setActiveTool]);
+  }, [addProject, setActiveSession, setActiveTool]);
 
   const handleNewFolder = useCallback(() => {
     // TODO: Implement new folder creation
     console.log('Create new folder');
   }, []);
 
-  const handleImportSession = useCallback(() => {
-    // TODO: Implement session import
-    console.log('Import session');
+  const handleImportProject = useCallback(() => {
+    // TODO: Implement project import
+    console.log('Import project');
   }, []);
 
   const handleQuickAnalyze = useCallback((file: File) => {
@@ -726,12 +726,12 @@ export const HomePage: React.FC = () => {
     );
   };
 
-  // Render session card (grid view)
-  const renderSessionCard = (session: Session) => (
-    <SessionCard key={session.id} onClick={() => handleSessionClick(session)}>
+  // Render project card (grid view)
+  const renderProjectCard = (project: Project) => (
+    <SessionCard key={project.id} onClick={() => handleProjectClick(project)}>
       <SessionThumbnail>
-        {session.thumbnail ? (
-          <img src={session.thumbnail} alt={session.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        {project.thumbnail ? (
+          <img src={project.thumbnail} alt={project.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           <Box sx={{ display: 'flex', gap: 1, color: '#333' }}>
             <MovieIcon sx={{ fontSize: 24 }} />
@@ -741,41 +741,41 @@ export const HomePage: React.FC = () => {
         )}
       </SessionThumbnail>
       <SessionInfo>
-        <SessionName>{session.name}</SessionName>
+        <SessionName>{project.name}</SessionName>
         <SessionMeta>
           <SessionStat>
             <Typography sx={{ fontSize: 11, color: '#666' }}>
-              {session.evidenceCount} items
+              {project.evidenceCount} items
             </Typography>
           </SessionStat>
           <SessionStat>
             <FlagIcon sx={{ fontSize: 12, color: '#19abb5' }} />
             <Typography sx={{ fontSize: 11, color: '#666' }}>
-              {session.flagCount}
+              {project.flagCount}
             </Typography>
           </SessionStat>
           <Typography sx={{ fontSize: 11, color: '#555', marginLeft: 'auto' }}>
-            {formatDate(session.modifiedAt)}
+            {formatDate(project.modifiedAt)}
           </Typography>
         </SessionMeta>
       </SessionInfo>
     </SessionCard>
   );
 
-  // Render session row (list view)
-  const renderSessionListItem = (session: Session) => (
-    <SessionListItem key={session.id} onClick={() => handleSessionClick(session)}>
+  // Render project row (list view)
+  const renderProjectListItem = (project: Project) => (
+    <SessionListItem key={project.id} onClick={() => handleProjectClick(project)}>
       <Box sx={{ width: 40, height: 40, backgroundColor: '#0d0d0d', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <FolderIcon sx={{ color: '#444' }} />
       </Box>
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <SessionName>{session.name}</SessionName>
+        <SessionName>{project.name}</SessionName>
         <Typography sx={{ fontSize: 10, color: '#555' }}>
-          {session.evidenceCount} items · {session.flagCount} flags
+          {project.evidenceCount} items · {project.flagCount} flags
         </Typography>
       </Box>
       <Typography sx={{ fontSize: 11, color: '#555' }}>
-        {formatDate(session.modifiedAt)}
+        {formatDate(project.modifiedAt)}
       </Typography>
     </SessionListItem>
   );
@@ -790,7 +790,7 @@ export const HomePage: React.FC = () => {
         {/* Header */}
         <RightHeader>
           <SearchField
-            placeholder="Search sessions..."
+            placeholder="Search projects..."
             size="small"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -834,50 +834,50 @@ export const HomePage: React.FC = () => {
 
         {/* Content Area */}
         <ContentArea>
-          {sessions.length === 0 ? (
+          {projects.length === 0 ? (
             <EmptyState>
               <Logo src="/tacctile_app_main_logo.png" alt="Tacctile" />
               <Typography sx={{ fontSize: 18, color: '#666', mb: 1, fontWeight: 500 }}>
-                Create your first session
+                Create your first project
               </Typography>
               <Typography sx={{ fontSize: 12, color: '#555', mb: 3, maxWidth: 300 }}>
-                Sessions help you organize your field investigation evidence - videos, audio recordings, and images.
+                Projects help you organize your field investigation evidence - videos, audio recordings, and images.
               </Typography>
-              <PrimaryButton onClick={handleNewSession} startIcon={<AddIcon />}>
-                New Session
+              <PrimaryButton onClick={handleNewProject} startIcon={<AddIcon />}>
+                New Project
               </PrimaryButton>
             </EmptyState>
           ) : viewMode === 'grid' ? (
             <SessionsGrid>
-              {sessions.map(renderSessionCard)}
+              {projects.map(renderProjectCard)}
             </SessionsGrid>
           ) : (
             <SessionsList>
-              {sessions.map(renderSessionListItem)}
+              {projects.map(renderProjectListItem)}
             </SessionsList>
           )}
         </ContentArea>
 
         {/* Bottom Bar */}
         <BottomBar>
-          <SecondaryButton variant="outlined" startIcon={<FileUploadIcon />} onClick={handleImportSession}>
-            Import Session
+          <SecondaryButton variant="outlined" startIcon={<FileUploadIcon />} onClick={handleImportProject}>
+            Import Project
           </SecondaryButton>
           <SecondaryButton variant="outlined" startIcon={<CreateNewFolderIcon />} onClick={handleNewFolder}>
             New Folder
           </SecondaryButton>
-          <PrimaryButton startIcon={<AddIcon />} onClick={handleNewSession}>
-            New Session
+          <PrimaryButton startIcon={<AddIcon />} onClick={handleNewProject}>
+            New Project
           </PrimaryButton>
         </BottomBar>
       </RightPanel>
 
-      {/* New Session Dialog */}
-      <NewSessionDialog
-        open={newSessionDialogOpen}
+      {/* New Project Dialog */}
+      <NewProjectDialog
+        open={newProjectDialogOpen}
         storageLocations={storageLocations}
-        onClose={() => setNewSessionDialogOpen(false)}
-        onCreate={handleCreateSession}
+        onClose={() => setNewProjectDialogOpen(false)}
+        onCreate={handleCreateProject}
       />
     </PageContainer>
   );
