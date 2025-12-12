@@ -1,7 +1,7 @@
 /**
- * App Persistence Store - Manages app state persistence across sessions
- * Stores: activeSessionId, activeTool, playheadPosition, panelStates
- * Handles session restore on app load
+ * App Persistence Store - Manages app state persistence across user sessions
+ * Stores: activeProjectId, activeTool, playheadPosition, panelStates
+ * Handles state restore on app load
  */
 
 import { create } from 'zustand';
@@ -15,7 +15,7 @@ export interface PanelState {
 
 export interface AppPersistenceState {
   // Project state
-  activeSessionId: string | null;
+  activeProjectId: string | null;
   activeTool: string;
   playheadPosition: number;
 
@@ -36,7 +36,7 @@ export interface AppPersistenceState {
   lastSavedAt: number | null;
 
   // Actions
-  setActiveSession: (sessionId: string | null) => void;
+  setActiveProject: (projectId: string | null) => void;
   setActiveTool: (tool: string) => void;
   setPlayheadPosition: (position: number) => void;
   setQuickAnalyzeFile: (file: { name: string; type: 'video' | 'audio' | 'image'; url: string } | null) => void;
@@ -45,17 +45,17 @@ export interface AppPersistenceState {
   updateLastSaved: () => void;
 
   // Restore helpers
-  shouldRestoreSession: () => boolean;
+  shouldRestoreProject: () => boolean;
   shouldRestoreQuickAnalyze: () => boolean;
-  getRestoreTarget: () => 'session' | 'quickAnalyze' | 'home';
-  clearSession: () => void;
+  getRestoreTarget: () => 'project' | 'quickAnalyze' | 'home';
+  clearProject: () => void;
 }
 
 export const useAppPersistence = create<AppPersistenceState>()(
   persist(
     (set, get) => ({
       // Initial state
-      activeSessionId: null,
+      activeProjectId: null,
       activeTool: 'home',
       playheadPosition: 0,
       quickAnalyzeFile: null,
@@ -64,9 +64,9 @@ export const useAppPersistence = create<AppPersistenceState>()(
       lastSavedAt: null,
 
       // Actions
-      setActiveSession: (sessionId) =>
+      setActiveProject: (projectId) =>
         set({
-          activeSessionId: sessionId,
+          activeProjectId: projectId,
           lastSavedAt: Date.now(),
         }),
 
@@ -112,9 +112,9 @@ export const useAppPersistence = create<AppPersistenceState>()(
       updateLastSaved: () => set({ lastSavedAt: Date.now() }),
 
       // Restore helpers
-      shouldRestoreSession: () => {
-        const { activeSessionId } = get();
-        return activeSessionId !== null;
+      shouldRestoreProject: () => {
+        const { activeProjectId } = get();
+        return activeProjectId !== null;
       },
 
       shouldRestoreQuickAnalyze: () => {
@@ -123,7 +123,7 @@ export const useAppPersistence = create<AppPersistenceState>()(
       },
 
       getRestoreTarget: () => {
-        const { activeSessionId, quickAnalyzeFile, activeTool } = get();
+        const { activeProjectId, quickAnalyzeFile } = get();
 
         // If there was a quick analyze file open, restore to that tool
         if (quickAnalyzeFile !== null) {
@@ -131,17 +131,17 @@ export const useAppPersistence = create<AppPersistenceState>()(
         }
 
         // If there was an active project, restore to it
-        if (activeSessionId !== null) {
-          return 'session';
+        if (activeProjectId !== null) {
+          return 'project';
         }
 
         // Otherwise go to home
         return 'home';
       },
 
-      clearSession: () =>
+      clearProject: () =>
         set({
-          activeSessionId: null,
+          activeProjectId: null,
           quickAnalyzeFile: null,
           playheadPosition: 0,
           activeTool: 'home',

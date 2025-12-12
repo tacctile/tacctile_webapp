@@ -493,7 +493,7 @@ export const HomePage: React.FC = () => {
 
   const navigateToTool = useNavigationStore((state) => state.navigateToTool);
   const setActiveTool = useNavigationStore((state) => state.setActiveTool);
-  const { setActiveSession } = useAppPersistence();
+  const { setActiveProject } = useAppPersistence();
 
   // Get filtered projects
   const projects = useMemo(() => getFilteredProjects(), [getFilteredProjects, activeStorageId, searchQuery, sortBy]);
@@ -509,9 +509,9 @@ export const HomePage: React.FC = () => {
   }, []);
 
   const handleProjectClick = useCallback((project: Project) => {
-    setActiveSession(project.id);
-    setActiveTool('session');
-  }, [setActiveSession, setActiveTool]);
+    setActiveProject(project.id);
+    setActiveTool('timeline');
+  }, [setActiveProject, setActiveTool]);
 
   const handleNewProject = useCallback(() => {
     setNewProjectDialogOpen(true);
@@ -547,10 +547,10 @@ export const HomePage: React.FC = () => {
     // Add to store
     addProject(newProject);
 
-    // Set as active project and navigate to session timeline
-    setActiveSession(newProject.id);
-    setActiveTool('session');
-  }, [addProject, setActiveSession, setActiveTool]);
+    // Set as active project and navigate to project timeline
+    setActiveProject(newProject.id);
+    setActiveTool('timeline');
+  }, [addProject, setActiveProject, setActiveTool]);
 
   const handleNewFolder = useCallback(() => {
     // TODO: Implement new folder creation

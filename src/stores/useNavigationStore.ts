@@ -1,15 +1,15 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
-export type ToolType = 'home' | 'session' | 'video' | 'audio' | 'images' | 'streaming' | 'export' | 'notes' | 'team' | 'settings' | 'workspace-demo';
+export type ToolType = 'home' | 'timeline' | 'video' | 'audio' | 'images' | 'streaming' | 'export' | 'notes' | 'team' | 'settings' | 'workspace-demo';
 
 interface NavigationState {
   activeTool: ToolType;
   setActiveTool: (tool: ToolType) => void;
 
   // Active project ID (for project-based navigation)
-  activeSessionId: string | null;
-  setActiveSessionId: (id: string | null) => void;
+  activeProjectId: string | null;
+  setActiveProjectId: (id: string | null) => void;
 
   // Quick analyze mode (no project overhead)
   isQuickAnalyzeMode: boolean;
@@ -33,7 +33,7 @@ export const useNavigationStore = create<NavigationState>()(
     (set, get) => ({
       activeTool: 'home',
 
-      activeSessionId: null,
+      activeProjectId: null,
       isQuickAnalyzeMode: false,
       quickAnalyzeFile: null,
 
@@ -45,7 +45,7 @@ export const useNavigationStore = create<NavigationState>()(
 
       setActiveTool: (tool) => set({ activeTool: tool }),
 
-      setActiveSessionId: (id) => set({ activeSessionId: id }),
+      setActiveProjectId: (id) => set({ activeProjectId: id }),
 
       setQuickAnalyzeMode: (enabled, file) => set({
         isQuickAnalyzeMode: enabled,
@@ -70,7 +70,7 @@ export const useNavigationStore = create<NavigationState>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         activeTool: state.activeTool,
-        activeSessionId: state.activeSessionId,
+        activeProjectId: state.activeProjectId,
         isQuickAnalyzeMode: state.isQuickAnalyzeMode,
         // Don't persist quickAnalyzeFile URL as it's a blob URL
       }),
