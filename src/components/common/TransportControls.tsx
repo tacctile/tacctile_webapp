@@ -188,6 +188,13 @@ const LoopIcon = () => (
   </svg>
 );
 
+// Return to click icon - circular arrow pointing back to indicate returning to click position
+const ReturnToClickIcon = () => (
+  <svg viewBox="0 0 24 24">
+    <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" />
+  </svg>
+);
+
 // ============================================================================
 // COMPONENT
 // ============================================================================
@@ -208,6 +215,8 @@ export const TransportControls: React.FC<TransportControlsProps> = () => {
   const stepForward = usePlayheadStore((state) => state.stepForward);
   const stepBackward = usePlayheadStore((state) => state.stepBackward);
   const jumpToStart = usePlayheadStore((state) => state.jumpToStart);
+  const returnToClickEnabled = usePlayheadStore((state) => state.returnToClickEnabled);
+  const toggleReturnToClick = usePlayheadStore((state) => state.toggleReturnToClick);
 
   // Audio tool store for loop toggle and selection
   const looping = useAudioToolStore((state) => state.playback.looping);
@@ -276,6 +285,17 @@ export const TransportControls: React.FC<TransportControlsProps> = () => {
     <TransportContainer>
       {/* Left controls - extend leftward from center */}
       <LeftControls>
+        {/* Return to Click */}
+        <Tooltip title={returnToClickEnabled ? 'Return to click enabled' : 'Return to click position'}>
+          <ModifierButton
+            onClick={toggleReturnToClick}
+            $active={returnToClickEnabled}
+            aria-label={returnToClickEnabled ? 'Disable return to click' : 'Enable return to click'}
+          >
+            <ReturnToClickIcon />
+          </ModifierButton>
+        </Tooltip>
+
         {/* Jump to Start */}
         <Tooltip title="Jump to start (Home)">
           <TransportButton onClick={jumpToStart} aria-label="Jump to start">

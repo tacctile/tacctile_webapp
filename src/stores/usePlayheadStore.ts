@@ -16,6 +16,10 @@ interface PlayheadState {
   isReversePlaying: boolean; // Play backwards for reverse audio analysis
   playbackSpeed: number; // 0.25, 0.5, 1, 1.5, 2
 
+  // Return to click state
+  returnToClickEnabled: boolean; // When true, pausing returns playhead to click origin
+  clickOrigin: number | null; // Timestamp (ms) where user last clicked on waveform
+
   // Project time boundaries (set when project loads)
   timelineStart: number | null;
   timelineEnd: number | null;
@@ -32,6 +36,8 @@ interface PlayheadState {
   jumpToStart: () => void;
   jumpToEnd: () => void;
   setTimelineBounds: (start: number, end: number) => void;
+  toggleReturnToClick: () => void; // Toggle return to click mode
+  setClickOrigin: (timestamp: number) => void; // Set the click origin position
 }
 
 export const usePlayheadStore = create<PlayheadState>()(
@@ -41,6 +47,8 @@ export const usePlayheadStore = create<PlayheadState>()(
       isPlaying: false,
       isReversePlaying: false,
       playbackSpeed: 1,
+      returnToClickEnabled: false,
+      clickOrigin: null,
       timelineStart: null,
       timelineEnd: null,
 
@@ -54,11 +62,29 @@ export const usePlayheadStore = create<PlayheadState>()(
       },
 
       play: () => set({ isPlaying: true, isReversePlaying: false }),
-      pause: () => set({ isPlaying: false, isReversePlaying: false }),
-      togglePlayback: () => set((state) => ({
-        isPlaying: !state.isPlaying,
-        isReversePlaying: false
-      })),
+      pause: () => {
+        const { returnToClickEnabled, clickOrigin } = get();
+        // If return to click is enabled and we have a click origin, return to it
+        if (returnToClickEnabled && clickOrigin !== null) {
+          set({ isPlaying: false, isReversePlaying: false, timestamp: clickOrigin });
+        } else {
+          set({ isPlaying: false, isReversePlaying: false });
+        }
+      },
+      togglePlayback: () => {
+        const { isPlaying, returnToClickEnabled, clickOrigin } = get();
+        if (isPlaying) {
+          // Pausing - check if we should return to click origin
+          if (returnToClickEnabled && clickOrigin !== null) {
+            set({ isPlaying: false, isReversePlaying: false, timestamp: clickOrigin });
+          } else {
+            set({ isPlaying: false, isReversePlaying: false });
+          }
+        } else {
+          // Playing
+          set({ isPlaying: true, isReversePlaying: false });
+        }
+      },
       toggleReversePlayback: () => set((state) => ({
         isReversePlaying: !state.isReversePlaying,
         isPlaying: !state.isReversePlaying // Start playing when reverse is activated
@@ -93,6 +119,12 @@ export const usePlayheadStore = create<PlayheadState>()(
       },
 
       setTimelineBounds: (start, end) => set({ timelineStart: start, timelineEnd: end }),
+
+      toggleReturnToClick: () => set((state) => ({
+        returnToClickEnabled: !state.returnToClickEnabled
+      })),
+
+      setClickOrigin: (timestamp) => set({ clickOrigin: timestamp }),
     }),
     {
       name: 'tacctile-playhead',
@@ -100,6 +132,7 @@ export const usePlayheadStore = create<PlayheadState>()(
       partialize: (state) => ({
         // Only persist playback preferences, not position
         playbackSpeed: state.playbackSpeed,
+        returnToClickEnabled: state.returnToClickEnabled,
       }),
     }
   )
@@ -114,3 +147,5 @@ export const selectTimelineBounds = (state: PlayheadState) => ({
   start: state.timelineStart,
   end: state.timelineEnd,
 });
+export const selectReturnToClickEnabled = (state: PlayheadState) => state.returnToClickEnabled;
+export const selectClickOrigin = (state: PlayheadState) => state.clickOrigin;
