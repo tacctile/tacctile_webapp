@@ -2158,9 +2158,9 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
                 <FilterRowValue>{formatFilterValue('highCut', filters.highCut)}</FilterRowValue>
               </FilterRowHeader>
               <InspectorSlider
-                value={filters.highCut}
-                onChange={(_, v) => setFilters(prev => ({ ...prev, highCut: v as number }))}
-                min={2000}
+                value={24000 - filters.highCut}
+                onChange={(_, v) => setFilters(prev => ({ ...prev, highCut: 24000 - (v as number) }))}
+                min={4000}
                 max={20000}
                 step={100}
                 disabled={!loadedAudio}
