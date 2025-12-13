@@ -233,9 +233,30 @@ interface IntegratedEQProps {
   disabled?: boolean;
 }
 
+// Key for localStorage persistence of spectrum toggle
+const SPECTRUM_VISIBLE_KEY = 'tacctile_audio_spectrum_visible';
+
 const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, onResetAll, analyzerData, disabled }) => {
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Spectrum visibility state - persisted to localStorage (default: ON)
+  const [spectrumVisible, setSpectrumVisible] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(SPECTRUM_VISIBLE_KEY);
+      return stored === null ? true : stored === 'true';
+    }
+    return true;
+  });
+
+  // Persist spectrum visibility to localStorage
+  const toggleSpectrum = useCallback(() => {
+    setSpectrumVisible(prev => {
+      const newValue = !prev;
+      localStorage.setItem(SPECTRUM_VISIBLE_KEY, String(newValue));
+      return newValue;
+    });
+  }, []);
 
   // Convert frequency to X position (0-100) using logarithmic scale
   // Human hearing is logarithmic: 20Hz-200Hz feels like same "distance" as 2kHz-20kHz
@@ -302,22 +323,59 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, onResetAl
     return path;
   };
 
-  // Generate analyzer wave path (smooth, flowing curve behind EQ)
-  const generateAnalyzerPath = () => {
+  // Generate spectrum analyzer filled area path (Ableton EQ Eight inspired)
+  // Creates a filled polygon from bottom up to the frequency levels
+  const generateSpectrumPath = () => {
     if (analyzerData.length === 0) return '';
 
-    const points = analyzerData.map((level, i) => ({
-      x: freqToX(EQ_BANDS[i]?.freq || 1000),
-      y: 50 - (level / 100) * 38, // Convert 0-100 level to Y position (slightly less range than EQ)
-    }));
+    // Generate more points for a smoother, more organic top edge
+    // Interpolate between the 10 band data points to create ~50 points
+    const numPoints = 50;
+    const interpolatedData: number[] = [];
 
-    let path = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 0; i < numPoints; i++) {
+      const position = (i / (numPoints - 1)) * (analyzerData.length - 1);
+      const lowerIndex = Math.floor(position);
+      const upperIndex = Math.min(lowerIndex + 1, analyzerData.length - 1);
+      const fraction = position - lowerIndex;
 
-    // Use smooth bezier curves for flowing appearance
+      // Linear interpolation between adjacent bands
+      const interpolatedValue = analyzerData[lowerIndex] +
+        (analyzerData[upperIndex] - analyzerData[lowerIndex]) * fraction;
+      interpolatedData.push(interpolatedValue);
+    }
+
+    // Map interpolated data to frequency positions
+    const minFreq = 31;  // First EQ band frequency
+    const maxFreq = 16000; // Last EQ band frequency
+    const logMin = Math.log10(minFreq);
+    const logMax = Math.log10(maxFreq);
+
+    const points = interpolatedData.map((level, i) => {
+      // Calculate frequency for this point using logarithmic scale
+      const logFreq = logMin + (i / (numPoints - 1)) * (logMax - logMin);
+      const freq = Math.pow(10, logFreq);
+      return {
+        x: freqToX(freq),
+        y: 95 - (level / 100) * 85, // 95% is bottom, go up based on level
+      };
+    });
+
+    // Start from bottom left corner
+    let path = `M ${points[0].x} 95`;
+
+    // Draw line up to first point
+    path += ` L ${points[0].x} ${points[0].y}`;
+
+    // Draw smooth bezier curve along the top edge (the organic, jagged part)
     for (let i = 1; i < points.length; i++) {
       const cp = (points[i - 1].x + points[i].x) / 2;
       path += ` C ${cp} ${points[i - 1].y}, ${cp} ${points[i].y}, ${points[i].x} ${points[i].y}`;
     }
+
+    // Draw line down to bottom right and close the path
+    path += ` L ${points[points.length - 1].x} 95`;
+    path += ' Z'; // Close path back to start
 
     return path;
   };
@@ -407,29 +465,32 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, onResetAl
           -12
         </Box>
 
-        {/* Analyzer wave (behind - subtle, muted gray-green) */}
-        <svg
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-          }}
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-        >
-          <path
-            d={generateAnalyzerPath()}
-            fill="none"
-            stroke="#2a3a2a"
-            strokeWidth="2"
-            vectorEffect="non-scaling-stroke"
-            opacity="0.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        {/* Spectrum analyzer filled area (behind EQ curve - Ableton EQ Eight inspired) */}
+        {spectrumVisible && (
+          <svg
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+            }}
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+          >
+            <defs>
+              <linearGradient id="spectrumGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#19abb5" stopOpacity="0.3" />
+                <stop offset="100%" stopColor="#19abb5" stopOpacity="0.15" />
+              </linearGradient>
+            </defs>
+            <path
+              d={generateSpectrumPath()}
+              fill="url(#spectrumGradient)"
+              stroke="none"
+            />
+          </svg>
+        )}
 
         {/* EQ Curve (on top) */}
         <svg
@@ -519,26 +580,29 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, onResetAl
             alignItems: 'center',
             gap: 0.5,
             padding: '4px 8px',
-            backgroundColor: '#1a1a1a',
-            border: '1px solid #333',
-            borderRadius: 1,
+            backgroundColor: '#2a2a2a',
+            border: '1px solid #555',
+            borderRadius: '4px',
             cursor: disabled ? 'default' : 'pointer',
             transition: 'all 0.15s ease',
             zIndex: 5,
             '&:hover': {
-              borderColor: disabled ? '#333' : '#19abb5',
-              backgroundColor: disabled ? '#1a1a1a' : 'rgba(25, 171, 181, 0.1)',
+              borderColor: disabled ? '#555' : '#888',
+              backgroundColor: disabled ? '#2a2a2a' : '#333',
               '& .reset-text': {
-                color: disabled ? '#666' : '#19abb5',
+                color: disabled ? '#666' : '#ccc',
               },
+            },
+            '&:active': {
+              backgroundColor: disabled ? '#2a2a2a' : '#3a3a3a',
             },
           }}
         >
           <Typography
             className="reset-text"
             sx={{
-              fontSize: 10,
-              color: '#666',
+              fontSize: 11,
+              color: '#888',
               fontFamily: '"JetBrains Mono", monospace',
               textTransform: 'uppercase',
               letterSpacing: 0.5,
@@ -546,6 +610,50 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, onResetAl
             }}
           >
             Reset All
+          </Typography>
+        </Box>
+
+        {/* Spectrum toggle button - lower right corner */}
+        <Box
+          onClick={toggleSpectrum}
+          sx={{
+            position: 'absolute',
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.5,
+            padding: '4px 8px',
+            backgroundColor: spectrumVisible ? 'rgba(25, 171, 181, 0.15)' : '#2a2a2a',
+            border: spectrumVisible ? '1px solid #19abb5' : '1px solid #555',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            zIndex: 5,
+            '&:hover': {
+              borderColor: spectrumVisible ? '#19abb5' : '#888',
+              backgroundColor: spectrumVisible ? 'rgba(25, 171, 181, 0.2)' : '#333',
+              '& .spectrum-text': {
+                color: spectrumVisible ? '#19abb5' : '#ccc',
+              },
+            },
+            '&:active': {
+              backgroundColor: spectrumVisible ? 'rgba(25, 171, 181, 0.25)' : '#3a3a3a',
+            },
+          }}
+        >
+          <Typography
+            className="spectrum-text"
+            sx={{
+              fontSize: 11,
+              color: spectrumVisible ? '#19abb5' : '#888',
+              fontFamily: '"JetBrains Mono", monospace',
+              textTransform: 'uppercase',
+              letterSpacing: 0.5,
+              transition: 'color 0.15s ease',
+            }}
+          >
+            Spectrum
           </Typography>
         </Box>
 
@@ -2221,21 +2329,44 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
 
             {/* Reset All Button */}
             <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button
-                size="small"
-                onClick={resetAllFilters}
-                disabled={!loadedAudio}
+              <Box
+                onClick={() => loadedAudio && resetAllFilters()}
                 sx={{
-                  fontSize: 10,
-                  color: '#666',
-                  textTransform: 'none',
-                  py: 0.25,
-                  px: 1,
-                  '&:hover': { color: '#19abb5' },
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '4px 8px',
+                  backgroundColor: '#2a2a2a',
+                  border: '1px solid #555',
+                  borderRadius: '4px',
+                  cursor: !loadedAudio ? 'default' : 'pointer',
+                  transition: 'all 0.15s ease',
+                  opacity: !loadedAudio ? 0.5 : 1,
+                  '&:hover': {
+                    borderColor: !loadedAudio ? '#555' : '#888',
+                    backgroundColor: !loadedAudio ? '#2a2a2a' : '#333',
+                    '& .filter-reset-text': {
+                      color: !loadedAudio ? '#666' : '#ccc',
+                    },
+                  },
+                  '&:active': {
+                    backgroundColor: !loadedAudio ? '#2a2a2a' : '#3a3a3a',
+                  },
                 }}
               >
-                Reset All
-              </Button>
+                <Typography
+                  className="filter-reset-text"
+                  sx={{
+                    fontSize: 11,
+                    color: '#888',
+                    fontFamily: '"JetBrains Mono", monospace',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                    transition: 'color 0.15s ease',
+                  }}
+                >
+                  Reset All
+                </Typography>
+              </Box>
             </Box>
           </InspectorSectionContent>
         )}
@@ -2486,6 +2617,51 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
                         : `${(selectionDuration * 1000).toFixed(0)}ms`}
                     </Box>
                   )}
+                  {/* Clear selection X button - upper right corner */}
+                  <Tooltip title="Clear selection" placement="top">
+                    <Box
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        clearSelection();
+                      }}
+                      sx={{
+                        position: 'absolute',
+                        top: 4,
+                        right: 4,
+                        width: 22,
+                        height: 22,
+                        borderRadius: '50%',
+                        backgroundColor: 'rgba(42, 42, 42, 0.9)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        pointerEvents: 'auto',
+                        transition: 'all 0.15s ease',
+                        '&:hover': {
+                          backgroundColor: 'rgba(60, 60, 60, 0.95)',
+                          '& svg': {
+                            color: '#fff',
+                          },
+                        },
+                      }}
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#ccc"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{ transition: 'color 0.15s ease' }}
+                      >
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </Box>
+                  </Tooltip>
                 </Box>
               );
             })()
