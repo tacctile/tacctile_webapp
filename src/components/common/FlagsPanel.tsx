@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Typography, IconButton, Tooltip, Button, TextField, InputAdornment } from '@mui/material';
+import React, { useState, useEffect, useRef } from 'react';
+import { Box, Typography, IconButton, Tooltip, Button, TextField, InputAdornment, Popover, Checkbox, FormControlLabel } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import AddIcon from '@mui/icons-material/Add';
 import FlagIcon from '@mui/icons-material/Flag';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import UndoIcon from '@mui/icons-material/Undo';
 import SearchIcon from '@mui/icons-material/Search';
+import FilterListIcon from '@mui/icons-material/FilterList';
 
 const Container = styled(Box)({
   display: 'flex',
@@ -149,8 +149,25 @@ export interface Flag {
   userColor?: string;
 }
 
+/** User info for filter display */
+export interface FlagUser {
+  id: string;
+  name: string;
+  color: string;
+}
+
 interface FlagsPanelProps {
   flags: Flag[];
+  /** Available users for filtering */
+  users?: FlagUser[];
+  /** Currently enabled user IDs for filtering */
+  enabledUserIds?: string[];
+  /** Callback when user filter changes */
+  onFilterChange?: (enabledUserIds: string[]) => void;
+  /** Currently selected flag ID */
+  selectedFlagId?: string;
+  /** Ref for the flags list container (for scrolling to selected flag) */
+  flagsListRef?: React.RefObject<HTMLDivElement>;
   onFlagClick?: (flag: Flag) => void;
   onFlagAdd?: () => void;
   onFlagEdit?: (flag: Flag) => void;
@@ -178,6 +195,11 @@ const truncateNote = (note: string, maxLength: number = 50): string => {
 
 export const FlagsPanel: React.FC<FlagsPanelProps> = ({
   flags,
+  users = [],
+  enabledUserIds,
+  onFilterChange,
+  selectedFlagId,
+  flagsListRef,
   onFlagClick,
   onFlagAdd,
   onFlagEdit,
@@ -194,6 +216,65 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
   const [editingFlagId, setEditingFlagId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState('');
   const [editNote, setEditNote] = useState('');
+
+  // Filter popover state
+  const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLButtonElement | null>(null);
+  const filterOpen = Boolean(filterAnchorEl);
+
+  // Internal ref for the flags list
+  const internalFlagsListRef = useRef<HTMLDivElement>(null);
+  const actualFlagsListRef = flagsListRef || internalFlagsListRef;
+
+  // Derive unique users from flags if not provided
+  const derivedUsers: FlagUser[] = users.length > 0 ? users : (() => {
+    const userMap = new Map<string, FlagUser>();
+    flags.forEach(flag => {
+      if (flag.createdBy && !userMap.has(flag.createdBy)) {
+        userMap.set(flag.createdBy, {
+          id: flag.createdBy.toLowerCase(),
+          name: flag.createdBy,
+          color: flag.userColor || '#19abb5',
+        });
+      }
+    });
+    return Array.from(userMap.values());
+  })();
+
+  // If enabledUserIds is not provided, all users are enabled by default
+  const effectiveEnabledUserIds = enabledUserIds ?? derivedUsers.map(u => u.id);
+
+  // Check if filter is active (not all users are enabled)
+  const isFilterActive = effectiveEnabledUserIds.length < derivedUsers.length;
+
+  // Handle filter toggle
+  const handleFilterClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setFilterAnchorEl(event.currentTarget);
+  };
+
+  const handleFilterClose = () => {
+    setFilterAnchorEl(null);
+  };
+
+  // Handle user checkbox change
+  const handleUserToggle = (userId: string) => {
+    if (!onFilterChange) return;
+    const newEnabledIds = effectiveEnabledUserIds.includes(userId)
+      ? effectiveEnabledUserIds.filter(id => id !== userId)
+      : [...effectiveEnabledUserIds, userId];
+    onFilterChange(newEnabledIds);
+  };
+
+  // Handle Select All
+  const handleSelectAll = () => {
+    if (!onFilterChange) return;
+    onFilterChange(derivedUsers.map(u => u.id));
+  };
+
+  // Handle Clear All
+  const handleClearAll = () => {
+    if (!onFilterChange) return;
+    onFilterChange([]);
+  };
 
   // Clear undo toast after 5 seconds
   useEffect(() => {
@@ -273,8 +354,16 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
     startEditing(flag);
   };
 
-  // Filter flags based on search query
-  const filteredFlags = flags.filter(flag => {
+  // Filter flags based on search query and user filter
+  const userFilteredFlags = flags.filter(flag => {
+    // If no user filter, show all
+    if (!onFilterChange) return true;
+    // Filter by enabled users
+    const flagUserId = flag.createdBy?.toLowerCase() || '';
+    return effectiveEnabledUserIds.includes(flagUserId);
+  });
+
+  const filteredFlags = userFilteredFlags.filter(flag => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -283,6 +372,10 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
       flag.createdBy?.toLowerCase().includes(q)
     );
   });
+
+  // Total count and filtered count for display
+  const totalFlagCount = flags.length;
+  const visibleFlagCount = userFilteredFlags.length;
 
   return (
     <Container>
@@ -293,20 +386,118 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
             Flags
           </Typography>
           <Typography sx={{ fontSize: 10, color: '#666' }}>
-            ({searchQuery.trim() ? `${filteredFlags.length}/${flags.length}` : flags.length})
+            {isFilterActive ? `(${visibleFlagCount} of ${totalFlagCount})` : `(${totalFlagCount})`}
           </Typography>
         </Box>
-        <Tooltip title="Add flag (M)">
-          <IconButton
-            size="small"
-            onClick={onFlagAdd}
-            disabled={disabled}
-            sx={{ padding: '4px', color: '#666', '&:hover': { color: '#19abb5' } }}
-          >
-            <AddIcon sx={{ fontSize: 16 }} />
-          </IconButton>
-        </Tooltip>
+        {derivedUsers.length > 0 && (
+          <Tooltip title="Filter by user">
+            <IconButton
+              size="small"
+              onClick={handleFilterClick}
+              sx={{
+                padding: '4px',
+                color: isFilterActive ? '#19abb5' : '#666',
+                '&:hover': { color: '#19abb5' }
+              }}
+            >
+              <FilterListIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          </Tooltip>
+        )}
       </Header>
+
+      {/* User filter popover */}
+      <Popover
+        open={filterOpen}
+        anchorEl={filterAnchorEl}
+        onClose={handleFilterClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+        PaperProps={{
+          sx: {
+            backgroundColor: '#1e1e1e',
+            border: '1px solid #333',
+            borderRadius: 1,
+            minWidth: 180,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          }
+        }}
+      >
+        <Box sx={{ p: 1.5 }}>
+          {/* Select All / Clear All buttons */}
+          <Box sx={{ display: 'flex', gap: 1, mb: 1, borderBottom: '1px solid #333', pb: 1 }}>
+            <Typography
+              onClick={handleSelectAll}
+              sx={{
+                fontSize: 10,
+                color: '#888',
+                cursor: 'pointer',
+                '&:hover': { color: '#19abb5' },
+              }}
+            >
+              Select All
+            </Typography>
+            <Typography sx={{ fontSize: 10, color: '#444' }}>|</Typography>
+            <Typography
+              onClick={handleClearAll}
+              sx={{
+                fontSize: 10,
+                color: '#888',
+                cursor: 'pointer',
+                '&:hover': { color: '#19abb5' },
+              }}
+            >
+              Clear All
+            </Typography>
+          </Box>
+
+          {/* User checkboxes */}
+          {derivedUsers.map((user) => (
+            <Box
+              key={user.id}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                py: 0.5,
+                cursor: 'pointer',
+                '&:hover': { backgroundColor: 'rgba(255,255,255,0.02)' },
+              }}
+              onClick={() => handleUserToggle(user.id)}
+            >
+              <Checkbox
+                checked={effectiveEnabledUserIds.includes(user.id)}
+                size="small"
+                sx={{
+                  padding: 0,
+                  color: '#555',
+                  '&.Mui-checked': {
+                    color: user.color,
+                  },
+                }}
+              />
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  backgroundColor: user.color,
+                  flexShrink: 0,
+                }}
+              />
+              <Typography sx={{ fontSize: 11, color: '#ccc' }}>
+                {user.name}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      </Popover>
 
       {/* Search - only show if there are flags */}
       {flags.length > 0 && (
@@ -336,33 +527,37 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
         </Box>
       )}
 
-      <FlagsList>
+      <FlagsList ref={actualFlagsListRef as React.RefObject<HTMLDivElement>}>
         {flags.length === 0 ? (
           <EmptyState>
             <FlagIcon sx={{ fontSize: 32, mb: 1, opacity: 0.3 }} />
             <Typography sx={{ fontSize: 11 }}>No flags yet</Typography>
             <Typography sx={{ fontSize: 10, mt: 0.5, textAlign: 'center', lineHeight: 1.4 }}>
               Press <span style={{ color: '#19abb5' }}>M</span> while playing<br />
-              or click <span style={{ color: '#19abb5' }}>+</span> above
+              or use the button below
             </Typography>
           </EmptyState>
         ) : filteredFlags.length === 0 ? (
           <EmptyState>
             <SearchIcon sx={{ fontSize: 32, mb: 1, opacity: 0.3 }} />
-            <Typography sx={{ fontSize: 11 }}>No flags match "{searchQuery}"</Typography>
+            <Typography sx={{ fontSize: 11 }}>
+              {searchQuery.trim() ? `No flags match "${searchQuery}"` : 'No flags match filter'}
+            </Typography>
           </EmptyState>
         ) : (
           filteredFlags.map((flag) => {
             const isExpanded = expandedFlags.includes(flag.id);
             const hasNote = flag.note && flag.note.length > 0;
             const isEditing = editingFlagId === flag.id;
+            const isSelected = selectedFlagId === flag.id;
 
             return (
               <FlagItem
                 key={flag.id}
+                data-flag-id={flag.id}
                 sx={{
-                  backgroundColor: isEditing ? 'rgba(25, 171, 181, 0.08)' : 'transparent',
-                  borderLeft: isEditing ? '2px solid #19abb5' : '2px solid transparent',
+                  backgroundColor: isEditing ? 'rgba(25, 171, 181, 0.08)' : isSelected ? 'rgba(25, 171, 181, 0.05)' : 'transparent',
+                  borderLeft: isEditing ? '2px solid #19abb5' : isSelected ? '2px solid rgba(25, 171, 181, 0.5)' : '2px solid transparent',
                 }}
               >
                 <FlagHeader

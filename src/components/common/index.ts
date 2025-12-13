@@ -8,6 +8,6 @@ export { default as LoadingSkeleton, LoadingSkeleton as ToolLoadingSkeleton } fr
 export { TransportControls } from './TransportControls';
 export { MetadataPanel } from './MetadataPanel';
 export { PrecisionSlider } from './PrecisionSlider';
-export { FlagsPanel, type Flag } from './FlagsPanel';
+export { FlagsPanel, type Flag, type FlagUser } from './FlagsPanel';
 export { ResizablePanelSplit } from './ResizablePanelSplit';
 export { PlayheadLine } from './PlayheadLine';
