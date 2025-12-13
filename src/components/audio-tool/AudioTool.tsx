@@ -228,11 +228,12 @@ const EQ_BANDS = [
 interface IntegratedEQProps {
   values: number[];
   onChange: (index: number, value: number) => void;
+  onResetAll: () => void;
   analyzerData: number[];
   disabled?: boolean;
 }
 
-const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerData, disabled }) => {
+const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, onResetAll, analyzerData, disabled }) => {
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -301,20 +302,21 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
     return path;
   };
 
-  // Generate analyzer wave path (jagged, organic)
+  // Generate analyzer wave path (smooth, flowing curve behind EQ)
   const generateAnalyzerPath = () => {
     if (analyzerData.length === 0) return '';
 
     const points = analyzerData.map((level, i) => ({
       x: freqToX(EQ_BANDS[i]?.freq || 1000),
-      y: 50 - (level / 100) * 40, // Convert 0-100 level to Y position
+      y: 50 - (level / 100) * 38, // Convert 0-100 level to Y position (slightly less range than EQ)
     }));
 
     let path = `M ${points[0].x} ${points[0].y}`;
 
+    // Use smooth bezier curves for flowing appearance
     for (let i = 1; i < points.length; i++) {
-      // Slightly jagged line (not as smooth as EQ curve)
-      path += ` L ${points[i].x} ${points[i].y}`;
+      const cp = (points[i - 1].x + points[i].x) / 2;
+      path += ` C ${cp} ${points[i - 1].y}, ${cp} ${points[i].y}, ${points[i].x} ${points[i].y}`;
     }
 
     return path;
@@ -383,29 +385,29 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
           })}
         </svg>
 
-        {/* dB labels - Left side */}
-        <Box sx={{ position: 'absolute', left: 8, top: 8, fontSize: 10, color: '#666', fontFamily: '"JetBrains Mono", monospace' }}>
+        {/* dB labels - Left side (aligned with grid lines at 5%, 50%, 95%) */}
+        <Box sx={{ position: 'absolute', left: 6, top: '5%', transform: 'translateY(-50%)', fontSize: 9, color: '#555', fontFamily: '"JetBrains Mono", monospace' }}>
           +12
         </Box>
-        <Box sx={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: '#888', fontFamily: '"JetBrains Mono", monospace' }}>
+        <Box sx={{ position: 'absolute', left: 6, top: '50%', transform: 'translateY(-50%)', fontSize: 9, color: '#777', fontFamily: '"JetBrains Mono", monospace' }}>
           0dB
         </Box>
-        <Box sx={{ position: 'absolute', left: 8, bottom: 8, fontSize: 10, color: '#666', fontFamily: '"JetBrains Mono", monospace' }}>
+        <Box sx={{ position: 'absolute', left: 6, top: '95%', transform: 'translateY(-50%)', fontSize: 9, color: '#555', fontFamily: '"JetBrains Mono", monospace' }}>
           -12
         </Box>
 
-        {/* dB labels - Right side */}
-        <Box sx={{ position: 'absolute', right: 8, top: 8, fontSize: 10, color: '#666', fontFamily: '"JetBrains Mono", monospace' }}>
+        {/* dB labels - Right side (aligned with grid lines at 5%, 50%, 95%) */}
+        <Box sx={{ position: 'absolute', right: 6, top: '5%', transform: 'translateY(-50%)', fontSize: 9, color: '#555', fontFamily: '"JetBrains Mono", monospace' }}>
           +12
         </Box>
-        <Box sx={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: '#888', fontFamily: '"JetBrains Mono", monospace' }}>
+        <Box sx={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', fontSize: 9, color: '#777', fontFamily: '"JetBrains Mono", monospace' }}>
           0dB
         </Box>
-        <Box sx={{ position: 'absolute', right: 8, bottom: 8, fontSize: 10, color: '#666', fontFamily: '"JetBrains Mono", monospace' }}>
+        <Box sx={{ position: 'absolute', right: 6, top: '95%', transform: 'translateY(-50%)', fontSize: 9, color: '#555', fontFamily: '"JetBrains Mono", monospace' }}>
           -12
         </Box>
 
-        {/* Analyzer wave (behind) */}
+        {/* Analyzer wave (behind - subtle, muted gray-green) */}
         <svg
           style={{
             position: 'absolute',
@@ -420,10 +422,12 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
           <path
             d={generateAnalyzerPath()}
             fill="none"
-            stroke="#3a4a3a"
-            strokeWidth="1.5"
+            stroke="#2a3a2a"
+            strokeWidth="2"
             vectorEffect="non-scaling-stroke"
-            opacity="0.6"
+            opacity="0.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
           />
         </svg>
 
@@ -496,12 +500,56 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
         })}
       </Box>
 
-      {/* Frequency labels + reset buttons */}
+      {/* Frequency labels + reset buttons row */}
       <Box sx={{
         position: 'relative',
-        height: 32,
-        marginTop: '6px',
+        height: 36,
+        marginTop: '8px',
+        display: 'flex',
+        alignItems: 'flex-start',
       }}>
+        {/* Reset All button - lower left corner */}
+        <Box
+          onClick={() => !disabled && onResetAll()}
+          sx={{
+            position: 'absolute',
+            left: 0,
+            bottom: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.5,
+            padding: '4px 8px',
+            backgroundColor: '#1a1a1a',
+            border: '1px solid #333',
+            borderRadius: 1,
+            cursor: disabled ? 'default' : 'pointer',
+            transition: 'all 0.15s ease',
+            zIndex: 5,
+            '&:hover': {
+              borderColor: disabled ? '#333' : '#19abb5',
+              backgroundColor: disabled ? '#1a1a1a' : 'rgba(25, 171, 181, 0.1)',
+              '& .reset-text': {
+                color: disabled ? '#666' : '#19abb5',
+              },
+            },
+          }}
+        >
+          <Typography
+            className="reset-text"
+            sx={{
+              fontSize: 10,
+              color: '#666',
+              fontFamily: '"JetBrains Mono", monospace',
+              textTransform: 'uppercase',
+              letterSpacing: 0.5,
+              transition: 'color 0.15s ease',
+            }}
+          >
+            Reset All
+          </Typography>
+        </Box>
+
+        {/* Frequency labels + individual reset buttons */}
         {EQ_BANDS.map((band, i) => (
           <Box
             key={band.freq}
@@ -515,14 +563,19 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
               gap: 0.5,
             }}
           >
-            <Typography sx={{ fontSize: 11, color: '#888', fontFamily: '"JetBrains Mono", monospace' }}>
+            <Typography sx={{
+              fontSize: 10,
+              color: '#777',
+              fontFamily: '"JetBrains Mono", monospace',
+              whiteSpace: 'nowrap',
+            }}>
               {band.freq >= 1000 ? band.label : `${band.label}Hz`}
             </Typography>
             <Box
               onClick={() => handleResetBand(i)}
               sx={{
-                width: 12,
-                height: 12,
+                width: 10,
+                height: 10,
                 borderRadius: '50%',
                 border: '1px solid #333',
                 backgroundColor: values[i] === 0 ? 'transparent' : '#252525',
@@ -530,6 +583,7 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, analyzerD
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                transition: 'all 0.15s ease',
                 '&:hover': {
                   borderColor: disabled ? '#333' : '#19abb5',
                   backgroundColor: disabled ? 'transparent' : 'rgba(25, 171, 181, 0.1)',
@@ -972,9 +1026,13 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   // EQ values (-12 to +12 dB for each band)
   const [eqValues, setEqValues] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
+  // Analyser node ref for spectrum visualization
+  const [analyserNode, setAnalyserNode] = useState<AnalyserNode | null>(null);
 
-  // Simulated meter levels (would come from Web Audio API in real implementation)
-  const [meterLevels, setMeterLevels] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  // Spectrum analyzer data (0-100 for each of 10 bands, smoothed)
+  const [spectrumData, setSpectrumData] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  const spectrumAnimationRef = useRef<number | null>(null);
+  const previousSpectrumRef = useRef<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
   // Waveform selection state
   const [waveformSelection, setWaveformSelection] = useState<{
@@ -1023,30 +1081,88 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const loadedFileId = useNavigationStore((state) => state.loadedFiles.audio);
 
   // Audio playback hook - wires up Web Audio API playback with playhead store
+  // Also handles EQ filtering and provides analyser node for spectrum visualization
   useAudioPlayback({
     audioContext,
     audioBuffer,
     duration: loadedAudio?.duration || 0,
+    eqValues,
+    onAnalyserReady: setAnalyserNode,
   });
 
-  // Simulate bouncing meters when audio is loaded
+  // Spectrum analyzer animation - reads from analyser node and updates spectrum data
   useEffect(() => {
-    if (!loadedAudio) {
-      setMeterLevels([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    // Clean up previous animation
+    if (spectrumAnimationRef.current) {
+      cancelAnimationFrame(spectrumAnimationRef.current);
+      spectrumAnimationRef.current = null;
+    }
+
+    if (!analyserNode || !isPlaying) {
+      // When not playing, smoothly decay to zero
+      const decay = () => {
+        const hasSignal = previousSpectrumRef.current.some(v => v > 0.5);
+        if (!hasSignal) {
+          setSpectrumData([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+          return;
+        }
+        const decayed = previousSpectrumRef.current.map(v => v * 0.85);
+        previousSpectrumRef.current = decayed;
+        setSpectrumData(decayed);
+        spectrumAnimationRef.current = requestAnimationFrame(decay);
+      };
+      spectrumAnimationRef.current = requestAnimationFrame(decay);
       return;
     }
 
-    const interval = setInterval(() => {
-      setMeterLevels(prev => prev.map((_, i) => {
-        // Simulate frequency distribution (more energy in low-mids)
-        const baseLevel = 40 + Math.sin(i * 0.5) * 20;
-        const variation = Math.random() * 30;
-        return Math.min(100, Math.max(0, baseLevel + variation));
-      }));
-    }, 100);
+    // EQ frequency bands to sample from the FFT data
+    const eqFrequencies = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+    const frequencyData = new Uint8Array(analyserNode.frequencyBinCount);
+    const sampleRate = analyserNode.context.sampleRate;
+    const binWidth = sampleRate / analyserNode.fftSize;
 
-    return () => clearInterval(interval);
-  }, [loadedAudio]);
+    const updateSpectrum = () => {
+      analyserNode.getByteFrequencyData(frequencyData);
+
+      // Sample the FFT data at our EQ frequencies
+      const newSpectrum = eqFrequencies.map(freq => {
+        // Calculate which FFT bin corresponds to this frequency
+        const binIndex = Math.round(freq / binWidth);
+        // Average a few bins around the target for smoother reading
+        const startBin = Math.max(0, binIndex - 2);
+        const endBin = Math.min(frequencyData.length - 1, binIndex + 2);
+        let sum = 0;
+        let count = 0;
+        for (let i = startBin; i <= endBin; i++) {
+          sum += frequencyData[i];
+          count++;
+        }
+        const average = sum / count;
+        // Normalize to 0-100 range with some scaling for visual appeal
+        return Math.min(100, (average / 255) * 120);
+      });
+
+      // Apply smoothing - blend with previous values for smooth animation
+      const smoothed = newSpectrum.map((val, i) => {
+        const prev = previousSpectrumRef.current[i];
+        // Fast attack, slower decay for natural look
+        const smoothingFactor = val > prev ? 0.4 : 0.15;
+        return prev + (val - prev) * smoothingFactor;
+      });
+
+      previousSpectrumRef.current = smoothed;
+      setSpectrumData(smoothed);
+      spectrumAnimationRef.current = requestAnimationFrame(updateSpectrum);
+    };
+
+    spectrumAnimationRef.current = requestAnimationFrame(updateSpectrum);
+
+    return () => {
+      if (spectrumAnimationRef.current) {
+        cancelAnimationFrame(spectrumAnimationRef.current);
+      }
+    };
+  }, [analyserNode, isPlaying]);
 
   // Load file when navigated to
   useEffect(() => {
@@ -1200,6 +1316,11 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       next[index] = value;
       return next;
     });
+  }, []);
+
+  // Reset all EQ bands to 0dB (flat)
+  const resetAllEQ = useCallback(() => {
+    setEqValues([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
   }, []);
 
   const resetAllFilters = useCallback(() => {
@@ -2373,11 +2494,12 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
 
       {/* EQ Section */}
       <EQSection>
-        <Box sx={{ flex: 1, p: 1 }}>
+        <Box sx={{ flex: 1, p: 1.5 }}>
           <IntegratedEQ
             values={eqValues}
             onChange={handleEQChange}
-            analyzerData={meterLevels}
+            onResetAll={resetAllEQ}
+            analyzerData={spectrumData}
             disabled={!loadedAudio}
           />
         </Box>
