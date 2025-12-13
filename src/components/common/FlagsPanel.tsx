@@ -145,6 +145,8 @@ export interface Flag {
   category?: string;
   createdBy?: string;
   createdAt?: number;
+  /** User color for flag visualization (hex color) */
+  userColor?: string;
 }
 
 interface FlagsPanelProps {
@@ -306,13 +308,23 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
             return (
               <FlagItem key={flag.id}>
                 <FlagHeader>
+                  {/* Color indicator */}
+                  <Box
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      backgroundColor: flag.userColor || '#19abb5',
+                      flexShrink: 0,
+                    }}
+                  />
                   <Tooltip title="Click to jump to this time" placement="top">
                     <Timestamp onClick={() => onFlagClick?.(flag)}>
                       {formatTimestamp(flag.timestamp)}
                     </Timestamp>
                   </Tooltip>
 
-                  <FlagLabel>• {flag.label}</FlagLabel>
+                  <FlagLabel>{flag.label || 'Untitled'}</FlagLabel>
 
                   <FlagActions className="flag-actions">
                     <Tooltip title="Edit flag">
