@@ -6,6 +6,7 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import Box from '@mui/material/Box';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
+import type { Flag } from '@/components/common/FlagsPanel';
 
 interface WaveformCanvasProps {
   isLoaded: boolean;
@@ -14,6 +15,8 @@ interface WaveformCanvasProps {
   scrollOffset?: number;
   waveformData?: Float32Array | null;
   waveformHeight?: number;
+  /** Flags to display as vertical lines on the waveform */
+  flags?: Flag[];
   onSeek?: (timeInSeconds: number) => void;
   onZoomChange?: (zoom: number) => void;
   onScrollChange?: (scrollOffset: number) => void;
@@ -26,6 +29,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
   scrollOffset = 0,
   waveformData,
   waveformHeight = 1,
+  flags = [],
   onSeek,
   onZoomChange,
   onScrollChange,
@@ -173,6 +177,33 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     ctx.lineTo(width, centerY);
     ctx.stroke();
 
+    // Draw flag markers as vertical lines
+    if (flags.length > 0) {
+      for (const flag of flags) {
+        // Convert flag timestamp from ms to seconds
+        const flagTimeSeconds = flag.timestamp / 1000;
+
+        // Calculate flag position on screen
+        const flagX = ((flagTimeSeconds - startTime) / visibleDuration) * width;
+
+        // Only draw if flag is visible in current view
+        if (flagX >= 0 && flagX <= width) {
+          const flagColor = flag.userColor || '#19abb5';
+
+          // Draw flag line with slight transparency (80% opacity)
+          ctx.save();
+          ctx.globalAlpha = 0.8;
+          ctx.strokeStyle = flagColor;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(flagX, 0);
+          ctx.lineTo(flagX, height);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+    }
+
     // Draw playhead
     if (duration > 0) {
       const playheadTime = timestamp / 1000;
@@ -201,7 +232,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
         ctx.fill();
       }
     }
-  }, [isLoaded, duration, zoom, scrollOffset, timestamp, waveformData, waveformHeight]);
+  }, [isLoaded, duration, zoom, scrollOffset, timestamp, waveformData, waveformHeight, flags]);
 
   useEffect(() => {
     draw();

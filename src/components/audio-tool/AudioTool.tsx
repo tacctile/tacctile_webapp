@@ -920,13 +920,13 @@ const audioFiles: (FileItem & { format?: string; gps?: string | null; hasVideo?:
 ];
 
 const mockFlags: Flag[] = [
-  { id: 'f1', timestamp: 142000, label: 'Whisper', note: 'Possible voice, sounds like "hello" or "help". Class B audio anomaly.', createdBy: 'Sarah', createdAt: Date.now() - 3600000 },
-  { id: 'f2', timestamp: 287000, label: 'Knock', note: 'Three distinct knocks in response to question.', createdBy: 'Sarah', createdAt: Date.now() - 3000000 },
-  { id: 'f3', timestamp: 445000, label: 'Static burst', createdBy: 'Mike', createdAt: Date.now() - 2400000 },
-  { id: 'f4', timestamp: 612000, label: 'Voice?', note: 'Very faint, needs enhancement. Possibly saying a name.', createdBy: 'Sarah', createdAt: Date.now() - 1800000 },
-  { id: 'f5', timestamp: 823000, label: 'Breath sound', createdBy: 'Jen', createdAt: Date.now() - 1200000 },
-  { id: 'f6', timestamp: 1105000, label: 'Audio Response', note: 'Clear response to "Is anyone here?" - sounds like "yes"', createdBy: 'Sarah', createdAt: Date.now() - 600000 },
-  { id: 'f7', timestamp: 1342000, label: 'Footsteps?', note: 'Rhythmic sounds, could be footsteps or pipes.', createdBy: 'Mike', createdAt: Date.now() - 300000 },
+  { id: 'f1', timestamp: 142000, label: 'Whisper', note: 'Possible voice, sounds like "hello" or "help". Class B audio anomaly.', createdBy: 'Sarah', createdAt: Date.now() - 3600000, userColor: '#19abb5' },
+  { id: 'f2', timestamp: 287000, label: 'Knock', note: 'Three distinct knocks in response to question.', createdBy: 'Sarah', createdAt: Date.now() - 3000000, userColor: '#19abb5' },
+  { id: 'f3', timestamp: 445000, label: 'Static burst', createdBy: 'Mike', createdAt: Date.now() - 2400000, userColor: '#19abb5' },
+  { id: 'f4', timestamp: 612000, label: 'Voice?', note: 'Very faint, needs enhancement. Possibly saying a name.', createdBy: 'Sarah', createdAt: Date.now() - 1800000, userColor: '#19abb5' },
+  { id: 'f5', timestamp: 823000, label: 'Breath sound', createdBy: 'Jen', createdAt: Date.now() - 1200000, userColor: '#19abb5' },
+  { id: 'f6', timestamp: 1105000, label: 'Audio Response', note: 'Clear response to "Is anyone here?" - sounds like "yes"', createdBy: 'Sarah', createdAt: Date.now() - 600000, userColor: '#19abb5' },
+  { id: 'f7', timestamp: 1342000, label: 'Footsteps?', note: 'Rhythmic sounds, could be footsteps or pipes.', createdBy: 'Mike', createdAt: Date.now() - 300000, userColor: '#19abb5' },
 ];
 
 // ============================================================================
@@ -2143,8 +2143,25 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <FlagsPanel
           flags={flags}
-          onFlagClick={(flag) => console.log('Jump to:', flag.timestamp)}
-          onFlagAdd={() => console.log('Add flag')}
+          onFlagClick={(flag) => {
+            // Jump playhead to flag timestamp
+            setTimestamp(flag.timestamp);
+            // Also update audio playback position
+            audioSeek(flag.timestamp / 1000);
+          }}
+          onFlagAdd={() => {
+            // Create a new flag at current playhead position
+            const newFlag: Flag = {
+              id: `flag-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              timestamp: timestamp, // Current playhead position in ms
+              label: '', // Empty label, user can edit later
+              note: '', // Empty description
+              createdBy: 'You',
+              createdAt: Date.now(),
+              userColor: '#19abb5', // Default teal color
+            };
+            setFlags(prev => [...prev, newFlag].sort((a, b) => a.timestamp - b.timestamp));
+          }}
           onFlagEdit={(flag) => console.log('Edit flag:', flag.id)}
           onFlagDelete={(flagId) => setFlags(prev => prev.filter(f => f.id !== flagId))}
           disabled={!loadedAudio}
@@ -2236,6 +2253,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             scrollOffset={overviewScrollOffset}
             waveformData={waveformData}
             waveformHeight={waveformHeight}
+            flags={flags}
             onSeek={handleOverviewSeek}
             onZoomChange={handleZoomChange}
             onScrollChange={handleScrollChange}
@@ -2587,12 +2605,13 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         }}
         onFlagAdd={() => {
           const newFlag: Flag = {
-            id: `f${Date.now()}`,
+            id: `flag-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             timestamp: timestamp,
-            label: 'New Flag',
+            label: '', // Empty label, user can edit later
             note: '',
-            createdBy: 'User',
+            createdBy: 'You',
             createdAt: Date.now(),
+            userColor: '#19abb5', // Default teal color
           };
           setFlags(prev => [...prev, newFlag].sort((a, b) => a.timestamp - b.timestamp));
         }}
