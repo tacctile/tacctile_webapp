@@ -39,6 +39,7 @@ import {
   generateTestMetadataIfDev,
   formatGPSCoordinates,
 } from '@/utils/testMetadataGenerator';
+import { useAudioPlayback } from '@/hooks/useAudioPlayback';
 
 
 // ============================================================================
@@ -898,6 +899,7 @@ const OverviewBar: React.FC<OverviewBarProps> = ({
 // ============================================================================
 
 const audioFiles: (FileItem & { format?: string; gps?: string | null; hasVideo?: boolean; path?: string })[] = [
+  { id: 'test-drums', type: 'audio', fileName: 'test_drums.mp3', duration: 0, capturedAt: Date.now(), user: 'You', deviceInfo: 'Imported', flagCount: 0, hasFindings: false, format: '44.1kHz / 16-bit', gps: null, hasVideo: false, path: '/audio/test_drums.mp3' },
   { id: 'test-drums-1', type: 'audio', fileName: 'test_drums1.mp3', duration: 0, capturedAt: Date.now(), user: 'You', deviceInfo: 'Imported', flagCount: 0, hasFindings: false, format: '44.1kHz / 16-bit', gps: null, hasVideo: false, path: '/audio/test_drums1.mp3' },
   { id: 'a1', type: 'audio', fileName: 'ambient_baseline.wav', duration: 1080, capturedAt: Date.now() - 7200000, user: 'Mike', deviceInfo: 'Zoom H6', flagCount: 0, hasFindings: false, format: '48kHz / 24-bit', gps: null, hasVideo: false },
   { id: 'a2', type: 'audio', fileName: 'recorder_01_audio_session.wav', duration: 1834, capturedAt: Date.now() - 6500000, user: 'Sarah', deviceInfo: 'Zoom H6', flagCount: 7, hasFindings: true, format: '48kHz / 24-bit', gps: '39.95°N, 75.16°W', hasVideo: false },
@@ -937,6 +939,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
 
   // Real audio data state (Web Audio API)
   const audioContextRef = useRef<AudioContext | null>(null);
+  const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
   const [waveformData, setWaveformData] = useState<Float32Array | null>(null);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
 
@@ -1016,6 +1019,13 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
 
   const navigateToTool = useNavigationStore((state) => state.navigateToTool);
   const loadedFileId = useNavigationStore((state) => state.loadedFiles.audio);
+
+  // Audio playback hook - connects Web Audio API to transport controls
+  useAudioPlayback({
+    audioContext: audioContextRef.current,
+    audioBuffer: audioBuffer,
+    duration: loadedAudio?.duration || 0,
+  });
 
   // Simulate bouncing meters when audio is loaded
   useEffect(() => {
@@ -1117,6 +1127,9 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       const arrayBuffer = await response.arrayBuffer();
       const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
+      // Store the decoded buffer for playback
+      setAudioBuffer(decodedBuffer);
+
       // PHASE 1: Waveform (instant)
       const channelData = decodedBuffer.getChannelData(0); // Mono or left channel
       const samples = channelData.length;
@@ -1165,6 +1178,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const handleDoubleClick = useCallback((item: typeof audioFiles[0]) => {
     // Clear previous real audio data
     setWaveformData(null);
+    setAudioBuffer(null);
 
     if (item.path) {
       // Load real audio file

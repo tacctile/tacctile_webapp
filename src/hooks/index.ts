@@ -44,3 +44,6 @@ export {
   useOptimizedAudio,
   useOptimizedMediaPlayback,
 } from './useOptimizedMedia';
+
+// Audio Playback
+export { useAudioPlayback } from './useAudioPlayback';
