@@ -2,10 +2,12 @@
  * useAudioPlayback Hook
  * Manages Web Audio API playback using AudioBufferSourceNode
  * Syncs with usePlayheadStore for play/pause state and position
+ * Supports looping full track or selection regions
  */
 
 import { useRef, useCallback, useEffect } from 'react';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
+import { useAudioToolStore } from '@/stores/useAudioToolStore';
 
 interface UseAudioPlaybackOptions {
   /** The AudioContext to use for playback */
@@ -43,12 +45,21 @@ export function useAudioPlayback({
   const startOffsetRef = useRef<number>(0); // Offset in seconds when playback started
   const animationFrameRef = useRef<number | null>(null);
 
+  // Ref to hold the restart function for looping (avoids circular dependency)
+  const restartPlaybackRef = useRef<((offset: number) => void) | null>(null);
+
   // Playhead store state
   const isPlaying = usePlayheadStore((state) => state.isPlaying);
   const playbackSpeed = usePlayheadStore((state) => state.playbackSpeed);
   const timestamp = usePlayheadStore((state) => state.timestamp);
   const setTimestamp = usePlayheadStore((state) => state.setTimestamp);
   const pause = usePlayheadStore((state) => state.pause);
+
+  // Audio tool store state (looping and selection) - subscribed for reactivity
+  // but we also use getState() in callbacks for current values
+  useAudioToolStore((state) => state.playback.looping);
+  useAudioToolStore((state) => state.waveformSelectionStart);
+  useAudioToolStore((state) => state.waveformSelectionEnd);
 
   /**
    * Stop the current audio source node
@@ -68,6 +79,20 @@ export function useAudioPlayback({
       animationFrameRef.current = null;
     }
   }, []);
+
+  /**
+   * Get current loop bounds from store
+   */
+  const getLoopBounds = useCallback(() => {
+    const { playback, waveformSelectionStart: selStart, waveformSelectionEnd: selEnd } = useAudioToolStore.getState();
+    const isLooping = playback.looping;
+    const hasSelection = selStart !== null && selEnd !== null;
+
+    const loopStart = hasSelection ? Math.min(selStart!, selEnd!) : 0;
+    const loopEnd = hasSelection ? Math.max(selStart!, selEnd!) : duration;
+
+    return { isLooping, hasSelection, loopStart, loopEnd };
+  }, [duration]);
 
   /**
    * Start playback from the specified offset
@@ -97,17 +122,31 @@ export function useAudioPlayback({
     // Connect source -> gain -> destination
     sourceNode.connect(gainNodeRef.current);
 
-    // Handle playback end
+    // Handle playback end - this fires when the source node stops naturally
     sourceNode.onended = () => {
-      // Only trigger pause if we actually reached the end (not stopped manually)
+      // Only trigger if we actually reached the end (not stopped manually)
       if (sourceNodeRef.current === sourceNode) {
+        const { isLooping, loopStart, loopEnd } = getLoopBounds();
+
         const currentOffset = startOffsetRef.current +
           (audioContext.currentTime - startTimeRef.current) * playbackSpeed;
 
-        // If we reached the end, pause and set to end
-        if (currentOffset >= duration) {
-          setTimestamp(duration * 1000);
-          pause();
+        // If we reached the end of the track (past loop end)
+        if (currentOffset >= loopEnd) {
+          if (isLooping && restartPlaybackRef.current) {
+            // Restart from loop start
+            setTimestamp(loopStart * 1000);
+            // Use setTimeout to avoid synchronous issues
+            setTimeout(() => {
+              if (usePlayheadStore.getState().isPlaying && restartPlaybackRef.current) {
+                restartPlaybackRef.current(loopStart);
+              }
+            }, 0);
+          } else {
+            // Not looping - pause at end
+            setTimestamp(loopEnd * 1000);
+            pause();
+          }
         }
       }
     };
@@ -127,15 +166,38 @@ export function useAudioPlayback({
       const elapsed = (audioContext.currentTime - startTimeRef.current) * playbackSpeed;
       const currentPosition = startOffsetRef.current + elapsed;
 
-      // Update playhead store (convert to milliseconds)
-      if (currentPosition < duration) {
-        setTimestamp(currentPosition * 1000);
-        animationFrameRef.current = requestAnimationFrame(updatePlayhead);
+      // Get current loop bounds from store
+      const { isLooping, loopStart, loopEnd } = getLoopBounds();
+
+      // Check if we've reached the loop end point
+      if (currentPosition >= loopEnd) {
+        if (isLooping && restartPlaybackRef.current) {
+          // Loop back to start - stop current and restart
+          setTimestamp(loopStart * 1000);
+          stopSource();
+          restartPlaybackRef.current(loopStart);
+          return;
+        } else {
+          // Not looping - update to end position and stop animation
+          setTimestamp(loopEnd * 1000);
+          // Don't call pause here - let the source node's onended handle it
+          // This prevents race conditions
+          return;
+        }
       }
+
+      // Update playhead store (convert to milliseconds)
+      setTimestamp(currentPosition * 1000);
+      animationFrameRef.current = requestAnimationFrame(updatePlayhead);
     };
 
     animationFrameRef.current = requestAnimationFrame(updatePlayhead);
-  }, [audioContext, audioBuffer, playbackSpeed, duration, stopSource, setTimestamp, pause]);
+  }, [audioContext, audioBuffer, playbackSpeed, duration, stopSource, setTimestamp, pause, getLoopBounds]);
+
+  // Store the startPlayback function in ref for use in callbacks
+  useEffect(() => {
+    restartPlaybackRef.current = startPlayback;
+  }, [startPlayback]);
 
   /**
    * Handle play state changes from the store
