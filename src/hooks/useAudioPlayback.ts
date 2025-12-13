@@ -3,11 +3,15 @@
  * Manages Web Audio API playback using AudioBufferSourceNode
  * Syncs with usePlayheadStore for play/pause state and position
  * Supports looping full track or selection regions
+ * Includes 10-band EQ filtering and spectrum analyzer
  */
 
 import { useRef, useCallback, useEffect } from 'react';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
 import { useAudioToolStore } from '@/stores/useAudioToolStore';
+
+// EQ band configuration - matches the UI frequency bands
+const EQ_FREQUENCIES = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
 
 interface UseAudioPlaybackOptions {
   /** The AudioContext to use for playback */
@@ -16,6 +20,10 @@ interface UseAudioPlaybackOptions {
   audioBuffer: AudioBuffer | null;
   /** Duration of the audio in seconds (used for bounds checking) */
   duration: number;
+  /** EQ values for 10 bands (-12 to +12 dB) */
+  eqValues?: number[];
+  /** Callback to receive the AnalyserNode for spectrum visualization */
+  onAnalyserReady?: (analyser: AnalyserNode | null) => void;
 }
 
 interface UseAudioPlaybackReturn {
@@ -27,6 +35,8 @@ interface UseAudioPlaybackReturn {
   pause: () => void;
   /** Seek to a specific time in seconds */
   seek: (timeInSeconds: number) => void;
+  /** The AnalyserNode for spectrum visualization */
+  analyserNode: AnalyserNode | null;
 }
 
 /**
@@ -37,6 +47,8 @@ export function useAudioPlayback({
   audioContext,
   audioBuffer,
   duration,
+  eqValues = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  onAnalyserReady,
 }: UseAudioPlaybackOptions): UseAudioPlaybackReturn {
   // Refs for audio playback management
   const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
@@ -44,6 +56,12 @@ export function useAudioPlayback({
   const startTimeRef = useRef<number>(0); // AudioContext time when playback started
   const startOffsetRef = useRef<number>(0); // Offset in seconds when playback started
   const animationFrameRef = useRef<number | null>(null);
+
+  // EQ filter nodes ref - array of 10 BiquadFilterNodes
+  const eqFiltersRef = useRef<BiquadFilterNode[]>([]);
+
+  // Analyser node for spectrum visualization
+  const analyserNodeRef = useRef<AnalyserNode | null>(null);
 
   // Ref to hold the restart function for looping (avoids circular dependency)
   const restartPlaybackRef = useRef<((offset: number) => void) | null>(null);
@@ -81,6 +99,77 @@ export function useAudioPlayback({
   }, []);
 
   /**
+   * Initialize EQ filters and analyser node when audio context is available
+   */
+  useEffect(() => {
+    if (!audioContext) {
+      // Clean up when context is removed
+      eqFiltersRef.current = [];
+      analyserNodeRef.current = null;
+      onAnalyserReady?.(null);
+      return;
+    }
+
+    // Create analyser node for spectrum visualization
+    if (!analyserNodeRef.current) {
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0.85; // Smooth the spectrum visualization
+      analyserNodeRef.current = analyser;
+      onAnalyserReady?.(analyser);
+    }
+
+    // Create 10 EQ filter nodes if not already created
+    if (eqFiltersRef.current.length === 0) {
+      const filters: BiquadFilterNode[] = [];
+
+      EQ_FREQUENCIES.forEach((freq, index) => {
+        const filter = audioContext.createBiquadFilter();
+        filter.frequency.value = freq;
+
+        // First band (31Hz) = lowshelf, last band (16kHz) = highshelf, middle = peaking
+        if (index === 0) {
+          filter.type = 'lowshelf';
+        } else if (index === EQ_FREQUENCIES.length - 1) {
+          filter.type = 'highshelf';
+        } else {
+          filter.type = 'peaking';
+          filter.Q.value = 1.4; // Moderate Q for musical EQ
+        }
+
+        filter.gain.value = eqValues[index] || 0;
+        filters.push(filter);
+      });
+
+      eqFiltersRef.current = filters;
+    }
+
+    return () => {
+      // Disconnect filters when context changes
+      eqFiltersRef.current.forEach(filter => {
+        try {
+          filter.disconnect();
+        } catch {
+          // Ignore
+        }
+      });
+    };
+  }, [audioContext, onAnalyserReady]);
+
+  /**
+   * Update EQ filter gains when eqValues change
+   */
+  useEffect(() => {
+    if (eqFiltersRef.current.length === 0) return;
+
+    eqFiltersRef.current.forEach((filter, index) => {
+      const gain = eqValues[index] ?? 0;
+      // Use setValueAtTime for immediate update without clicks
+      filter.gain.setValueAtTime(gain, filter.context.currentTime);
+    });
+  }, [eqValues]);
+
+  /**
    * Get current loop bounds from store
    */
   const getLoopBounds = useCallback(() => {
@@ -116,11 +205,45 @@ export function useAudioPlayback({
     // Create gain node if not exists
     if (!gainNodeRef.current) {
       gainNodeRef.current = audioContext.createGain();
-      gainNodeRef.current.connect(audioContext.destination);
     }
 
-    // Connect source -> gain -> destination
-    sourceNode.connect(gainNodeRef.current);
+    // Build the audio processing chain:
+    // source -> EQ filters (chained) -> analyser -> gain -> destination
+    const filters = eqFiltersRef.current;
+    const analyser = analyserNodeRef.current;
+
+    if (filters.length > 0) {
+      // Connect source to first EQ filter
+      sourceNode.connect(filters[0]);
+
+      // Chain EQ filters together
+      for (let i = 0; i < filters.length - 1; i++) {
+        filters[i].disconnect();
+        filters[i].connect(filters[i + 1]);
+      }
+
+      // Connect last filter to analyser (if exists) or gain
+      filters[filters.length - 1].disconnect();
+      if (analyser) {
+        filters[filters.length - 1].connect(analyser);
+        analyser.disconnect();
+        analyser.connect(gainNodeRef.current);
+      } else {
+        filters[filters.length - 1].connect(gainNodeRef.current);
+      }
+    } else if (analyser) {
+      // No EQ filters, connect through analyser
+      sourceNode.connect(analyser);
+      analyser.disconnect();
+      analyser.connect(gainNodeRef.current);
+    } else {
+      // No EQ or analyser, direct connection
+      sourceNode.connect(gainNodeRef.current);
+    }
+
+    // Connect gain to destination
+    gainNodeRef.current.disconnect();
+    gainNodeRef.current.connect(audioContext.destination);
 
     // Handle playback end - this fires when the source node stops naturally
     sourceNode.onended = () => {
@@ -269,6 +392,7 @@ export function useAudioPlayback({
     play,
     pause: pausePlayback,
     seek,
+    analyserNode: analyserNodeRef.current,
   };
 }
 
