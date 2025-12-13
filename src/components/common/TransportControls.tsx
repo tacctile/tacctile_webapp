@@ -16,6 +16,34 @@ const TransportContainer = styled(Box)({
   height: 52,
   backgroundColor: '#161616',
   borderTop: '1px solid #2a2a2a',
+});
+
+// Left section - contains controls to the left of Play/Pause
+// Uses flex: 1 and right-aligns content so buttons extend leftward from center
+const LeftControls = styled(Box)({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+  flex: 1,
+  gap: 8,
+});
+
+// Center section - contains only the Play/Pause button
+// This is positioned at the exact center of the container
+const CenterControl = styled(Box)({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexShrink: 0,
+});
+
+// Right section - contains controls to the right of Play/Pause
+// Uses flex: 1 and left-aligns content so buttons extend rightward from center
+const RightControls = styled(Box)({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'flex-start',
+  flex: 1,
   gap: 8,
 });
 
@@ -243,59 +271,67 @@ export const TransportControls: React.FC<TransportControlsProps> = () => {
 
   return (
     <TransportContainer>
-      {/* Jump to Start */}
-      <Tooltip title="Jump to start (Home)">
-        <TransportButton onClick={jumpToStart} aria-label="Jump to start">
-          <SkipStartIcon />
-        </TransportButton>
-      </Tooltip>
+      {/* Left controls - extend leftward from center */}
+      <LeftControls>
+        {/* Jump to Start */}
+        <Tooltip title="Jump to start (Home)">
+          <TransportButton onClick={jumpToStart} aria-label="Jump to start">
+            <SkipStartIcon />
+          </TransportButton>
+        </Tooltip>
 
-      {/* Step Back 5 seconds */}
-      <Tooltip title="Step back 5s (Shift+←)">
-        <TransportButton onClick={() => stepBackward(5000)} aria-label="Step back 5 seconds">
-          <StepBackIcon />
-        </TransportButton>
-      </Tooltip>
+        {/* Step Back 5 seconds */}
+        <Tooltip title="Step back 5s (Shift+←)">
+          <TransportButton onClick={() => stepBackward(5000)} aria-label="Step back 5 seconds">
+            <StepBackIcon />
+          </TransportButton>
+        </Tooltip>
+      </LeftControls>
 
-      {/* Play/Pause - Main button, larger */}
-      <Tooltip title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}>
-        <PlayButton
-          onClick={handlePlayPause}
-          $isPlaying={isPlaying}
-          aria-label={isPlaying ? 'Pause' : 'Play'}
-        >
-          {isPlaying ? <PauseIcon /> : <PlayIcon />}
-        </PlayButton>
-      </Tooltip>
+      {/* Center control - Play/Pause at absolute center */}
+      <CenterControl>
+        <Tooltip title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}>
+          <PlayButton
+            onClick={handlePlayPause}
+            $isPlaying={isPlaying}
+            aria-label={isPlaying ? 'Pause' : 'Play'}
+          >
+            {isPlaying ? <PauseIcon /> : <PlayIcon />}
+          </PlayButton>
+        </Tooltip>
+      </CenterControl>
 
-      {/* Step Forward 5 seconds */}
-      <Tooltip title="Step forward 5s (Shift+→)">
-        <TransportButton onClick={() => stepForward(5000)} aria-label="Step forward 5 seconds">
-          <StepForwardIcon />
-        </TransportButton>
-      </Tooltip>
+      {/* Right controls - extend rightward from center */}
+      <RightControls>
+        {/* Step Forward 5 seconds */}
+        <Tooltip title="Step forward 5s (Shift+→)">
+          <TransportButton onClick={() => stepForward(5000)} aria-label="Step forward 5 seconds">
+            <StepForwardIcon />
+          </TransportButton>
+        </Tooltip>
 
-      {/* Loop */}
-      <Tooltip title={looping ? 'Loop enabled (L)' : 'Enable loop (L)'}>
-        <ModifierButton
-          onClick={toggleLooping}
-          $active={looping}
-          aria-label={looping ? 'Disable loop' : 'Enable loop'}
-        >
-          <LoopIcon />
-        </ModifierButton>
-      </Tooltip>
+        {/* Loop */}
+        <Tooltip title={looping ? 'Loop enabled (L)' : 'Enable loop (L)'}>
+          <ModifierButton
+            onClick={toggleLooping}
+            $active={looping}
+            aria-label={looping ? 'Disable loop' : 'Enable loop'}
+          >
+            <LoopIcon />
+          </ModifierButton>
+        </Tooltip>
 
-      {/* Playback Speed */}
-      <Tooltip title="Playback speed">
-        <SpeedButton
-          onClick={(e) => setSpeedMenuAnchor(e.currentTarget)}
-          aria-label="Playback speed"
-          style={{ color: playbackSpeed !== 1 ? '#19abb5' : '#888' }}
-        >
-          {playbackSpeed}x
-        </SpeedButton>
-      </Tooltip>
+        {/* Playback Speed */}
+        <Tooltip title="Playback speed">
+          <SpeedButton
+            onClick={(e) => setSpeedMenuAnchor(e.currentTarget)}
+            aria-label="Playback speed"
+            style={{ color: playbackSpeed !== 1 ? '#19abb5' : '#888' }}
+          >
+            {playbackSpeed}x
+          </SpeedButton>
+        </Tooltip>
+      </RightControls>
 
       <Menu
         anchorEl={speedMenuAnchor}
