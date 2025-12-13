@@ -84,7 +84,7 @@ export const usePlayheadStore = create<PlayheadState>()(
 
       jumpToStart: () => {
         const { timelineStart } = get();
-        if (timelineStart !== null) set({ timestamp: timelineStart, isPlaying: false });
+        set({ timestamp: timelineStart ?? 0, isPlaying: false });
       },
 
       jumpToEnd: () => {
