@@ -229,34 +229,12 @@ interface IntegratedEQProps {
   values: number[];
   onChange: (index: number, value: number) => void;
   onResetAll: () => void;
-  analyzerData: number[];
   disabled?: boolean;
 }
 
-// Key for localStorage persistence of spectrum toggle
-const SPECTRUM_VISIBLE_KEY = 'tacctile_audio_spectrum_visible';
-
-const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, onResetAll, analyzerData, disabled }) => {
+const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, onResetAll, disabled }) => {
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  // Spectrum visibility state - persisted to localStorage (default: ON)
-  const [spectrumVisible, setSpectrumVisible] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem(SPECTRUM_VISIBLE_KEY);
-      return stored === null ? true : stored === 'true';
-    }
-    return true;
-  });
-
-  // Persist spectrum visibility to localStorage
-  const toggleSpectrum = useCallback(() => {
-    setSpectrumVisible(prev => {
-      const newValue = !prev;
-      localStorage.setItem(SPECTRUM_VISIBLE_KEY, String(newValue));
-      return newValue;
-    });
-  }, []);
 
   // Convert frequency to X position (0-100) using logarithmic scale
   // Human hearing is logarithmic: 20Hz-200Hz feels like same "distance" as 2kHz-20kHz
@@ -319,63 +297,6 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, onResetAl
       const cp = (points[i - 1].x + points[i].x) / 2;
       path += ` C ${cp} ${points[i - 1].y}, ${cp} ${points[i].y}, ${points[i].x} ${points[i].y}`;
     }
-
-    return path;
-  };
-
-  // Generate spectrum analyzer filled area path (Ableton EQ Eight inspired)
-  // Creates a filled polygon from bottom up to the frequency levels
-  const generateSpectrumPath = () => {
-    if (analyzerData.length === 0) return '';
-
-    // Generate more points for a smoother, more organic top edge
-    // Interpolate between the 10 band data points to create ~50 points
-    const numPoints = 50;
-    const interpolatedData: number[] = [];
-
-    for (let i = 0; i < numPoints; i++) {
-      const position = (i / (numPoints - 1)) * (analyzerData.length - 1);
-      const lowerIndex = Math.floor(position);
-      const upperIndex = Math.min(lowerIndex + 1, analyzerData.length - 1);
-      const fraction = position - lowerIndex;
-
-      // Linear interpolation between adjacent bands
-      const interpolatedValue = analyzerData[lowerIndex] +
-        (analyzerData[upperIndex] - analyzerData[lowerIndex]) * fraction;
-      interpolatedData.push(interpolatedValue);
-    }
-
-    // Map interpolated data to frequency positions
-    const minFreq = 31;  // First EQ band frequency
-    const maxFreq = 16000; // Last EQ band frequency
-    const logMin = Math.log10(minFreq);
-    const logMax = Math.log10(maxFreq);
-
-    const points = interpolatedData.map((level, i) => {
-      // Calculate frequency for this point using logarithmic scale
-      const logFreq = logMin + (i / (numPoints - 1)) * (logMax - logMin);
-      const freq = Math.pow(10, logFreq);
-      return {
-        x: freqToX(freq),
-        y: 95 - (level / 100) * 85, // 95% is bottom, go up based on level
-      };
-    });
-
-    // Start from bottom left corner
-    let path = `M ${points[0].x} 95`;
-
-    // Draw line up to first point
-    path += ` L ${points[0].x} ${points[0].y}`;
-
-    // Draw smooth bezier curve along the top edge (the organic, jagged part)
-    for (let i = 1; i < points.length; i++) {
-      const cp = (points[i - 1].x + points[i].x) / 2;
-      path += ` C ${cp} ${points[i - 1].y}, ${cp} ${points[i].y}, ${points[i].x} ${points[i].y}`;
-    }
-
-    // Draw line down to bottom right and close the path
-    path += ` L ${points[points.length - 1].x} 95`;
-    path += ' Z'; // Close path back to start
 
     return path;
   };
@@ -465,34 +386,7 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, onResetAl
           -12
         </Box>
 
-        {/* Spectrum analyzer filled area (behind EQ curve - Ableton EQ Eight inspired) */}
-        {spectrumVisible && (
-          <svg
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-            }}
-            viewBox="0 0 100 100"
-            preserveAspectRatio="none"
-          >
-            <defs>
-              <linearGradient id="spectrumGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#19abb5" stopOpacity="0.3" />
-                <stop offset="100%" stopColor="#19abb5" stopOpacity="0.15" />
-              </linearGradient>
-            </defs>
-            <path
-              d={generateSpectrumPath()}
-              fill="url(#spectrumGradient)"
-              stroke="none"
-            />
-          </svg>
-        )}
-
-        {/* EQ Curve (on top) */}
+        {/* EQ Curve */}
         <svg
           style={{
             position: 'absolute',
@@ -610,50 +504,6 @@ const IntegratedEQ: React.FC<IntegratedEQProps> = ({ values, onChange, onResetAl
             }}
           >
             Reset All
-          </Typography>
-        </Box>
-
-        {/* Spectrum toggle button - lower right corner */}
-        <Box
-          onClick={toggleSpectrum}
-          sx={{
-            position: 'absolute',
-            right: 0,
-            bottom: 0,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 0.5,
-            padding: '4px 8px',
-            backgroundColor: spectrumVisible ? 'rgba(25, 171, 181, 0.15)' : '#2a2a2a',
-            border: spectrumVisible ? '1px solid #19abb5' : '1px solid #555',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            transition: 'all 0.15s ease',
-            zIndex: 5,
-            '&:hover': {
-              borderColor: spectrumVisible ? '#19abb5' : '#888',
-              backgroundColor: spectrumVisible ? 'rgba(25, 171, 181, 0.2)' : '#333',
-              '& .spectrum-text': {
-                color: spectrumVisible ? '#19abb5' : '#ccc',
-              },
-            },
-            '&:active': {
-              backgroundColor: spectrumVisible ? 'rgba(25, 171, 181, 0.25)' : '#3a3a3a',
-            },
-          }}
-        >
-          <Typography
-            className="spectrum-text"
-            sx={{
-              fontSize: 11,
-              color: spectrumVisible ? '#19abb5' : '#888',
-              fontFamily: '"JetBrains Mono", monospace',
-              textTransform: 'uppercase',
-              letterSpacing: 0.5,
-              transition: 'color 0.15s ease',
-            }}
-          >
-            Spectrum
           </Typography>
         </Box>
 
@@ -1134,14 +984,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   // EQ values (-12 to +12 dB for each band)
   const [eqValues, setEqValues] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
-  // Analyser node ref for spectrum visualization
-  const [analyserNode, setAnalyserNode] = useState<AnalyserNode | null>(null);
-
-  // Spectrum analyzer data (0-100 for each of 10 bands, smoothed)
-  const [spectrumData, setSpectrumData] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-  const spectrumAnimationRef = useRef<number | null>(null);
-  const previousSpectrumRef = useRef<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-
   // Waveform selection state
   const [waveformSelection, setWaveformSelection] = useState<{
     start: number;
@@ -1190,7 +1032,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const loadedFileId = useNavigationStore((state) => state.loadedFiles.audio);
 
   // Audio playback hook - wires up Web Audio API playback with playhead store
-  // Also handles EQ filtering, low cut filter, high cut filter, De-Hum filter, De-Noise filter, and provides analyser node for spectrum visualization
+  // Also handles EQ filtering, low cut filter, high cut filter, De-Hum filter, De-Noise filter
   const { seek: audioSeek } = useAudioPlayback({
     audioContext,
     audioBuffer,
@@ -1201,82 +1043,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     deHumAmount: filters.deHum,
     deNoiseAmount: filters.deNoise,
     clarityAmount: filters.clarity,
-    onAnalyserReady: setAnalyserNode,
   });
-
-  // Spectrum analyzer animation - reads from analyser node and updates spectrum data
-  useEffect(() => {
-    // Clean up previous animation
-    if (spectrumAnimationRef.current) {
-      cancelAnimationFrame(spectrumAnimationRef.current);
-      spectrumAnimationRef.current = null;
-    }
-
-    if (!analyserNode || !isPlaying) {
-      // When not playing, smoothly decay to zero
-      const decay = () => {
-        const hasSignal = previousSpectrumRef.current.some(v => v > 0.5);
-        if (!hasSignal) {
-          setSpectrumData([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-          return;
-        }
-        const decayed = previousSpectrumRef.current.map(v => v * 0.85);
-        previousSpectrumRef.current = decayed;
-        setSpectrumData(decayed);
-        spectrumAnimationRef.current = requestAnimationFrame(decay);
-      };
-      spectrumAnimationRef.current = requestAnimationFrame(decay);
-      return;
-    }
-
-    // EQ frequency bands to sample from the FFT data
-    const eqFrequencies = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
-    const frequencyData = new Uint8Array(analyserNode.frequencyBinCount);
-    const sampleRate = analyserNode.context.sampleRate;
-    const binWidth = sampleRate / analyserNode.fftSize;
-
-    const updateSpectrum = () => {
-      analyserNode.getByteFrequencyData(frequencyData);
-
-      // Sample the FFT data at our EQ frequencies
-      const newSpectrum = eqFrequencies.map(freq => {
-        // Calculate which FFT bin corresponds to this frequency
-        const binIndex = Math.round(freq / binWidth);
-        // Average a few bins around the target for smoother reading
-        const startBin = Math.max(0, binIndex - 2);
-        const endBin = Math.min(frequencyData.length - 1, binIndex + 2);
-        let sum = 0;
-        let count = 0;
-        for (let i = startBin; i <= endBin; i++) {
-          sum += frequencyData[i];
-          count++;
-        }
-        const average = sum / count;
-        // Normalize to 0-100 range with some scaling for visual appeal
-        return Math.min(100, (average / 255) * 120);
-      });
-
-      // Apply smoothing - blend with previous values for smooth animation
-      const smoothed = newSpectrum.map((val, i) => {
-        const prev = previousSpectrumRef.current[i];
-        // Fast attack, slower decay for natural look
-        const smoothingFactor = val > prev ? 0.4 : 0.15;
-        return prev + (val - prev) * smoothingFactor;
-      });
-
-      previousSpectrumRef.current = smoothed;
-      setSpectrumData(smoothed);
-      spectrumAnimationRef.current = requestAnimationFrame(updateSpectrum);
-    };
-
-    spectrumAnimationRef.current = requestAnimationFrame(updateSpectrum);
-
-    return () => {
-      if (spectrumAnimationRef.current) {
-        cancelAnimationFrame(spectrumAnimationRef.current);
-      }
-    };
-  }, [analyserNode, isPlaying]);
 
   // Load file when navigated to
   useEffect(() => {
@@ -2711,7 +2478,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             values={eqValues}
             onChange={handleEQChange}
             onResetAll={resetAllEQ}
-            analyzerData={spectrumData}
             disabled={!loadedAudio}
           />
         </Box>
