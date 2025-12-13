@@ -33,6 +33,8 @@ interface UseAudioPlaybackOptions {
   deHumAmount?: number;
   /** De-Noise filter amount (0 = off/20000Hz, 100 = aggressive cut at 4000Hz) */
   deNoiseAmount?: number;
+  /** Clarity filter amount (0 = no boost, 12 = +12dB boost at 3kHz presence range) */
+  clarityAmount?: number;
   /** Callback to receive the AnalyserNode for spectrum visualization */
   onAnalyserReady?: (analyser: AnalyserNode | null) => void;
 }
@@ -63,6 +65,7 @@ export function useAudioPlayback({
   highCutFrequency = 20000,
   deHumAmount = 0,
   deNoiseAmount = 0,
+  clarityAmount = 0,
   onAnalyserReady,
 }: UseAudioPlaybackOptions): UseAudioPlaybackReturn {
   // Refs for audio playback management
@@ -86,6 +89,9 @@ export function useAudioPlayback({
 
   // De-Noise filter node ref (low-pass filter for high-frequency noise reduction)
   const deNoiseFilterRef = useRef<BiquadFilterNode | null>(null);
+
+  // Clarity filter node ref (peaking filter for presence boost at 3kHz)
+  const clarityFilterRef = useRef<BiquadFilterNode | null>(null);
 
   // Analyser node for spectrum visualization
   const analyserNodeRef = useRef<AnalyserNode | null>(null);
@@ -136,6 +142,7 @@ export function useAudioPlayback({
       highCutFilterRef.current = null;
       deHumFiltersRef.current = [];
       deNoiseFilterRef.current = null;
+      clarityFilterRef.current = null;
       analyserNodeRef.current = null;
       onAnalyserReady?.(null);
       return;
@@ -199,6 +206,18 @@ export function useAudioPlayback({
       deNoiseFilterRef.current = deNoiseFilter;
     }
 
+    // Create Clarity filter (peaking filter for presence boost) if not already created
+    // Boosts 2-4kHz range centered at 3kHz for vocal intelligibility and clarity
+    // At 0: gain = 0dB (no effect), at 12: gain = +12dB (maximum boost)
+    if (!clarityFilterRef.current) {
+      const clarityFilter = audioContext.createBiquadFilter();
+      clarityFilter.type = 'peaking';
+      clarityFilter.frequency.value = 3000; // Center of presence range (2-4kHz)
+      clarityFilter.Q.value = 1.0; // Moderate width, affects roughly 2kHz-4kHz
+      clarityFilter.gain.value = 0; // Start with no boost
+      clarityFilterRef.current = clarityFilter;
+    }
+
     // Create 10 EQ filter nodes if not already created
     if (eqFiltersRef.current.length === 0) {
       const filters: BiquadFilterNode[] = [];
@@ -257,6 +276,13 @@ export function useAudioPlayback({
       if (deNoiseFilterRef.current) {
         try {
           deNoiseFilterRef.current.disconnect();
+        } catch {
+          // Ignore
+        }
+      }
+      if (clarityFilterRef.current) {
+        try {
+          clarityFilterRef.current.disconnect();
         } catch {
           // Ignore
         }
@@ -342,6 +368,22 @@ export function useAudioPlayback({
   }, [deNoiseAmount]);
 
   /**
+   * Update Clarity filter gain when clarityAmount changes
+   * - At 0: gain = 0dB (no boost, no effect)
+   * - At 6: gain = +6dB (moderate boost)
+   * - At 12: gain = +12dB (maximum boost)
+   */
+  useEffect(() => {
+    if (!clarityFilterRef.current) return;
+
+    // Direct mapping: clarityAmount = gain in dB (0 to +12dB)
+    clarityFilterRef.current.gain.setValueAtTime(
+      clarityAmount,
+      clarityFilterRef.current.context.currentTime
+    );
+  }, [clarityAmount]);
+
+  /**
    * Get current loop bounds from store
    */
   const getLoopBounds = useCallback(() => {
@@ -380,25 +422,26 @@ export function useAudioPlayback({
     }
 
     // Build the audio processing chain:
-    // source -> EQ filters (chained) -> low cut filter -> high cut filter -> De-Hum filters -> De-Noise filter -> analyser -> gain -> destination
+    // source -> EQ filters (chained) -> low cut filter -> high cut filter -> De-Hum filters -> De-Noise filter -> Clarity filter -> analyser -> gain -> destination
     const filters = eqFiltersRef.current;
     const lowCutFilter = lowCutFilterRef.current;
     const highCutFilter = highCutFilterRef.current;
     const deHumFilters = deHumFiltersRef.current;
     const deNoiseFilter = deNoiseFilterRef.current;
+    const clarityFilter = clarityFilterRef.current;
     const analyser = analyserNodeRef.current;
 
-    // Helper function to connect from De-Noise filter (or earlier) to analyser and gain
-    const connectToDeNoiseOrLater = (fromNode: AudioNode) => {
-      if (deNoiseFilter) {
-        fromNode.connect(deNoiseFilter);
-        deNoiseFilter.disconnect();
+    // Helper function to connect from Clarity filter (or earlier) to analyser and gain
+    const connectToClarityOrLater = (fromNode: AudioNode) => {
+      if (clarityFilter) {
+        fromNode.connect(clarityFilter);
+        clarityFilter.disconnect();
         if (analyser) {
-          deNoiseFilter.connect(analyser);
+          clarityFilter.connect(analyser);
           analyser.disconnect();
           analyser.connect(gainNodeRef.current!);
         } else {
-          deNoiseFilter.connect(gainNodeRef.current!);
+          clarityFilter.connect(gainNodeRef.current!);
         }
       } else if (analyser) {
         fromNode.connect(analyser);
@@ -406,6 +449,17 @@ export function useAudioPlayback({
         analyser.connect(gainNodeRef.current!);
       } else {
         fromNode.connect(gainNodeRef.current!);
+      }
+    };
+
+    // Helper function to connect from De-Noise filter (or earlier) to Clarity filter and beyond
+    const connectToDeNoiseOrLater = (fromNode: AudioNode) => {
+      if (deNoiseFilter) {
+        fromNode.connect(deNoiseFilter);
+        deNoiseFilter.disconnect();
+        connectToClarityOrLater(deNoiseFilter);
+      } else {
+        connectToClarityOrLater(fromNode);
       }
     };
 
