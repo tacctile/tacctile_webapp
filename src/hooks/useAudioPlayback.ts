@@ -13,6 +13,9 @@ import { useAudioToolStore } from '@/stores/useAudioToolStore';
 // EQ band configuration - matches the UI frequency bands
 const EQ_FREQUENCIES = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
 
+// De-Hum filter frequencies - 60Hz fundamental and harmonics (common AC hum)
+const DE_HUM_FREQUENCIES = [60, 120, 180, 240];
+
 interface UseAudioPlaybackOptions {
   /** The AudioContext to use for playback */
   audioContext: AudioContext | null;
@@ -26,6 +29,8 @@ interface UseAudioPlaybackOptions {
   lowCutFrequency?: number;
   /** High cut filter frequency in Hz (20000 = off, down to 4000Hz) */
   highCutFrequency?: number;
+  /** De-Hum filter amount (0 = off/normal audio, 100 = maximum hum removal at -30dB) */
+  deHumAmount?: number;
   /** Callback to receive the AnalyserNode for spectrum visualization */
   onAnalyserReady?: (analyser: AnalyserNode | null) => void;
 }
@@ -54,6 +59,7 @@ export function useAudioPlayback({
   eqValues = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   lowCutFrequency = 20,
   highCutFrequency = 20000,
+  deHumAmount = 0,
   onAnalyserReady,
 }: UseAudioPlaybackOptions): UseAudioPlaybackReturn {
   // Refs for audio playback management
@@ -71,6 +77,9 @@ export function useAudioPlayback({
 
   // High cut filter node ref (low-pass filter)
   const highCutFilterRef = useRef<BiquadFilterNode | null>(null);
+
+  // De-Hum filter nodes ref - array of peaking filters at 60Hz harmonics
+  const deHumFiltersRef = useRef<BiquadFilterNode[]>([]);
 
   // Analyser node for spectrum visualization
   const analyserNodeRef = useRef<AnalyserNode | null>(null);
@@ -119,6 +128,7 @@ export function useAudioPlayback({
       eqFiltersRef.current = [];
       lowCutFilterRef.current = null;
       highCutFilterRef.current = null;
+      deHumFiltersRef.current = [];
       analyserNodeRef.current = null;
       onAnalyserReady?.(null);
       return;
@@ -149,6 +159,26 @@ export function useAudioPlayback({
       highCutFilter.frequency.value = highCutFrequency;
       highCutFilter.Q.value = 0.707; // Butterworth response for clean cutoff
       highCutFilterRef.current = highCutFilter;
+    }
+
+    // Create De-Hum filter nodes (peaking filters at 60Hz harmonics) if not already created
+    // Uses peaking filters with negative gain to cut hum frequencies
+    if (deHumFiltersRef.current.length === 0) {
+      const deHumFilters: BiquadFilterNode[] = [];
+
+      DE_HUM_FREQUENCIES.forEach((freq) => {
+        const filter = audioContext.createBiquadFilter();
+        filter.type = 'peaking';
+        filter.frequency.value = freq;
+        filter.Q.value = 10; // Narrow Q for precise notch-like behavior
+        // Initial gain = 0dB (no filtering when deHumAmount = 0)
+        // Formula: gain = (deHumAmount / 100) * -30
+        // At 0%: 0dB (normal audio), at 100%: -30dB (maximum hum removal)
+        filter.gain.value = 0;
+        deHumFilters.push(filter);
+      });
+
+      deHumFiltersRef.current = deHumFilters;
     }
 
     // Create 10 EQ filter nodes if not already created
@@ -199,6 +229,13 @@ export function useAudioPlayback({
           // Ignore
         }
       }
+      deHumFiltersRef.current.forEach(filter => {
+        try {
+          filter.disconnect();
+        } catch {
+          // Ignore
+        }
+      });
     };
   }, [audioContext, onAnalyserReady]);
 
@@ -242,6 +279,24 @@ export function useAudioPlayback({
   }, [highCutFrequency]);
 
   /**
+   * Update De-Hum filter gains when deHumAmount changes
+   * Formula: gain = (deHumAmount / 100) * -30
+   * - At 0%: gain = 0dB (no filtering, normal audio)
+   * - At 100%: gain = -30dB (maximum hum removal)
+   */
+  useEffect(() => {
+    if (deHumFiltersRef.current.length === 0) return;
+
+    // Calculate gain: 0% = 0dB (normal), 100% = -30dB (max cut)
+    const gain = (deHumAmount / 100) * -30;
+
+    deHumFiltersRef.current.forEach((filter) => {
+      // Use setValueAtTime for smooth update without clicks
+      filter.gain.setValueAtTime(gain, filter.context.currentTime);
+    });
+  }, [deHumAmount]);
+
+  /**
    * Get current loop bounds from store
    */
   const getLoopBounds = useCallback(() => {
@@ -280,23 +335,31 @@ export function useAudioPlayback({
     }
 
     // Build the audio processing chain:
-    // source -> EQ filters (chained) -> low cut filter -> high cut filter -> analyser -> gain -> destination
+    // source -> EQ filters (chained) -> low cut filter -> high cut filter -> De-Hum filters -> analyser -> gain -> destination
     const filters = eqFiltersRef.current;
     const lowCutFilter = lowCutFilterRef.current;
     const highCutFilter = highCutFilterRef.current;
+    const deHumFilters = deHumFiltersRef.current;
     const analyser = analyserNodeRef.current;
 
-    // Helper function to connect to the next stage (highCut -> analyser -> gain)
-    const connectToHighCutOrLater = (fromNode: AudioNode) => {
-      if (highCutFilter) {
-        fromNode.connect(highCutFilter);
-        highCutFilter.disconnect();
+    // Helper function to connect from De-Hum filters (or earlier) to analyser and gain
+    const connectToDeHumOrLater = (fromNode: AudioNode) => {
+      if (deHumFilters.length > 0) {
+        // Connect to first De-Hum filter
+        fromNode.connect(deHumFilters[0]);
+        // Chain De-Hum filters together
+        for (let i = 0; i < deHumFilters.length - 1; i++) {
+          deHumFilters[i].disconnect();
+          deHumFilters[i].connect(deHumFilters[i + 1]);
+        }
+        // Connect last De-Hum filter to analyser or gain
+        deHumFilters[deHumFilters.length - 1].disconnect();
         if (analyser) {
-          highCutFilter.connect(analyser);
+          deHumFilters[deHumFilters.length - 1].connect(analyser);
           analyser.disconnect();
           analyser.connect(gainNodeRef.current!);
         } else {
-          highCutFilter.connect(gainNodeRef.current!);
+          deHumFilters[deHumFilters.length - 1].connect(gainNodeRef.current!);
         }
       } else if (analyser) {
         fromNode.connect(analyser);
@@ -304,6 +367,17 @@ export function useAudioPlayback({
         analyser.connect(gainNodeRef.current!);
       } else {
         fromNode.connect(gainNodeRef.current!);
+      }
+    };
+
+    // Helper function to connect to the next stage (highCut -> deHum -> analyser -> gain)
+    const connectToHighCutOrLater = (fromNode: AudioNode) => {
+      if (highCutFilter) {
+        fromNode.connect(highCutFilter);
+        highCutFilter.disconnect();
+        connectToDeHumOrLater(highCutFilter);
+      } else {
+        connectToDeHumOrLater(fromNode);
       }
     };
 
