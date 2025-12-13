@@ -22,6 +22,8 @@ interface UseAudioPlaybackOptions {
   duration: number;
   /** EQ values for 10 bands (-12 to +12 dB) */
   eqValues?: number[];
+  /** Low cut filter frequency in Hz (20 = off, up to 300Hz) */
+  lowCutFrequency?: number;
   /** Callback to receive the AnalyserNode for spectrum visualization */
   onAnalyserReady?: (analyser: AnalyserNode | null) => void;
 }
@@ -48,6 +50,7 @@ export function useAudioPlayback({
   audioBuffer,
   duration,
   eqValues = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  lowCutFrequency = 20,
   onAnalyserReady,
 }: UseAudioPlaybackOptions): UseAudioPlaybackReturn {
   // Refs for audio playback management
@@ -59,6 +62,9 @@ export function useAudioPlayback({
 
   // EQ filter nodes ref - array of 10 BiquadFilterNodes
   const eqFiltersRef = useRef<BiquadFilterNode[]>([]);
+
+  // Low cut filter node ref (high-pass filter)
+  const lowCutFilterRef = useRef<BiquadFilterNode | null>(null);
 
   // Analyser node for spectrum visualization
   const analyserNodeRef = useRef<AnalyserNode | null>(null);
@@ -99,12 +105,13 @@ export function useAudioPlayback({
   }, []);
 
   /**
-   * Initialize EQ filters and analyser node when audio context is available
+   * Initialize EQ filters, low cut filter, and analyser node when audio context is available
    */
   useEffect(() => {
     if (!audioContext) {
       // Clean up when context is removed
       eqFiltersRef.current = [];
+      lowCutFilterRef.current = null;
       analyserNodeRef.current = null;
       onAnalyserReady?.(null);
       return;
@@ -117,6 +124,15 @@ export function useAudioPlayback({
       analyser.smoothingTimeConstant = 0.85; // Smooth the spectrum visualization
       analyserNodeRef.current = analyser;
       onAnalyserReady?.(analyser);
+    }
+
+    // Create low cut filter (high-pass) if not already created
+    if (!lowCutFilterRef.current) {
+      const lowCutFilter = audioContext.createBiquadFilter();
+      lowCutFilter.type = 'highpass';
+      lowCutFilter.frequency.value = lowCutFrequency;
+      lowCutFilter.Q.value = 0.707; // Butterworth response for clean cutoff
+      lowCutFilterRef.current = lowCutFilter;
     }
 
     // Create 10 EQ filter nodes if not already created
@@ -153,6 +169,13 @@ export function useAudioPlayback({
           // Ignore
         }
       });
+      if (lowCutFilterRef.current) {
+        try {
+          lowCutFilterRef.current.disconnect();
+        } catch {
+          // Ignore
+        }
+      }
     };
   }, [audioContext, onAnalyserReady]);
 
@@ -168,6 +191,19 @@ export function useAudioPlayback({
       filter.gain.setValueAtTime(gain, filter.context.currentTime);
     });
   }, [eqValues]);
+
+  /**
+   * Update low cut filter frequency when lowCutFrequency changes
+   */
+  useEffect(() => {
+    if (!lowCutFilterRef.current) return;
+
+    // Use setValueAtTime for smooth update without clicks
+    lowCutFilterRef.current.frequency.setValueAtTime(
+      lowCutFrequency,
+      lowCutFilterRef.current.context.currentTime
+    );
+  }, [lowCutFrequency]);
 
   /**
    * Get current loop bounds from store
@@ -208,8 +244,9 @@ export function useAudioPlayback({
     }
 
     // Build the audio processing chain:
-    // source -> EQ filters (chained) -> analyser -> gain -> destination
+    // source -> EQ filters (chained) -> low cut filter -> analyser -> gain -> destination
     const filters = eqFiltersRef.current;
+    const lowCutFilter = lowCutFilterRef.current;
     const analyser = analyserNodeRef.current;
 
     if (filters.length > 0) {
@@ -222,22 +259,43 @@ export function useAudioPlayback({
         filters[i].connect(filters[i + 1]);
       }
 
-      // Connect last filter to analyser (if exists) or gain
+      // Connect last EQ filter to low cut filter (if exists) or analyser or gain
       filters[filters.length - 1].disconnect();
-      if (analyser) {
+      if (lowCutFilter) {
+        filters[filters.length - 1].connect(lowCutFilter);
+        lowCutFilter.disconnect();
+        if (analyser) {
+          lowCutFilter.connect(analyser);
+          analyser.disconnect();
+          analyser.connect(gainNodeRef.current);
+        } else {
+          lowCutFilter.connect(gainNodeRef.current);
+        }
+      } else if (analyser) {
         filters[filters.length - 1].connect(analyser);
         analyser.disconnect();
         analyser.connect(gainNodeRef.current);
       } else {
         filters[filters.length - 1].connect(gainNodeRef.current);
       }
+    } else if (lowCutFilter) {
+      // No EQ filters, connect through low cut filter
+      sourceNode.connect(lowCutFilter);
+      lowCutFilter.disconnect();
+      if (analyser) {
+        lowCutFilter.connect(analyser);
+        analyser.disconnect();
+        analyser.connect(gainNodeRef.current);
+      } else {
+        lowCutFilter.connect(gainNodeRef.current);
+      }
     } else if (analyser) {
-      // No EQ filters, connect through analyser
+      // No EQ or low cut filters, connect through analyser
       sourceNode.connect(analyser);
       analyser.disconnect();
       analyser.connect(gainNodeRef.current);
     } else {
-      // No EQ or analyser, direct connection
+      // No filters or analyser, direct connection
       sourceNode.connect(gainNodeRef.current);
     }
 

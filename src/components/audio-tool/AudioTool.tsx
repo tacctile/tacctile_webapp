@@ -1018,7 +1018,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [filters, setFilters] = useState({
     deNoise: 0,
     deHum: 0,
-    lowCut: 20,      // 20Hz = off, up to 500Hz
+    lowCut: 20,      // 20Hz = off, up to 300Hz
     highCut: 20000,  // 20kHz = off, down to 2kHz
     clarity: 0,      // -12 to +12 dB
   });
@@ -1081,12 +1081,13 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const loadedFileId = useNavigationStore((state) => state.loadedFiles.audio);
 
   // Audio playback hook - wires up Web Audio API playback with playhead store
-  // Also handles EQ filtering and provides analyser node for spectrum visualization
+  // Also handles EQ filtering, low cut filter, and provides analyser node for spectrum visualization
   useAudioPlayback({
     audioContext,
     audioBuffer,
     duration: loadedAudio?.duration || 0,
     eqValues,
+    lowCutFrequency: filters.lowCut,
     onAnalyserReady: setAnalyserNode,
   });
 
@@ -2143,7 +2144,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
                 value={filters.lowCut}
                 onChange={(_, v) => setFilters(prev => ({ ...prev, lowCut: v as number }))}
                 min={20}
-                max={500}
+                max={300}
                 disabled={!loadedAudio}
               />
             </FilterRow>
