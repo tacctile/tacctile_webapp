@@ -1020,7 +1020,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     deHum: 0,
     lowCut: 20,      // 20Hz = off, up to 300Hz
     highCut: 20000,  // 20kHz = off, down to 2kHz
-    clarity: 0,      // -12 to +12 dB
+    clarity: 0,      // 0 = off, up to +12dB boost
   });
 
   // EQ values (-12 to +12 dB for each band)
@@ -1091,6 +1091,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     highCutFrequency: filters.highCut,
     deHumAmount: filters.deHum,
     deNoiseAmount: filters.deNoise,
+    clarityAmount: filters.clarity,
     onAnalyserReady: setAnalyserNode,
   });
 
@@ -2177,7 +2178,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
               <InspectorSlider
                 value={filters.clarity}
                 onChange={(_, v) => setFilters(prev => ({ ...prev, clarity: v as number }))}
-                min={-12}
+                min={0}
                 max={12}
                 disabled={!loadedAudio}
               />
