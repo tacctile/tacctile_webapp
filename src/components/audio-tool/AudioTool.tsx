@@ -1071,6 +1071,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const timestamp = usePlayheadStore((state) => state.timestamp);
   const isPlaying = usePlayheadStore((state) => state.isPlaying);
   const setTimestamp = usePlayheadStore((state) => state.setTimestamp);
+  const setClickOrigin = usePlayheadStore((state) => state.setClickOrigin);
 
   // Audio tool store for loop state and selection sync
   const looping = useAudioToolStore((state) => state.playback.looping);
@@ -1836,7 +1837,10 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
           const x = e.clientX - rect.left;
           const time = pixelToTime(x, rect.width);
           const clampedTime = Math.max(0, Math.min(loadedAudio.duration, time));
-          setTimestamp(clampedTime * 1000);
+          const timestampMs = clampedTime * 1000;
+          setTimestamp(timestampMs);
+          // Set click origin for "return to click" feature
+          setClickOrigin(timestampMs);
         }
       }
       // Single click on playhead, selection, or handles = do nothing (no drag occurred)
@@ -1867,7 +1871,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     setMouseDownPos(null);
     setHasDragged(false);
     setSelectionDragOffset(0);
-  }, [loadedAudio, hasDragged, interactionType, selectionStart, selectionEnd, pixelToTime, setTimestamp]);
+  }, [loadedAudio, hasDragged, interactionType, selectionStart, selectionEnd, pixelToTime, setTimestamp, setClickOrigin]);
 
   // Handle mouse leaving the waveform area
   const handleWaveformMouseLeave = useCallback(() => {
@@ -1920,7 +1924,9 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     const durationMs = loadedAudio.duration * 1000; // Convert seconds to milliseconds
     const newTimestamp = Math.max(0, Math.min(durationMs, clickNormalized * durationMs));
     setTimestamp(newTimestamp);
-  }, [loadedAudio, setTimestamp, overviewZoom, overviewScrollOffset]);
+    // Set click origin for "return to click" feature
+    setClickOrigin(newTimestamp);
+  }, [loadedAudio, setTimestamp, setClickOrigin, overviewZoom, overviewScrollOffset]);
 
   // Right panel content - Video Reference + Filters + Flags
   const inspectorContent = (
