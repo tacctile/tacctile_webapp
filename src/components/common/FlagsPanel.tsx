@@ -385,6 +385,21 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
                     </Timestamp>
                   </Tooltip>
 
+                  {/* User name display */}
+                  {flag.createdBy && (
+                    <Typography
+                      sx={{
+                        fontSize: 10,
+                        color: flag.userColor || '#888',
+                        fontWeight: 500,
+                        flexShrink: 0,
+                        px: 0.5,
+                      }}
+                    >
+                      {flag.createdBy}
+                    </Typography>
+                  )}
+
                   {!isEditing && (
                     <>
                       <FlagLabel sx={{ color: flag.label ? '#ccc' : '#666' }}>

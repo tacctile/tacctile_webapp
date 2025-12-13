@@ -919,15 +919,73 @@ const audioFiles: (FileItem & { format?: string; gps?: string | null; hasVideo?:
   { id: 'a4', type: 'audio', fileName: 'radio_sweep_session.wav', duration: 923, capturedAt: Date.now() - 5800000, user: 'Jen', deviceInfo: 'Tascam DR-40X', flagCount: 2, hasFindings: true, format: '44.1kHz / 16-bit', gps: null, hasVideo: false },
 ];
 
-const mockFlags: Flag[] = [
-  { id: 'f1', timestamp: 142000, label: 'Whisper', note: 'Possible voice, sounds like "hello" or "help". Class B audio anomaly.', createdBy: 'Sarah', createdAt: Date.now() - 3600000, userColor: '#19abb5' },
-  { id: 'f2', timestamp: 287000, label: 'Knock', note: 'Three distinct knocks in response to question.', createdBy: 'Sarah', createdAt: Date.now() - 3000000, userColor: '#19abb5' },
-  { id: 'f3', timestamp: 445000, label: 'Static burst', createdBy: 'Mike', createdAt: Date.now() - 2400000, userColor: '#19abb5' },
-  { id: 'f4', timestamp: 612000, label: 'Voice?', note: 'Very faint, needs enhancement. Possibly saying a name.', createdBy: 'Sarah', createdAt: Date.now() - 1800000, userColor: '#19abb5' },
-  { id: 'f5', timestamp: 823000, label: 'Breath sound', createdBy: 'Jen', createdAt: Date.now() - 1200000, userColor: '#19abb5' },
-  { id: 'f6', timestamp: 1105000, label: 'Audio Response', note: 'Clear response to "Is anyone here?" - sounds like "yes"', createdBy: 'Sarah', createdAt: Date.now() - 600000, userColor: '#19abb5' },
-  { id: 'f7', timestamp: 1342000, label: 'Footsteps?', note: 'Rhythmic sounds, could be footsteps or pipes.', createdBy: 'Mike', createdAt: Date.now() - 300000, userColor: '#19abb5' },
+// Test users for multi-user collaboration simulation
+const TEST_USERS = [
+  { id: 'nick', name: 'Nick', color: '#19abb5' },
+  { id: 'ben', name: 'Ben', color: '#e74c3c' },
+  { id: 'jen', name: 'Jen', color: '#9b59b6' },
+  { id: 'greg', name: 'Greg', color: '#27ae60' },
+  { id: 'mike', name: 'Mike', color: '#f39c12' },
+  { id: 'alex', name: 'Alex', color: '#3498db' },
 ];
+
+// Labels and descriptions for generated test flags
+const FLAG_LABELS = [
+  'Odd sound', 'Check this', 'Possible anomaly', 'Background noise', 'Interesting',
+  'Listen closely', 'Sounds strange', 'Review needed', 'Potential hit', 'Unclear audio'
+];
+
+const FLAG_DESCRIPTIONS = [
+  'Need second opinion on this section',
+  'Heard something unusual here',
+  'Could be significant',
+  'Might be nothing but flagging anyway',
+  'Team should review',
+  'Sounds different from baseline',
+  'Worth a closer look',
+  'Not sure what this is',
+  'Caught my attention',
+  'Possible artifact'
+];
+
+// Get a random test user
+const getRandomTestUser = () => TEST_USERS[Math.floor(Math.random() * TEST_USERS.length)];
+
+// Generate random test flags for test_drums.mp3 (105 seconds = 105000ms)
+const generateTestFlags = (): Flag[] => {
+  const numFlags = 15 + Math.floor(Math.random() * 6); // 15-20 flags
+  const flags: Flag[] = [];
+  const usedTimestamps = new Set<number>();
+
+  for (let i = 0; i < numFlags; i++) {
+    // Generate a random timestamp, avoiding duplicates and clustering
+    let timestamp: number;
+    do {
+      timestamp = Math.floor(Math.random() * 105000);
+    } while (
+      // Ensure at least 3 seconds apart from other flags
+      Array.from(usedTimestamps).some(t => Math.abs(t - timestamp) < 3000)
+    );
+    usedTimestamps.add(timestamp);
+
+    const user = getRandomTestUser();
+    const label = FLAG_LABELS[Math.floor(Math.random() * FLAG_LABELS.length)];
+    const description = FLAG_DESCRIPTIONS[Math.floor(Math.random() * FLAG_DESCRIPTIONS.length)];
+
+    flags.push({
+      id: `flag-${i}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      timestamp,
+      label,
+      note: description,
+      createdBy: user.name,
+      createdAt: Date.now() - Math.floor(Math.random() * 3600000), // Random time in last hour
+      userColor: user.color,
+    });
+  }
+
+  // Sort by timestamp
+  return flags.sort((a, b) => a.timestamp - b.timestamp);
+};
 
 // ============================================================================
 // MAIN COMPONENT
@@ -942,7 +1000,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [loadedAudio, setLoadedAudio] = useState<typeof audioFiles[0] | null>(null);
   const [videoRefCollapsed, setVideoRefCollapsed] = useState(true); // collapsed by default, expands when video exists
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
-  const [flags, setFlags] = useState<Flag[]>(mockFlags);
+  const [flags, setFlags] = useState<Flag[]>([]);
   const [expandVideoModalOpen, setExpandVideoModalOpen] = useState(false);
 
   // File drop zone state
@@ -1064,6 +1122,17 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       setVideoRefCollapsed(true);
     }
   }, [loadedAudio?.hasVideo]);
+
+  // Generate test flags when test_drums.mp3 is loaded
+  useEffect(() => {
+    if (loadedAudio?.fileName === 'test_drums.mp3') {
+      // Generate random test flags for multi-user simulation
+      setFlags(generateTestFlags());
+    } else {
+      // Clear flags when loading different files
+      setFlags([]);
+    }
+  }, [loadedAudio?.fileName]);
 
   // Measure unified container width for PlayheadLine positioning
   useEffect(() => {
@@ -2151,14 +2220,16 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
           }}
           onFlagAdd={() => {
             // Create a new flag at current playhead position
+            // Randomly assign one of the test users to simulate multi-user collaboration
+            const randomUser = getRandomTestUser();
             const newFlag: Flag = {
               id: `flag-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
               timestamp: timestamp, // Current playhead position in ms
               label: '', // Empty label, user can edit later
               note: '', // Empty description
-              createdBy: 'You',
+              createdBy: randomUser.name,
               createdAt: Date.now(),
-              userColor: '#19abb5', // Default teal color
+              userColor: randomUser.color,
             };
             setFlags(prev => [...prev, newFlag].sort((a, b) => a.timestamp - b.timestamp));
           }}
@@ -2611,14 +2682,16 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
           setTimestamp(flag.timestamp);
         }}
         onFlagAdd={() => {
+          // Randomly assign one of the test users to simulate multi-user collaboration
+          const randomUser = getRandomTestUser();
           const newFlag: Flag = {
             id: `flag-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             timestamp: timestamp,
             label: '', // Empty label, user can edit later
             note: '',
-            createdBy: 'You',
+            createdBy: randomUser.name,
             createdAt: Date.now(),
-            userColor: '#19abb5', // Default teal color
+            userColor: randomUser.color,
           };
           setFlags(prev => [...prev, newFlag].sort((a, b) => a.timestamp - b.timestamp));
         }}
