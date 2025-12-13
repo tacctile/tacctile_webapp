@@ -1897,33 +1897,38 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     }, 0);
   }, [setTimestamp, audioSeek]);
 
-  // Navigate to next/previous flag
+  // Navigate to next/previous flag based on current playhead position
   const navigateToFlag = useCallback((direction: 'next' | 'prev') => {
     if (sortedFlags.length === 0) return;
 
-    // Find current flag index
-    const currentIndex = selectedFlagId
-      ? sortedFlags.findIndex(f => f.id === selectedFlagId)
-      : -1;
+    // Current playhead position in milliseconds
+    const currentPlayhead = timestamp;
 
-    let newIndex: number;
+    let targetFlag: Flag | undefined;
+
     if (direction === 'next') {
-      // If no flag selected or at the end, go to first
-      newIndex = currentIndex < 0 || currentIndex >= sortedFlags.length - 1
-        ? 0
-        : currentIndex + 1;
+      // Find the first flag whose timestamp is GREATER than current playhead
+      targetFlag = sortedFlags.find(f => f.timestamp > currentPlayhead);
+      // If no flag exists after current position, wrap to the first flag
+      if (!targetFlag) {
+        targetFlag = sortedFlags[0];
+      }
     } else {
-      // If no flag selected or at the beginning, go to last
-      newIndex = currentIndex <= 0
-        ? sortedFlags.length - 1
-        : currentIndex - 1;
+      // Find the last flag whose timestamp is LESS than current playhead
+      // Filter to flags before current position, then take the last one
+      const flagsBefore = sortedFlags.filter(f => f.timestamp < currentPlayhead);
+      if (flagsBefore.length > 0) {
+        targetFlag = flagsBefore[flagsBefore.length - 1];
+      } else {
+        // If no flag exists before current position, wrap to the last flag
+        targetFlag = sortedFlags[sortedFlags.length - 1];
+      }
     }
 
-    const targetFlag = sortedFlags[newIndex];
     if (targetFlag) {
       handleWaveformFlagClick(targetFlag);
     }
-  }, [sortedFlags, selectedFlagId, handleWaveformFlagClick]);
+  }, [sortedFlags, timestamp, handleWaveformFlagClick]);
 
   // Keyboard handler for escape to clear selection and Tab navigation for flags
   useEffect(() => {
