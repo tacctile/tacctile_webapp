@@ -1063,7 +1063,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [hasDragged, setHasDragged] = useState(false);
   const [interactionType, setInteractionType] = useState<'none' | 'panView' | 'scrubPlayhead' | 'createSelection' | 'moveSelection' | 'adjustHandleStart' | 'adjustHandleEnd'>('none');
   const [selectionDragOffset, setSelectionDragOffset] = useState<number>(0);
-  const [isSpacebarHeld, setIsSpacebarHeld] = useState(false);
 
   // Ref for waveform container to calculate selection positions
   const waveformContainerRef = useRef<HTMLDivElement>(null);
@@ -1659,12 +1658,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     setMouseDownPos({ x: e.clientX, time });
     setHasDragged(false);
 
-    // SPACEBAR PAN TAKES PRIORITY - if spacebar is held, enter pan mode
-    if (isSpacebarHeld) {
-      setInteractionType('panView');
-      return;
-    }
-
     const target = getClickTarget(x, rect.width);
 
     switch (target) {
@@ -1687,7 +1680,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         // Don't start selection yet - wait for drag
         break;
     }
-  }, [loadedAudio, zoomToolActive, pixelToTime, getClickTarget, selectionStart, isSpacebarHeld]);
+  }, [loadedAudio, zoomToolActive, pixelToTime, getClickTarget, selectionStart]);
 
   // Handle waveform mouse move - process dragging based on interaction type
   const handleWaveformMouseMove = useCallback((e: React.MouseEvent) => {
@@ -1862,40 +1855,17 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     setInteractionType('none');
   }, []);
 
-  // Keyboard handler for spacebar pan mode and escape to clear selection
+  // Keyboard handler for escape to clear selection
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Check if user is typing in an input, textarea, or contenteditable
-      const activeElement = document.activeElement;
-      const isTyping = activeElement?.tagName === 'INPUT' ||
-                       activeElement?.tagName === 'TEXTAREA' ||
-                       activeElement?.getAttribute('contenteditable') === 'true';
-
-      if (e.code === 'Space') {
-        if (isTyping) {
-          // Allow normal spacebar behavior in text inputs
-          return;
-        }
-        e.preventDefault();
-        setIsSpacebarHeld(true);
-      }
-
       if (e.key === 'Escape') {
         clearSelection();
       }
     };
 
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'Space') {
-        setIsSpacebarHeld(false);
-      }
-    };
-
     window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
     };
   }, [clearSelection]);
 
@@ -2257,12 +2227,8 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             position: 'relative',
             backgroundColor: '#0a0a0a',
             minHeight: 100,
-            cursor: interactionType === 'panView'
-              ? 'grabbing'
-              : isSpacebarHeld
-                ? 'grab'
-              : zoomToolActive
-                ? 'crosshair'
+            cursor: zoomToolActive
+              ? 'crosshair'
               : interactionType === 'scrubPlayhead'
                 ? 'ew-resize'
               : interactionType === 'moveSelection'
