@@ -332,6 +332,12 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
   // Spacebar keyboard listener for panning
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input or contentEditable element
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
       if (e.code === 'Space' && !e.repeat) {
         e.preventDefault();
         setIsSpaceHeld(true);
