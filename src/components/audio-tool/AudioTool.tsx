@@ -1227,6 +1227,40 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     }
   }, [isPlaying, looping, timestamp, selectionStart, selectionEnd, loadedAudio, setTimestamp]);
 
+  // Page scroll effect - DAW-style page snap during playback
+  // When the playhead reaches the right edge of the visible waveform area during playback,
+  // snap the view to the next "page" so the playhead appears near the left side
+  useEffect(() => {
+    // Only trigger during active playback
+    if (!isPlaying) return;
+    // Need audio loaded with valid duration
+    if (!loadedAudio || !loadedAudio.duration || loadedAudio.duration <= 0) return;
+    // Only needed when zoomed in (zoom > 1 means not all content is visible)
+    if (overviewZoom <= 1) return;
+
+    const duration = loadedAudio.duration;
+    const currentTimeSec = timestamp / 1000;
+
+    // Calculate the visible window
+    const visibleWidth = 1 / overviewZoom; // Fraction of total duration visible
+    const visibleEnd = overviewScrollOffset + visibleWidth; // End of visible area as fraction
+
+    // Calculate playhead position as a fraction of total duration
+    const playheadFraction = currentTimeSec / duration;
+
+    // Check if playhead has reached or exceeded the right edge of visible area
+    if (playheadFraction >= visibleEnd) {
+      // Calculate new scroll offset to place playhead at the left side of the view
+      // We set the new scroll offset to the playhead position, so it appears at the left edge
+      const newScrollOffset = Math.max(0, Math.min(1 - visibleWidth, playheadFraction));
+
+      // Only update if the new offset is meaningfully different (avoid unnecessary renders)
+      if (Math.abs(newScrollOffset - overviewScrollOffset) > 0.001) {
+        setOverviewScrollOffset(newScrollOffset);
+      }
+    }
+  }, [isPlaying, timestamp, loadedAudio, overviewZoom, overviewScrollOffset]);
+
   // Load and decode real audio file
   const loadAudioFile = useCallback(async (filePath: string, fileItem: typeof audioFiles[0]) => {
     try {
