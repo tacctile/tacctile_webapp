@@ -247,8 +247,9 @@ export const TransportControls: React.FC<TransportControlsProps> = () => {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing in an input
+      // Ignore if user is typing in an input or contentEditable element
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.target instanceof HTMLElement && e.target.isContentEditable) return;
 
       // Ignore repeated key events (when key is held down)
       if (e.repeat) return;
