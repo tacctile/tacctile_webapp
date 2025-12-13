@@ -241,6 +241,9 @@ export const TransportControls: React.FC<TransportControlsProps> = () => {
       // Ignore if user is typing in an input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
+      // Ignore repeated key events (when key is held down)
+      if (e.repeat) return;
+
       switch (e.code) {
         case 'Space':
           e.preventDefault();
