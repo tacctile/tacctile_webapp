@@ -2163,6 +2163,13 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             setFlags(prev => [...prev, newFlag].sort((a, b) => a.timestamp - b.timestamp));
           }}
           onFlagEdit={(flag) => console.log('Edit flag:', flag.id)}
+          onFlagUpdate={(flagId, updates) => {
+            setFlags(prev => prev.map(f =>
+              f.id === flagId
+                ? { ...f, label: updates.label ?? f.label, note: updates.note ?? f.note }
+                : f
+            ));
+          }}
           onFlagDelete={(flagId) => setFlags(prev => prev.filter(f => f.id !== flagId))}
           disabled={!loadedAudio}
         />

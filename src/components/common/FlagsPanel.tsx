@@ -154,6 +154,7 @@ interface FlagsPanelProps {
   onFlagClick?: (flag: Flag) => void;
   onFlagAdd?: () => void;
   onFlagEdit?: (flag: Flag) => void;
+  onFlagUpdate?: (flagId: string, updates: { label?: string; note?: string }) => void;
   onFlagDelete?: (flagId: string) => void;
   disabled?: boolean;
 }
@@ -180,6 +181,7 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
   onFlagClick,
   onFlagAdd,
   onFlagEdit,
+  onFlagUpdate,
   onFlagDelete,
   disabled = false,
 }) => {
@@ -187,6 +189,11 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
   const [deletedFlag, setDeletedFlag] = useState<Flag | null>(null);
   const [undoTimeout, setUndoTimeout] = useState<NodeJS.Timeout | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Edit mode state
+  const [editingFlagId, setEditingFlagId] = useState<string | null>(null);
+  const [editLabel, setEditLabel] = useState('');
+  const [editNote, setEditNote] = useState('');
 
   // Clear undo toast after 5 seconds
   useEffect(() => {
@@ -220,6 +227,50 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
       console.log('Undo delete:', deletedFlag.id);
       setDeletedFlag(null);
     }
+  };
+
+  // Start editing a flag
+  const startEditing = (flag: Flag) => {
+    setEditingFlagId(flag.id);
+    setEditLabel(flag.label || '');
+    setEditNote(flag.note || '');
+  };
+
+  // Save edits
+  const saveEdit = () => {
+    if (editingFlagId && onFlagUpdate) {
+      onFlagUpdate(editingFlagId, {
+        label: editLabel,
+        note: editNote,
+      });
+    }
+    setEditingFlagId(null);
+    setEditLabel('');
+    setEditNote('');
+  };
+
+  // Cancel editing
+  const cancelEdit = () => {
+    setEditingFlagId(null);
+    setEditLabel('');
+    setEditNote('');
+  };
+
+  // Handle key events for edit inputs
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      saveEdit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelEdit();
+    }
+  };
+
+  // Handle flag click - jump to timestamp and open edit mode
+  const handleFlagClick = (flag: Flag) => {
+    onFlagClick?.(flag);
+    startEditing(flag);
   };
 
   // Filter flags based on search query
@@ -304,10 +355,20 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
           filteredFlags.map((flag) => {
             const isExpanded = expandedFlags.includes(flag.id);
             const hasNote = flag.note && flag.note.length > 0;
+            const isEditing = editingFlagId === flag.id;
 
             return (
-              <FlagItem key={flag.id}>
-                <FlagHeader>
+              <FlagItem
+                key={flag.id}
+                sx={{
+                  backgroundColor: isEditing ? 'rgba(25, 171, 181, 0.08)' : 'transparent',
+                  borderLeft: isEditing ? '2px solid #19abb5' : '2px solid transparent',
+                }}
+              >
+                <FlagHeader
+                  sx={{ cursor: 'pointer' }}
+                  onClick={() => !isEditing && handleFlagClick(flag)}
+                >
                   {/* Color indicator */}
                   <Box
                     sx={{
@@ -319,55 +380,167 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
                     }}
                   />
                   <Tooltip title="Click to jump to this time" placement="top">
-                    <Timestamp onClick={() => onFlagClick?.(flag)}>
+                    <Timestamp onClick={(e) => { e.stopPropagation(); handleFlagClick(flag); }}>
                       {formatTimestamp(flag.timestamp)}
                     </Timestamp>
                   </Tooltip>
 
-                  <FlagLabel>{flag.label || 'Untitled'}</FlagLabel>
+                  {!isEditing && (
+                    <>
+                      <FlagLabel sx={{ color: flag.label ? '#ccc' : '#666' }}>
+                        {flag.label || 'Untitled'}
+                      </FlagLabel>
 
-                  <FlagActions className="flag-actions">
-                    <Tooltip title="Edit flag">
-                      <IconButton
-                        size="small"
-                        onClick={() => onFlagEdit?.(flag)}
-                        sx={{ padding: '2px', color: '#555', '&:hover': { color: '#19abb5' } }}
-                      >
-                        <EditIcon sx={{ fontSize: 13 }} />
-                      </IconButton>
-                    </Tooltip>
+                      <FlagActions className="flag-actions">
+                        <Tooltip title="Edit flag">
+                          <IconButton
+                            size="small"
+                            onClick={(e) => { e.stopPropagation(); startEditing(flag); }}
+                            sx={{ padding: '2px', color: '#555', '&:hover': { color: '#19abb5' } }}
+                          >
+                            <EditIcon sx={{ fontSize: 13 }} />
+                          </IconButton>
+                        </Tooltip>
 
-                    <Tooltip title="Delete flag">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDelete(flag)}
-                        sx={{ padding: '2px', color: '#555', '&:hover': { color: '#c45c5c' } }}
-                      >
-                        <DeleteIcon sx={{ fontSize: 13 }} />
-                      </IconButton>
-                    </Tooltip>
-                  </FlagActions>
+                        <Tooltip title="Delete flag">
+                          <IconButton
+                            size="small"
+                            onClick={(e) => { e.stopPropagation(); handleDelete(flag); }}
+                            sx={{ padding: '2px', color: '#555', '&:hover': { color: '#c45c5c' } }}
+                          >
+                            <DeleteIcon sx={{ fontSize: 13 }} />
+                          </IconButton>
+                        </Tooltip>
+                      </FlagActions>
+                    </>
+                  )}
                 </FlagHeader>
 
-                {/* Note preview or full note */}
-                {hasNote && (
-                  isExpanded ? (
-                    <FullNote onClick={() => toggleExpanded(flag.id)}>
+                {/* Inline edit form */}
+                {isEditing && (
+                  <Box sx={{ p: '8px 12px', pt: 0 }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      placeholder="Add label..."
+                      value={editLabel}
+                      onChange={(e) => setEditLabel(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      autoFocus
+                      sx={{
+                        mb: 1,
+                        '& .MuiInputBase-root': {
+                          fontSize: 11,
+                          backgroundColor: '#2a2a2a',
+                          '& fieldset': { borderColor: '#555' },
+                          '&:hover fieldset': { borderColor: '#666' },
+                          '&.Mui-focused fieldset': { borderColor: '#19abb5' },
+                        },
+                        '& .MuiInputBase-input': {
+                          color: 'white',
+                          padding: '6px 10px',
+                          '&::placeholder': { color: '#666', opacity: 1 },
+                        },
+                      }}
+                    />
+                    <TextField
+                      fullWidth
+                      size="small"
+                      multiline
+                      rows={2}
+                      placeholder="Add description..."
+                      value={editNote}
+                      onChange={(e) => setEditNote(e.target.value)}
+                      onKeyDown={(e) => {
+                        // Only escape cancels in textarea, not enter (allows newlines)
+                        if (e.key === 'Escape') {
+                          e.preventDefault();
+                          cancelEdit();
+                        }
+                      }}
+                      sx={{
+                        mb: 1,
+                        '& .MuiInputBase-root': {
+                          fontSize: 11,
+                          backgroundColor: '#2a2a2a',
+                          '& fieldset': { borderColor: '#555' },
+                          '&:hover fieldset': { borderColor: '#666' },
+                          '&.Mui-focused fieldset': { borderColor: '#19abb5' },
+                        },
+                        '& .MuiInputBase-input': {
+                          color: 'white',
+                          padding: '6px 10px',
+                          '&::placeholder': { color: '#666', opacity: 1 },
+                        },
+                      }}
+                    />
+                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                      <Button
+                        size="small"
+                        onClick={cancelEdit}
+                        sx={{
+                          fontSize: 10,
+                          color: 'white',
+                          backgroundColor: 'transparent',
+                          border: '1px solid #666',
+                          px: 1.5,
+                          py: 0.5,
+                          minWidth: 'auto',
+                          '&:hover': {
+                            backgroundColor: 'rgba(255,255,255,0.05)',
+                            borderColor: '#888',
+                          },
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="small"
+                        onClick={saveEdit}
+                        sx={{
+                          fontSize: 10,
+                          color: 'white',
+                          backgroundColor: '#19abb5',
+                          px: 1.5,
+                          py: 0.5,
+                          minWidth: 'auto',
+                          '&:hover': {
+                            backgroundColor: '#15969f',
+                          },
+                        }}
+                      >
+                        Save
+                      </Button>
+                    </Box>
+                  </Box>
+                )}
+
+                {/* Description preview (when not editing) */}
+                {!isEditing && hasNote && (
+                  <Box
+                    sx={{
+                      px: '12px',
+                      pb: 1,
+                      pt: 0,
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => handleFlagClick(flag)}
+                  >
+                    <Typography
+                      sx={{
+                        fontSize: 10,
+                        color: '#888',
+                        lineHeight: 1.4,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                      }}
+                    >
                       {flag.note}
-                      {flag.createdBy && (
-                        <Typography sx={{ fontSize: 9, color: '#555', mt: 1 }}>
-                          — {flag.createdBy}
-                        </Typography>
-                      )}
-                      <Typography sx={{ fontSize: 9, color: '#444', mt: 0.5, fontStyle: 'italic' }}>
-                        Click to collapse
-                      </Typography>
-                    </FullNote>
-                  ) : (
-                    <NotePreview onClick={() => toggleExpanded(flag.id)}>
-                      "{truncateNote(flag.note!)}"
-                    </NotePreview>
-                  )
+                    </Typography>
+                  </Box>
                 )}
               </FlagItem>
             );
