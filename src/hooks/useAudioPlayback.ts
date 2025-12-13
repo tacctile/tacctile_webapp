@@ -31,6 +31,8 @@ interface UseAudioPlaybackOptions {
   highCutFrequency?: number;
   /** De-Hum filter amount (0 = off/normal audio, 100 = maximum hum removal at -30dB) */
   deHumAmount?: number;
+  /** De-Noise filter amount (0 = off/20000Hz, 100 = aggressive cut at 4000Hz) */
+  deNoiseAmount?: number;
   /** Callback to receive the AnalyserNode for spectrum visualization */
   onAnalyserReady?: (analyser: AnalyserNode | null) => void;
 }
@@ -60,6 +62,7 @@ export function useAudioPlayback({
   lowCutFrequency = 20,
   highCutFrequency = 20000,
   deHumAmount = 0,
+  deNoiseAmount = 0,
   onAnalyserReady,
 }: UseAudioPlaybackOptions): UseAudioPlaybackReturn {
   // Refs for audio playback management
@@ -80,6 +83,9 @@ export function useAudioPlayback({
 
   // De-Hum filter nodes ref - array of peaking filters at 60Hz harmonics
   const deHumFiltersRef = useRef<BiquadFilterNode[]>([]);
+
+  // De-Noise filter node ref (low-pass filter for high-frequency noise reduction)
+  const deNoiseFilterRef = useRef<BiquadFilterNode | null>(null);
 
   // Analyser node for spectrum visualization
   const analyserNodeRef = useRef<AnalyserNode | null>(null);
@@ -129,6 +135,7 @@ export function useAudioPlayback({
       lowCutFilterRef.current = null;
       highCutFilterRef.current = null;
       deHumFiltersRef.current = [];
+      deNoiseFilterRef.current = null;
       analyserNodeRef.current = null;
       onAnalyserReady?.(null);
       return;
@@ -179,6 +186,17 @@ export function useAudioPlayback({
       });
 
       deHumFiltersRef.current = deHumFilters;
+    }
+
+    // Create De-Noise filter (low-pass for high-frequency noise reduction) if not already created
+    // Formula: frequency = 20000 - (deNoiseAmount / 100) * 16000
+    // At 0%: 20000Hz (no audible effect), at 100%: 4000Hz (significant treble cut)
+    if (!deNoiseFilterRef.current) {
+      const deNoiseFilter = audioContext.createBiquadFilter();
+      deNoiseFilter.type = 'lowpass';
+      deNoiseFilter.frequency.value = 20000; // Start at 20kHz (no effect)
+      deNoiseFilter.Q.value = 0.707; // Butterworth response for clean cutoff
+      deNoiseFilterRef.current = deNoiseFilter;
     }
 
     // Create 10 EQ filter nodes if not already created
@@ -236,6 +254,13 @@ export function useAudioPlayback({
           // Ignore
         }
       });
+      if (deNoiseFilterRef.current) {
+        try {
+          deNoiseFilterRef.current.disconnect();
+        } catch {
+          // Ignore
+        }
+      }
     };
   }, [audioContext, onAnalyserReady]);
 
@@ -297,6 +322,26 @@ export function useAudioPlayback({
   }, [deHumAmount]);
 
   /**
+   * Update De-Noise filter frequency when deNoiseAmount changes
+   * Formula: frequency = 20000 - (deNoiseAmount / 100) * 16000
+   * - At 0%: frequency = 20000Hz (no audible effect)
+   * - At 50%: frequency = 12000Hz (moderate treble cut)
+   * - At 100%: frequency = 4000Hz (significant treble cut)
+   */
+  useEffect(() => {
+    if (!deNoiseFilterRef.current) return;
+
+    // Calculate frequency: 0% = 20000Hz (no effect), 100% = 4000Hz (max cut)
+    const frequency = 20000 - (deNoiseAmount / 100) * 16000;
+
+    // Use setValueAtTime for smooth update without clicks
+    deNoiseFilterRef.current.frequency.setValueAtTime(
+      frequency,
+      deNoiseFilterRef.current.context.currentTime
+    );
+  }, [deNoiseAmount]);
+
+  /**
    * Get current loop bounds from store
    */
   const getLoopBounds = useCallback(() => {
@@ -335,14 +380,36 @@ export function useAudioPlayback({
     }
 
     // Build the audio processing chain:
-    // source -> EQ filters (chained) -> low cut filter -> high cut filter -> De-Hum filters -> analyser -> gain -> destination
+    // source -> EQ filters (chained) -> low cut filter -> high cut filter -> De-Hum filters -> De-Noise filter -> analyser -> gain -> destination
     const filters = eqFiltersRef.current;
     const lowCutFilter = lowCutFilterRef.current;
     const highCutFilter = highCutFilterRef.current;
     const deHumFilters = deHumFiltersRef.current;
+    const deNoiseFilter = deNoiseFilterRef.current;
     const analyser = analyserNodeRef.current;
 
-    // Helper function to connect from De-Hum filters (or earlier) to analyser and gain
+    // Helper function to connect from De-Noise filter (or earlier) to analyser and gain
+    const connectToDeNoiseOrLater = (fromNode: AudioNode) => {
+      if (deNoiseFilter) {
+        fromNode.connect(deNoiseFilter);
+        deNoiseFilter.disconnect();
+        if (analyser) {
+          deNoiseFilter.connect(analyser);
+          analyser.disconnect();
+          analyser.connect(gainNodeRef.current!);
+        } else {
+          deNoiseFilter.connect(gainNodeRef.current!);
+        }
+      } else if (analyser) {
+        fromNode.connect(analyser);
+        analyser.disconnect();
+        analyser.connect(gainNodeRef.current!);
+      } else {
+        fromNode.connect(gainNodeRef.current!);
+      }
+    };
+
+    // Helper function to connect from De-Hum filters (or earlier) to De-Noise filter and beyond
     const connectToDeHumOrLater = (fromNode: AudioNode) => {
       if (deHumFilters.length > 0) {
         // Connect to first De-Hum filter
@@ -352,21 +419,11 @@ export function useAudioPlayback({
           deHumFilters[i].disconnect();
           deHumFilters[i].connect(deHumFilters[i + 1]);
         }
-        // Connect last De-Hum filter to analyser or gain
+        // Connect last De-Hum filter to De-Noise filter (or analyser or gain)
         deHumFilters[deHumFilters.length - 1].disconnect();
-        if (analyser) {
-          deHumFilters[deHumFilters.length - 1].connect(analyser);
-          analyser.disconnect();
-          analyser.connect(gainNodeRef.current!);
-        } else {
-          deHumFilters[deHumFilters.length - 1].connect(gainNodeRef.current!);
-        }
-      } else if (analyser) {
-        fromNode.connect(analyser);
-        analyser.disconnect();
-        analyser.connect(gainNodeRef.current!);
+        connectToDeNoiseOrLater(deHumFilters[deHumFilters.length - 1]);
       } else {
-        fromNode.connect(gainNodeRef.current!);
+        connectToDeNoiseOrLater(fromNode);
       }
     };
 

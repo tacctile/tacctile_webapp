@@ -1081,7 +1081,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const loadedFileId = useNavigationStore((state) => state.loadedFiles.audio);
 
   // Audio playback hook - wires up Web Audio API playback with playhead store
-  // Also handles EQ filtering, low cut filter, high cut filter, De-Hum filter, and provides analyser node for spectrum visualization
+  // Also handles EQ filtering, low cut filter, high cut filter, De-Hum filter, De-Noise filter, and provides analyser node for spectrum visualization
   useAudioPlayback({
     audioContext,
     audioBuffer,
@@ -1090,6 +1090,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     lowCutFrequency: filters.lowCut,
     highCutFrequency: filters.highCut,
     deHumAmount: filters.deHum,
+    deNoiseAmount: filters.deNoise,
     onAnalyserReady: setAnalyserNode,
   });
 
