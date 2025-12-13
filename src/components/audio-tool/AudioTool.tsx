@@ -23,7 +23,7 @@ import RemoveIcon from '@mui/icons-material/Remove';
 
 import { WorkspaceLayout } from '@/components/layout';
 import { FileLibrary, type FileItem } from '@/components/file-library';
-import { MetadataPanel, FlagsPanel, TransportControls, type Flag } from '@/components/common';
+import { MetadataPanel, FlagsPanel, TransportControls, type Flag, type FlagUser } from '@/components/common';
 import { ExpandVideoModal } from './ExpandVideoModal';
 import { WaveformCanvas } from './WaveformCanvas';
 import { TimeScaleBar } from './TimeScaleBar';
@@ -1003,6 +1003,11 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [flags, setFlags] = useState<Flag[]>([]);
   const [expandVideoModalOpen, setExpandVideoModalOpen] = useState(false);
 
+  // Flag user filter state
+  const [enabledUserIds, setEnabledUserIds] = useState<string[]>([]);
+  const [selectedFlagId, setSelectedFlagId] = useState<string | null>(null);
+  const flagsListRef = useRef<HTMLDivElement>(null);
+
   // File drop zone state
   const [isFileDragOver, setIsFileDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1128,10 +1133,15 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     if (loadedAudio?.fileName === 'test_drums.mp3') {
       // Generate random test flags for multi-user simulation
       setFlags(generateTestFlags());
+      // Initialize enabled users to all users
+      setEnabledUserIds(TEST_USERS.map(u => u.id));
     } else {
       // Clear flags when loading different files
       setFlags([]);
+      setEnabledUserIds([]);
     }
+    // Also clear selected flag
+    setSelectedFlagId(null);
   }, [loadedAudio?.fileName]);
 
   // Measure unified container width for PlayheadLine positioning
@@ -1862,11 +1872,81 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     setInteractionType('none');
   }, []);
 
-  // Keyboard handler for escape to clear selection
+  // Filter flags for display based on enabled users
+  const filteredFlagsForDisplay = flags.filter(flag => {
+    const flagUserId = flag.createdBy?.toLowerCase() || '';
+    return enabledUserIds.includes(flagUserId);
+  });
+
+  // Get sorted flags by timestamp for navigation
+  const sortedFlags = [...filteredFlagsForDisplay].sort((a, b) => a.timestamp - b.timestamp);
+
+  // Handle flag click from waveform - jump to flag timestamp and select it
+  const handleWaveformFlagClick = useCallback((flag: Flag) => {
+    // Jump playhead to flag timestamp
+    setTimestamp(flag.timestamp);
+    audioSeek(flag.timestamp / 1000);
+    // Select the flag
+    setSelectedFlagId(flag.id);
+    // Scroll flag into view in the list
+    setTimeout(() => {
+      const flagElement = document.querySelector(`[data-flag-id="${flag.id}"]`);
+      if (flagElement) {
+        flagElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }, 0);
+  }, [setTimestamp, audioSeek]);
+
+  // Navigate to next/previous flag
+  const navigateToFlag = useCallback((direction: 'next' | 'prev') => {
+    if (sortedFlags.length === 0) return;
+
+    // Find current flag index
+    const currentIndex = selectedFlagId
+      ? sortedFlags.findIndex(f => f.id === selectedFlagId)
+      : -1;
+
+    let newIndex: number;
+    if (direction === 'next') {
+      // If no flag selected or at the end, go to first
+      newIndex = currentIndex < 0 || currentIndex >= sortedFlags.length - 1
+        ? 0
+        : currentIndex + 1;
+    } else {
+      // If no flag selected or at the beginning, go to last
+      newIndex = currentIndex <= 0
+        ? sortedFlags.length - 1
+        : currentIndex - 1;
+    }
+
+    const targetFlag = sortedFlags[newIndex];
+    if (targetFlag) {
+      handleWaveformFlagClick(targetFlag);
+    }
+  }, [sortedFlags, selectedFlagId, handleWaveformFlagClick]);
+
+  // Keyboard handler for escape to clear selection and Tab navigation for flags
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input or contentEditable element
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
       if (e.key === 'Escape') {
         clearSelection();
+        setSelectedFlagId(null);
+      }
+
+      // Tab / Shift+Tab navigation between flags
+      if (e.key === 'Tab' && sortedFlags.length > 0) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          navigateToFlag('prev');
+        } else {
+          navigateToFlag('next');
+        }
       }
     };
 
@@ -1874,7 +1954,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [clearSelection]);
+  }, [clearSelection, sortedFlags.length, navigateToFlag]);
 
   // Click-to-seek handler for unified container
   // Calculates time position accounting for zoom and scroll
@@ -2212,11 +2292,18 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <FlagsPanel
           flags={flags}
+          users={TEST_USERS as FlagUser[]}
+          enabledUserIds={enabledUserIds}
+          onFilterChange={setEnabledUserIds}
+          selectedFlagId={selectedFlagId}
+          flagsListRef={flagsListRef}
           onFlagClick={(flag) => {
             // Jump playhead to flag timestamp
             setTimestamp(flag.timestamp);
             // Also update audio playback position
             audioSeek(flag.timestamp / 1000);
+            // Select the flag
+            setSelectedFlagId(flag.id);
           }}
           onFlagAdd={() => {
             // Create a new flag at current playhead position
@@ -2232,6 +2319,8 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
               userColor: randomUser.color,
             };
             setFlags(prev => [...prev, newFlag].sort((a, b) => a.timestamp - b.timestamp));
+            // Select the new flag
+            setSelectedFlagId(newFlag.id);
           }}
           onFlagEdit={(flag) => console.log('Edit flag:', flag.id)}
           onFlagUpdate={(flagId, updates) => {
@@ -2241,7 +2330,13 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
                 : f
             ));
           }}
-          onFlagDelete={(flagId) => setFlags(prev => prev.filter(f => f.id !== flagId))}
+          onFlagDelete={(flagId) => {
+            setFlags(prev => prev.filter(f => f.id !== flagId));
+            // Clear selection if deleted flag was selected
+            if (selectedFlagId === flagId) {
+              setSelectedFlagId(null);
+            }
+          }}
           disabled={!loadedAudio}
         />
       </Box>
@@ -2331,7 +2426,8 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             scrollOffset={overviewScrollOffset}
             waveformData={waveformData}
             waveformHeight={waveformHeight}
-            flags={flags}
+            flags={filteredFlagsForDisplay}
+            onFlagClick={handleWaveformFlagClick}
             onSeek={handleOverviewSeek}
             onZoomChange={handleZoomChange}
             onScrollChange={handleScrollChange}

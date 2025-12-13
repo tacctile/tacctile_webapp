@@ -17,6 +17,8 @@ interface WaveformCanvasProps {
   waveformHeight?: number;
   /** Flags to display as vertical lines on the waveform */
   flags?: Flag[];
+  /** Callback when a flag line is clicked on the waveform */
+  onFlagClick?: (flag: Flag) => void;
   onSeek?: (timeInSeconds: number) => void;
   onZoomChange?: (zoom: number) => void;
   onScrollChange?: (scrollOffset: number) => void;
@@ -30,6 +32,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
   waveformData,
   waveformHeight = 1,
   flags = [],
+  onFlagClick,
   onSeek,
   onZoomChange,
   onScrollChange,
@@ -42,6 +45,9 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
   // Scrubbing state (drag playhead)
   const [isDragging, setIsDragging] = useState(false);
   const [isNearPlayhead, setIsNearPlayhead] = useState(false);
+
+  // Flag hover state
+  const [hoveredFlag, setHoveredFlag] = useState<Flag | null>(null);
 
   // Spacebar + drag panning state
   const [isSpaceHeld, setIsSpaceHeld] = useState(false);
@@ -266,6 +272,32 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     return Math.abs(mouseX - playheadX) < 10;
   }, [duration, zoom, scrollOffset, timestamp]);
 
+  // Helper to find flag near mouse position (15px hit area)
+  const findFlagNearMouse = useCallback((e: React.MouseEvent): Flag | null => {
+    if (!canvasRef.current || duration <= 0 || flags.length === 0) return null;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+
+    const visibleDuration = duration / zoom;
+    const startTime = scrollOffset * duration;
+    const hitAreaPixels = 15; // 15px hit area on each side
+
+    for (const flag of flags) {
+      const flagTimeSeconds = flag.timestamp / 1000;
+      const flagX = ((flagTimeSeconds - startTime) / visibleDuration) * rect.width;
+
+      // Check if flag is visible and mouse is within hit area
+      if (flagX >= -hitAreaPixels && flagX <= rect.width + hitAreaPixels) {
+        if (Math.abs(mouseX - flagX) <= hitAreaPixels) {
+          return flag;
+        }
+      }
+    }
+
+    return null;
+  }, [duration, zoom, scrollOffset, flags]);
+
   // Seek to position helper
   const seekToPosition = useCallback((e: React.MouseEvent) => {
     if (!canvasRef.current || duration <= 0) return;
@@ -296,6 +328,13 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
       return;
     }
 
+    // Check if clicking on a flag line
+    const clickedFlag = findFlagNearMouse(e);
+    if (clickedFlag && onFlagClick) {
+      onFlagClick(clickedFlag);
+      return;
+    }
+
     // Near playhead = start scrubbing
     if (checkNearPlayhead(e)) {
       setIsDragging(true);
@@ -304,7 +343,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
 
     // Otherwise click to seek
     seekToPosition(e);
-  }, [isLoaded, duration, isSpaceHeld, zoom, scrollOffset, checkNearPlayhead, seekToPosition]);
+  }, [isLoaded, duration, isSpaceHeld, zoom, scrollOffset, checkNearPlayhead, seekToPosition, findFlagNearMouse, onFlagClick]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     // Panning
@@ -320,16 +359,19 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
       return;
     }
 
-    // Update cursor based on proximity to playhead
+    // Update cursor based on proximity to playhead or flags
     if (!isSpaceHeld) {
       setIsNearPlayhead(checkNearPlayhead(e));
+      // Check if hovering over a flag line
+      const flagNearMouse = findFlagNearMouse(e);
+      setHoveredFlag(flagNearMouse);
     }
 
     // Scrubbing
     if (isDragging) {
       seekToPosition(e);
     }
-  }, [isPanning, panStartX, panStartOffset, zoom, onScrollChange, isSpaceHeld, checkNearPlayhead, isDragging, seekToPosition]);
+  }, [isPanning, panStartX, panStartOffset, zoom, onScrollChange, isSpaceHeld, checkNearPlayhead, isDragging, seekToPosition, findFlagNearMouse]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -340,6 +382,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     setIsDragging(false);
     setIsPanning(false);
     setIsNearPlayhead(false);
+    setHoveredFlag(null);
   }, []);
 
   // Wheel zoom handler
@@ -396,7 +439,8 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     if (isPanning) return 'grabbing';
     if (isSpaceHeld) return 'grab';
     if (isNearPlayhead || isDragging) return 'ew-resize';
-    if (isLoaded) return 'pointer';
+    if (hoveredFlag) return 'pointer';
+    if (isLoaded) return 'crosshair';
     return 'default';
   };
 
