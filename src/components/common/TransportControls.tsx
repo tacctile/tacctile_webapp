@@ -243,6 +243,7 @@ export const TransportControls: React.FC<TransportControlsProps> = () => {
 
       switch (e.code) {
         case 'Space':
+          if (e.repeat) return; // Ignore key repeat to prevent rapid toggling when held
           e.preventDefault();
           handlePlayPause();
           break;
