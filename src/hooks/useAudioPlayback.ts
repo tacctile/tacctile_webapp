@@ -385,14 +385,24 @@ export function useAudioPlayback({
 
   /**
    * Get current loop bounds from store
+   * When looping with selection: loop within selection bounds
+   * When NOT looping with selection: loopEnd is duration (continue past selection to end of audio)
+   * When looping without selection: loop entire track
+   * When NOT looping without selection: play to end
    */
   const getLoopBounds = useCallback(() => {
     const { playback, waveformSelectionStart: selStart, waveformSelectionEnd: selEnd } = useAudioToolStore.getState();
     const isLooping = playback.looping;
     const hasSelection = selStart !== null && selEnd !== null;
 
+    // loopStart is where we jump back TO when looping (selection start or track start)
     const loopStart = hasSelection ? Math.min(selStart!, selEnd!) : 0;
-    const loopEnd = hasSelection ? Math.max(selStart!, selEnd!) : duration;
+
+    // loopEnd: when looping, use selection end (or duration if no selection)
+    // When NOT looping, always use full duration so playback continues past selection
+    const loopEnd = isLooping && hasSelection
+      ? Math.max(selStart!, selEnd!)
+      : duration;
 
     return { isLooping, hasSelection, loopStart, loopEnd };
   }, [duration]);

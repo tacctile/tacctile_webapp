@@ -1215,8 +1215,9 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
 
     // If selection exists and playhead is past the selection end, loop back to start
     if (selectionStart !== null && selectionEnd !== null) {
-      const loopStart = selectionStart;
-      const loopEnd = selectionEnd;
+      // Normalize selection bounds (in case user dragged right-to-left)
+      const loopStart = Math.min(selectionStart, selectionEnd);
+      const loopEnd = Math.max(selectionStart, selectionEnd);
       if (currentTimeSec >= loopEnd) {
         setTimestamp(loopStart * 1000);
       }
@@ -1831,7 +1832,11 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     // Single click (no drag)
     if (!hasDragged) {
       if (interactionType === 'createSelection' || interactionType === 'none') {
-        // Single click on waveform = move playhead
+        // Single click on waveform = clear selection and move playhead
+        // This is DAW-standard behavior - click to clear selection and seek
+        setSelectionStart(null);
+        setSelectionEnd(null);
+
         const rect = waveformContainerRef.current?.getBoundingClientRect();
         if (rect && e) {
           const x = e.clientX - rect.left;

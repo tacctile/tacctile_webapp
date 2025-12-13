@@ -229,20 +229,16 @@ export const TransportControls: React.FC<TransportControlsProps> = () => {
   const speedMenuOpen = Boolean(speedMenuAnchor);
 
   // Handle play/pause with selection awareness
+  // DAW-standard behavior: when starting playback with a selection, ALWAYS start from selection start (left edge)
   const handlePlayPause = useCallback(() => {
-    // If starting playback and selection exists
+    // If starting playback and selection exists, always jump to selection start
     if (!isPlaying && selectionStart !== null && selectionEnd !== null) {
-      const currentTimeSec = timestamp / 1000;
       const selStart = Math.min(selectionStart, selectionEnd);
-      const selEnd = Math.max(selectionStart, selectionEnd);
-
-      // If playhead is outside selection, jump to selection start
-      if (currentTimeSec < selStart || currentTimeSec > selEnd) {
-        setTimestamp(selStart * 1000);
-      }
+      // Always start from left edge of selection - this is Pro Tools / DAW standard behavior
+      setTimestamp(selStart * 1000);
     }
     togglePlayback();
-  }, [isPlaying, selectionStart, selectionEnd, timestamp, setTimestamp, togglePlayback]);
+  }, [isPlaying, selectionStart, selectionEnd, setTimestamp, togglePlayback]);
 
   // Keyboard shortcuts
   useEffect(() => {
