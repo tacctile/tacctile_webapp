@@ -1075,6 +1075,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
 
   // Audio tool store for loop state and selection sync
   const looping = useAudioToolStore((state) => state.playback.looping);
+  const toggleLooping = useAudioToolStore((state) => state.toggleLooping);
   const syncWaveformSelectionToStore = useAudioToolStore((state) => state.setWaveformSelection);
 
   const navigateToTool = useNavigationStore((state) => state.navigateToTool);
@@ -1735,8 +1736,9 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       if (distance > 5) {
         setHasDragged(true);
 
-        // If creating selection, initialize it now
-        if (interactionType === 'createSelection') {
+        // If creating selection, initialize it now (only when paused)
+        // When playing, selection creation is blocked - drag is treated as single click
+        if (interactionType === 'createSelection' && !isPlaying) {
           setSelectionStart(mouseDownPos.time);
           setSelectionEnd(mouseDownPos.time);
         }
@@ -1767,7 +1769,10 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         break;
 
       case 'createSelection':
-        setSelectionEnd(clampedTime);
+        // Only update selection when paused - when playing, drag is ignored
+        if (!isPlaying) {
+          setSelectionEnd(clampedTime);
+        }
         break;
 
       case 'adjustHandleStart': {
@@ -1816,7 +1821,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         }
         break;
     }
-  }, [loadedAudio, interactionType, pixelToTime, mouseDownPos, hasDragged, selectionStart, selectionEnd, selectionDragOffset, setTimestamp, overviewZoom, overviewScrollOffset]);
+  }, [loadedAudio, interactionType, pixelToTime, mouseDownPos, hasDragged, selectionStart, selectionEnd, selectionDragOffset, setTimestamp, overviewZoom, overviewScrollOffset, isPlaying]);
 
   // Handle waveform mouse up - finalize interaction
   const handleWaveformMouseUp = useCallback((e?: React.MouseEvent) => {
@@ -1831,7 +1836,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     // Single click (no drag)
     if (!hasDragged) {
       if (interactionType === 'createSelection' || interactionType === 'none') {
-        // Single click on waveform = move playhead
+        // Single click on waveform = move playhead and clear any existing selection
         const rect = waveformContainerRef.current?.getBoundingClientRect();
         if (rect && e) {
           const x = e.clientX - rect.left;
@@ -1841,6 +1846,9 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
           setTimestamp(timestampMs);
           // Set click origin for "return to click" feature
           setClickOrigin(timestampMs);
+          // Clear any existing selection on single click
+          setSelectionStart(null);
+          setSelectionEnd(null);
         }
       }
       // Single click on playhead, selection, or handles = do nothing (no drag occurred)
@@ -1848,18 +1856,34 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     // Drag completed
     else {
       if (interactionType === 'createSelection') {
-        // Finalize selection
-        if (selectionStart !== null && selectionEnd !== null) {
-          const finalStart = Math.min(selectionStart, selectionEnd);
-          const finalEnd = Math.max(selectionStart, selectionEnd);
+        // If playing, selection creation was blocked - treat as single click at mousedown position
+        if (isPlaying) {
+          if (mouseDownPos) {
+            const clampedTime = Math.max(0, Math.min(loadedAudio.duration, mouseDownPos.time));
+            const timestampMs = clampedTime * 1000;
+            setTimestamp(timestampMs);
+            setClickOrigin(timestampMs);
+          }
+        } else {
+          // Paused: finalize the selection
+          if (selectionStart !== null && selectionEnd !== null) {
+            const finalStart = Math.min(selectionStart, selectionEnd);
+            const finalEnd = Math.max(selectionStart, selectionEnd);
 
-          // Clear if too small
-          if (finalEnd - finalStart < 0.05) {
-            setSelectionStart(null);
-            setSelectionEnd(null);
-          } else {
-            setSelectionStart(finalStart);
-            setSelectionEnd(finalEnd);
+            // Clear if too small
+            if (finalEnd - finalStart < 0.05) {
+              setSelectionStart(null);
+              setSelectionEnd(null);
+            } else {
+              setSelectionStart(finalStart);
+              setSelectionEnd(finalEnd);
+              // Auto-enable loop mode when selection is created
+              if (!looping) {
+                toggleLooping();
+              }
+              // Move playhead to selection start
+              setTimestamp(finalStart * 1000);
+            }
           }
         }
       }
@@ -1871,7 +1895,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     setMouseDownPos(null);
     setHasDragged(false);
     setSelectionDragOffset(0);
-  }, [loadedAudio, hasDragged, interactionType, selectionStart, selectionEnd, pixelToTime, setTimestamp, setClickOrigin]);
+  }, [loadedAudio, hasDragged, interactionType, selectionStart, selectionEnd, pixelToTime, setTimestamp, setClickOrigin, isPlaying, mouseDownPos, looping, toggleLooping]);
 
   // Handle mouse leaving the waveform area
   const handleWaveformMouseLeave = useCallback(() => {
