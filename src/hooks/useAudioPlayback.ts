@@ -24,6 +24,8 @@ interface UseAudioPlaybackOptions {
   eqValues?: number[];
   /** Low cut filter frequency in Hz (20 = off, up to 300Hz) */
   lowCutFrequency?: number;
+  /** High cut filter frequency in Hz (20000 = off, down to 4000Hz) */
+  highCutFrequency?: number;
   /** Callback to receive the AnalyserNode for spectrum visualization */
   onAnalyserReady?: (analyser: AnalyserNode | null) => void;
 }
@@ -51,6 +53,7 @@ export function useAudioPlayback({
   duration,
   eqValues = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   lowCutFrequency = 20,
+  highCutFrequency = 20000,
   onAnalyserReady,
 }: UseAudioPlaybackOptions): UseAudioPlaybackReturn {
   // Refs for audio playback management
@@ -65,6 +68,9 @@ export function useAudioPlayback({
 
   // Low cut filter node ref (high-pass filter)
   const lowCutFilterRef = useRef<BiquadFilterNode | null>(null);
+
+  // High cut filter node ref (low-pass filter)
+  const highCutFilterRef = useRef<BiquadFilterNode | null>(null);
 
   // Analyser node for spectrum visualization
   const analyserNodeRef = useRef<AnalyserNode | null>(null);
@@ -112,6 +118,7 @@ export function useAudioPlayback({
       // Clean up when context is removed
       eqFiltersRef.current = [];
       lowCutFilterRef.current = null;
+      highCutFilterRef.current = null;
       analyserNodeRef.current = null;
       onAnalyserReady?.(null);
       return;
@@ -133,6 +140,15 @@ export function useAudioPlayback({
       lowCutFilter.frequency.value = lowCutFrequency;
       lowCutFilter.Q.value = 0.707; // Butterworth response for clean cutoff
       lowCutFilterRef.current = lowCutFilter;
+    }
+
+    // Create high cut filter (low-pass) if not already created
+    if (!highCutFilterRef.current) {
+      const highCutFilter = audioContext.createBiquadFilter();
+      highCutFilter.type = 'lowpass';
+      highCutFilter.frequency.value = highCutFrequency;
+      highCutFilter.Q.value = 0.707; // Butterworth response for clean cutoff
+      highCutFilterRef.current = highCutFilter;
     }
 
     // Create 10 EQ filter nodes if not already created
@@ -176,6 +192,13 @@ export function useAudioPlayback({
           // Ignore
         }
       }
+      if (highCutFilterRef.current) {
+        try {
+          highCutFilterRef.current.disconnect();
+        } catch {
+          // Ignore
+        }
+      }
     };
   }, [audioContext, onAnalyserReady]);
 
@@ -204,6 +227,19 @@ export function useAudioPlayback({
       lowCutFilterRef.current.context.currentTime
     );
   }, [lowCutFrequency]);
+
+  /**
+   * Update high cut filter frequency when highCutFrequency changes
+   */
+  useEffect(() => {
+    if (!highCutFilterRef.current) return;
+
+    // Use setValueAtTime for smooth update without clicks
+    highCutFilterRef.current.frequency.setValueAtTime(
+      highCutFrequency,
+      highCutFilterRef.current.context.currentTime
+    );
+  }, [highCutFrequency]);
 
   /**
    * Get current loop bounds from store
@@ -244,10 +280,32 @@ export function useAudioPlayback({
     }
 
     // Build the audio processing chain:
-    // source -> EQ filters (chained) -> low cut filter -> analyser -> gain -> destination
+    // source -> EQ filters (chained) -> low cut filter -> high cut filter -> analyser -> gain -> destination
     const filters = eqFiltersRef.current;
     const lowCutFilter = lowCutFilterRef.current;
+    const highCutFilter = highCutFilterRef.current;
     const analyser = analyserNodeRef.current;
+
+    // Helper function to connect to the next stage (highCut -> analyser -> gain)
+    const connectToHighCutOrLater = (fromNode: AudioNode) => {
+      if (highCutFilter) {
+        fromNode.connect(highCutFilter);
+        highCutFilter.disconnect();
+        if (analyser) {
+          highCutFilter.connect(analyser);
+          analyser.disconnect();
+          analyser.connect(gainNodeRef.current!);
+        } else {
+          highCutFilter.connect(gainNodeRef.current!);
+        }
+      } else if (analyser) {
+        fromNode.connect(analyser);
+        analyser.disconnect();
+        analyser.connect(gainNodeRef.current!);
+      } else {
+        fromNode.connect(gainNodeRef.current!);
+      }
+    };
 
     if (filters.length > 0) {
       // Connect source to first EQ filter
@@ -259,38 +317,33 @@ export function useAudioPlayback({
         filters[i].connect(filters[i + 1]);
       }
 
-      // Connect last EQ filter to low cut filter (if exists) or analyser or gain
+      // Connect last EQ filter to low cut filter (if exists) or high cut or analyser or gain
       filters[filters.length - 1].disconnect();
       if (lowCutFilter) {
         filters[filters.length - 1].connect(lowCutFilter);
         lowCutFilter.disconnect();
-        if (analyser) {
-          lowCutFilter.connect(analyser);
-          analyser.disconnect();
-          analyser.connect(gainNodeRef.current);
-        } else {
-          lowCutFilter.connect(gainNodeRef.current);
-        }
-      } else if (analyser) {
-        filters[filters.length - 1].connect(analyser);
-        analyser.disconnect();
-        analyser.connect(gainNodeRef.current);
+        connectToHighCutOrLater(lowCutFilter);
       } else {
-        filters[filters.length - 1].connect(gainNodeRef.current);
+        connectToHighCutOrLater(filters[filters.length - 1]);
       }
     } else if (lowCutFilter) {
       // No EQ filters, connect through low cut filter
       sourceNode.connect(lowCutFilter);
       lowCutFilter.disconnect();
+      connectToHighCutOrLater(lowCutFilter);
+    } else if (highCutFilter) {
+      // No EQ or low cut filters, connect through high cut filter
+      sourceNode.connect(highCutFilter);
+      highCutFilter.disconnect();
       if (analyser) {
-        lowCutFilter.connect(analyser);
+        highCutFilter.connect(analyser);
         analyser.disconnect();
         analyser.connect(gainNodeRef.current);
       } else {
-        lowCutFilter.connect(gainNodeRef.current);
+        highCutFilter.connect(gainNodeRef.current);
       }
     } else if (analyser) {
-      // No EQ or low cut filters, connect through analyser
+      // No filters, connect through analyser
       sourceNode.connect(analyser);
       analyser.disconnect();
       analyser.connect(gainNodeRef.current);
