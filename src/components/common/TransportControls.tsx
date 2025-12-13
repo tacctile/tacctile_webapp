@@ -136,12 +136,6 @@ const StepBackIcon = () => (
   </svg>
 );
 
-const ReversePlayIcon = () => (
-  <svg viewBox="0 0 24 24">
-    <path d="M19 12 8 5v14l11-7z" transform="rotate(180 12 12)" />
-  </svg>
-);
-
 const PlayIcon = () => (
   <svg viewBox="0 0 24 24">
     <path d="M8 5v14l11-7L8 5z" />
@@ -178,12 +172,10 @@ interface TransportControlsProps {
 export const TransportControls: React.FC<TransportControlsProps> = () => {
   // Playhead store
   const isPlaying = usePlayheadStore((state) => state.isPlaying);
-  const isReversePlaying = usePlayheadStore((state) => state.isReversePlaying);
   const playbackSpeed = usePlayheadStore((state) => state.playbackSpeed);
   const timestamp = usePlayheadStore((state) => state.timestamp);
   const togglePlayback = usePlayheadStore((state) => state.togglePlayback);
   const setTimestamp = usePlayheadStore((state) => state.setTimestamp);
-  const toggleReversePlayback = usePlayheadStore((state) => state.toggleReversePlayback);
   const setPlaybackSpeed = usePlayheadStore((state) => state.setPlaybackSpeed);
   const stepForward = usePlayheadStore((state) => state.stepForward);
   const stepBackward = usePlayheadStore((state) => state.stepBackward);
@@ -242,18 +234,12 @@ export const TransportControls: React.FC<TransportControlsProps> = () => {
           e.preventDefault();
           toggleLooping();
           break;
-        case 'KeyR':
-          if (!e.ctrlKey && !e.metaKey) {
-            e.preventDefault();
-            toggleReversePlayback();
-          }
-          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handlePlayPause, stepForward, stepBackward, jumpToStart, toggleLooping, toggleReversePlayback]);
+  }, [handlePlayPause, stepForward, stepBackward, jumpToStart, toggleLooping]);
 
   return (
     <TransportContainer>
@@ -271,17 +257,6 @@ export const TransportControls: React.FC<TransportControlsProps> = () => {
         </TransportButton>
       </Tooltip>
 
-      {/* Reverse Playback */}
-      <Tooltip title={isReversePlaying ? 'Reverse enabled (R)' : 'Reverse play (R)'}>
-        <ModifierButton
-          onClick={toggleReversePlayback}
-          $active={isReversePlaying}
-          aria-label="Reverse play"
-        >
-          <ReversePlayIcon />
-        </ModifierButton>
-      </Tooltip>
-
       {/* Play/Pause - Main button, larger */}
       <Tooltip title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}>
         <PlayButton
@@ -293,6 +268,13 @@ export const TransportControls: React.FC<TransportControlsProps> = () => {
         </PlayButton>
       </Tooltip>
 
+      {/* Step Forward 5 seconds */}
+      <Tooltip title="Step forward 5s (Shift+→)">
+        <TransportButton onClick={() => stepForward(5000)} aria-label="Step forward 5 seconds">
+          <StepForwardIcon />
+        </TransportButton>
+      </Tooltip>
+
       {/* Loop */}
       <Tooltip title={looping ? 'Loop enabled (L)' : 'Enable loop (L)'}>
         <ModifierButton
@@ -302,13 +284,6 @@ export const TransportControls: React.FC<TransportControlsProps> = () => {
         >
           <LoopIcon />
         </ModifierButton>
-      </Tooltip>
-
-      {/* Step Forward 5 seconds */}
-      <Tooltip title="Step forward 5s (Shift+→)">
-        <TransportButton onClick={() => stepForward(5000)} aria-label="Step forward 5 seconds">
-          <StepForwardIcon />
-        </TransportButton>
       </Tooltip>
 
       {/* Playback Speed */}
