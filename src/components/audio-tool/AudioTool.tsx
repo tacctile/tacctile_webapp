@@ -1252,8 +1252,30 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
           count++;
         }
         const average = sum / count;
-        // Normalize to 0-100 range with some scaling for visual appeal
-        return Math.min(100, (average / 255) * 120);
+
+        // Apply frequency-dependent scaling to balance visual display
+        // Low frequencies naturally have more energy, so reduce their visual amplitude
+        // to prevent clipping and show relative levels across the spectrum
+        let scaleFactor: number;
+        if (freq <= 62) {
+          // Deep bass (31-62 Hz): reduce most aggressively
+          scaleFactor = 0.45;
+        } else if (freq <= 250) {
+          // Bass/low-mid (125-250 Hz): reduce moderately
+          scaleFactor = 0.55;
+        } else if (freq <= 1000) {
+          // Mid (500-1000 Hz): slight reduction
+          scaleFactor = 0.70;
+        } else if (freq <= 4000) {
+          // Upper mid (2000-4000 Hz): minimal reduction
+          scaleFactor = 0.85;
+        } else {
+          // High (8000-16000 Hz): keep mostly as-is
+          scaleFactor = 0.95;
+        }
+
+        // Normalize to 0-100 range with frequency-dependent scaling
+        return Math.min(100, (average / 255) * 120 * scaleFactor);
       });
 
       // Apply smoothing - blend with previous values for smooth animation

@@ -248,8 +248,12 @@ export const TransportControls: React.FC<TransportControlsProps> = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if user is typing in an input or contentEditable element
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.target instanceof HTMLElement && e.target.isContentEditable) return;
+      // Use tagName check which is more reliable than instanceof across different DOM contexts
+      const target = e.target as HTMLElement;
+      const tagName = target?.tagName?.toLowerCase();
+      if (tagName === 'input' || tagName === 'textarea' || target?.isContentEditable) {
+        return; // Allow normal typing in text inputs
+      }
 
       // Ignore repeated key events (when key is held down)
       if (e.repeat) return;
