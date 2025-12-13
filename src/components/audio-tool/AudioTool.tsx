@@ -1081,7 +1081,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
 
   // Audio playback hook - wires up Web Audio API playback with playhead store
   // Also handles EQ filtering, low cut filter, high cut filter, De-Hum filter, De-Noise filter, and provides analyser node for spectrum visualization
-  useAudioPlayback({
+  const { seek: audioSeek } = useAudioPlayback({
     audioContext,
     audioBuffer,
     duration: loadedAudio?.duration || 0,
@@ -1507,8 +1507,9 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
 
   // Overview bar handlers
   const handleOverviewSeek = useCallback((timeInSeconds: number) => {
-    setTimestamp(timeInSeconds * 1000); // Convert to milliseconds
-  }, [setTimestamp]);
+    // Use audioSeek which handles both timestamp update and playback restart if playing
+    audioSeek(timeInSeconds);
+  }, [audioSeek]);
 
   const handleOverviewViewportDrag = useCallback((newScrollOffset: number) => {
     setOverviewScrollOffset(newScrollOffset);

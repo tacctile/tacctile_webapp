@@ -253,6 +253,8 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
 
   // Mouse handlers for scrubbing and panning
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    // Only respond to left mouse button
+    if (e.button !== 0) return;
     if (!isLoaded || duration <= 0) return;
 
     // Spacebar held = start panning
@@ -357,7 +359,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     if (isPanning) return 'grabbing';
     if (isSpaceHeld) return 'grab';
     if (isNearPlayhead || isDragging) return 'ew-resize';
-    if (isLoaded) return 'crosshair';
+    if (isLoaded) return 'pointer';
     return 'default';
   };
 
