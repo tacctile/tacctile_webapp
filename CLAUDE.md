@@ -185,3 +185,4 @@ This ensures exports are traceable and don't overwrite originals.
 ---
 
 *This document defines how to think about Tacctile. For current implementation details, read the codebase itself.*
+**If this document conflicts with any generated summaries or snapshots, this document takes precedence.**
