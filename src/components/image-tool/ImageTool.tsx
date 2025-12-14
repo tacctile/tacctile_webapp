@@ -18,6 +18,8 @@ import FitScreenIcon from '@mui/icons-material/FitScreen';
 import RotateLeftIcon from '@mui/icons-material/RotateLeft';
 import RotateRightIcon from '@mui/icons-material/RotateRight';
 import FlipIcon from '@mui/icons-material/Flip';
+import UndoIcon from '@mui/icons-material/Undo';
+import RedoIcon from '@mui/icons-material/Redo';
 import RectangleOutlinedIcon from '@mui/icons-material/RectangleOutlined';
 import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -321,6 +323,15 @@ const AnnotationIcon = styled(Box)<{ type: string }>(({ type }) => {
 type ViewMode = 'single' | 'side-by-side' | 'split';
 type AnnotationTool = 'rectangle' | 'circle' | 'arrow' | 'freehand' | null;
 
+// Transform state for undo/redo history
+interface TransformState {
+  rotation: 0 | 90 | 180 | 270;
+  flipH: boolean;
+  flipV: boolean;
+}
+
+const MAX_HISTORY_DEPTH = 50;
+
 interface ImageAnnotation {
   id: string;
   type: 'rectangle' | 'circle' | 'arrow' | 'freehand';
@@ -469,6 +480,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [flipH, setFlipH] = useState(false);
   const [flipV, setFlipV] = useState(false);
 
+  // Undo/redo history for transforms
+  const [undoStack, setUndoStack] = useState<TransformState[]>([]);
+  const [redoStack, setRedoStack] = useState<TransformState[]>([]);
+
   // State for actual image dimensions (read from loaded image)
   const [actualDimensions, setActualDimensions] = useState<{ width: number; height: number } | null>(null);
 
@@ -599,6 +614,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     setRotation(0);
     setFlipH(false);
     setFlipV(false);
+    // Clear history stacks for new image
+    setUndoStack([]);
+    setRedoStack([]);
     // Persist loaded file ID in navigation store
     setLoadedFile('images', item.id);
   }, [setLoadedFile]);
@@ -749,22 +767,85 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     setFilters(defaultFilters);
   };
 
+  // Helper to push current state to undo stack before making changes
+  const pushToUndoStack = useCallback(() => {
+    const currentState: TransformState = { rotation, flipH, flipV };
+    setUndoStack(prev => {
+      const newStack = [...prev, currentState];
+      // Limit to MAX_HISTORY_DEPTH
+      if (newStack.length > MAX_HISTORY_DEPTH) {
+        return newStack.slice(-MAX_HISTORY_DEPTH);
+      }
+      return newStack;
+    });
+    // Clear redo stack when making a new edit
+    setRedoStack([]);
+  }, [rotation, flipH, flipV]);
+
   // Transform handlers - instant, CSS-based transforms
   const handleRotateCW = useCallback(() => {
+    pushToUndoStack();
     setRotation(prev => ((prev + 90) % 360) as 0 | 90 | 180 | 270);
-  }, []);
+  }, [pushToUndoStack]);
 
   const handleRotateCCW = useCallback(() => {
+    pushToUndoStack();
     setRotation(prev => ((prev - 90 + 360) % 360) as 0 | 90 | 180 | 270);
-  }, []);
+  }, [pushToUndoStack]);
 
   const handleFlipH = useCallback(() => {
+    pushToUndoStack();
     setFlipH(prev => !prev);
-  }, []);
+  }, [pushToUndoStack]);
 
   const handleFlipV = useCallback(() => {
+    pushToUndoStack();
     setFlipV(prev => !prev);
-  }, []);
+  }, [pushToUndoStack]);
+
+  // Undo handler - pops from undo stack, pushes current state to redo stack
+  const handleUndo = useCallback(() => {
+    if (undoStack.length === 0) return;
+
+    // Push current state to redo stack
+    const currentState: TransformState = { rotation, flipH, flipV };
+    setRedoStack(prev => [...prev, currentState]);
+
+    // Pop from undo stack and apply
+    const newUndoStack = [...undoStack];
+    const previousState = newUndoStack.pop();
+    setUndoStack(newUndoStack);
+
+    if (previousState) {
+      setRotation(previousState.rotation);
+      setFlipH(previousState.flipH);
+      setFlipV(previousState.flipV);
+    }
+  }, [undoStack, rotation, flipH, flipV]);
+
+  // Redo handler - pops from redo stack, pushes current state to undo stack
+  const handleRedo = useCallback(() => {
+    if (redoStack.length === 0) return;
+
+    // Push current state to undo stack
+    const currentState: TransformState = { rotation, flipH, flipV };
+    setUndoStack(prev => [...prev, currentState]);
+
+    // Pop from redo stack and apply
+    const newRedoStack = [...redoStack];
+    const nextState = newRedoStack.pop();
+    setRedoStack(newRedoStack);
+
+    if (nextState) {
+      setRotation(nextState.rotation);
+      setFlipH(nextState.flipH);
+      setFlipV(nextState.flipV);
+    }
+  }, [redoStack, rotation, flipH, flipV]);
+
+  // Check if undo/redo are available
+  const canUndo = undoStack.length > 0;
+  const canRedo = redoStack.length > 0;
 
   // Build CSS transform string for image transforms
   const getImageTransform = useCallback((includeTranslate: boolean = true, x: number = 0, y: number = 0) => {
@@ -845,6 +926,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     setRotation(0);
     setFlipH(false);
     setFlipV(false);
+    // Clear history stacks for new image
+    setUndoStack([]);
+    setRedoStack([]);
     // Reset zoom and pan
     setZoom(100);
     setPanOffset({ x: 0, y: 0 });
@@ -1118,9 +1202,15 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     setPanOffset(constrainPanForZoom(newPan, newZoom));
   }, [viewMode, loadedImage, zoom, lastZoomInPoint, screenToImageCoords, calculatePanToCenter, actualDimensions, containerDimensions, calculateFitScale, getNextZoomStep, getPrevZoomStep]);
 
-  // Track Ctrl key state for marquee zoom
+  // Track Ctrl key state for marquee zoom and handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in an input field
+      const activeElement = document.activeElement;
+      const isTyping = activeElement instanceof HTMLInputElement ||
+                       activeElement instanceof HTMLTextAreaElement ||
+                       (activeElement instanceof HTMLElement && activeElement.isContentEditable);
+
       if (e.key === 'Control' && viewMode === 'single' && loadedImage) {
         setIsCtrlHeld(true);
       }
@@ -1130,6 +1220,25 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         setIsMarqueeDrawing(false);
         setMarqueeStart(null);
         setMarqueeEnd(null);
+      }
+
+      // Undo/Redo keyboard shortcuts (only when not typing in text input)
+      if (!isTyping && loadedImage) {
+        // Ctrl+Z = Undo
+        if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'z') {
+          e.preventDefault();
+          handleUndo();
+        }
+        // Ctrl+Shift+Z = Redo
+        if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'z') {
+          e.preventDefault();
+          handleRedo();
+        }
+        // Ctrl+Y = Redo (alternative, common in Windows)
+        if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'y') {
+          e.preventDefault();
+          handleRedo();
+        }
       }
     };
 
@@ -1146,7 +1255,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [viewMode, loadedImage, isMarqueeModeActive]);
+  }, [viewMode, loadedImage, isMarqueeModeActive, handleUndo, handleRedo]);
 
   // Toggle marquee zoom mode (toolbar icon click)
   const toggleMarqueeMode = useCallback(() => {
@@ -2076,6 +2185,41 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             >
               <GestureIcon sx={{ fontSize: 18 }} />
             </ToolButton>
+          </Tooltip>
+        </Box>
+
+        {/* Spacer to push undo/redo to far right */}
+        <Box sx={{ flex: 1 }} />
+
+        {/* Undo/Redo Controls */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Tooltip title="Undo (Ctrl+Z)">
+            <span>
+              <ToolButton
+                size="small"
+                disabled={!loadedImage || !canUndo}
+                onClick={handleUndo}
+                sx={{
+                  color: !loadedImage || !canUndo ? '#444' : '#888',
+                }}
+              >
+                <UndoIcon sx={{ fontSize: 18 }} />
+              </ToolButton>
+            </span>
+          </Tooltip>
+          <Tooltip title="Redo (Ctrl+Shift+Z)">
+            <span>
+              <ToolButton
+                size="small"
+                disabled={!loadedImage || !canRedo}
+                onClick={handleRedo}
+                sx={{
+                  color: !loadedImage || !canRedo ? '#444' : '#888',
+                }}
+              >
+                <RedoIcon sx={{ fontSize: 18 }} />
+              </ToolButton>
+            </span>
           </Tooltip>
         </Box>
       </Toolbar>
