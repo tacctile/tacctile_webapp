@@ -47,3 +47,6 @@ export {
 
 // Audio Playback (Web Audio API)
 export { useAudioPlayback } from './useAudioPlayback';
+
+// Video Sync (for synchronized video playback with waveform)
+export { useVideoSync } from './useVideoSync';

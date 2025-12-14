@@ -40,7 +40,7 @@ import {
   generateTestMetadataIfDev,
   formatGPSCoordinates,
 } from '@/utils/testMetadataGenerator';
-import { useAudioPlayback } from '@/hooks';
+import { useAudioPlayback, useVideoSync } from '@/hooks';
 
 
 // ============================================================================
@@ -1045,7 +1045,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   // Video reference panel state
   const [loadedVideoUrl, setLoadedVideoUrl] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [isVideoSyncing, setIsVideoSyncing] = useState(false);
 
   // Flag user filter state
   const [enabledUserIds, setEnabledUserIds] = useState<string[]>([]);
@@ -1229,41 +1228,14 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     }
   }, []);
 
-  // Sync video playback with waveform playhead
-  // This syncs playhead position and play/pause state between video and waveform
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !loadedVideoUrl) return;
-
-    // Prevent recursive sync loops
-    if (isVideoSyncing) return;
-
-    const currentTimeSec = timestamp / 1000;
-
-    // Sync position: only update if difference is significant (>0.1 second)
-    if (Math.abs(video.currentTime - currentTimeSec) > 0.1) {
-      setIsVideoSyncing(true);
-      video.currentTime = currentTimeSec;
-      // Reset sync flag after a short delay
-      setTimeout(() => setIsVideoSyncing(false), 50);
-    }
-  }, [timestamp, loadedVideoUrl, isVideoSyncing]);
-
-  // Sync video play/pause state with waveform
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !loadedVideoUrl) return;
-
-    if (isPlaying) {
-      // Play video (muted since audio comes from waveform)
-      video.muted = true;
-      video.play().catch(() => {
-        // Ignore autoplay errors - user interaction may be required
-      });
-    } else {
-      video.pause();
-    }
-  }, [isPlaying, loadedVideoUrl]);
+  // Use the video sync hook for smooth video playback synchronized with waveform
+  // Only active when video reference panel is visible (not when modal is open)
+  useVideoSync({
+    videoRef,
+    videoUrl: loadedVideoUrl,
+    isActive: !expandVideoModalOpen && !videoRefCollapsed && !!loadedVideoUrl,
+    duration: loadedAudio?.duration || 0,
+  });
 
   // Sync local selection state with audio tool store (for TransportControls access)
   useEffect(() => {
@@ -2241,17 +2213,24 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
                   aspectRatio: '16/9',
                   maxHeight: 140,
                 }}>
-                  <video
-                    ref={videoRef}
-                    src={loadedVideoUrl}
-                    muted
-                    playsInline
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'contain',
-                    }}
-                  />
+                  {/* Only render video when modal is closed to avoid two video instances */}
+                  {!expandVideoModalOpen ? (
+                    <video
+                      ref={videoRef}
+                      src={loadedVideoUrl}
+                      muted
+                      playsInline
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain',
+                      }}
+                    />
+                  ) : (
+                    <Typography sx={{ color: '#555', fontSize: 10 }}>
+                      Video playing in expanded view
+                    </Typography>
+                  )}
                 </Box>
                 <Box sx={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 1 }}>
                   <Button
