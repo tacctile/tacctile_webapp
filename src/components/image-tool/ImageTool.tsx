@@ -830,6 +830,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     }
 
     // ========== SPLIT VIEW ==========
+    // Uses overflow:hidden wrapper instead of clip-path to handle all aspect ratios
+    // The key insight: both images have identical positioning via object-fit: contain,
+    // so clipping the wrapper clips the image at the visual boundary regardless of aspect ratio
     if (viewMode === 'split') {
       return (
         <Box
@@ -838,58 +841,83 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             width: '100%',
             height: '100%',
             position: 'relative',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
             userSelect: isDraggingSplit ? 'none' : 'auto',
             overflow: 'hidden',
           }}
         >
-          {/* Image container - centered, contains both layers */}
+          {/* Image container - fills the available space */}
           <Box
             sx={{
-              position: 'relative',
-              maxWidth: `${zoom}%`,
-              maxHeight: `${zoom}%`,
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            {/* EDITED image - base layer (bottom) */}
+            {/* EDITED image - base layer (bottom), fills container */}
             <img
               src={imageUrl}
               alt={loadedImage.fileName}
               style={{
-                maxWidth: '100%',
-                maxHeight: '100%',
-                objectFit: 'contain',
-                borderRadius: 2,
-                userSelect: 'none',
-                display: 'block',
-              }}
-              onLoad={handleImageLoad}
-              draggable={false}
-            />
-            {/* ORIGINAL image - overlay layer (top) with clip-path reveal */}
-            <img
-              src={imageUrl}
-              alt={loadedImage.fileName}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
+                maxWidth: `${zoom}%`,
+                maxHeight: `${zoom}%`,
                 width: '100%',
                 height: '100%',
                 objectFit: 'contain',
                 borderRadius: 2,
                 userSelect: 'none',
-                pointerEvents: 'none',
-                // Clip from the left edge to splitPosition% - reveals ORIGINAL on left side
-                clipPath: `inset(0 ${100 - splitPosition}% 0 0)`,
               }}
+              onLoad={handleImageLoad}
               draggable={false}
             />
+          </Box>
+          {/* ORIGINAL image wrapper - clips at splitPosition% with overflow:hidden */}
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: `${splitPosition}%`,
+              height: '100%',
+              overflow: 'hidden',
+              pointerEvents: 'none',
+            }}
+          >
+            {/* Inner container maintains same centering as edited image container */}
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                // Width is scaled to match the original container width
+                // e.g., if wrapper is 50% of container, image container needs to be 200% of wrapper
+                width: `${100 / splitPosition * 100}%`,
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {/* ORIGINAL image - same positioning as edited, clipped by parent wrapper */}
+              <img
+                src={imageUrl}
+                alt={loadedImage.fileName}
+                style={{
+                  maxWidth: `${zoom}%`,
+                  maxHeight: `${zoom}%`,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain',
+                  borderRadius: 2,
+                  userSelect: 'none',
+                }}
+                draggable={false}
+              />
+            </Box>
           </Box>
           {/* ORIGINAL label - top left */}
           <ViewLabel position="left">Original</ViewLabel>
