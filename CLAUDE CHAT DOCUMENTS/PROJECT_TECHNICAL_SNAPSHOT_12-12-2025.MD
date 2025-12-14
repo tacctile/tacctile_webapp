@@ -1,5 +1,3 @@
-Now I have all the information needed to generate the markdown snapshot. Let me compile it:
-
 0) Snapshot Metadata
 Repo name: tacctile_webapp
 Snapshot date/time (local): 2025-12-14
