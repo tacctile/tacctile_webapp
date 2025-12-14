@@ -23,7 +23,6 @@ import RedoIcon from '@mui/icons-material/Redo';
 import RectangleOutlinedIcon from '@mui/icons-material/RectangleOutlined';
 import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import CompareIcon from '@mui/icons-material/Compare';
 import ViewColumnIcon from '@mui/icons-material/ViewColumn';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -2258,12 +2257,12 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             </StyledToggleButton>
             <StyledToggleButton value="side-by-side">
               <Tooltip title="Side by Side">
-                <ViewColumnIcon sx={{ fontSize: 16 }} />
+                <span className="material-symbols-outlined" style={{ fontSize: 16, lineHeight: 1 }}>splitscreen_landscape</span>
               </Tooltip>
             </StyledToggleButton>
             <StyledToggleButton value="split">
               <Tooltip title="Split View">
-                <CompareIcon sx={{ fontSize: 16 }} />
+                <ViewColumnIcon sx={{ fontSize: 16 }} />
               </Tooltip>
             </StyledToggleButton>
           </ToggleButtonGroup>
