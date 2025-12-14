@@ -652,7 +652,8 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
   // Start continuous zoom in (press and hold) - moves through zoom steps
   const startContinuousZoomIn = useCallback(() => {
-    if (viewMode !== 'single' || !loadedImage) return;
+    // Enable for single and split view, not side-by-side
+    if (viewMode === 'side-by-side' || !loadedImage) return;
 
     // Initial zoom step
     handleZoomIn();
@@ -678,7 +679,8 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
   // Start continuous zoom out (press and hold) - moves through zoom steps
   const startContinuousZoomOut = useCallback(() => {
-    if (viewMode !== 'single' || !loadedImage) return;
+    // Enable for single and split view, not side-by-side
+    if (viewMode === 'side-by-side' || !loadedImage) return;
 
     // Initial zoom step
     handleZoomOut();
@@ -1217,13 +1219,14 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
   // Handle pan start (mouse down on image)
   const handlePanStart = useCallback((e: React.MouseEvent) => {
-    // Check for marquee mode or Ctrl key first - these take priority
+    // Check for marquee mode or Ctrl key first - these take priority (only in single view)
     if ((isMarqueeModeActive || isCtrlHeld) && viewMode === 'single' && loadedImage) {
       handleMarqueeStart(e);
       return;
     }
 
-    if (!canPan() || viewMode !== 'single') return;
+    // Enable pan for single and split view, not side-by-side
+    if (!canPan() || viewMode === 'side-by-side') return;
 
     e.preventDefault();
     setIsPanning(true);
@@ -1425,10 +1428,19 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     }
 
     // ========== SPLIT VIEW ==========
-    // Uses overflow:hidden wrapper instead of clip-path to handle all aspect ratios
-    // The key insight: both images have identical positioning via object-fit: contain,
-    // so clipping the wrapper clips the image at the visual boundary regardless of aspect ratio
+    // Supports zoom and pan - both layers use identical positioning so they stay aligned
+    // The split slider clips the original image at the splitPosition percentage
     if (viewMode === 'split') {
+      // Check if panning is possible (zoomed past 100%)
+      const isPannable = canPan();
+
+      // Determine cursor based on state
+      const getSplitCursor = () => {
+        if (isPanning) return 'grabbing';
+        if (isPannable) return 'grab';
+        return 'default';
+      };
+
       return (
         <Box
           ref={splitContainerRef}
@@ -1438,9 +1450,11 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             position: 'relative',
             userSelect: isDraggingSplit ? 'none' : 'auto',
             overflow: 'hidden',
+            cursor: getSplitCursor(),
           }}
+          onMouseDown={handlePanStart}
         >
-          {/* Image container - fills the available space */}
+          {/* Image container - both layers share this transform for synchronized zoom/pan */}
           <Box
             sx={{
               position: 'absolute',
@@ -1451,20 +1465,22 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              pointerEvents: 'none', // Let container handle mouse events
             }}
           >
-            {/* EDITED image - base layer (bottom), fills container */}
+            {/* EDITED image - base layer (bottom) */}
             <img
               src={imageUrl}
               alt={loadedImage.fileName}
               style={{
-                maxWidth: '100%',
-                maxHeight: '100%',
-                width: '100%',
-                height: '100%',
-                objectFit: 'contain',
+                width: actualDimensions ? imageSize.width : '100%',
+                height: actualDimensions ? imageSize.height : '100%',
+                maxWidth: actualDimensions ? 'none' : '100%',
+                maxHeight: actualDimensions ? 'none' : '100%',
+                objectFit: actualDimensions ? 'fill' : 'contain',
                 borderRadius: 2,
                 userSelect: 'none',
+                transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
               }}
               onLoad={handleImageLoad}
               draggable={false}
@@ -1497,18 +1513,19 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                 justifyContent: 'center',
               }}
             >
-              {/* ORIGINAL image - same positioning as edited, clipped by parent wrapper */}
+              {/* ORIGINAL image - same size, position, and transform as edited for perfect alignment */}
               <img
                 src={imageUrl}
                 alt={loadedImage.fileName}
                 style={{
-                  maxWidth: '100%',
-                  maxHeight: '100%',
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'contain',
+                  width: actualDimensions ? imageSize.width : '100%',
+                  height: actualDimensions ? imageSize.height : '100%',
+                  maxWidth: actualDimensions ? 'none' : '100%',
+                  maxHeight: actualDimensions ? 'none' : '100%',
+                  objectFit: actualDimensions ? 'fill' : 'contain',
                   borderRadius: 2,
                   userSelect: 'none',
+                  transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
                 }}
                 draggable={false}
               />
@@ -1668,8 +1685,8 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         {/* Zoom Controls */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <Tooltip title={
-            viewMode !== 'single'
-              ? 'Zoom Out (only available in single view)'
+            viewMode === 'side-by-side'
+              ? 'Zoom Out (not available in side-by-side view)'
               : zoom <= ZOOM_MIN
                 ? 'At minimum zoom (100% = fit)'
                 : 'Zoom Out (hold for continuous)'
@@ -1683,23 +1700,23 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                 }}
                 onMouseUp={stopContinuousZoom}
                 onMouseLeave={stopContinuousZoom}
-                disabled={!loadedImage || viewMode !== 'single' || zoom <= ZOOM_MIN}
+                disabled={!loadedImage || viewMode === 'side-by-side' || zoom <= ZOOM_MIN}
                 sx={{
                   color: zoom <= ZOOM_MIN ? '#444' : '#888',
                   p: 0.5,
-                  opacity: viewMode !== 'single' ? 0.4 : 1,
+                  opacity: viewMode === 'side-by-side' ? 0.4 : 1,
                 }}
               >
                 <ZoomOutIcon sx={{ fontSize: 18 }} />
               </IconButton>
             </span>
           </Tooltip>
-          <ZoomDisplay sx={{ opacity: viewMode !== 'single' ? 0.4 : 1 }}>
-            {!loadedImage || viewMode !== 'single' ? '--' : `${Math.round(getDisplayZoom())}%`}
+          <ZoomDisplay sx={{ opacity: viewMode === 'side-by-side' ? 0.4 : 1 }}>
+            {!loadedImage || viewMode === 'side-by-side' ? '--' : `${Math.round(getDisplayZoom())}%`}
           </ZoomDisplay>
           <Tooltip title={
-            viewMode !== 'single'
-              ? 'Zoom In (only available in single view)'
+            viewMode === 'side-by-side'
+              ? 'Zoom In (not available in side-by-side view)'
               : zoom >= ZOOM_MAX
                 ? 'At maximum zoom (400%)'
                 : 'Zoom In (hold for continuous)'
@@ -1713,27 +1730,27 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                 }}
                 onMouseUp={stopContinuousZoom}
                 onMouseLeave={stopContinuousZoom}
-                disabled={!loadedImage || viewMode !== 'single' || zoom >= ZOOM_MAX}
+                disabled={!loadedImage || viewMode === 'side-by-side' || zoom >= ZOOM_MAX}
                 sx={{
                   color: zoom >= ZOOM_MAX ? '#444' : '#888',
                   p: 0.5,
-                  opacity: viewMode !== 'single' ? 0.4 : 1,
+                  opacity: viewMode === 'side-by-side' ? 0.4 : 1,
                 }}
               >
                 <ZoomInIcon sx={{ fontSize: 18 }} />
               </IconButton>
             </span>
           </Tooltip>
-          <Tooltip title={viewMode !== 'single' ? 'Fit to View (only available in single view)' : 'Fit to View (100%)'}>
+          <Tooltip title={viewMode === 'side-by-side' ? 'Fit to View (not available in side-by-side view)' : 'Fit to View (100%)'}>
             <span>
               <IconButton
                 size="small"
                 onClick={handleFitToView}
-                disabled={!loadedImage || viewMode !== 'single'}
+                disabled={!loadedImage || viewMode === 'side-by-side'}
                 sx={{
                   color: '#888',
                   p: 0.5,
-                  opacity: viewMode !== 'single' ? 0.4 : 1,
+                  opacity: viewMode === 'side-by-side' ? 0.4 : 1,
                 }}
               >
                 <FitScreenIcon sx={{ fontSize: 18 }} />
