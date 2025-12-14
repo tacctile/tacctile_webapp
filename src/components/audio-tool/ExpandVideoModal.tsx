@@ -5,6 +5,7 @@ import {
   IconButton,
   Tooltip,
   Button,
+  CircularProgress,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import CloseIcon from '@mui/icons-material/Close';
@@ -497,6 +498,8 @@ interface ExpandVideoModalProps {
   onFlagClick: (flag: Flag) => void;
   onFlagAdd: () => void;
   videoUrl?: string | null; // URL to video file for synced playback
+  /** Whether parent component is in scrubbing mode (passed down from AudioTool) */
+  isParentScrubbing?: boolean;
 }
 
 // ============================================================================
@@ -512,6 +515,7 @@ export const ExpandVideoModal: React.FC<ExpandVideoModalProps> = ({
   onFlagClick,
   onFlagAdd,
   videoUrl,
+  isParentScrubbing = false,
 }) => {
   // Modal state
   const [size, setSize] = useState<ModalSize>('M');
@@ -524,17 +528,24 @@ export const ExpandVideoModal: React.FC<ExpandVideoModalProps> = ({
   const [speedAnchorEl, setSpeedAnchorEl] = useState<HTMLElement | null>(null);
   const speedMenuOpen = Boolean(speedAnchorEl);
 
+  // Waveform scrubbing state (for playhead drag in mini waveform)
+  const [isWaveformScrubbing, setIsWaveformScrubbing] = useState(false);
+
   // Refs
   const modalRef = useRef<HTMLDivElement>(null);
   const waveformCanvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // Combined scrubbing state: either parent is scrubbing or local waveform is being scrubbed
+  const isScrubbing = isParentScrubbing || isWaveformScrubbing;
+
   // Use the video sync hook for smooth video playback synchronized with waveform
-  useVideoSync({
+  const { isVideoLoading, isVideoReady } = useVideoSync({
     videoRef,
     videoUrl,
     isActive: open && !!videoUrl,
     duration,
+    isScrubbing,
   });
 
   // Playhead store
@@ -650,8 +661,8 @@ export const ExpandVideoModal: React.FC<ExpandVideoModalProps> = ({
     }
   }, [open, drawWaveform]);
 
-  // Handle waveform click to seek
-  const handleWaveformClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+  // Handle waveform mouse down - start potential scrub
+  const handleWaveformMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = waveformCanvasRef.current;
     if (!canvas) return;
 
@@ -660,7 +671,32 @@ export const ExpandVideoModal: React.FC<ExpandVideoModalProps> = ({
     const ratio = x / rect.width;
     const timeInMs = ratio * duration * 1000;
     setTimestamp(Math.max(0, Math.min(timeInMs, duration * 1000)));
+    setIsWaveformScrubbing(true);
   }, [duration, setTimestamp]);
+
+  // Handle waveform mouse move - update position during scrub
+  const handleWaveformMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isWaveformScrubbing) return;
+
+    const canvas = waveformCanvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const ratio = Math.max(0, Math.min(1, x / rect.width));
+    const timeInMs = ratio * duration * 1000;
+    setTimestamp(Math.max(0, Math.min(timeInMs, duration * 1000)));
+  }, [isWaveformScrubbing, duration, setTimestamp]);
+
+  // Handle waveform mouse up - end scrub
+  const handleWaveformMouseUp = useCallback(() => {
+    setIsWaveformScrubbing(false);
+  }, []);
+
+  // Handle waveform mouse leave - end scrub
+  const handleWaveformMouseLeave = useCallback(() => {
+    setIsWaveformScrubbing(false);
+  }, []);
 
   // Handle drag start
   const handleDragStart = useCallback((e: React.MouseEvent) => {
@@ -782,17 +818,60 @@ export const ExpandVideoModal: React.FC<ExpandVideoModalProps> = ({
           {/* Video Player */}
           <VideoContainer>
             {videoUrl ? (
-              <video
-                ref={videoRef}
-                src={videoUrl}
-                muted
-                playsInline
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'contain',
-                }}
-              />
+              <>
+                <video
+                  ref={videoRef}
+                  src={videoUrl}
+                  muted
+                  playsInline
+                  preload="auto"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain',
+                  }}
+                />
+                {/* Gray overlay when scrubbing - indicates video is frozen */}
+                {isScrubbing && (
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    <Typography sx={{ color: '#888', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>
+                      Scrubbing
+                    </Typography>
+                  </Box>
+                )}
+                {/* Loading spinner when video is seeking */}
+                {isVideoLoading && !isScrubbing && (
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    <CircularProgress size={32} sx={{ color: '#19abb5' }} />
+                  </Box>
+                )}
+              </>
             ) : (
               <VideoPlaceholder>
                 <Typography sx={{ fontSize: 14, color: '#555' }}>Video Preview</Typography>
@@ -807,7 +886,11 @@ export const ExpandVideoModal: React.FC<ExpandVideoModalProps> = ({
           <WaveformContainer>
             <WaveformCanvas
               ref={waveformCanvasRef}
-              onClick={handleWaveformClick}
+              onMouseDown={handleWaveformMouseDown}
+              onMouseMove={handleWaveformMouseMove}
+              onMouseUp={handleWaveformMouseUp}
+              onMouseLeave={handleWaveformMouseLeave}
+              style={{ cursor: isWaveformScrubbing ? 'ew-resize' : 'crosshair' }}
             />
           </WaveformContainer>
 
