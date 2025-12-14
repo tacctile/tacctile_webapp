@@ -495,6 +495,7 @@ interface ExpandVideoModalProps {
   flags: Flag[];
   onFlagClick: (flag: Flag) => void;
   onFlagAdd: () => void;
+  videoUrl?: string | null; // URL to video file for synced playback
 }
 
 // ============================================================================
@@ -509,6 +510,7 @@ export const ExpandVideoModal: React.FC<ExpandVideoModalProps> = ({
   flags,
   onFlagClick,
   onFlagAdd,
+  videoUrl,
 }) => {
   // Modal state
   const [size, setSize] = useState<ModalSize>('M');
@@ -521,9 +523,13 @@ export const ExpandVideoModal: React.FC<ExpandVideoModalProps> = ({
   const [speedAnchorEl, setSpeedAnchorEl] = useState<HTMLElement | null>(null);
   const speedMenuOpen = Boolean(speedAnchorEl);
 
+  // Video sync state
+  const [isVideoSyncing, setIsVideoSyncing] = useState(false);
+
   // Refs
   const modalRef = useRef<HTMLDivElement>(null);
   const waveformCanvasRef = useRef<HTMLCanvasElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Playhead store
   const timestamp = usePlayheadStore((state) => state.timestamp);
@@ -637,6 +643,39 @@ export const ExpandVideoModal: React.FC<ExpandVideoModalProps> = ({
       return () => window.removeEventListener('resize', handleResize);
     }
   }, [open, drawWaveform]);
+
+  // Sync video playback with waveform playhead
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !videoUrl || !open) return;
+
+    // Prevent recursive sync loops
+    if (isVideoSyncing) return;
+
+    const currentTimeSec = timestamp / 1000;
+
+    // Sync position: only update if difference is significant (>0.1 second)
+    if (Math.abs(video.currentTime - currentTimeSec) > 0.1) {
+      setIsVideoSyncing(true);
+      video.currentTime = currentTimeSec;
+      setTimeout(() => setIsVideoSyncing(false), 50);
+    }
+  }, [timestamp, videoUrl, open, isVideoSyncing]);
+
+  // Sync video play/pause state with waveform
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !videoUrl || !open) return;
+
+    if (isPlaying) {
+      video.muted = true;
+      video.play().catch(() => {
+        // Ignore autoplay errors
+      });
+    } else {
+      video.pause();
+    }
+  }, [isPlaying, videoUrl, open]);
 
   // Handle waveform click to seek
   const handleWaveformClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -769,12 +808,26 @@ export const ExpandVideoModal: React.FC<ExpandVideoModalProps> = ({
         <ModalContent>
           {/* Video Player */}
           <VideoContainer>
-            <VideoPlaceholder>
-              <Typography sx={{ fontSize: 14, color: '#555' }}>Video Preview</Typography>
-              <Typography sx={{ fontSize: 11, color: '#444', mt: 0.5 }}>
-                Synced video playback
-              </Typography>
-            </VideoPlaceholder>
+            {videoUrl ? (
+              <video
+                ref={videoRef}
+                src={videoUrl}
+                muted
+                playsInline
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain',
+                }}
+              />
+            ) : (
+              <VideoPlaceholder>
+                <Typography sx={{ fontSize: 14, color: '#555' }}>Video Preview</Typography>
+                <Typography sx={{ fontSize: 11, color: '#444', mt: 0.5 }}>
+                  No video available
+                </Typography>
+              </VideoPlaceholder>
+            )}
           </VideoContainer>
 
           {/* Waveform */}
