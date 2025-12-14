@@ -189,7 +189,9 @@ export const useAudioToolStore = create<AudioToolState & AudioToolActions>()(
       setAudioBuffer: (buffer) => {
         set((state) => {
           state.audioBuffer = buffer;
-          state.playback.duration = buffer.duration;
+          if (buffer) {
+            state.playback.duration = buffer.duration;
+          }
           state.isLoading = false;
         });
       },
