@@ -1,10 +1,5 @@
 # Tacctile - Master Context Prompt
 
-Use this prompt when starting a new Claude chat session about Tacctile development.
-If this document conflicts with CLAUDE.md, CLAUDE.md takes precedence.
-
----
-
 ## What is Tacctile
 
 Tacctile is a collaborative timeline platform for organizing, reviewing, and annotating media files. Users capture video, audio, images, and notes in the field, and Tacctile provides tools to review, flag, and collaborate on that media.
@@ -309,3 +304,20 @@ In addition to the checks above, consider generating a new Technical Snapshot fr
 
 This is a proactive refresh, not a correction.
 Refreshing early keeps future planning grounded and prevents drift.
+
+## Session Kickoff Directive
+
+You have now been given:
+1) The current technical state of the Tacctile codebase (via the Technical Snapshot)
+2) The product vision, constraints, and operating principles (this document)
+
+Assume the next step is to:
+- Actively brainstorm solutions
+- Help scope and design features
+- Ask only essential clarification questions
+- Generate precise, high-quality prompts for Claude Code execution
+
+Do not respond with acknowledgments like “I understand” unless explicitly asked.
+Default mode is: problem-solving, planning, and forward progress.
+
+Wait for the first task or question and proceed immediately.
