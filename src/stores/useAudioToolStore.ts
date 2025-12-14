@@ -17,6 +17,7 @@ import type {
   WaveformSettings,
   AudioViewMode,
   AudioAnalysisData,
+  LoadedAudioFile,
 } from '../types/audio';
 import {
   DEFAULT_FILTER_SETTINGS,
@@ -33,6 +34,8 @@ interface AudioToolActions {
   // Audio loading
   loadAudio: (fileId: string, investigationId: string, audioUrl: string) => void;
   setAudioBuffer: (buffer: AudioBuffer) => void;
+  setLoadedAudioFile: (file: LoadedAudioFile | null) => void;
+  setWaveformData: (data: Float32Array | null) => void;
   clearAudio: () => void;
 
   // View mode
@@ -127,6 +130,8 @@ const initialState: AudioToolState = {
   investigationId: null,
   audioBuffer: null,
   audioUrl: null,
+  loadedAudioFile: null,
+  waveformData: null,
   viewMode: 'waveform',
   playback: DEFAULT_PLAYBACK_STATE,
   currentSelection: null,
@@ -184,8 +189,25 @@ export const useAudioToolStore = create<AudioToolState & AudioToolActions>()(
       setAudioBuffer: (buffer) => {
         set((state) => {
           state.audioBuffer = buffer;
-          state.playback.duration = buffer.duration;
+          if (buffer) {
+            state.playback.duration = buffer.duration;
+          }
           state.isLoading = false;
+        });
+      },
+
+      setLoadedAudioFile: (file) => {
+        set((state) => {
+          state.loadedAudioFile = file;
+          if (file) {
+            state.playback.duration = file.duration;
+          }
+        });
+      },
+
+      setWaveformData: (data) => {
+        set((state) => {
+          state.waveformData = data;
         });
       },
 
@@ -195,6 +217,8 @@ export const useAudioToolStore = create<AudioToolState & AudioToolActions>()(
           state.investigationId = null;
           state.audioBuffer = null;
           state.audioUrl = null;
+          state.loadedAudioFile = null;
+          state.waveformData = null;
           state.playback = DEFAULT_PLAYBACK_STATE;
           state.currentSelection = null;
           state.selections = [];
@@ -741,6 +765,9 @@ export const useAudioToolStore = create<AudioToolState & AudioToolActions>()(
 // ============================================================================
 
 export const selectAudioUrl = (state: AudioToolState) => state.audioUrl;
+export const selectAudioBuffer = (state: AudioToolState) => state.audioBuffer;
+export const selectLoadedAudioFile = (state: AudioToolState) => state.loadedAudioFile;
+export const selectWaveformData = (state: AudioToolState) => state.waveformData;
 export const selectPlayback = (state: AudioToolState) => state.playback;
 export const selectViewMode = (state: AudioToolState) => state.viewMode;
 export const selectSelections = (state: AudioToolState) => state.selections;

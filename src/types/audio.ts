@@ -287,6 +287,28 @@ export interface AudioAnalysisData {
 }
 
 /**
+ * Loaded audio file metadata
+ * Stores file information for display and re-loading
+ */
+export interface LoadedAudioFile {
+  id: string;
+  type: 'audio';
+  fileName: string;
+  duration: number;
+  capturedAt: number;
+  user: string;
+  deviceInfo: string;
+  flagCount?: number;
+  hasFindings?: boolean;
+  format?: string;
+  gps?: string | null;
+  hasVideo?: boolean;
+  path?: string;
+  sampleRate?: number;
+  channels?: number;
+}
+
+/**
  * Full state for audio tool
  */
 export interface AudioToolState {
@@ -298,6 +320,10 @@ export interface AudioToolState {
   audioBuffer: AudioBuffer | null;
   /** Audio URL (for wavesurfer) */
   audioUrl: string | null;
+  /** Loaded audio file metadata - persists across navigation */
+  loadedAudioFile: LoadedAudioFile | null;
+  /** Waveform visualization data - persists across navigation */
+  waveformData: Float32Array | null;
   /** View mode */
   viewMode: AudioViewMode;
   /** Playback state */
