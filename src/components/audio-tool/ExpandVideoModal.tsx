@@ -528,16 +528,13 @@ export const ExpandVideoModal: React.FC<ExpandVideoModalProps> = ({
   const [speedAnchorEl, setSpeedAnchorEl] = useState<HTMLElement | null>(null);
   const speedMenuOpen = Boolean(speedAnchorEl);
 
-  // Waveform scrubbing state (for playhead drag in mini waveform)
-  const [isWaveformScrubbing, setIsWaveformScrubbing] = useState(false);
-
   // Refs
   const modalRef = useRef<HTMLDivElement>(null);
   const waveformCanvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Combined scrubbing state: either parent is scrubbing or local waveform is being scrubbed
-  const isScrubbing = isParentScrubbing || isWaveformScrubbing;
+  // Scrubbing state from parent (video modal uses click-to-seek only, no local scrubbing)
+  const isScrubbing = isParentScrubbing;
 
   // Use the video sync hook for smooth video playback synchronized with waveform
   const { isVideoLoading, isVideoReady } = useVideoSync({
@@ -661,8 +658,8 @@ export const ExpandVideoModal: React.FC<ExpandVideoModalProps> = ({
     }
   }, [open, drawWaveform]);
 
-  // Handle waveform mouse down - start potential scrub
-  const handleWaveformMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+  // Handle waveform click - seek to clicked position (click-to-seek only, no dragging)
+  const handleWaveformClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = waveformCanvasRef.current;
     if (!canvas) return;
 
@@ -671,32 +668,7 @@ export const ExpandVideoModal: React.FC<ExpandVideoModalProps> = ({
     const ratio = x / rect.width;
     const timeInMs = ratio * duration * 1000;
     setTimestamp(Math.max(0, Math.min(timeInMs, duration * 1000)));
-    setIsWaveformScrubbing(true);
   }, [duration, setTimestamp]);
-
-  // Handle waveform mouse move - update position during scrub
-  const handleWaveformMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isWaveformScrubbing) return;
-
-    const canvas = waveformCanvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const ratio = Math.max(0, Math.min(1, x / rect.width));
-    const timeInMs = ratio * duration * 1000;
-    setTimestamp(Math.max(0, Math.min(timeInMs, duration * 1000)));
-  }, [isWaveformScrubbing, duration, setTimestamp]);
-
-  // Handle waveform mouse up - end scrub
-  const handleWaveformMouseUp = useCallback(() => {
-    setIsWaveformScrubbing(false);
-  }, []);
-
-  // Handle waveform mouse leave - end scrub
-  const handleWaveformMouseLeave = useCallback(() => {
-    setIsWaveformScrubbing(false);
-  }, []);
 
   // Handle drag start
   const handleDragStart = useCallback((e: React.MouseEvent) => {
@@ -831,29 +803,8 @@ export const ExpandVideoModal: React.FC<ExpandVideoModalProps> = ({
                     objectFit: 'contain',
                   }}
                 />
-                {/* Gray overlay when scrubbing - indicates video is frozen */}
-                {isScrubbing && (
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      pointerEvents: 'none',
-                    }}
-                  >
-                    <Typography sx={{ color: '#888', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>
-                      Scrubbing
-                    </Typography>
-                  </Box>
-                )}
-                {/* Loading spinner when video is seeking */}
-                {isVideoLoading && !isScrubbing && (
+                {/* Loading spinner when video is seeking (delayed to avoid flicker) */}
+                {isVideoLoading && (
                   <Box
                     sx={{
                       position: 'absolute',
@@ -882,15 +833,12 @@ export const ExpandVideoModal: React.FC<ExpandVideoModalProps> = ({
             )}
           </VideoContainer>
 
-          {/* Waveform */}
+          {/* Waveform - click-to-seek only (no dragging for video) */}
           <WaveformContainer>
             <WaveformCanvas
               ref={waveformCanvasRef}
-              onMouseDown={handleWaveformMouseDown}
-              onMouseMove={handleWaveformMouseMove}
-              onMouseUp={handleWaveformMouseUp}
-              onMouseLeave={handleWaveformMouseLeave}
-              style={{ cursor: isWaveformScrubbing ? 'ew-resize' : 'crosshair' }}
+              onClick={handleWaveformClick}
+              style={{ cursor: 'crosshair' }}
             />
           </WaveformContainer>
 
