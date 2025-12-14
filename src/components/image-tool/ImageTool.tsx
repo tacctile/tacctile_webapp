@@ -832,18 +832,21 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     // ========== SPLIT VIEW ==========
     if (viewMode === 'split') {
       return (
-        <Box sx={{
-          width: '100%',
-          height: '100%',
-          position: 'relative',
-          p: 2,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          userSelect: isDraggingSplit ? 'none' : 'auto',
-        }}>
+        <Box
+          ref={splitContainerRef}
+          sx={{
+            width: '100%',
+            height: '100%',
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            userSelect: isDraggingSplit ? 'none' : 'auto',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Image container - centered, contains both layers */}
           <Box
-            ref={splitContainerRef}
             sx={{
               position: 'relative',
               maxWidth: `${zoom}%`,
@@ -853,7 +856,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               justifyContent: 'center',
             }}
           >
-            {/* Full image (edited) - base layer */}
+            {/* EDITED image - base layer (bottom) */}
             <img
               src={imageUrl}
               alt={loadedImage.fileName}
@@ -863,45 +866,44 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                 objectFit: 'contain',
                 borderRadius: 2,
                 userSelect: 'none',
+                display: 'block',
               }}
               onLoad={handleImageLoad}
               draggable={false}
             />
-            {/* EDITED label - top right */}
-            <ViewLabel position="right">Edited</ViewLabel>
-            {/* Original overlay (clipped) */}
-            <Box sx={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              width: `${splitPosition}%`,
-              height: '100%',
-              overflow: 'hidden',
-              pointerEvents: 'none',
-            }}>
-              <img
-                src={imageUrl}
-                alt={loadedImage.fileName}
-                style={{
-                  height: '100%',
-                  objectFit: 'contain',
-                  userSelect: 'none',
-                }}
-                draggable={false}
-              />
-            </Box>
-            {/* ORIGINAL label - top left */}
-            <ViewLabel position="left">Original</ViewLabel>
-            {/* Draggable divider */}
-            <SplitDivider
-              isDragging={isDraggingSplit}
-              sx={{
-                left: `${splitPosition}%`,
-                transform: 'translateX(-50%)',
+            {/* ORIGINAL image - overlay layer (top) with clip-path reveal */}
+            <img
+              src={imageUrl}
+              alt={loadedImage.fileName}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                borderRadius: 2,
+                userSelect: 'none',
+                pointerEvents: 'none',
+                // Clip from the left edge to splitPosition% - reveals ORIGINAL on left side
+                clipPath: `inset(0 ${100 - splitPosition}% 0 0)`,
               }}
-              onMouseDown={handleSplitDragStart}
+              draggable={false}
             />
           </Box>
+          {/* ORIGINAL label - top left */}
+          <ViewLabel position="left">Original</ViewLabel>
+          {/* EDITED label - top right */}
+          <ViewLabel position="right">Edited</ViewLabel>
+          {/* Full-height draggable divider - spans entire viewable area */}
+          <SplitDivider
+            isDragging={isDraggingSplit}
+            sx={{
+              left: `${splitPosition}%`,
+              transform: 'translateX(-50%)',
+            }}
+            onMouseDown={handleSplitDragStart}
+          />
         </Box>
       );
     }
