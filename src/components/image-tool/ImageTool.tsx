@@ -1113,8 +1113,16 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   }, [marqueeStart, marqueeEnd]);
 
   // Apply marquee zoom - zoom to fit selected area in viewport
-  const applyMarqueeZoom = useCallback(() => {
-    if (!marqueeStart || !marqueeEnd || !containerDimensions || !actualDimensions) {
+  // Accepts optional start/end coordinates to avoid race conditions with async state updates
+  const applyMarqueeZoom = useCallback((
+    startCoord?: { x: number; y: number } | null,
+    endCoord?: { x: number; y: number } | null
+  ) => {
+    // Use provided coordinates or fall back to state
+    const start = startCoord ?? marqueeStart;
+    const end = endCoord ?? marqueeEnd;
+
+    if (!start || !end || !containerDimensions || !actualDimensions) {
       return;
     }
 
@@ -1127,10 +1135,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     const imageTop = (containerDimensions.height - imageSize.height) / 2 + panOffset.y;
 
     // Marquee corners in image-relative coordinates
-    const marqueeImageLeft = Math.min(marqueeStart.x, marqueeEnd.x) - containerRect.left - imageLeft;
-    const marqueeImageTop = Math.min(marqueeStart.y, marqueeEnd.y) - containerRect.top - imageTop;
-    const marqueeImageRight = Math.max(marqueeStart.x, marqueeEnd.x) - containerRect.left - imageLeft;
-    const marqueeImageBottom = Math.max(marqueeStart.y, marqueeEnd.y) - containerRect.top - imageTop;
+    const marqueeImageLeft = Math.min(start.x, end.x) - containerRect.left - imageLeft;
+    const marqueeImageTop = Math.min(start.y, end.y) - containerRect.top - imageTop;
+    const marqueeImageRight = Math.max(start.x, end.x) - containerRect.left - imageLeft;
+    const marqueeImageBottom = Math.max(start.y, end.y) - containerRect.top - imageTop;
 
     // Convert to normalized image coordinates (0-1)
     const normalizedLeft = Math.max(0, marqueeImageLeft / imageSize.width);
@@ -1246,17 +1254,14 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         cancelAnimationFrame(rafId);
       }
 
-      // Commit final positions to state for zoom calculation
+      // Get coordinates from ref and apply zoom directly (avoid state race condition)
       const { start, end } = marqueeLiveRef.current;
       if (start && end) {
-        setMarqueeStart(start);
-        setMarqueeEnd(end);
-        // Apply zoom immediately after state update
-        requestAnimationFrame(() => {
-          applyMarqueeZoom();
-        });
+        // Pass coordinates directly to avoid async state update race condition
+        applyMarqueeZoom(start, end);
       }
 
+      // Clean up state
       setIsMarqueeDrawing(false);
       setMarqueeStart(null);
       setMarqueeEnd(null);
