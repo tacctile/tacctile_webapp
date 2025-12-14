@@ -288,37 +288,39 @@ npm run test:unit:coverage # Coverage report
 ESLint 8.57.1 with TypeScript plugin
 Config: .eslintrc (implied, standard Vite setup)
 Command: npm run lint
-10) Build, Run, Deploy (Exact Commands)
-Install Dependencies
-npm install
+10) Build, Deploy, and Validation (Cloud-Only)
 
-Run Locally (Dev)
-npm run dev
-# Opens http://localhost:3000
+This project is developed and validated entirely through cloud-based workflows.
+There is no local development or localhost execution.
 
-Run in Watch Mode
-npm run dev
-# Vite HMR enabled by default
+CI / Build Process
+- Builds are executed by the CI system on repository events (e.g., pull requests, merges).
+- The primary build command is:
+  npm run build
+- Output artifacts are generated for deployment by the hosting platform.
 
-Build Production
-npm run build
-# Output: dist/
+Static Analysis & Quality Checks
+- Type checking is performed during CI using:
+  npm run type-check
+- Linting is performed during CI using:
+  npm run lint
+- These checks must pass before pull requests are merged.
 
-Preview Production Build
-npm run preview
-# Opens http://localhost:4173
+Preview & Deployment Model
+- Preview environments are generated automatically for pull requests.
+- Previews are used to validate UI, behavior, and integrations.
+- No local preview or watch mode is used.
 
-Type Check
-npm run type-check
+Production Deployment
+- Deployments occur automatically on merges to the main branch.
+- Deployment configuration is defined in:
+  vercel.json
+- The deployment platform executes the build command and serves the output.
 
-Lint
-npm run lint
+Authoritative Validation Source
+- Hosted preview deployments and CI results are the sole source of truth
+  for determining whether changes are correct and ready to merge.
 
-CI/CD Entry Points
-Vercel: Auto-deploys on push to main branch
-Config: vercel.json
-Build command: npm run build
-Output directory: dist
 11) Known Issues, Risks & Tech Debt
 Issue	Why It Matters	File Path	Severity
 Cloud sync not implemented	Autosave to API doesn't work	src/stores/useAutosave.ts:217	High
