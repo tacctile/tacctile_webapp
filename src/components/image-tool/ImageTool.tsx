@@ -15,6 +15,7 @@ import ImageIcon from '@mui/icons-material/Image';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import FitScreenIcon from '@mui/icons-material/FitScreen';
+import AspectRatioIcon from '@mui/icons-material/AspectRatio';
 import CropIcon from '@mui/icons-material/Crop';
 import RotateRightIcon from '@mui/icons-material/RotateRight';
 import FlipIcon from '@mui/icons-material/Flip';
@@ -22,7 +23,6 @@ import RectangleOutlinedIcon from '@mui/icons-material/RectangleOutlined';
 import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import GestureIcon from '@mui/icons-material/Gesture';
-import ViewColumnIcon from '@mui/icons-material/ViewColumn';
 import CompareIcon from '@mui/icons-material/Compare';
 import VerticalSplitIcon from '@mui/icons-material/VerticalSplit';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -46,6 +46,7 @@ import {
   generateTestMetadataIfDev,
   formatGPSCoordinates,
 } from '@/utils/testMetadataGenerator';
+import { ImageViewer } from './ImageViewer';
 
 // ============================================================================
 // STYLED COMPONENTS
@@ -434,18 +435,30 @@ interface ImageToolProps {
   investigationId?: string;
 }
 
+// Zoom levels for stepping
+const ZOOM_LEVELS = [10, 25, 33, 50, 67, 75, 100, 150, 200, 300, 400];
+const MIN_ZOOM = 10;
+const MAX_ZOOM = 400;
+
 export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [selectedFile, setSelectedFile] = useState<typeof imageFiles[0] | null>(null);
   const [loadedImage, setLoadedImage] = useState<typeof imageFiles[0] | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('single');
   const [zoom, setZoom] = useState(100);
+  const [fitZoom, setFitZoom] = useState(100);
   const [activeTool, setActiveTool] = useState<AnnotationTool>(null);
   const [filters, setFilters] = useState<ImageFilters>(defaultFilters);
   const [annotations, setAnnotations] = useState<ImageAnnotation[]>(mockAnnotations);
   const [splitPosition, setSplitPosition] = useState(50);
 
+  // Key to force ImageViewer remount on image change (resets zoom/pan)
+  const [viewerKey, setViewerKey] = useState(0);
+
   // State for actual image dimensions (read from loaded image)
   const [actualDimensions, setActualDimensions] = useState<{ width: number; height: number } | null>(null);
+
+  // Ref for the main container to handle keyboard events
+  const mainContainerRef = useRef<HTMLDivElement>(null);
 
   // Section collapse states
   const [histogramCollapsed, setHistogramCollapsed] = useState(false);
@@ -494,6 +507,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     setSelectedFile(item);
     setFilters(defaultFilters);
     setActualDimensions(null); // Reset until image loads
+    // Reset viewer (force remount to reset zoom/pan)
+    setViewerKey(prev => prev + 1);
+    setZoom(100); // Will be set to fitZoom by ImageViewer on load
     // Persist loaded file ID in navigation store
     setLoadedFile('images', item.id);
   }, [setLoadedFile]);
@@ -502,10 +518,80 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     if (newMode) setViewMode(newMode);
   };
 
-  const handleZoomIn = () => setZoom(prev => Math.min(400, prev + 25));
-  const handleZoomOut = () => setZoom(prev => Math.max(25, prev - 25));
-  const handleFitToView = () => setZoom(100);
-  const handleZoom100 = () => setZoom(100);
+  // Get next zoom level in the ZOOM_LEVELS array
+  const getNextZoomLevel = useCallback((currentZoom: number, direction: 'in' | 'out'): number => {
+    if (direction === 'in') {
+      for (const level of ZOOM_LEVELS) {
+        if (level > currentZoom + 1) return level;
+      }
+      return MAX_ZOOM;
+    } else {
+      for (let i = ZOOM_LEVELS.length - 1; i >= 0; i--) {
+        const level = ZOOM_LEVELS[i];
+        if (level !== undefined && level < currentZoom - 1) return level;
+      }
+      return MIN_ZOOM;
+    }
+  }, []);
+
+  const handleZoomIn = useCallback(() => {
+    setZoom(prev => Math.min(MAX_ZOOM, getNextZoomLevel(prev, 'in')));
+  }, [getNextZoomLevel]);
+
+  const handleZoomOut = useCallback(() => {
+    const minZoom = Math.max(MIN_ZOOM, fitZoom);
+    setZoom(prev => Math.max(minZoom, getNextZoomLevel(prev, 'out')));
+  }, [getNextZoomLevel, fitZoom]);
+
+  const handleFitToView = useCallback(() => {
+    setZoom(fitZoom);
+  }, [fitZoom]);
+
+  const handleZoom100 = useCallback(() => {
+    setZoom(100);
+  }, []);
+
+  // Handle zoom change from ImageViewer
+  const handleZoomChange = useCallback((newZoom: number) => {
+    setZoom(Math.round(newZoom));
+  }, []);
+
+  // Handle image load from ImageViewer to get fitZoom
+  const handleViewerImageLoad = useCallback((dimensions: { width: number; height: number }) => {
+    setActualDimensions(dimensions);
+  }, []);
+
+  // Keyboard shortcuts handler
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    // Don't handle if focused on input
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      return;
+    }
+
+    // Don't handle if modifier keys (except shift for +/=)
+    if (e.altKey || e.metaKey || e.ctrlKey) return;
+
+    switch (e.key) {
+      case '+':
+      case '=':
+        e.preventDefault();
+        handleZoomIn();
+        break;
+      case '-':
+      case '_':
+        e.preventDefault();
+        handleZoomOut();
+        break;
+      case '0':
+        e.preventDefault();
+        handleFitToView();
+        break;
+      case '1':
+        e.preventDefault();
+        handleZoom100();
+        break;
+    }
+  }, [handleZoomIn, handleZoomOut, handleFitToView, handleZoom100]);
 
   const handleFilterChange = (key: keyof ImageFilters) => (value: number) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -636,7 +722,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     e.stopPropagation();
   }, []);
 
-  // Handle image load to read actual dimensions
+  // Handle image load to read actual dimensions (for side-by-side and split views)
   const handleImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
     setActualDimensions({ width: img.naturalWidth, height: img.naturalHeight });
@@ -676,17 +762,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
     const imageUrl = getImageUrl(loadedImage);
 
-    // Container style for centering and fit-to-window
-    const containerStyle = {
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      width: '100%',
-      height: '100%',
-      padding: 2,
-    };
-
-    // Image style - fit to window with zoom support
+    // Image style for side-by-side and split views
     const imageStyle = {
       maxWidth: `${zoom}%`,
       maxHeight: `${zoom}%`,
@@ -801,22 +877,26 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       );
     }
 
-    // Single view - display actual image
+    // Single view - use the professional ImageViewer with zoom/pan
     return (
-      <Box sx={containerStyle}>
-        <img
-          src={imageUrl}
-          alt={loadedImage.fileName}
-          style={imageStyle}
-          onLoad={handleImageLoad}
-        />
-      </Box>
+      <ImageViewer
+        key={viewerKey}
+        imageUrl={imageUrl}
+        onImageLoad={handleViewerImageLoad}
+        onZoomChange={handleZoomChange}
+        initialFitToWindow={true}
+      />
     );
   };
 
   // Main content
   const mainContent = (
-    <MainContainer>
+    <MainContainer
+      ref={mainContainerRef}
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+      sx={{ outline: 'none' }}
+    >
       {/* Toolbar */}
       <Toolbar>
         {/* View Mode Toggle */}
@@ -850,28 +930,42 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
         {/* Zoom Controls */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Tooltip title="Zoom Out">
+          <Tooltip title="Zoom Out (-)">
             <IconButton size="small" onClick={handleZoomOut} disabled={!loadedImage} sx={{ color: '#888', p: 0.5 }}>
               <ZoomOutIcon sx={{ fontSize: 18 }} />
             </IconButton>
           </Tooltip>
           <ZoomDisplay>{zoom}%</ZoomDisplay>
-          <Tooltip title="Zoom In">
+          <Tooltip title="Zoom In (+)">
             <IconButton size="small" onClick={handleZoomIn} disabled={!loadedImage} sx={{ color: '#888', p: 0.5 }}>
               <ZoomInIcon sx={{ fontSize: 18 }} />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Fit to View">
+          <Tooltip title="Fit to Window (0)">
             <IconButton size="small" onClick={handleFitToView} disabled={!loadedImage} sx={{ color: '#888', p: 0.5 }}>
               <FitScreenIcon sx={{ fontSize: 18 }} />
             </IconButton>
           </Tooltip>
-          <Tooltip title="100%">
+          <Tooltip title="Actual Size / 100% (1)">
+            <IconButton size="small" onClick={handleZoom100} disabled={!loadedImage} sx={{ color: '#888', p: 0.5 }}>
+              <AspectRatioIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="1:1 Pixel View">
             <Button
               size="small"
               onClick={handleZoom100}
               disabled={!loadedImage}
-              sx={{ fontSize: 9, color: '#888', minWidth: 32, p: 0.5 }}
+              sx={{
+                fontSize: 9,
+                color: zoom === 100 ? '#19abb5' : '#888',
+                minWidth: 32,
+                p: 0.5,
+                backgroundColor: zoom === 100 ? 'rgba(25, 171, 181, 0.1)' : 'transparent',
+                '&:hover': {
+                  backgroundColor: zoom === 100 ? 'rgba(25, 171, 181, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                }
+              }}
             >
               1:1
             </Button>

@@ -4,3 +4,5 @@
  */
 
 export { ImageTool, default } from './ImageTool';
+export { ImageViewer, useImageViewer } from './ImageViewer';
+export type { ImageViewerProps, ImageViewerControls } from './ImageViewer';
