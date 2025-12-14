@@ -23,15 +23,10 @@ import RedoIcon from '@mui/icons-material/Redo';
 import RectangleOutlinedIcon from '@mui/icons-material/RectangleOutlined';
 import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import CompareIcon from '@mui/icons-material/Compare';
 import ViewColumnIcon from '@mui/icons-material/ViewColumn';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import AddIcon from '@mui/icons-material/Add';
-import PersonIcon from '@mui/icons-material/Person';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import CropFreeIcon from '@mui/icons-material/CropFree';
 
@@ -341,19 +336,6 @@ interface ImageAnnotation {
   height: number;   // Height for rect/circle, end y offset for arrow
 }
 
-// Legacy annotation interface for the right panel (to be deprecated)
-interface LegacyAnnotation {
-  id: string;
-  type: 'rectangle' | 'circle' | 'arrow';
-  label: string;
-  user: string;
-  visible: boolean;
-  x: number;
-  y: number;
-  width?: number;
-  height?: number;
-}
-
 interface ImageFilters {
   // Basic
   exposure: number;
@@ -406,12 +388,6 @@ const imageFiles: (FileItem & { format?: string; gps?: string | null; dimensions
   { id: 'i7', type: 'image', fileName: 'pexels-pixabay-459335.jpg', thumbnailUrl: '/images/pexels-pixabay-459335.jpg', capturedAt: Date.now() - 4800000, user: 'Mike', deviceInfo: 'Sony A7IV', flagCount: 1, hasFindings: true, format: 'JPEG / sRGB', gps: '37.77°N, 122.41°W', dimensions: '5760 x 3840' },
   { id: 'i8', type: 'image', fileName: 'pexels-pixabay-68507.jpg', thumbnailUrl: '/images/pexels-pixabay-68507.jpg', capturedAt: Date.now() - 4400000, user: 'Sarah', deviceInfo: 'Nikon Z6', flagCount: 2, hasFindings: true, format: 'JPEG / sRGB', gps: '41.90°N, 12.49°E', dimensions: '4288 x 2848' },
   { id: 'i9', type: 'image', fileName: 'pexels-soldiervip-1386604.jpg', thumbnailUrl: '/images/pexels-soldiervip-1386604.jpg', capturedAt: Date.now() - 4000000, user: 'Jen', deviceInfo: 'Canon EOS R5', flagCount: 0, hasFindings: false, format: 'JPEG / sRGB', gps: '52.52°N, 13.40°E', dimensions: '6000 x 4000' },
-];
-
-const mockAnnotations: LegacyAnnotation[] = [
-  { id: 'a1', type: 'rectangle', label: 'Area of interest', user: 'Sarah', visible: true, x: 120, y: 80, width: 60, height: 100 },
-  { id: 'a2', type: 'circle', label: 'Highlight region', user: 'Mike', visible: true, x: 300, y: 150, width: 40, height: 40 },
-  { id: 'a3', type: 'arrow', label: 'Direction indicator', user: 'Jen', visible: false, x: 200, y: 200, width: 80, height: 0 },
 ];
 
 // ============================================================================
@@ -479,7 +455,6 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('single');
   const [activeTool, setActiveTool] = useState<AnnotationTool>(null);
   const [filters, setFilters] = useState<ImageFilters>(defaultFilters);
-  const [legacyAnnotations, setLegacyAnnotations] = useState<LegacyAnnotation[]>(mockAnnotations);
   // Drawn annotations stored with image-relative coordinates (0-1 normalized)
   const [drawnAnnotations, setDrawnAnnotations] = useState<ImageAnnotation[]>([]);
   // Drawing state for annotation in progress
@@ -572,13 +547,6 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [histogramCollapsed, setHistogramCollapsed] = useState(false);
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
   const [annotationsCollapsed, setAnnotationsCollapsed] = useState(false);
-
-  // Filter visibility by user
-  const [userVisibility, setUserVisibility] = useState<Record<string, boolean>>({
-    'Sarah': true,
-    'Mike': true,
-    'Jen': true,
-  });
 
   // File drop zone state
   const [isFileDragOver, setIsFileDragOver] = useState(false);
@@ -882,19 +850,6 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     }
     return transforms.length > 0 ? transforms.join(' ') : 'none';
   }, [rotation, flipH, flipV]);
-
-  const toggleAnnotationVisibility = (id: string) => {
-    setLegacyAnnotations(prev => prev.map(a => a.id === id ? { ...a, visible: !a.visible } : a));
-  };
-
-  const toggleUserVisibility = (user: string) => {
-    setUserVisibility(prev => ({ ...prev, [user]: !prev[user] }));
-  };
-
-  const getUniqueUsers = () => {
-    const users = new Set(legacyAnnotations.map(a => a.user));
-    return Array.from(users);
-  };
 
   // ============================================================================
   // FILE DROP ZONE HANDLERS
@@ -1483,6 +1438,47 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       const coords = screenToImageCoords(e.clientX, e.clientY);
       if (coords) {
         e.preventDefault();
+
+        // Arrow tool: single-click placement with edge detection
+        if (activeTool === 'arrow') {
+          // Arrow length in normalized coordinates (approx 50-60px at 100% zoom)
+          const arrowLength = 0.08; // Normalized length
+          const angle45 = Math.PI / 4; // 45 degrees
+
+          // Default: tail goes up and to the left
+          let tailDirX = -1;
+          let tailDirY = -1;
+
+          // Edge detection: flip if arrow would go off image bounds
+          // Check left edge - if click is too close to left, flip horizontal
+          if (coords.normalizedX < arrowLength * Math.cos(angle45)) {
+            tailDirX = 1; // Flip to go right
+          }
+          // Check top edge - if click is too close to top, flip vertical
+          if (coords.normalizedY < arrowLength * Math.sin(angle45)) {
+            tailDirY = 1; // Flip to go down
+          }
+
+          // Calculate tail position (start of arrow)
+          const tailX = coords.normalizedX + tailDirX * arrowLength * Math.cos(angle45);
+          const tailY = coords.normalizedY + tailDirY * arrowLength * Math.sin(angle45);
+
+          // Create arrow annotation immediately
+          // Arrow stored as: x,y = tail position, width/height = offset to point (click location)
+          const annotation: ImageAnnotation = {
+            id: `ann-${Date.now()}`,
+            type: 'arrow',
+            x: tailX,
+            y: tailY,
+            width: coords.normalizedX - tailX,
+            height: coords.normalizedY - tailY,
+          };
+          setDrawnAnnotations(prev => [...prev, annotation]);
+          // Don't start drawing - arrow is placed immediately
+          return;
+        }
+
+        // Rectangle and circle: drag to draw
         setIsDrawingAnnotation(true);
         setDrawingStartPoint({ x: coords.normalizedX, y: coords.normalizedY });
         setCurrentDrawingEnd({ x: coords.normalizedX, y: coords.normalizedY });
@@ -1588,9 +1584,12 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     };
   }, [isPanning, constrainPan]);
 
-  // Handle annotation drawing (mouse move and mouse up)
+  // Handle annotation drawing (mouse move and mouse up) for rectangle and circle
+  // Arrow tool uses single-click placement (handled in handlePanStart)
   useEffect(() => {
     if (!isDrawingAnnotation || !activeTool || !drawingStartPoint) return;
+    // Arrow tool doesn't use drag drawing
+    if (activeTool === 'arrow') return;
 
     const handleMouseMove = (e: MouseEvent) => {
       const coords = screenToImageCoords(e.clientX, e.clientY);
@@ -1602,30 +1601,20 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     const handleMouseUp = (e: MouseEvent) => {
       const coords = screenToImageCoords(e.clientX, e.clientY);
       if (coords && drawingStartPoint) {
-        // Create the annotation
+        // Create the annotation (rectangle or circle)
         const startX = Math.min(drawingStartPoint.x, coords.normalizedX);
         const startY = Math.min(drawingStartPoint.y, coords.normalizedY);
         const endX = Math.max(drawingStartPoint.x, coords.normalizedX);
         const endY = Math.max(drawingStartPoint.y, coords.normalizedY);
 
-        // For arrow, keep the direction (start to end)
-        const annotation: ImageAnnotation = activeTool === 'arrow'
-          ? {
-              id: `ann-${Date.now()}`,
-              type: 'arrow',
-              x: drawingStartPoint.x,
-              y: drawingStartPoint.y,
-              width: coords.normalizedX - drawingStartPoint.x,
-              height: coords.normalizedY - drawingStartPoint.y,
-            }
-          : {
-              id: `ann-${Date.now()}`,
-              type: activeTool,
-              x: startX,
-              y: startY,
-              width: endX - startX,
-              height: endY - startY,
-            };
+        const annotation: ImageAnnotation = {
+          id: `ann-${Date.now()}`,
+          type: activeTool,
+          x: startX,
+          y: startY,
+          width: endX - startX,
+          height: endY - startY,
+        };
 
         // Only add if it has some size
         if (Math.abs(annotation.width) > 0.01 || Math.abs(annotation.height) > 0.01) {
@@ -2123,21 +2112,13 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               }
               return null;
             })}
-            {/* Current drawing in progress */}
-            {isDrawingAnnotation && drawingStartPoint && currentDrawingEnd && activeTool && (
+            {/* Current drawing in progress (rectangle and circle only - arrow is single-click) */}
+            {isDrawingAnnotation && drawingStartPoint && currentDrawingEnd && activeTool && activeTool !== 'arrow' && (
               (() => {
-                const startX = activeTool === 'arrow'
-                  ? drawingStartPoint.x * imageSize.width
-                  : Math.min(drawingStartPoint.x, currentDrawingEnd.x) * imageSize.width;
-                const startY = activeTool === 'arrow'
-                  ? drawingStartPoint.y * imageSize.height
-                  : Math.min(drawingStartPoint.y, currentDrawingEnd.y) * imageSize.height;
-                const width = activeTool === 'arrow'
-                  ? (currentDrawingEnd.x - drawingStartPoint.x) * imageSize.width
-                  : Math.abs(currentDrawingEnd.x - drawingStartPoint.x) * imageSize.width;
-                const height = activeTool === 'arrow'
-                  ? (currentDrawingEnd.y - drawingStartPoint.y) * imageSize.height
-                  : Math.abs(currentDrawingEnd.y - drawingStartPoint.y) * imageSize.height;
+                const startX = Math.min(drawingStartPoint.x, currentDrawingEnd.x) * imageSize.width;
+                const startY = Math.min(drawingStartPoint.y, currentDrawingEnd.y) * imageSize.height;
+                const width = Math.abs(currentDrawingEnd.x - drawingStartPoint.x) * imageSize.width;
+                const height = Math.abs(currentDrawingEnd.y - drawingStartPoint.y) * imageSize.height;
 
                 if (activeTool === 'rectangle') {
                   return (
@@ -2167,48 +2148,6 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                       strokeWidth={2}
                       strokeDasharray="4 2"
                     />
-                  );
-                }
-                if (activeTool === 'arrow') {
-                  const endX = startX + width;
-                  const endY = startY + height;
-                  const angle = Math.atan2(height, width);
-                  const headLength = 12;
-                  const headAngle = Math.PI / 6;
-                  const headX1 = endX - headLength * Math.cos(angle - headAngle);
-                  const headY1 = endY - headLength * Math.sin(angle - headAngle);
-                  const headX2 = endX - headLength * Math.cos(angle + headAngle);
-                  const headY2 = endY - headLength * Math.sin(angle + headAngle);
-                  return (
-                    <g>
-                      <line
-                        x1={startX}
-                        y1={startY}
-                        x2={endX}
-                        y2={endY}
-                        stroke="#19abb5"
-                        strokeWidth={2}
-                        strokeDasharray="4 2"
-                      />
-                      <line
-                        x1={endX}
-                        y1={endY}
-                        x2={headX1}
-                        y2={headY1}
-                        stroke="#19abb5"
-                        strokeWidth={2}
-                        strokeDasharray="4 2"
-                      />
-                      <line
-                        x1={endX}
-                        y1={endY}
-                        x2={headX2}
-                        y2={headY2}
-                        stroke="#19abb5"
-                        strokeWidth={2}
-                        strokeDasharray="4 2"
-                      />
-                    </g>
                   );
                 }
                 return null;
@@ -2258,12 +2197,12 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             </StyledToggleButton>
             <StyledToggleButton value="side-by-side">
               <Tooltip title="Side by Side">
-                <ViewColumnIcon sx={{ fontSize: 16 }} />
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>splitscreen_landscape</span>
               </Tooltip>
             </StyledToggleButton>
             <StyledToggleButton value="split">
               <Tooltip title="Split View">
-                <CompareIcon sx={{ fontSize: 16 }} />
+                <ViewColumnIcon sx={{ fontSize: 16 }} />
               </Tooltip>
             </StyledToggleButton>
           </ToggleButtonGroup>
@@ -2527,9 +2466,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
           )}
         </Box>
         <Box sx={{ display: 'flex', gap: 2 }}>
-          {loadedImage && legacyAnnotations.length > 0 && (
+          {loadedImage && drawnAnnotations.length > 0 && (
             <Typography sx={{ fontSize: 10, color: '#666' }}>
-              {legacyAnnotations.filter(a => a.visible).length} / {legacyAnnotations.length} annotations visible
+              {drawnAnnotations.length} annotation{drawnAnnotations.length !== 1 ? 's' : ''}
             </Typography>
           )}
         </Box>
@@ -2622,45 +2561,21 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         <SectionHeader onClick={() => setAnnotationsCollapsed(!annotationsCollapsed)}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <SectionTitle>Annotations</SectionTitle>
-            <Typography sx={{ fontSize: 10, color: '#555' }}>({legacyAnnotations.length})</Typography>
+            <Typography sx={{ fontSize: 10, color: '#555' }}>({drawnAnnotations.length})</Typography>
           </Box>
           {annotationsCollapsed ? <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} /> : <ExpandLessIcon sx={{ fontSize: 16, color: '#666' }} />}
         </SectionHeader>
         {!annotationsCollapsed && (
           <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            {/* User visibility toggles */}
-            <Box sx={{ padding: '8px 12px', borderBottom: '1px solid #1f1f1f' }}>
-              <Typography sx={{ fontSize: 9, color: '#555', mb: 0.5, textTransform: 'uppercase' }}>Show by user</Typography>
-              <Box sx={{ display: 'flex', gap: 0.5 }}>
-                {getUniqueUsers().map(user => (
-                  <Tooltip key={user} title={`Toggle ${user}'s annotations`}>
-                    <IconButton
-                      size="small"
-                      onClick={() => toggleUserVisibility(user)}
-                      sx={{
-                        padding: '2px 6px',
-                        borderRadius: 2,
-                        backgroundColor: userVisibility[user] ? 'rgba(25, 171, 181, 0.15)' : '#252525',
-                        border: '1px solid',
-                        borderColor: userVisibility[user] ? '#19abb5' : '#333',
-                      }}
-                    >
-                      <PersonIcon sx={{ fontSize: 12, color: userVisibility[user] ? '#19abb5' : '#555', mr: 0.5 }} />
-                      <Typography sx={{ fontSize: 9, color: userVisibility[user] ? '#19abb5' : '#555' }}>{user}</Typography>
-                    </IconButton>
-                  </Tooltip>
-                ))}
-              </Box>
-            </Box>
-
             {/* Annotation list */}
             <Box sx={{ flex: 1, overflow: 'auto', padding: '4px 8px' }}>
-              {legacyAnnotations.filter(a => userVisibility[a.user]).length === 0 ? (
+              {drawnAnnotations.length === 0 ? (
                 <Box sx={{ textAlign: 'center', py: 2 }}>
-                  <Typography sx={{ fontSize: 10, color: '#444' }}>No annotations to display</Typography>
+                  <Typography sx={{ fontSize: 10, color: '#444' }}>No annotations</Typography>
+                  <Typography sx={{ fontSize: 9, color: '#333', mt: 0.5 }}>Use annotation tools to add</Typography>
                 </Box>
               ) : (
-                legacyAnnotations.filter(a => userVisibility[a.user]).map(annotation => (
+                drawnAnnotations.map((annotation, index) => (
                   <AnnotationItem key={annotation.id}>
                     <AnnotationIcon type={annotation.type}>
                       {annotation.type === 'rectangle' && <RectangleOutlinedIcon sx={{ fontSize: 12 }} />}
@@ -2669,42 +2584,13 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                     </AnnotationIcon>
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography sx={{ fontSize: 11, color: '#ccc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {annotation.label}
+                        {annotation.type.charAt(0).toUpperCase() + annotation.type.slice(1)} {index + 1}
                       </Typography>
-                      <Typography sx={{ fontSize: 9, color: '#555' }}>{annotation.user}</Typography>
+                      <Typography sx={{ fontSize: 9, color: '#555' }}>Nick</Typography>
                     </Box>
-                    <Tooltip title={annotation.visible ? 'Hide' : 'Show'}>
-                      <IconButton
-                        size="small"
-                        onClick={() => toggleAnnotationVisibility(annotation.id)}
-                        sx={{ padding: 2, color: annotation.visible ? '#19abb5' : '#444' }}
-                      >
-                        {annotation.visible ? <VisibilityIcon sx={{ fontSize: 14 }} /> : <VisibilityOffIcon sx={{ fontSize: 14 }} />}
-                      </IconButton>
-                    </Tooltip>
                   </AnnotationItem>
                 ))
               )}
-            </Box>
-
-            {/* Add Annotation Button */}
-            <Box sx={{ padding: '8px 12px', borderTop: '1px solid #252525' }}>
-              <Button
-                fullWidth
-                size="small"
-                variant="outlined"
-                startIcon={<AddIcon sx={{ fontSize: 14 }} />}
-                disabled={!loadedImage}
-                sx={{
-                  fontSize: 10,
-                  color: '#666',
-                  borderColor: '#333',
-                  py: 0.5,
-                  '&:hover': { borderColor: '#19abb5', color: '#19abb5' },
-                }}
-              >
-                Add Annotation
-              </Button>
             </Box>
           </Box>
         )}
