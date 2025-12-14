@@ -13,6 +13,7 @@ import FlagIcon from '@mui/icons-material/Flag';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
+import { useVideoSync } from '@/hooks';
 import { Flag } from '@/components/common';
 
 // ============================================================================
@@ -523,13 +524,18 @@ export const ExpandVideoModal: React.FC<ExpandVideoModalProps> = ({
   const [speedAnchorEl, setSpeedAnchorEl] = useState<HTMLElement | null>(null);
   const speedMenuOpen = Boolean(speedAnchorEl);
 
-  // Video sync state
-  const [isVideoSyncing, setIsVideoSyncing] = useState(false);
-
   // Refs
   const modalRef = useRef<HTMLDivElement>(null);
   const waveformCanvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Use the video sync hook for smooth video playback synchronized with waveform
+  useVideoSync({
+    videoRef,
+    videoUrl,
+    isActive: open && !!videoUrl,
+    duration,
+  });
 
   // Playhead store
   const timestamp = usePlayheadStore((state) => state.timestamp);
@@ -643,39 +649,6 @@ export const ExpandVideoModal: React.FC<ExpandVideoModalProps> = ({
       return () => window.removeEventListener('resize', handleResize);
     }
   }, [open, drawWaveform]);
-
-  // Sync video playback with waveform playhead
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !videoUrl || !open) return;
-
-    // Prevent recursive sync loops
-    if (isVideoSyncing) return;
-
-    const currentTimeSec = timestamp / 1000;
-
-    // Sync position: only update if difference is significant (>0.1 second)
-    if (Math.abs(video.currentTime - currentTimeSec) > 0.1) {
-      setIsVideoSyncing(true);
-      video.currentTime = currentTimeSec;
-      setTimeout(() => setIsVideoSyncing(false), 50);
-    }
-  }, [timestamp, videoUrl, open, isVideoSyncing]);
-
-  // Sync video play/pause state with waveform
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !videoUrl || !open) return;
-
-    if (isPlaying) {
-      video.muted = true;
-      video.play().catch(() => {
-        // Ignore autoplay errors
-      });
-    } else {
-      video.pause();
-    }
-  }, [isPlaying, videoUrl, open]);
 
   // Handle waveform click to seek
   const handleWaveformClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
