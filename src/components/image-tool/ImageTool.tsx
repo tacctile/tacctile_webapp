@@ -22,9 +22,9 @@ import RectangleOutlinedIcon from '@mui/icons-material/RectangleOutlined';
 import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import GestureIcon from '@mui/icons-material/Gesture';
-import ViewColumnIcon from '@mui/icons-material/ViewColumn';
 import CompareIcon from '@mui/icons-material/Compare';
 import VerticalSplitIcon from '@mui/icons-material/VerticalSplit';
+import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -119,14 +119,15 @@ const ZoomDisplay = styled(Typography)({
   textAlign: 'center',
 });
 
-const SplitDivider = styled(Box)({
+const SplitDivider = styled(Box)<{ isDragging?: boolean }>(({ isDragging }) => ({
   position: 'absolute',
   top: 0,
   bottom: 0,
   width: 4,
-  backgroundColor: '#19abb5',
-  cursor: 'ew-resize',
+  backgroundColor: isDragging ? '#4dd4df' : '#19abb5',
+  cursor: isDragging ? 'grabbing' : 'grab',
   zIndex: 10,
+  userSelect: 'none',
   '&:hover': {
     backgroundColor: '#4dd4df',
   },
@@ -139,14 +140,14 @@ const SplitDivider = styled(Box)({
     transform: 'translate(-50%, -50%)',
     width: 8,
     height: 48,
-    backgroundColor: '#2bc4cf',
+    backgroundColor: isDragging ? '#5ee0ea' : '#2bc4cf',
     borderRadius: 4,
     boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)',
   },
   '&:hover::after': {
     backgroundColor: '#5ee0ea',
   },
-});
+}));
 
 const BottomBar = styled(Box)({
   height: 32,
@@ -157,6 +158,23 @@ const BottomBar = styled(Box)({
   justifyContent: 'space-between',
   padding: '0 12px',
 });
+
+// Label for ORIGINAL/EDITED in view modes
+const ViewLabel = styled(Typography)<{ position: 'left' | 'right' }>(({ position }) => ({
+  position: 'absolute',
+  top: 12,
+  [position]: 12,
+  fontSize: 10,
+  fontWeight: 600,
+  color: '#fff',
+  textTransform: 'uppercase',
+  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  padding: '4px 8px',
+  borderRadius: 4,
+  letterSpacing: '0.5px',
+  zIndex: 5,
+  pointerEvents: 'none',
+}));
 
 // File drop zone for center canvas when no file loaded
 const FileDropZone = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
@@ -443,6 +461,8 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [filters, setFilters] = useState<ImageFilters>(defaultFilters);
   const [annotations, setAnnotations] = useState<ImageAnnotation[]>(mockAnnotations);
   const [splitPosition, setSplitPosition] = useState(50);
+  const [isDraggingSplit, setIsDraggingSplit] = useState(false);
+  const [showOriginal, setShowOriginal] = useState(false); // A/B toggle state
 
   // State for actual image dimensions (read from loaded image)
   const [actualDimensions, setActualDimensions] = useState<{ width: number; height: number } | null>(null);
@@ -648,6 +668,48 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     return file.thumbnailUrl || '';
   };
 
+  // Handle A/B toggle
+  const handleABToggle = useCallback(() => {
+    setShowOriginal(prev => !prev);
+  }, []);
+
+  // Handle split divider drag start
+  const handleSplitDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent selection
+    e.stopPropagation();
+
+    const startX = e.clientX;
+    const startPos = splitPosition;
+
+    setIsDraggingSplit(true);
+
+    // Prevent text selection during drag
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'grabbing';
+
+    const handleMouseMove = (moveE: MouseEvent) => {
+      moveE.preventDefault(); // Prevent selection during drag
+      const container = (e.target as HTMLElement).parentElement;
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        const newPos = startPos + ((moveE.clientX - startX) / rect.width) * 100;
+        // Constrain between 10% and 90%
+        setSplitPosition(Math.max(10, Math.min(90, newPos)));
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingSplit(false);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [splitPosition]);
+
   // Render placeholder or image
   const renderCanvas = () => {
     if (!loadedImage) {
@@ -683,7 +745,8 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       justifyContent: 'center',
       width: '100%',
       height: '100%',
-      padding: 2,
+      padding: 16,
+      position: 'relative' as const,
     };
 
     // Image style - fit to window with zoom support
@@ -692,49 +755,107 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       maxHeight: `${zoom}%`,
       objectFit: 'contain' as const,
       borderRadius: 2,
+      userSelect: 'none' as const,
     };
 
+    // ========== SIDE-BY-SIDE VIEW ==========
     if (viewMode === 'side-by-side') {
       return (
-        <Box sx={{ display: 'flex', width: '100%', height: '100%', gap: 2, p: 2 }}>
-          {/* Original */}
-          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', overflow: 'hidden' }}>
-            <Typography sx={{ fontSize: 10, color: '#666', mb: 1, textTransform: 'uppercase' }}>Original</Typography>
-            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', overflow: 'hidden' }}>
-              <img
-                src={imageUrl}
-                alt={loadedImage.fileName}
-                style={{ ...imageStyle, filter: 'none' }}
-                onLoad={handleImageLoad}
-              />
-            </Box>
+        <Box sx={{
+          display: 'flex',
+          width: '100%',
+          height: '100%',
+          gap: 2,
+          p: 2,
+        }}>
+          {/* Original side */}
+          <Box sx={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+            position: 'relative',
+          }}>
+            <img
+              src={imageUrl}
+              alt={loadedImage.fileName}
+              style={{
+                maxWidth: '100%',
+                maxHeight: '100%',
+                objectFit: 'contain',
+                borderRadius: 2,
+                userSelect: 'none',
+              }}
+              onLoad={handleImageLoad}
+              draggable={false}
+            />
+            <ViewLabel position="left">Original</ViewLabel>
           </Box>
-          {/* Edited */}
-          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', overflow: 'hidden' }}>
-            <Typography sx={{ fontSize: 10, color: '#666', mb: 1, textTransform: 'uppercase' }}>Edited</Typography>
-            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', overflow: 'hidden' }}>
-              <img
-                src={imageUrl}
-                alt={loadedImage.fileName}
-                style={imageStyle}
-              />
-            </Box>
+          {/* Edited side */}
+          <Box sx={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+            position: 'relative',
+          }}>
+            <img
+              src={imageUrl}
+              alt={loadedImage.fileName}
+              style={{
+                maxWidth: '100%',
+                maxHeight: '100%',
+                objectFit: 'contain',
+                borderRadius: 2,
+                userSelect: 'none',
+              }}
+              draggable={false}
+            />
+            <ViewLabel position="right">Edited</ViewLabel>
           </Box>
         </Box>
       );
     }
 
+    // ========== SPLIT VIEW ==========
     if (viewMode === 'split') {
       return (
-        <Box sx={{ width: '100%', height: '100%', position: 'relative', p: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Box sx={{ position: 'relative', maxWidth: `${zoom}%`, maxHeight: `${zoom}%` }}>
-            {/* Full image (edited) */}
+        <Box sx={{
+          width: '100%',
+          height: '100%',
+          position: 'relative',
+          p: 2,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          userSelect: isDraggingSplit ? 'none' : 'auto',
+        }}>
+          <Box sx={{
+            position: 'relative',
+            maxWidth: `${zoom}%`,
+            maxHeight: `${zoom}%`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            {/* Full image (edited) - base layer */}
             <img
               src={imageUrl}
               alt={loadedImage.fileName}
-              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 2 }}
+              style={{
+                maxWidth: '100%',
+                maxHeight: '100%',
+                objectFit: 'contain',
+                borderRadius: 2,
+                userSelect: 'none',
+              }}
               onLoad={handleImageLoad}
+              draggable={false}
             />
+            {/* EDITED label - top right */}
+            <ViewLabel position="right">Edited</ViewLabel>
             {/* Original overlay (clipped) */}
             <Box sx={{
               position: 'absolute',
@@ -743,65 +864,37 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               width: `${splitPosition}%`,
               height: '100%',
               overflow: 'hidden',
-              borderRight: '2px solid #19abb5',
+              pointerEvents: 'none',
             }}>
               <img
                 src={imageUrl}
                 alt={loadedImage.fileName}
-                style={{ maxHeight: '100%', objectFit: 'contain', filter: 'none' }}
+                style={{
+                  height: '100%',
+                  objectFit: 'contain',
+                  userSelect: 'none',
+                }}
+                draggable={false}
               />
-              <Typography sx={{
-                position: 'absolute',
-                left: 8,
-                top: 8,
-                fontSize: 9,
-                color: '#ccc',
-                textTransform: 'uppercase',
-                backgroundColor: 'rgba(0,0,0,0.6)',
-                padding: '2px 6px',
-                borderRadius: 2,
-              }}>Original</Typography>
             </Box>
-            {/* Edited label */}
-            <Typography sx={{
-              position: 'absolute',
-              right: 8,
-              top: 8,
-              fontSize: 9,
-              color: '#ccc',
-              textTransform: 'uppercase',
-              backgroundColor: 'rgba(0,0,0,0.6)',
-              padding: '2px 6px',
-              borderRadius: 2,
-            }}>Edited</Typography>
+            {/* ORIGINAL label - top left */}
+            <ViewLabel position="left">Original</ViewLabel>
             {/* Draggable divider */}
             <SplitDivider
-              sx={{ left: `${splitPosition}%`, transform: 'translateX(-50%)' }}
-              onMouseDown={(e) => {
-                const startX = e.clientX;
-                const startPos = splitPosition;
-                const handleMouseMove = (moveE: MouseEvent) => {
-                  const container = (e.target as HTMLElement).parentElement;
-                  if (container) {
-                    const rect = container.getBoundingClientRect();
-                    const newPos = startPos + ((moveE.clientX - startX) / rect.width) * 100;
-                    setSplitPosition(Math.max(10, Math.min(90, newPos)));
-                  }
-                };
-                const handleMouseUp = () => {
-                  document.removeEventListener('mousemove', handleMouseMove);
-                  document.removeEventListener('mouseup', handleMouseUp);
-                };
-                document.addEventListener('mousemove', handleMouseMove);
-                document.addEventListener('mouseup', handleMouseUp);
+              isDragging={isDraggingSplit}
+              sx={{
+                left: `${splitPosition}%`,
+                transform: 'translateX(-50%)',
               }}
+              onMouseDown={handleSplitDragStart}
             />
           </Box>
         </Box>
       );
     }
 
-    // Single view - display actual image
+    // ========== SINGLE VIEW ==========
+    // Shows ORIGINAL label when A/B toggle is active
     return (
       <Box sx={containerStyle}>
         <img
@@ -809,7 +902,12 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
           alt={loadedImage.fileName}
           style={imageStyle}
           onLoad={handleImageLoad}
+          draggable={false}
         />
+        {/* Show ORIGINAL label only when A/B toggle is on */}
+        {showOriginal && (
+          <ViewLabel position="left">Original</ViewLabel>
+        )}
       </Box>
     );
   };
@@ -844,6 +942,19 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               </Tooltip>
             </StyledToggleButton>
           </ToggleButtonGroup>
+          {/* A/B Toggle - only visible in single view */}
+          {viewMode === 'single' && (
+            <Tooltip title={showOriginal ? 'Viewing Original (click to see Edited)' : 'A/B Compare (click to see Original)'}>
+              <ToolButton
+                size="small"
+                active={showOriginal}
+                onClick={handleABToggle}
+                disabled={!loadedImage}
+              >
+                <CompareArrowsIcon sx={{ fontSize: 16 }} />
+              </ToolButton>
+            </Tooltip>
+          )}
         </Box>
 
         <ToolbarDivider />
