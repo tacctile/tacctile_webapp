@@ -1228,13 +1228,26 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     }
   }, []);
 
+  // Calculate combined scrubbing state for video freeze behavior
+  // Video should freeze during: playhead scrub, selection creation/move/resize, overview scrub
+  const isVideoScrubbing = isScrubbing || (
+    hasDragged && (
+      interactionType === 'scrubPlayhead' ||
+      interactionType === 'createSelection' ||
+      interactionType === 'moveSelection' ||
+      interactionType === 'adjustHandleStart' ||
+      interactionType === 'adjustHandleEnd'
+    )
+  );
+
   // Use the video sync hook for smooth video playback synchronized with waveform
   // Only active when video reference panel is visible (not when modal is open)
-  useVideoSync({
+  const { isVideoLoading, isVideoReady } = useVideoSync({
     videoRef,
     videoUrl: loadedVideoUrl,
     isActive: !expandVideoModalOpen && !videoRefCollapsed && !!loadedVideoUrl,
     duration: loadedAudio?.duration || 0,
+    isScrubbing: isVideoScrubbing,
   });
 
   // Sync local selection state with audio tool store (for TransportControls access)
@@ -2215,17 +2228,60 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
                 }}>
                   {/* Only render video when modal is closed to avoid two video instances */}
                   {!expandVideoModalOpen ? (
-                    <video
-                      ref={videoRef}
-                      src={loadedVideoUrl}
-                      muted
-                      playsInline
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'contain',
-                      }}
-                    />
+                    <>
+                      <video
+                        ref={videoRef}
+                        src={loadedVideoUrl}
+                        muted
+                        playsInline
+                        preload="auto"
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'contain',
+                        }}
+                      />
+                      {/* Gray overlay when scrubbing - indicates video is frozen */}
+                      {isVideoScrubbing && (
+                        <Box
+                          sx={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            pointerEvents: 'none',
+                          }}
+                        >
+                          <Typography sx={{ color: '#888', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1 }}>
+                            Scrubbing
+                          </Typography>
+                        </Box>
+                      )}
+                      {/* Loading spinner when video is seeking */}
+                      {isVideoLoading && !isVideoScrubbing && (
+                        <Box
+                          sx={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            pointerEvents: 'none',
+                          }}
+                        >
+                          <CircularProgress size={24} sx={{ color: '#19abb5' }} />
+                        </Box>
+                      )}
+                    </>
                   ) : (
                     <Typography sx={{ color: '#555', fontSize: 10 }}>
                       Video playing in expanded view
@@ -3028,6 +3084,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         duration={loadedAudio?.duration || 0}
         flags={flags}
         videoUrl={loadedVideoUrl}
+        isParentScrubbing={isVideoScrubbing}
         onFlagClick={(flag) => {
           console.log('Jump to:', flag.timestamp);
           setTimestamp(flag.timestamp);
