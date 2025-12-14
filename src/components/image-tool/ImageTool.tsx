@@ -128,8 +128,14 @@ const SplitDivider = styled(Box)<{ isDragging?: boolean }>(({ isDragging }) => (
   cursor: isDragging ? 'grabbing' : 'grab',
   zIndex: 3, // Below ViewLabel (z-index: 5) so labels stay on top
   userSelect: 'none',
+  border: 'none',
+  outline: 'none',
+  boxSizing: 'border-box',
   '&:hover': {
     backgroundColor: '#4dd4df',
+  },
+  '&:focus': {
+    outline: 'none',
   },
   // Centered drag handle pill
   '&::after': {
@@ -143,6 +149,8 @@ const SplitDivider = styled(Box)<{ isDragging?: boolean }>(({ isDragging }) => (
     backgroundColor: isDragging ? '#5ee0ea' : '#2bc4cf',
     borderRadius: 4,
     boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)',
+    border: 'none',
+    outline: 'none',
   },
   '&:hover::after': {
     backgroundColor: '#5ee0ea',
