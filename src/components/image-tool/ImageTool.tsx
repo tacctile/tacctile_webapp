@@ -456,7 +456,6 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [selectedFile, setSelectedFile] = useState<typeof imageFiles[0] | null>(null);
   const [loadedImage, setLoadedImage] = useState<typeof imageFiles[0] | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('single');
-  const [zoom, setZoom] = useState(100);
   const [activeTool, setActiveTool] = useState<AnnotationTool>(null);
   const [filters, setFilters] = useState<ImageFilters>(defaultFilters);
   const [annotations, setAnnotations] = useState<ImageAnnotation[]>(mockAnnotations);
@@ -466,6 +465,21 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
   // State for actual image dimensions (read from loaded image)
   const [actualDimensions, setActualDimensions] = useState<{ width: number; height: number } | null>(null);
+
+  // Container dimensions for calculating fit zoom
+  const [containerDimensions, setContainerDimensions] = useState<{ width: number; height: number } | null>(null);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
+
+  // Zoom state - stored as percentage of natural image size (100 = 1:1 pixels)
+  const [zoom, setZoom] = useState<number | 'fit'>('fit');
+
+  // Pan state - offset in pixels from centered position
+  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const panStartRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+
+  // Zoom levels available
+  const ZOOM_LEVELS = [25, 50, 75, 100, 150, 200, 300, 400];
 
   // Section collapse states
   const [histogramCollapsed, setHistogramCollapsed] = useState(false);
@@ -515,18 +529,72 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     setSelectedFile(item);
     setFilters(defaultFilters);
     setActualDimensions(null); // Reset until image loads
+    // Reset zoom and pan for new image
+    setZoom('fit');
+    setPanOffset({ x: 0, y: 0 });
     // Persist loaded file ID in navigation store
     setLoadedFile('images', item.id);
   }, [setLoadedFile]);
 
   const handleViewModeChange = (_: React.MouseEvent<HTMLElement>, newMode: ViewMode | null) => {
-    if (newMode) setViewMode(newMode);
+    if (newMode) {
+      setViewMode(newMode);
+      // Reset zoom and pan when switching view modes
+      setZoom('fit');
+      setPanOffset({ x: 0, y: 0 });
+    }
   };
 
-  const handleZoomIn = () => setZoom(prev => Math.min(400, prev + 25));
-  const handleZoomOut = () => setZoom(prev => Math.max(25, prev - 25));
-  const handleFitToView = () => setZoom(100);
-  const handleZoom100 = () => setZoom(100);
+  // Calculate the fit zoom level (percentage that makes image fit in container)
+  const calculateFitZoom = useCallback(() => {
+    if (!actualDimensions || !containerDimensions) return 100;
+    const scaleX = containerDimensions.width / actualDimensions.width;
+    const scaleY = containerDimensions.height / actualDimensions.height;
+    const fitScale = Math.min(scaleX, scaleY);
+    return fitScale * 100;
+  }, [actualDimensions, containerDimensions]);
+
+  // Get the effective zoom percentage (resolve 'fit' to actual value)
+  const getEffectiveZoom = useCallback(() => {
+    if (zoom === 'fit') {
+      return calculateFitZoom();
+    }
+    return zoom;
+  }, [zoom, calculateFitZoom]);
+
+  // Find the next zoom level up from current
+  const handleZoomIn = useCallback(() => {
+    const currentZoom = getEffectiveZoom();
+    const nextLevel = ZOOM_LEVELS.find(level => level > currentZoom);
+    if (nextLevel) {
+      setZoom(nextLevel);
+      // Reset pan when zooming - will be recalculated based on constraints
+      setPanOffset({ x: 0, y: 0 });
+    }
+  }, [getEffectiveZoom]);
+
+  // Find the next zoom level down from current
+  const handleZoomOut = useCallback(() => {
+    const currentZoom = getEffectiveZoom();
+    const prevLevel = [...ZOOM_LEVELS].reverse().find(level => level < currentZoom);
+    if (prevLevel) {
+      setZoom(prevLevel);
+      // Reset pan when zooming
+      setPanOffset({ x: 0, y: 0 });
+    }
+  }, [getEffectiveZoom]);
+
+  // Set zoom to exactly 100% (1:1 pixels)
+  const handleZoom100 = useCallback(() => {
+    setZoom(100);
+    setPanOffset({ x: 0, y: 0 });
+  }, []);
+
+  // Set zoom to fit image in container
+  const handleFitToView = useCallback(() => {
+    setZoom('fit');
+    setPanOffset({ x: 0, y: 0 });
+  }, []);
 
   const handleFilterChange = (key: keyof ImageFilters) => (value: number) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -669,6 +737,131 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     return file.thumbnailUrl || '';
   };
 
+  // Track container dimensions for fit zoom calculation
+  useEffect(() => {
+    const container = canvasContainerRef.current;
+    if (!container) return;
+
+    const updateDimensions = () => {
+      const rect = container.getBoundingClientRect();
+      setContainerDimensions({ width: rect.width, height: rect.height });
+    };
+
+    // Initial measurement
+    updateDimensions();
+
+    // Use ResizeObserver to track container size changes
+    const resizeObserver = new ResizeObserver(updateDimensions);
+    resizeObserver.observe(container);
+
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  // Calculate image dimensions at current zoom
+  const getImageDisplaySize = useCallback(() => {
+    if (!actualDimensions) return { width: 0, height: 0 };
+    const effectiveZoom = getEffectiveZoom();
+    return {
+      width: actualDimensions.width * (effectiveZoom / 100),
+      height: actualDimensions.height * (effectiveZoom / 100),
+    };
+  }, [actualDimensions, getEffectiveZoom]);
+
+  // Check if image is larger than container (panning allowed)
+  const canPan = useCallback(() => {
+    if (!containerDimensions) return false;
+    const imageSize = getImageDisplaySize();
+    return imageSize.width > containerDimensions.width || imageSize.height > containerDimensions.height;
+  }, [containerDimensions, getImageDisplaySize]);
+
+  // Calculate pan constraints to keep image filling the viewport
+  const calculatePanConstraints = useCallback(() => {
+    if (!containerDimensions) return { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+    const imageSize = getImageDisplaySize();
+
+    // Calculate how much the image exceeds the container in each direction
+    const excessWidth = Math.max(0, imageSize.width - containerDimensions.width);
+    const excessHeight = Math.max(0, imageSize.height - containerDimensions.height);
+
+    // Pan constraints: image edges must not go past container edges
+    // When centered, pan is 0. Max pan is half the excess (can pan left or right)
+    return {
+      minX: -excessWidth / 2,
+      maxX: excessWidth / 2,
+      minY: -excessHeight / 2,
+      maxY: excessHeight / 2,
+    };
+  }, [containerDimensions, getImageDisplaySize]);
+
+  // Constrain pan offset to valid range
+  const constrainPan = useCallback((x: number, y: number) => {
+    const constraints = calculatePanConstraints();
+    return {
+      x: Math.max(constraints.minX, Math.min(constraints.maxX, x)),
+      y: Math.max(constraints.minY, Math.min(constraints.maxY, y)),
+    };
+  }, [calculatePanConstraints]);
+
+  // Handle pan start (mouse down on image)
+  const handlePanStart = useCallback((e: React.MouseEvent) => {
+    if (!canPan() || viewMode !== 'single') return;
+
+    e.preventDefault();
+    setIsPanning(true);
+    panStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      panX: panOffset.x,
+      panY: panOffset.y,
+    };
+
+    // Change cursor for entire document during drag
+    document.body.style.cursor = 'grabbing';
+    document.body.style.userSelect = 'none';
+  }, [canPan, viewMode, panOffset]);
+
+  // Handle pan move (document level to catch mouse leaving image)
+  useEffect(() => {
+    if (!isPanning) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!panStartRef.current) return;
+
+      const deltaX = e.clientX - panStartRef.current.x;
+      const deltaY = e.clientY - panStartRef.current.y;
+
+      const newPan = constrainPan(
+        panStartRef.current.panX + deltaX,
+        panStartRef.current.panY + deltaY
+      );
+
+      setPanOffset(newPan);
+    };
+
+    const handleMouseUp = () => {
+      setIsPanning(false);
+      panStartRef.current = null;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isPanning, constrainPan]);
+
+  // Re-constrain pan when zoom changes
+  useEffect(() => {
+    const constrained = constrainPan(panOffset.x, panOffset.y);
+    if (constrained.x !== panOffset.x || constrained.y !== panOffset.y) {
+      setPanOffset(constrained);
+    }
+  }, [zoom, constrainPan, panOffset]);
+
   // Handle A/B toggle
   const handleABToggle = useCallback(() => {
     setShowOriginal(prev => !prev);
@@ -744,29 +937,13 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
     const imageUrl = getImageUrl(loadedImage);
 
-    // Container style for centering and fit-to-window
-    const containerStyle = {
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      width: '100%',
-      height: '100%',
-      position: 'relative' as const,
-      overflow: zoom > 100 ? 'auto' : 'hidden',
-    };
+    // Get effective zoom and image display size
+    const effectiveZoom = getEffectiveZoom();
+    const imageSize = getImageDisplaySize();
+    const isPannable = canPan();
 
-    // Image style - fill container while maintaining aspect ratio
-    // Uses width/height 100% with object-fit: contain to maximize space usage
-    // Transform scale handles zoom levels beyond 100%
-    const imageStyle = {
-      width: '100%',
-      height: '100%',
-      objectFit: 'contain' as const,
-      borderRadius: 2,
-      userSelect: 'none' as const,
-      transform: zoom !== 100 ? `scale(${zoom / 100})` : undefined,
-      transformOrigin: 'center center',
-    };
+    // Single view uses absolute positioning with explicit pixel dimensions
+    // This allows the image to overflow the container when zoomed in
 
     // ========== SIDE-BY-SIDE VIEW ==========
     if (viewMode === 'side-by-side') {
@@ -863,8 +1040,8 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               src={imageUrl}
               alt={loadedImage.fileName}
               style={{
-                maxWidth: `${zoom}%`,
-                maxHeight: `${zoom}%`,
+                maxWidth: '100%',
+                maxHeight: '100%',
                 width: '100%',
                 height: '100%',
                 objectFit: 'contain',
@@ -907,8 +1084,8 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                 src={imageUrl}
                 alt={loadedImage.fileName}
                 style={{
-                  maxWidth: `${zoom}%`,
-                  maxHeight: `${zoom}%`,
+                  maxWidth: '100%',
+                  maxHeight: '100%',
                   width: '100%',
                   height: '100%',
                   objectFit: 'contain',
@@ -938,12 +1115,35 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
     // ========== SINGLE VIEW ==========
     // Shows ORIGINAL label when A/B toggle is active
+    // Supports zoom and pan when image is larger than container
     return (
-      <Box sx={containerStyle}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '100%',
+          height: '100%',
+          position: 'relative',
+          overflow: 'hidden', // Clip zoomed image at container edges
+          cursor: isPannable ? (isPanning ? 'grabbing' : 'grab') : 'default',
+        }}
+        onMouseDown={handlePanStart}
+      >
         <img
           src={imageUrl}
           alt={loadedImage.fileName}
-          style={imageStyle}
+          style={{
+            width: actualDimensions ? imageSize.width : '100%',
+            height: actualDimensions ? imageSize.height : '100%',
+            maxWidth: actualDimensions ? 'none' : '100%',
+            maxHeight: actualDimensions ? 'none' : '100%',
+            objectFit: actualDimensions ? 'fill' : 'contain',
+            borderRadius: 2,
+            userSelect: 'none',
+            transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
+            pointerEvents: 'none', // Let container handle mouse events
+          }}
           onLoad={handleImageLoad}
           draggable={false}
         />
@@ -1019,7 +1219,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               <ZoomOutIcon sx={{ fontSize: 18 }} />
             </IconButton>
           </Tooltip>
-          <ZoomDisplay>{zoom}%</ZoomDisplay>
+          <ZoomDisplay>{Math.round(getEffectiveZoom())}%</ZoomDisplay>
           <Tooltip title="Zoom In">
             <IconButton size="small" onClick={handleZoomIn} disabled={!loadedImage} sx={{ color: '#888', p: 0.5 }}>
               <ZoomInIcon sx={{ fontSize: 18 }} />
@@ -1112,7 +1312,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       </Toolbar>
 
       {/* Canvas Area */}
-      <CanvasArea>
+      <CanvasArea ref={canvasContainerRef}>
         {renderCanvas()}
       </CanvasArea>
 
