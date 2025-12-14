@@ -23,9 +23,9 @@ import RedoIcon from '@mui/icons-material/Redo';
 import RectangleOutlinedIcon from '@mui/icons-material/RectangleOutlined';
 import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import GestureIcon from '@mui/icons-material/Gesture';
 import CompareIcon from '@mui/icons-material/Compare';
 import VerticalSplitIcon from '@mui/icons-material/VerticalSplit';
+import SplitscreenIcon from '@mui/icons-material/Splitscreen';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -298,10 +298,9 @@ const AnnotationItem = styled(Box)({
 
 const AnnotationIcon = styled(Box)<{ type: string }>(({ type }) => {
   const colors: Record<string, string> = {
-    rectangle: '#c45c5c',
-    circle: '#5a9a6b',
-    arrow: '#5a7fbf',
-    freehand: '#b5a319',
+    rectangle: '#19abb5',
+    circle: '#19abb5',
+    arrow: '#19abb5',
   };
   return {
     width: 20,
@@ -310,7 +309,7 @@ const AnnotationIcon = styled(Box)<{ type: string }>(({ type }) => {
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 4,
-    backgroundColor: colors[type] || '#666',
+    backgroundColor: colors[type] || '#19abb5',
     color: '#fff',
     fontSize: 12,
   };
@@ -321,7 +320,7 @@ const AnnotationIcon = styled(Box)<{ type: string }>(({ type }) => {
 // ============================================================================
 
 type ViewMode = 'single' | 'side-by-side' | 'split';
-type AnnotationTool = 'rectangle' | 'circle' | 'arrow' | 'freehand' | null;
+type AnnotationTool = 'rectangle' | 'circle' | 'arrow' | null;
 
 // Transform state for undo/redo history
 interface TransformState {
@@ -334,15 +333,21 @@ const MAX_HISTORY_DEPTH = 50;
 
 interface ImageAnnotation {
   id: string;
-  type: 'rectangle' | 'circle' | 'arrow' | 'freehand';
+  type: 'rectangle' | 'circle' | 'arrow';
   label: string;
+  description: string;
   user: string;
+  timestamp: number;
+  color: string;
   visible: boolean;
+  // Normalized coordinates (0-1 relative to image dimensions)
   x: number;
   y: number;
   width?: number;
   height?: number;
-  points?: { x: number; y: number }[];
+  // For arrows: startX, startY are stored in x, y; endX, endY are stored separately
+  endX?: number;
+  endY?: number;
 }
 
 interface ImageFilters {
@@ -400,9 +405,9 @@ const imageFiles: (FileItem & { format?: string; gps?: string | null; dimensions
 ];
 
 const mockAnnotations: ImageAnnotation[] = [
-  { id: 'a1', type: 'rectangle', label: 'Area of interest', user: 'Sarah', visible: true, x: 120, y: 80, width: 60, height: 100 },
-  { id: 'a2', type: 'circle', label: 'Highlight region', user: 'Mike', visible: true, x: 300, y: 150, width: 40, height: 40 },
-  { id: 'a3', type: 'arrow', label: 'Direction indicator', user: 'Jen', visible: false, x: 200, y: 200, width: 80, height: 0 },
+  { id: 'a1', type: 'rectangle', label: 'Area of interest', description: '', user: 'Sarah', timestamp: Date.now() - 3600000, color: '#19abb5', visible: true, x: 0.1, y: 0.1, width: 0.2, height: 0.15 },
+  { id: 'a2', type: 'circle', label: 'Highlight region', description: '', user: 'Mike', timestamp: Date.now() - 1800000, color: '#19abb5', visible: true, x: 0.5, y: 0.4, width: 0.1, height: 0.1 },
+  { id: 'a3', type: 'arrow', label: 'Direction indicator', description: '', user: 'Jen', timestamp: Date.now() - 900000, color: '#19abb5', visible: true, x: 0.3, y: 0.6, endX: 0.5, endY: 0.5 },
 ];
 
 // ============================================================================
@@ -509,6 +514,16 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [marqueeStart, setMarqueeStart] = useState<{ x: number; y: number } | null>(null);
   const [marqueeEnd, setMarqueeEnd] = useState<{ x: number; y: number } | null>(null);
   const [isCtrlHeld, setIsCtrlHeld] = useState(false);
+
+  // Annotation drawing state
+  const [isDrawingAnnotation, setIsDrawingAnnotation] = useState(false);
+  const [annotationDrawStart, setAnnotationDrawStart] = useState<{ x: number; y: number } | null>(null);
+  const [annotationDrawEnd, setAnnotationDrawEnd] = useState<{ x: number; y: number } | null>(null);
+  const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
+
+  // Undo/redo stacks for annotations
+  const [annotationUndoStack, setAnnotationUndoStack] = useState<ImageAnnotation[][]>([]);
+  const [annotationRedoStack, setAnnotationRedoStack] = useState<ImageAnnotation[][]>([]);
 
   // Press-and-hold zoom refs
   const zoomIntervalRef = useRef<number | null>(null);
@@ -1214,30 +1229,51 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       if (e.key === 'Control' && viewMode === 'single' && loadedImage) {
         setIsCtrlHeld(true);
       }
-      // Escape key cancels marquee mode
-      if (e.key === 'Escape' && isMarqueeModeActive) {
-        setIsMarqueeModeActive(false);
-        setIsMarqueeDrawing(false);
-        setMarqueeStart(null);
-        setMarqueeEnd(null);
+      // Escape key cancels marquee mode and deactivates annotation tools
+      if (e.key === 'Escape') {
+        if (isMarqueeModeActive) {
+          setIsMarqueeModeActive(false);
+          setIsMarqueeDrawing(false);
+          setMarqueeStart(null);
+          setMarqueeEnd(null);
+        }
+        // Deactivate annotation tool
+        if (activeTool) {
+          setActiveTool(null);
+          setIsDrawingAnnotation(false);
+          setAnnotationDrawStart(null);
+          setAnnotationDrawEnd(null);
+        }
       }
 
       // Undo/Redo keyboard shortcuts (only when not typing in text input)
       if (!isTyping && loadedImage) {
-        // Ctrl+Z = Undo
+        // Ctrl+Z = Undo (annotation first, then transform)
         if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'z') {
           e.preventDefault();
-          handleUndo();
+          if (annotationUndoStack.length > 0) {
+            handleAnnotationUndo();
+          } else {
+            handleUndo();
+          }
         }
-        // Ctrl+Shift+Z = Redo
+        // Ctrl+Shift+Z = Redo (annotation first, then transform)
         if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'z') {
           e.preventDefault();
-          handleRedo();
+          if (annotationRedoStack.length > 0) {
+            handleAnnotationRedo();
+          } else {
+            handleRedo();
+          }
         }
         // Ctrl+Y = Redo (alternative, common in Windows)
         if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'y') {
           e.preventDefault();
-          handleRedo();
+          if (annotationRedoStack.length > 0) {
+            handleAnnotationRedo();
+          } else {
+            handleRedo();
+          }
         }
       }
     };
@@ -1255,7 +1291,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [viewMode, loadedImage, isMarqueeModeActive, handleUndo, handleRedo]);
+  }, [viewMode, loadedImage, isMarqueeModeActive, activeTool, handleUndo, handleRedo, handleAnnotationUndo, handleAnnotationRedo, annotationUndoStack.length, annotationRedoStack.length]);
 
   // Toggle marquee zoom mode (toolbar icon click)
   const toggleMarqueeMode = useCallback(() => {
@@ -1448,7 +1484,13 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   // Handle pan start (mouse down on image)
   // Uses refs for instant response - no React state updates during drag
   const handlePanStart = useCallback((e: React.MouseEvent) => {
-    // Check for marquee mode or Ctrl key first - these take priority (only in single view)
+    // Check for annotation tool first - these take priority (only in single view)
+    if (activeTool && viewMode === 'single' && loadedImage) {
+      handleAnnotationDrawStart(e);
+      return;
+    }
+
+    // Check for marquee mode or Ctrl key - these take priority (only in single view)
     if ((isMarqueeModeActive || isCtrlHeld) && viewMode === 'single' && loadedImage) {
       handleMarqueeStart(e);
       return;
@@ -1473,7 +1515,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     // Change cursor for entire document during drag
     document.body.style.cursor = 'grabbing';
     document.body.style.userSelect = 'none';
-  }, [canPan, viewMode, panOffset, isMarqueeModeActive, isCtrlHeld, loadedImage, handleMarqueeStart]);
+  }, [canPan, viewMode, panOffset, isMarqueeModeActive, isCtrlHeld, loadedImage, handleMarqueeStart, activeTool, handleAnnotationDrawStart]);
 
   // Handle pan move (document level to catch mouse leaving image)
   // Uses refs and direct DOM manipulation for 60fps responsiveness
@@ -1557,6 +1599,194 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   // Handle A/B toggle
   const handleABToggle = useCallback(() => {
     setShowOriginal(prev => !prev);
+  }, []);
+
+  // Push annotation state to undo stack before modifying
+  const pushAnnotationUndoStack = useCallback(() => {
+    setAnnotationUndoStack(prev => {
+      const newStack = [...prev, [...annotations]];
+      if (newStack.length > MAX_HISTORY_DEPTH) {
+        return newStack.slice(-MAX_HISTORY_DEPTH);
+      }
+      return newStack;
+    });
+    setAnnotationRedoStack([]);
+  }, [annotations]);
+
+  // Handle annotation undo
+  const handleAnnotationUndo = useCallback(() => {
+    if (annotationUndoStack.length === 0) return;
+
+    // Push current state to redo stack
+    setAnnotationRedoStack(prev => [...prev, [...annotations]]);
+
+    // Pop from undo stack and apply
+    const newUndoStack = [...annotationUndoStack];
+    const previousState = newUndoStack.pop();
+    setAnnotationUndoStack(newUndoStack);
+
+    if (previousState) {
+      setAnnotations(previousState);
+    }
+  }, [annotationUndoStack, annotations]);
+
+  // Handle annotation redo
+  const handleAnnotationRedo = useCallback(() => {
+    if (annotationRedoStack.length === 0) return;
+
+    // Push current state to undo stack
+    setAnnotationUndoStack(prev => [...prev, [...annotations]]);
+
+    // Pop from redo stack and apply
+    const newRedoStack = [...annotationRedoStack];
+    const nextState = newRedoStack.pop();
+    setAnnotationRedoStack(newRedoStack);
+
+    if (nextState) {
+      setAnnotations(nextState);
+    }
+  }, [annotationRedoStack, annotations]);
+
+  // Check if annotation undo/redo are available
+  const canAnnotationUndo = annotationUndoStack.length > 0;
+  const canAnnotationRedo = annotationRedoStack.length > 0;
+
+  // Convert screen coordinates to normalized image coordinates (0-1)
+  const screenToNormalizedCoords = useCallback((screenX: number, screenY: number) => {
+    if (!canvasContainerRef.current || !actualDimensions || !containerDimensions) {
+      return null;
+    }
+
+    const containerRect = canvasContainerRef.current.getBoundingClientRect();
+    const imageSize = getImageDisplaySize();
+
+    // Calculate where the image is positioned in the container (centered)
+    const imageLeft = (containerDimensions.width - imageSize.width) / 2 + panOffset.x;
+    const imageTop = (containerDimensions.height - imageSize.height) / 2 + panOffset.y;
+
+    // Calculate click position relative to image
+    const clickX = screenX - containerRect.left - imageLeft;
+    const clickY = screenY - containerRect.top - imageTop;
+
+    // Convert to normalized coordinates (0-1)
+    const normalizedX = clickX / imageSize.width;
+    const normalizedY = clickY / imageSize.height;
+
+    // Clamp to image bounds
+    return {
+      x: Math.max(0, Math.min(1, normalizedX)),
+      y: Math.max(0, Math.min(1, normalizedY)),
+    };
+  }, [actualDimensions, containerDimensions, getImageDisplaySize, panOffset]);
+
+  // Add a new annotation
+  const addAnnotation = useCallback((
+    type: 'rectangle' | 'circle' | 'arrow',
+    startCoords: { x: number; y: number },
+    endCoords: { x: number; y: number }
+  ) => {
+    // Push current state to undo stack
+    pushAnnotationUndoStack();
+
+    const id = `anno-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const minX = Math.min(startCoords.x, endCoords.x);
+    const minY = Math.min(startCoords.y, endCoords.y);
+    const maxX = Math.max(startCoords.x, endCoords.x);
+    const maxY = Math.max(startCoords.y, endCoords.y);
+    const width = maxX - minX;
+    const height = maxY - minY;
+
+    const newAnnotation: ImageAnnotation = {
+      id,
+      type,
+      label: `${type.charAt(0).toUpperCase() + type.slice(1)} ${annotations.length + 1}`,
+      description: '',
+      user: 'Current User',
+      timestamp: Date.now(),
+      color: '#19abb5',
+      visible: true,
+      ...(type === 'arrow'
+        ? {
+            x: startCoords.x,
+            y: startCoords.y,
+            endX: endCoords.x,
+            endY: endCoords.y,
+          }
+        : {
+            x: minX,
+            y: minY,
+            width,
+            height,
+          }),
+    };
+
+    setAnnotations(prev => [...prev, newAnnotation]);
+    setSelectedAnnotationId(id);
+  }, [annotations.length, pushAnnotationUndoStack]);
+
+  // Handle annotation drawing start
+  const handleAnnotationDrawStart = useCallback((e: React.MouseEvent) => {
+    if (!activeTool || viewMode !== 'single' || !loadedImage) return;
+
+    const coords = screenToNormalizedCoords(e.clientX, e.clientY);
+    if (!coords) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    setIsDrawingAnnotation(true);
+    setAnnotationDrawStart(coords);
+    setAnnotationDrawEnd(coords);
+  }, [activeTool, viewMode, loadedImage, screenToNormalizedCoords]);
+
+  // Handle annotation drawing (document level)
+  useEffect(() => {
+    if (!isDrawingAnnotation || !annotationDrawStart) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const coords = screenToNormalizedCoords(e.clientX, e.clientY);
+      if (coords) {
+        setAnnotationDrawEnd(coords);
+      }
+    };
+
+    const handleMouseUp = (e: MouseEvent) => {
+      const coords = screenToNormalizedCoords(e.clientX, e.clientY);
+      if (coords && annotationDrawStart && activeTool) {
+        // Only add annotation if there's meaningful size
+        const dx = Math.abs(coords.x - annotationDrawStart.x);
+        const dy = Math.abs(coords.y - annotationDrawStart.y);
+        if (dx > 0.01 || dy > 0.01) {
+          addAnnotation(activeTool, annotationDrawStart, coords);
+        }
+      }
+
+      setIsDrawingAnnotation(false);
+      setAnnotationDrawStart(null);
+      setAnnotationDrawEnd(null);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDrawingAnnotation, annotationDrawStart, activeTool, screenToNormalizedCoords, addAnnotation]);
+
+  // Delete annotation
+  const deleteAnnotation = useCallback((id: string) => {
+    pushAnnotationUndoStack();
+    setAnnotations(prev => prev.filter(a => a.id !== id));
+    if (selectedAnnotationId === id) {
+      setSelectedAnnotationId(null);
+    }
+  }, [selectedAnnotationId, pushAnnotationUndoStack]);
+
+  // Select annotation
+  const selectAnnotation = useCallback((id: string | null) => {
+    setSelectedAnnotationId(id);
   }, []);
 
   // Handle split divider drag start
@@ -1870,6 +2100,8 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
     // Determine cursor based on state
     const getCursor = () => {
+      // Annotation tool active or drawing - crosshair
+      if (activeTool || isDrawingAnnotation) return 'crosshair';
       // Marquee drawing - crosshair
       if (isMarqueeDrawing) return 'crosshair';
       // Panning - grabbing hand
@@ -1940,6 +2172,189 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             }}
           />
         )}
+
+        {/* Annotation rendering overlay - SVG positioned over image */}
+        {actualDimensions && (
+          <svg
+            style={{
+              position: 'absolute',
+              left: (containerDimensions?.width ?? 0) / 2 - imageSize.width / 2 + panOffset.x,
+              top: (containerDimensions?.height ?? 0) / 2 - imageSize.height / 2 + panOffset.y,
+              width: imageSize.width,
+              height: imageSize.height,
+              pointerEvents: 'none',
+              overflow: 'visible',
+            }}
+          >
+            {/* Render existing annotations */}
+            {annotations
+              .filter(a => a.visible && userVisibility[a.user])
+              .map(annotation => {
+                const isSelected = selectedAnnotationId === annotation.id;
+                const strokeWidth = 2;
+                const color = annotation.color || '#19abb5';
+
+                if (annotation.type === 'rectangle' && annotation.width && annotation.height) {
+                  return (
+                    <rect
+                      key={annotation.id}
+                      x={annotation.x * imageSize.width}
+                      y={annotation.y * imageSize.height}
+                      width={annotation.width * imageSize.width}
+                      height={annotation.height * imageSize.height}
+                      fill="none"
+                      stroke={color}
+                      strokeWidth={isSelected ? strokeWidth + 1 : strokeWidth}
+                      strokeDasharray={isSelected ? '5,3' : 'none'}
+                      style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        selectAnnotation(annotation.id);
+                      }}
+                    />
+                  );
+                }
+
+                if (annotation.type === 'circle' && annotation.width && annotation.height) {
+                  const cx = annotation.x * imageSize.width + (annotation.width * imageSize.width) / 2;
+                  const cy = annotation.y * imageSize.height + (annotation.height * imageSize.height) / 2;
+                  const rx = (annotation.width * imageSize.width) / 2;
+                  const ry = (annotation.height * imageSize.height) / 2;
+                  return (
+                    <ellipse
+                      key={annotation.id}
+                      cx={cx}
+                      cy={cy}
+                      rx={rx}
+                      ry={ry}
+                      fill="none"
+                      stroke={color}
+                      strokeWidth={isSelected ? strokeWidth + 1 : strokeWidth}
+                      strokeDasharray={isSelected ? '5,3' : 'none'}
+                      style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        selectAnnotation(annotation.id);
+                      }}
+                    />
+                  );
+                }
+
+                if (annotation.type === 'arrow' && annotation.endX !== undefined && annotation.endY !== undefined) {
+                  const x1 = annotation.x * imageSize.width;
+                  const y1 = annotation.y * imageSize.height;
+                  const x2 = annotation.endX * imageSize.width;
+                  const y2 = annotation.endY * imageSize.height;
+
+                  // Calculate arrowhead
+                  const angle = Math.atan2(y2 - y1, x2 - x1);
+                  const headLength = 12;
+                  const headAngle = Math.PI / 6;
+                  const head1X = x2 - headLength * Math.cos(angle - headAngle);
+                  const head1Y = y2 - headLength * Math.sin(angle - headAngle);
+                  const head2X = x2 - headLength * Math.cos(angle + headAngle);
+                  const head2Y = y2 - headLength * Math.sin(angle + headAngle);
+
+                  return (
+                    <g key={annotation.id}>
+                      <line
+                        x1={x1}
+                        y1={y1}
+                        x2={x2}
+                        y2={y2}
+                        stroke={color}
+                        strokeWidth={isSelected ? strokeWidth + 1 : strokeWidth}
+                        strokeDasharray={isSelected ? '5,3' : 'none'}
+                        style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          selectAnnotation(annotation.id);
+                        }}
+                      />
+                      <polygon
+                        points={`${x2},${y2} ${head1X},${head1Y} ${head2X},${head2Y}`}
+                        fill={color}
+                        stroke={color}
+                        strokeWidth={1}
+                        style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          selectAnnotation(annotation.id);
+                        }}
+                      />
+                    </g>
+                  );
+                }
+
+                return null;
+              })}
+
+            {/* Render annotation being drawn */}
+            {isDrawingAnnotation && annotationDrawStart && annotationDrawEnd && activeTool && (
+              <>
+                {activeTool === 'rectangle' && (
+                  <rect
+                    x={Math.min(annotationDrawStart.x, annotationDrawEnd.x) * imageSize.width}
+                    y={Math.min(annotationDrawStart.y, annotationDrawEnd.y) * imageSize.height}
+                    width={Math.abs(annotationDrawEnd.x - annotationDrawStart.x) * imageSize.width}
+                    height={Math.abs(annotationDrawEnd.y - annotationDrawStart.y) * imageSize.height}
+                    fill="none"
+                    stroke="#19abb5"
+                    strokeWidth={2}
+                    strokeDasharray="5,3"
+                  />
+                )}
+                {activeTool === 'circle' && (
+                  <ellipse
+                    cx={(Math.min(annotationDrawStart.x, annotationDrawEnd.x) + Math.abs(annotationDrawEnd.x - annotationDrawStart.x) / 2) * imageSize.width}
+                    cy={(Math.min(annotationDrawStart.y, annotationDrawEnd.y) + Math.abs(annotationDrawEnd.y - annotationDrawStart.y) / 2) * imageSize.height}
+                    rx={Math.abs(annotationDrawEnd.x - annotationDrawStart.x) / 2 * imageSize.width}
+                    ry={Math.abs(annotationDrawEnd.y - annotationDrawStart.y) / 2 * imageSize.height}
+                    fill="none"
+                    stroke="#19abb5"
+                    strokeWidth={2}
+                    strokeDasharray="5,3"
+                  />
+                )}
+                {activeTool === 'arrow' && (
+                  <>
+                    <line
+                      x1={annotationDrawStart.x * imageSize.width}
+                      y1={annotationDrawStart.y * imageSize.height}
+                      x2={annotationDrawEnd.x * imageSize.width}
+                      y2={annotationDrawEnd.y * imageSize.height}
+                      stroke="#19abb5"
+                      strokeWidth={2}
+                      strokeDasharray="5,3"
+                    />
+                    {/* Arrowhead preview */}
+                    {(() => {
+                      const x1 = annotationDrawStart.x * imageSize.width;
+                      const y1 = annotationDrawStart.y * imageSize.height;
+                      const x2 = annotationDrawEnd.x * imageSize.width;
+                      const y2 = annotationDrawEnd.y * imageSize.height;
+                      const angle = Math.atan2(y2 - y1, x2 - x1);
+                      const headLength = 12;
+                      const headAngle = Math.PI / 6;
+                      const head1X = x2 - headLength * Math.cos(angle - headAngle);
+                      const head1Y = y2 - headLength * Math.sin(angle - headAngle);
+                      const head2X = x2 - headLength * Math.cos(angle + headAngle);
+                      const head2Y = y2 - headLength * Math.sin(angle + headAngle);
+                      return (
+                        <polygon
+                          points={`${x2},${y2} ${head1X},${head1Y} ${head2X},${head2Y}`}
+                          fill="#19abb5"
+                          stroke="#19abb5"
+                          strokeWidth={1}
+                        />
+                      );
+                    })()}
+                  </>
+                )}
+              </>
+            )}
+          </svg>
+        )}
       </Box>
     );
   };
@@ -1965,12 +2380,12 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             </StyledToggleButton>
             <StyledToggleButton value="side-by-side">
               <Tooltip title="Side by Side">
-                <CompareIcon sx={{ fontSize: 16 }} />
+                <SplitscreenIcon sx={{ fontSize: 16, transform: 'rotate(90deg)' }} />
               </Tooltip>
             </StyledToggleButton>
             <StyledToggleButton value="split">
               <Tooltip title="Split View">
-                <VerticalSplitIcon sx={{ fontSize: 16 }} />
+                <CompareIcon sx={{ fontSize: 16 }} />
               </Tooltip>
             </StyledToggleButton>
           </ToggleButtonGroup>
@@ -2143,9 +2558,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
         <ToolbarDivider />
 
-        {/* Annotation Draw Tools */}
+        {/* Annotation Tools */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Typography sx={{ fontSize: 10, color: '#666', mr: 0.5 }}>Draw:</Typography>
+          <Typography sx={{ fontSize: 10, color: '#666', mr: 0.5 }}>Annotate:</Typography>
           <Tooltip title="Rectangle">
             <ToolButton
               size="small"
@@ -2176,16 +2591,6 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               <ArrowForwardIcon sx={{ fontSize: 18 }} />
             </ToolButton>
           </Tooltip>
-          <Tooltip title="Freehand">
-            <ToolButton
-              size="small"
-              active={activeTool === 'freehand'}
-              onClick={() => setActiveTool(activeTool === 'freehand' ? null : 'freehand')}
-              disabled={!loadedImage}
-            >
-              <GestureIcon sx={{ fontSize: 18 }} />
-            </ToolButton>
-          </Tooltip>
         </Box>
 
         {/* Spacer to push undo/redo to far right */}
@@ -2197,10 +2602,17 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             <span>
               <ToolButton
                 size="small"
-                disabled={!loadedImage || !canUndo}
-                onClick={handleUndo}
+                disabled={!loadedImage || (!canUndo && !canAnnotationUndo)}
+                onClick={() => {
+                  // First try annotation undo, then transform undo
+                  if (canAnnotationUndo) {
+                    handleAnnotationUndo();
+                  } else if (canUndo) {
+                    handleUndo();
+                  }
+                }}
                 sx={{
-                  color: !loadedImage || !canUndo ? '#444' : '#888',
+                  color: !loadedImage || (!canUndo && !canAnnotationUndo) ? '#444' : '#888',
                 }}
               >
                 <UndoIcon sx={{ fontSize: 18 }} />
@@ -2211,10 +2623,17 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             <span>
               <ToolButton
                 size="small"
-                disabled={!loadedImage || !canRedo}
-                onClick={handleRedo}
+                disabled={!loadedImage || (!canRedo && !canAnnotationRedo)}
+                onClick={() => {
+                  // First try annotation redo, then transform redo
+                  if (canAnnotationRedo) {
+                    handleAnnotationRedo();
+                  } else if (canRedo) {
+                    handleRedo();
+                  }
+                }}
                 sx={{
-                  color: !loadedImage || !canRedo ? '#444' : '#888',
+                  color: !loadedImage || (!canRedo && !canAnnotationRedo) ? '#444' : '#888',
                 }}
               >
                 <RedoIcon sx={{ fontSize: 18 }} />
@@ -2378,15 +2797,24 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                 </Box>
               ) : (
                 annotations.filter(a => userVisibility[a.user]).map(annotation => (
-                  <AnnotationItem key={annotation.id}>
+                  <AnnotationItem
+                    key={annotation.id}
+                    onClick={() => selectAnnotation(annotation.id)}
+                    sx={{
+                      backgroundColor: selectedAnnotationId === annotation.id ? 'rgba(25, 171, 181, 0.15)' : 'transparent',
+                      border: selectedAnnotationId === annotation.id ? '1px solid #19abb5' : '1px solid transparent',
+                      '&:hover': {
+                        backgroundColor: selectedAnnotationId === annotation.id ? 'rgba(25, 171, 181, 0.2)' : 'rgba(255, 255, 255, 0.03)',
+                      },
+                    }}
+                  >
                     <AnnotationIcon type={annotation.type}>
                       {annotation.type === 'rectangle' && <RectangleOutlinedIcon sx={{ fontSize: 12 }} />}
                       {annotation.type === 'circle' && <CircleOutlinedIcon sx={{ fontSize: 12 }} />}
                       {annotation.type === 'arrow' && <ArrowForwardIcon sx={{ fontSize: 12 }} />}
-                      {annotation.type === 'freehand' && <GestureIcon sx={{ fontSize: 12 }} />}
                     </AnnotationIcon>
                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography sx={{ fontSize: 11, color: '#ccc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <Typography sx={{ fontSize: 11, color: selectedAnnotationId === annotation.id ? '#19abb5' : '#ccc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {annotation.label}
                       </Typography>
                       <Typography sx={{ fontSize: 9, color: '#555' }}>{annotation.user}</Typography>
@@ -2394,7 +2822,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                     <Tooltip title={annotation.visible ? 'Hide' : 'Show'}>
                       <IconButton
                         size="small"
-                        onClick={() => toggleAnnotationVisibility(annotation.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleAnnotationVisibility(annotation.id);
+                        }}
                         sx={{ padding: 2, color: annotation.visible ? '#19abb5' : '#444' }}
                       >
                         {annotation.visible ? <VisibilityIcon sx={{ fontSize: 14 }} /> : <VisibilityOffIcon sx={{ fontSize: 14 }} />}
@@ -2413,15 +2844,19 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                 variant="outlined"
                 startIcon={<AddIcon sx={{ fontSize: 14 }} />}
                 disabled={!loadedImage}
+                onClick={() => {
+                  // Activate the rectangle tool by default (most common)
+                  setActiveTool(activeTool === 'rectangle' ? null : 'rectangle');
+                }}
                 sx={{
                   fontSize: 10,
-                  color: '#666',
-                  borderColor: '#333',
+                  color: activeTool ? '#19abb5' : '#666',
+                  borderColor: activeTool ? '#19abb5' : '#333',
                   py: 0.5,
                   '&:hover': { borderColor: '#19abb5', color: '#19abb5' },
                 }}
               >
-                Add Annotation
+                {activeTool ? `Drawing ${activeTool}` : 'Add Annotation'}
               </Button>
             </Box>
           </Box>
