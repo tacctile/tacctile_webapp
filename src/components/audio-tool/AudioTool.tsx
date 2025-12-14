@@ -1007,6 +1007,9 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [selectedFlagId, setSelectedFlagId] = useState<string | null>(null);
   const flagsListRef = useRef<HTMLDivElement>(null);
 
+  // Flag visibility on waveform state
+  const [flagsVisibleOnWaveform, setFlagsVisibleOnWaveform] = useState(true);
+
   // File drop zone state
   const [isFileDragOver, setIsFileDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1101,7 +1104,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
 
   // Audio playback hook - wires up Web Audio API playback with playhead store
   // Also handles EQ filtering, low cut filter, high cut filter, De-Hum filter, De-Noise filter
-  const { seek: audioSeek } = useAudioPlayback({
+  const { seek: audioSeek, scrub: audioScrub } = useAudioPlayback({
     audioContext,
     audioBuffer,
     duration: loadedAudio?.duration || 0,
@@ -1510,43 +1513,50 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     setOverviewScrollOffset(newOffset);
   }, []);
 
-  // Zoom in/out button handlers
+  // Zoom in/out button handlers - snap to 0.5 increments
   const handleZoomIn = useCallback(() => {
-    const newZoom = Math.min(10, overviewZoom * 1.2);
+    // Snap to next 0.5 increment
+    const newZoom = Math.min(10, Math.ceil(overviewZoom * 2) / 2 + 0.5);
+    const snappedZoom = Math.round(newZoom * 2) / 2; // Ensure clean 0.5 snap
     const playheadTime = timestamp / 1000;
     const duration = loadedAudio?.duration || 0;
-    const newVisibleDuration = duration / newZoom;
-    const newScrollOffset = Math.max(0, Math.min(1 - 1 / newZoom,
+    const newVisibleDuration = duration / snappedZoom;
+    const newScrollOffset = Math.max(0, Math.min(1 - 1 / snappedZoom,
       (playheadTime - newVisibleDuration / 2) / duration));
 
-    setOverviewZoom(newZoom);
+    setOverviewZoom(snappedZoom);
     setOverviewScrollOffset(newScrollOffset);
   }, [overviewZoom, timestamp, loadedAudio?.duration]);
 
   const handleZoomOut = useCallback(() => {
-    const newZoom = Math.max(1, overviewZoom / 1.2);
+    // Snap to previous 0.5 increment
+    const newZoom = Math.max(1, Math.floor(overviewZoom * 2) / 2 - 0.5);
+    const snappedZoom = Math.max(1, Math.round(newZoom * 2) / 2); // Ensure clean 0.5 snap and min of 1
     const playheadTime = timestamp / 1000;
     const duration = loadedAudio?.duration || 0;
-    const newVisibleDuration = duration / newZoom;
-    const newScrollOffset = Math.max(0, Math.min(1 - 1 / newZoom,
+    const newVisibleDuration = duration / snappedZoom;
+    const newScrollOffset = Math.max(0, Math.min(1 - 1 / snappedZoom,
       (playheadTime - newVisibleDuration / 2) / duration));
 
-    setOverviewZoom(newZoom);
+    setOverviewZoom(snappedZoom);
     setOverviewScrollOffset(newScrollOffset);
   }, [overviewZoom, timestamp, loadedAudio?.duration]);
 
   // Zoom slider handler - keeps playhead centered (same logic as +/- buttons)
+  // Slider step is already 0.5, so newZoom should be a clean 0.5 value
   const handleZoomSliderChange = useCallback((newZoom: number) => {
+    // Ensure clean 0.5 snap (defensive)
+    const snappedZoom = Math.round(newZoom * 2) / 2;
     const duration = loadedAudio?.duration || 1;
     const playheadRatio = (timestamp / 1000) / duration;
 
     // Calculate the visible window at new zoom level
-    const visibleDuration = duration / newZoom;
+    const visibleDuration = duration / snappedZoom;
 
     // Center the scroll offset on the playhead
-    const newScrollOffset = Math.max(0, Math.min(1 - (1 / newZoom), playheadRatio - (0.5 / newZoom)));
+    const newScrollOffset = Math.max(0, Math.min(1 - (1 / snappedZoom), playheadRatio - (0.5 / snappedZoom)));
 
-    setOverviewZoom(newZoom);
+    setOverviewZoom(snappedZoom);
     setOverviewScrollOffset(newScrollOffset);
   }, [timestamp, loadedAudio?.duration]);
 
@@ -1921,6 +1931,20 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     }, 0);
   }, [setTimestamp, audioSeek]);
 
+  // Handle flag drag from waveform - update flag timestamp
+  const handleWaveformFlagDrag = useCallback((flagId: string, newTimestamp: number) => {
+    // Clamp timestamp to valid audio range
+    const clampedTimestamp = Math.max(0, Math.min(newTimestamp, (loadedAudio?.duration || 0) * 1000));
+    // Update the flag's timestamp in state
+    setFlags(prev => prev.map(f =>
+      f.id === flagId
+        ? { ...f, timestamp: clampedTimestamp }
+        : f
+    ).sort((a, b) => a.timestamp - b.timestamp)); // Re-sort by timestamp
+    // Select the dragged flag
+    setSelectedFlagId(flagId);
+  }, [loadedAudio?.duration]);
+
   // Navigate to next/previous flag based on current playhead position
   const navigateToFlag = useCallback((direction: 'next' | 'prev') => {
     if (sortedFlags.length === 0) return;
@@ -2134,7 +2158,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
                 value={overviewZoom}
                 min={1}
                 max={10}
-                step={0.1}
+                step={0.5}
                 onChange={(_, value) => handleZoomSliderChange(value as number)}
                 disabled={!loadedAudio}
                 sx={{
@@ -2154,7 +2178,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
                 <AddIcon sx={{ fontSize: 18 }} />
               </IconButton>
               <Typography sx={{ color: '#888', fontSize: 11, minWidth: 35, fontFamily: '"JetBrains Mono", monospace' }}>
-                {overviewZoom.toFixed(1)}x
+                {overviewZoom % 1 === 0 ? `${overviewZoom}x` : `${overviewZoom.toFixed(1)}x`}
               </Typography>
             </Box>
 
@@ -2367,6 +2391,8 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             }
           }}
           disabled={!loadedAudio}
+          flagsVisibleOnWaveform={flagsVisibleOnWaveform}
+          onWaveformVisibilityToggle={() => setFlagsVisibleOnWaveform(prev => !prev)}
         />
       </Box>
     </Box>
@@ -2455,9 +2481,11 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             scrollOffset={overviewScrollOffset}
             waveformData={waveformData}
             waveformHeight={waveformHeight}
-            flags={filteredFlagsForDisplay}
+            flags={flagsVisibleOnWaveform ? filteredFlagsForDisplay : []}
             onFlagClick={handleWaveformFlagClick}
+            onFlagDrag={handleWaveformFlagDrag}
             onSeek={handleOverviewSeek}
+            onScrub={audioScrub}
             onZoomChange={handleZoomChange}
             onScrollChange={handleScrollChange}
           />

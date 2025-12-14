@@ -19,7 +19,11 @@ interface WaveformCanvasProps {
   flags?: Flag[];
   /** Callback when a flag line is clicked on the waveform */
   onFlagClick?: (flag: Flag) => void;
+  /** Callback when a flag is dragged to a new position */
+  onFlagDrag?: (flagId: string, newTimestamp: number) => void;
   onSeek?: (timeInSeconds: number) => void;
+  /** Callback for audio scrubbing (plays audio snippet during drag) */
+  onScrub?: (timeInSeconds: number) => void;
   onZoomChange?: (zoom: number) => void;
   onScrollChange?: (scrollOffset: number) => void;
 }
@@ -33,7 +37,9 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
   waveformHeight = 1,
   flags = [],
   onFlagClick,
+  onFlagDrag,
   onSeek,
+  onScrub,
   onZoomChange,
   onScrollChange,
 }) => {
@@ -48,6 +54,10 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
 
   // Flag hover state
   const [hoveredFlag, setHoveredFlag] = useState<Flag | null>(null);
+
+  // Flag dragging state
+  const [draggingFlag, setDraggingFlag] = useState<Flag | null>(null);
+  const [draggingFlagTime, setDraggingFlagTime] = useState<number | null>(null);
 
   // Spacebar + drag panning state
   const [isSpaceHeld, setIsSpaceHeld] = useState(false);
@@ -186,8 +196,11 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     // Draw flag markers as vertical lines
     if (flags.length > 0) {
       for (const flag of flags) {
-        // Convert flag timestamp from ms to seconds
-        const flagTimeSeconds = flag.timestamp / 1000;
+        // If this flag is being dragged, use the dragging position instead
+        const isDraggingThisFlag = draggingFlag?.id === flag.id;
+        const flagTimeSeconds = isDraggingThisFlag && draggingFlagTime !== null
+          ? draggingFlagTime
+          : flag.timestamp / 1000;
 
         // Calculate flag position on screen
         const flagX = ((flagTimeSeconds - startTime) / visibleDuration) * width;
@@ -196,11 +209,11 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
         if (flagX >= 0 && flagX <= width) {
           const flagColor = flag.userColor || '#19abb5';
 
-          // Draw flag line with slight transparency (80% opacity)
+          // Draw flag line - more prominent when dragging
           ctx.save();
-          ctx.globalAlpha = 0.8;
+          ctx.globalAlpha = isDraggingThisFlag ? 1.0 : 0.8;
           ctx.strokeStyle = flagColor;
-          ctx.lineWidth = 2;
+          ctx.lineWidth = isDraggingThisFlag ? 3 : 2;
           ctx.beginPath();
           ctx.moveTo(flagX, 0);
           ctx.lineTo(flagX, height);
@@ -238,7 +251,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
         ctx.fill();
       }
     }
-  }, [isLoaded, duration, zoom, scrollOffset, timestamp, waveformData, waveformHeight, flags]);
+  }, [isLoaded, duration, zoom, scrollOffset, timestamp, waveformData, waveformHeight, flags, draggingFlag, draggingFlagTime]);
 
   useEffect(() => {
     draw();
@@ -298,9 +311,9 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     return null;
   }, [duration, zoom, scrollOffset, flags]);
 
-  // Seek to position helper
-  const seekToPosition = useCallback((e: React.MouseEvent) => {
-    if (!canvasRef.current || duration <= 0) return;
+  // Convert mouse position to time in seconds (clamped to duration)
+  const mouseToTime = useCallback((e: React.MouseEvent): number => {
+    if (!canvasRef.current || duration <= 0) return 0;
 
     const rect = canvasRef.current.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
@@ -310,9 +323,32 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     const startTime = scrollOffset * duration;
     const clickTime = startTime + (clickRatio * visibleDuration);
 
+    // Clamp to valid range
+    return Math.max(0, Math.min(clickTime, duration));
+  }, [duration, zoom, scrollOffset]);
+
+  // Seek to position helper (for clicks)
+  const seekToPosition = useCallback((e: React.MouseEvent) => {
+    const clickTime = mouseToTime(e);
+    if (duration <= 0) return;
+
     setTimestamp(clickTime * 1000);
     onSeek?.(clickTime);
-  }, [duration, zoom, scrollOffset, setTimestamp, onSeek]);
+  }, [duration, mouseToTime, setTimestamp, onSeek]);
+
+  // Scrub to position helper (for dragging - plays audio snippet)
+  const scrubToPosition = useCallback((e: React.MouseEvent) => {
+    const scrubTime = mouseToTime(e);
+    if (duration <= 0) return;
+
+    // Call scrub for audio feedback, or fall back to seek
+    if (onScrub) {
+      onScrub(scrubTime);
+    } else {
+      setTimestamp(scrubTime * 1000);
+      onSeek?.(scrubTime);
+    }
+  }, [duration, mouseToTime, setTimestamp, onSeek, onScrub]);
 
   // Mouse handlers for scrubbing and panning
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -328,11 +364,19 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
       return;
     }
 
-    // Check if clicking on a flag line
+    // Check if clicking on a flag line - start dragging if onFlagDrag is provided
     const clickedFlag = findFlagNearMouse(e);
-    if (clickedFlag && onFlagClick) {
-      onFlagClick(clickedFlag);
-      return;
+    if (clickedFlag) {
+      if (onFlagDrag) {
+        // Start dragging the flag
+        setDraggingFlag(clickedFlag);
+        setDraggingFlagTime(clickedFlag.timestamp / 1000);
+        return;
+      } else if (onFlagClick) {
+        // Just click the flag (no drag support)
+        onFlagClick(clickedFlag);
+        return;
+      }
     }
 
     // Near playhead = start scrubbing
@@ -343,7 +387,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
 
     // Otherwise click to seek
     seekToPosition(e);
-  }, [isLoaded, duration, isSpaceHeld, zoom, scrollOffset, checkNearPlayhead, seekToPosition, findFlagNearMouse, onFlagClick]);
+  }, [isLoaded, duration, isSpaceHeld, zoom, scrollOffset, checkNearPlayhead, seekToPosition, findFlagNearMouse, onFlagClick, onFlagDrag]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     // Panning
@@ -359,6 +403,13 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
       return;
     }
 
+    // Flag dragging
+    if (draggingFlag) {
+      const newTime = mouseToTime(e);
+      setDraggingFlagTime(newTime);
+      return;
+    }
+
     // Update cursor based on proximity to playhead or flags
     if (!isSpaceHeld) {
       setIsNearPlayhead(checkNearPlayhead(e));
@@ -367,39 +418,58 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
       setHoveredFlag(flagNearMouse);
     }
 
-    // Scrubbing
+    // Scrubbing (playhead dragging) - use scrub for audio feedback
     if (isDragging) {
-      seekToPosition(e);
+      scrubToPosition(e);
     }
-  }, [isPanning, panStartX, panStartOffset, zoom, onScrollChange, isSpaceHeld, checkNearPlayhead, isDragging, seekToPosition, findFlagNearMouse]);
+  }, [isPanning, panStartX, panStartOffset, zoom, onScrollChange, isSpaceHeld, checkNearPlayhead, isDragging, scrubToPosition, findFlagNearMouse, draggingFlag, mouseToTime]);
 
   const handleMouseUp = useCallback(() => {
+    // Finalize flag dragging
+    if (draggingFlag && draggingFlagTime !== null && onFlagDrag) {
+      // Convert time back to milliseconds for the callback
+      onFlagDrag(draggingFlag.id, draggingFlagTime * 1000);
+    }
+    setDraggingFlag(null);
+    setDraggingFlagTime(null);
     setIsDragging(false);
     setIsPanning(false);
-  }, []);
+  }, [draggingFlag, draggingFlagTime, onFlagDrag]);
 
   const handleMouseLeave = useCallback(() => {
+    // Cancel flag dragging on mouse leave (don't save changes)
+    setDraggingFlag(null);
+    setDraggingFlagTime(null);
     setIsDragging(false);
     setIsPanning(false);
     setIsNearPlayhead(false);
     setHoveredFlag(null);
   }, []);
 
-  // Wheel zoom handler
+  // Wheel zoom handler - snaps to 0.5 increments
   const handleWheel = useCallback((e: React.WheelEvent) => {
     if (!isLoaded || duration <= 0 || !onZoomChange || !onScrollChange) return;
     e.preventDefault();
 
-    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-    const newZoom = Math.max(1, Math.min(10, zoom * zoomFactor));
+    // Calculate next/previous 0.5 step based on scroll direction
+    let newZoom: number;
+    if (e.deltaY > 0) {
+      // Zoom out - go to previous 0.5 step
+      newZoom = Math.max(1, Math.floor(zoom * 2 - 0.1) / 2);
+    } else {
+      // Zoom in - go to next 0.5 step
+      newZoom = Math.min(10, Math.ceil(zoom * 2 + 0.1) / 2);
+    }
+    // Ensure clean 0.5 snap
+    const snappedZoom = Math.round(newZoom * 2) / 2;
 
     // Center zoom on playhead
     const playheadTime = timestamp / 1000;
-    const newVisibleDuration = duration / newZoom;
-    const newScrollOffset = Math.max(0, Math.min(1 - 1 / newZoom,
+    const newVisibleDuration = duration / snappedZoom;
+    const newScrollOffset = Math.max(0, Math.min(1 - 1 / snappedZoom,
       (playheadTime - newVisibleDuration / 2) / duration));
 
-    onZoomChange(newZoom);
+    onZoomChange(snappedZoom);
     onScrollChange(newScrollOffset);
   }, [isLoaded, duration, zoom, timestamp, onZoomChange, onScrollChange]);
 
@@ -438,8 +508,10 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
   const getCursor = () => {
     if (isPanning) return 'grabbing';
     if (isSpaceHeld) return 'grab';
-    if (isNearPlayhead || isDragging) return 'ew-resize';
-    if (hoveredFlag) return 'pointer';
+    if (draggingFlag) return 'grabbing';
+    if (isDragging) return 'grabbing';
+    if (isNearPlayhead) return 'grab';
+    if (hoveredFlag) return 'grab';
     if (isLoaded) return 'crosshair';
     return 'default';
   };
