@@ -640,10 +640,10 @@ export const FileLibrary: React.FC<FileLibraryProps> = ({
         </Box>
       ) : (
         <SectionsContainer ref={containerRef}>
-          {(activeFilter === 'all' || activeFilter === 'video') &&
-            renderSection('video', groupedItems.videos, 'VIDEO')}
           {(activeFilter === 'all' || activeFilter === 'audio') &&
             renderSection('audio', groupedItems.audios, 'AUDIO')}
+          {(activeFilter === 'all' || activeFilter === 'video') &&
+            renderSection('video', groupedItems.videos, 'VIDEO')}
           {(activeFilter === 'all' || activeFilter === 'image') &&
             renderSection('image', groupedItems.images, 'IMAGES', true)}
         </SectionsContainer>
