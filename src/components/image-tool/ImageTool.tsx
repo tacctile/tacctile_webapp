@@ -257,32 +257,44 @@ const FilterGroupTitle = styled(Typography)({
   paddingLeft: 2,
 });
 
-// Histogram styled components
-const HistogramContainer = styled(Box)({
-  height: 80,
+// Navigator styled components
+const NavigatorContainer = styled(Box)({
+  height: 100,
   backgroundColor: '#0a0a0a',
   borderRadius: 4,
   position: 'relative',
   overflow: 'hidden',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
 });
 
-const HistogramChannel = styled('div')<{ channel: 'r' | 'g' | 'b' }>(({ channel }) => ({
-  position: 'absolute',
-  bottom: 0,
-  left: 0,
-  right: 0,
-  opacity: 0.6,
-  mixBlendMode: 'screen',
-}));
+const NavigatorThumbnail = styled('img')({
+  maxWidth: '100%',
+  maxHeight: '100%',
+  objectFit: 'contain',
+  display: 'block',
+});
 
-const ClippingIndicator = styled(Box)<{ side: 'left' | 'right'; active: boolean }>(({ side, active }) => ({
+const NavigatorViewportRect = styled(Box)({
   position: 'absolute',
-  top: 0,
-  bottom: 0,
-  width: 4,
-  [side]: 0,
-  backgroundColor: active ? '#c45c5c' : 'transparent',
-}));
+  border: '1.5px solid #19abb5',
+  backgroundColor: 'rgba(25, 171, 181, 0.25)',
+  pointerEvents: 'none',
+  boxSizing: 'border-box',
+});
+
+const NavigatorZoomDisplay = styled(Typography)({
+  position: 'absolute',
+  bottom: 4,
+  right: 6,
+  fontSize: 10,
+  fontFamily: '"JetBrains Mono", monospace',
+  color: '#888',
+  backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  padding: '1px 4px',
+  borderRadius: 2,
+});
 
 // Annotation List styled components
 const AnnotationItem = styled(Box)({
@@ -406,53 +418,208 @@ const imageFiles: (FileItem & { format?: string; gps?: string | null; dimensions
 
 
 // ============================================================================
-// HISTOGRAM COMPONENT
+// NAVIGATOR COMPONENT
 // ============================================================================
 
-interface HistogramProps {
-  disabled?: boolean;
+interface NavigatorProps {
+  imageUrl: string | null;
+  zoom: number;
+  panOffset: { x: number; y: number };
+  containerDimensions: { width: number; height: number } | null;
+  actualDimensions: { width: number; height: number } | null;
+  onPanChange: (x: number, y: number) => void;
+  calculateFitScale: () => number;
 }
 
-const Histogram: React.FC<HistogramProps> = ({ disabled }) => {
-  // Generate fake histogram data
-  const generateChannelData = (seed: number) => {
-    const data: number[] = [];
-    for (let i = 0; i < 256; i++) {
-      const base = Math.sin((i + seed) * 0.02) * 30 + 40;
-      const noise = Math.random() * 20;
-      data.push(Math.max(0, Math.min(100, base + noise)));
+const Navigator: React.FC<NavigatorProps> = ({
+  imageUrl,
+  zoom,
+  panOffset,
+  containerDimensions,
+  actualDimensions,
+  onPanChange,
+  calculateFitScale,
+}) => {
+  const navigatorRef = useRef<HTMLDivElement>(null);
+  const thumbnailRef = useRef<HTMLImageElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [thumbnailRect, setThumbnailRect] = useState<{ width: number; height: number; left: number; top: number } | null>(null);
+
+  // Update thumbnail rect when image loads or container resizes
+  useEffect(() => {
+    if (thumbnailRef.current && navigatorRef.current) {
+      const updateRect = () => {
+        if (thumbnailRef.current && navigatorRef.current) {
+          const navRect = navigatorRef.current.getBoundingClientRect();
+          const thumbRect = thumbnailRef.current.getBoundingClientRect();
+          setThumbnailRect({
+            width: thumbRect.width,
+            height: thumbRect.height,
+            left: thumbRect.left - navRect.left,
+            top: thumbRect.top - navRect.top,
+          });
+        }
+      };
+
+      // Update on load
+      if (thumbnailRef.current.complete) {
+        updateRect();
+      } else {
+        thumbnailRef.current.onload = updateRect;
+      }
+
+      // Also update on resize
+      const resizeObserver = new ResizeObserver(updateRect);
+      resizeObserver.observe(navigatorRef.current);
+
+      return () => resizeObserver.disconnect();
     }
-    return data;
-  };
+  }, [imageUrl]);
 
-  const rData = generateChannelData(0);
-  const gData = generateChannelData(50);
-  const bData = generateChannelData(100);
+  // Calculate viewport rectangle position and size
+  const getViewportRect = useCallback(() => {
+    if (!thumbnailRect || !actualDimensions || !containerDimensions) {
+      return { left: 0, top: 0, width: 0, height: 0 };
+    }
 
-  const generatePath = (data: number[]) => {
-    const points = data.map((v, i) => `${(i / 255) * 100}% ${100 - v}%`);
-    return `polygon(0% 100%, ${points.join(', ')}, 100% 100%)`;
-  };
+    const fitScale = calculateFitScale();
+    const actualScale = fitScale * (zoom / 100);
 
-  const hasLeftClipping = !disabled && Math.random() > 0.7;
-  const hasRightClipping = !disabled && Math.random() > 0.8;
+    // Calculate image display size at current zoom
+    const imageDisplayWidth = actualDimensions.width * actualScale;
+    const imageDisplayHeight = actualDimensions.height * actualScale;
+
+    // Calculate what portion of the image is visible (0-1 range)
+    const visibleWidthRatio = Math.min(1, containerDimensions.width / imageDisplayWidth);
+    const visibleHeightRatio = Math.min(1, containerDimensions.height / imageDisplayHeight);
+
+    // Calculate the center offset as a ratio of total image size
+    // panOffset is relative to centered position
+    const panXRatio = -panOffset.x / imageDisplayWidth;
+    const panYRatio = -panOffset.y / imageDisplayHeight;
+
+    // Viewport rect in thumbnail coordinates
+    const rectWidth = thumbnailRect.width * visibleWidthRatio;
+    const rectHeight = thumbnailRect.height * visibleHeightRatio;
+
+    // Center position plus pan offset
+    const centerX = thumbnailRect.left + thumbnailRect.width / 2;
+    const centerY = thumbnailRect.top + thumbnailRect.height / 2;
+
+    const rectLeft = centerX - rectWidth / 2 + panXRatio * thumbnailRect.width;
+    const rectTop = centerY - rectHeight / 2 + panYRatio * thumbnailRect.height;
+
+    return {
+      left: Math.max(thumbnailRect.left, Math.min(rectLeft, thumbnailRect.left + thumbnailRect.width - rectWidth)),
+      top: Math.max(thumbnailRect.top, Math.min(rectTop, thumbnailRect.top + thumbnailRect.height - rectHeight)),
+      width: rectWidth,
+      height: rectHeight,
+    };
+  }, [thumbnailRect, actualDimensions, containerDimensions, zoom, panOffset, calculateFitScale]);
+
+  // Handle click/drag on navigator
+  const handleNavigatorInteraction = useCallback((clientX: number, clientY: number) => {
+    if (!navigatorRef.current || !thumbnailRect || !actualDimensions || !containerDimensions) return;
+
+    const navRect = navigatorRef.current.getBoundingClientRect();
+    const clickX = clientX - navRect.left;
+    const clickY = clientY - navRect.top;
+
+    // Calculate where we clicked relative to thumbnail center (as ratio)
+    const thumbCenterX = thumbnailRect.left + thumbnailRect.width / 2;
+    const thumbCenterY = thumbnailRect.top + thumbnailRect.height / 2;
+
+    const clickOffsetRatioX = (clickX - thumbCenterX) / thumbnailRect.width;
+    const clickOffsetRatioY = (clickY - thumbCenterY) / thumbnailRect.height;
+
+    // Calculate the actual pan offset needed
+    const fitScale = calculateFitScale();
+    const actualScale = fitScale * (zoom / 100);
+    const imageDisplayWidth = actualDimensions.width * actualScale;
+    const imageDisplayHeight = actualDimensions.height * actualScale;
+
+    // Convert click ratio to pan offset
+    const newPanX = -clickOffsetRatioX * imageDisplayWidth;
+    const newPanY = -clickOffsetRatioY * imageDisplayHeight;
+
+    // Constrain pan to valid range
+    const maxPanX = Math.max(0, (imageDisplayWidth - containerDimensions.width) / 2);
+    const maxPanY = Math.max(0, (imageDisplayHeight - containerDimensions.height) / 2);
+
+    const constrainedPanX = Math.max(-maxPanX, Math.min(maxPanX, newPanX));
+    const constrainedPanY = Math.max(-maxPanY, Math.min(maxPanY, newPanY));
+
+    onPanChange(constrainedPanX, constrainedPanY);
+  }, [thumbnailRect, actualDimensions, containerDimensions, zoom, calculateFitScale, onPanChange]);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    handleNavigatorInteraction(e.clientX, e.clientY);
+  }, [handleNavigatorInteraction]);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (isDragging) {
+      handleNavigatorInteraction(e.clientX, e.clientY);
+    }
+  }, [isDragging, handleNavigatorInteraction]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // Add/remove global mouse listeners for drag
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp]);
+
+  const viewportRect = getViewportRect();
+  const showViewportRect = imageUrl && thumbnailRect && viewportRect.width > 0 && viewportRect.height > 0;
+  // Only show viewport rect if it doesn't cover the entire thumbnail (i.e., we're zoomed in)
+  const isZoomedIn = showViewportRect && (
+    viewportRect.width < thumbnailRect!.width - 2 ||
+    viewportRect.height < thumbnailRect!.height - 2
+  );
 
   return (
-    <HistogramContainer>
-      {disabled ? (
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-          <Typography sx={{ fontSize: 10, color: '#444' }}>No image loaded</Typography>
-        </Box>
+    <NavigatorContainer
+      ref={navigatorRef}
+      onMouseDown={imageUrl ? handleMouseDown : undefined}
+      sx={{
+        cursor: imageUrl ? (isDragging ? 'grabbing' : 'crosshair') : 'default',
+      }}
+    >
+      {!imageUrl ? (
+        <Typography sx={{ fontSize: 10, color: '#444' }}>No image loaded</Typography>
       ) : (
         <>
-          <HistogramChannel channel="r" sx={{ clipPath: generatePath(rData), backgroundColor: '#c45c5c' }} />
-          <HistogramChannel channel="g" sx={{ clipPath: generatePath(gData), backgroundColor: '#5a9a6b' }} />
-          <HistogramChannel channel="b" sx={{ clipPath: generatePath(bData), backgroundColor: '#5a7fbf' }} />
-          <ClippingIndicator side="left" active={hasLeftClipping} />
-          <ClippingIndicator side="right" active={hasRightClipping} />
+          <NavigatorThumbnail
+            ref={thumbnailRef}
+            src={imageUrl}
+            alt="Navigator thumbnail"
+            draggable={false}
+          />
+          {isZoomedIn && (
+            <NavigatorViewportRect
+              sx={{
+                left: viewportRect.left,
+                top: viewportRect.top,
+                width: viewportRect.width,
+                height: viewportRect.height,
+              }}
+            />
+          )}
+          <NavigatorZoomDisplay>{Math.round(zoom)}%</NavigatorZoomDisplay>
         </>
       )}
-    </HistogramContainer>
+    </NavigatorContainer>
   );
 };
 
@@ -570,7 +737,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   }, []);
 
   // Section collapse states
-  const [histogramCollapsed, setHistogramCollapsed] = useState(false);
+  const [navigatorCollapsed, setNavigatorCollapsed] = useState(false);
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
   const [annotationsCollapsed, setAnnotationsCollapsed] = useState(false);
 
@@ -2616,15 +2783,23 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   // Inspector Panel (Right Panel)
   const inspectorContent = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      {/* Histogram Section */}
+      {/* Navigator Section */}
       <InspectorSection>
-        <SectionHeader onClick={() => setHistogramCollapsed(!histogramCollapsed)}>
-          <SectionTitle>Histogram</SectionTitle>
-          {histogramCollapsed ? <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} /> : <ExpandLessIcon sx={{ fontSize: 16, color: '#666' }} />}
+        <SectionHeader onClick={() => setNavigatorCollapsed(!navigatorCollapsed)}>
+          <SectionTitle>Navigator</SectionTitle>
+          {navigatorCollapsed ? <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} /> : <ExpandLessIcon sx={{ fontSize: 16, color: '#666' }} />}
         </SectionHeader>
-        {!histogramCollapsed && (
+        {!navigatorCollapsed && (
           <SectionContent>
-            <Histogram disabled={!loadedImage} />
+            <Navigator
+              imageUrl={loadedImage?.thumbnailUrl ?? null}
+              zoom={zoom}
+              panOffset={panOffset}
+              containerDimensions={containerDimensions}
+              actualDimensions={actualDimensions}
+              onPanChange={(x, y) => setPanOffset({ x, y })}
+              calculateFitScale={calculateFitScale}
+            />
           </SectionContent>
         )}
       </InspectorSection>
