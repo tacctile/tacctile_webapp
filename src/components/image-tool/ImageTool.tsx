@@ -478,8 +478,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [isPanning, setIsPanning] = useState(false);
   const panStartRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
 
-  // Zoom levels available
-  const ZOOM_LEVELS = [25, 50, 75, 100, 150, 200, 300, 400];
+  // Zoom constants
+  const ZOOM_MIN = 10;
+  const ZOOM_MAX = 400;
+  const ZOOM_STEP = 5;
 
   // Section collapse states
   const [histogramCollapsed, setHistogramCollapsed] = useState(false);
@@ -562,23 +564,23 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     return zoom;
   }, [zoom, calculateFitZoom]);
 
-  // Find the next zoom level up from current
+  // Zoom in by 5%
   const handleZoomIn = useCallback(() => {
     const currentZoom = getEffectiveZoom();
-    const nextLevel = ZOOM_LEVELS.find(level => level > currentZoom);
-    if (nextLevel) {
-      setZoom(nextLevel);
+    const newZoom = Math.min(currentZoom + ZOOM_STEP, ZOOM_MAX);
+    if (newZoom !== currentZoom) {
+      setZoom(newZoom);
       // Reset pan when zooming - will be recalculated based on constraints
       setPanOffset({ x: 0, y: 0 });
     }
   }, [getEffectiveZoom]);
 
-  // Find the next zoom level down from current
+  // Zoom out by 5%
   const handleZoomOut = useCallback(() => {
     const currentZoom = getEffectiveZoom();
-    const prevLevel = [...ZOOM_LEVELS].reverse().find(level => level < currentZoom);
-    if (prevLevel) {
-      setZoom(prevLevel);
+    const newZoom = Math.max(currentZoom - ZOOM_STEP, ZOOM_MIN);
+    if (newZoom !== currentZoom) {
+      setZoom(newZoom);
       // Reset pan when zooming
       setPanOffset({ x: 0, y: 0 });
     }
@@ -1214,31 +1216,72 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
         {/* Zoom Controls */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Tooltip title="Zoom Out">
-            <IconButton size="small" onClick={handleZoomOut} disabled={!loadedImage} sx={{ color: '#888', p: 0.5 }}>
-              <ZoomOutIcon sx={{ fontSize: 18 }} />
-            </IconButton>
+          <Tooltip title={viewMode !== 'single' ? 'Zoom Out (only available in single view)' : 'Zoom Out'}>
+            <span>
+              <IconButton
+                size="small"
+                onClick={handleZoomOut}
+                disabled={!loadedImage || viewMode !== 'single'}
+                sx={{
+                  color: '#888',
+                  p: 0.5,
+                  opacity: viewMode !== 'single' ? 0.4 : 1,
+                }}
+              >
+                <ZoomOutIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </span>
           </Tooltip>
-          <ZoomDisplay>{Math.round(getEffectiveZoom())}%</ZoomDisplay>
-          <Tooltip title="Zoom In">
-            <IconButton size="small" onClick={handleZoomIn} disabled={!loadedImage} sx={{ color: '#888', p: 0.5 }}>
-              <ZoomInIcon sx={{ fontSize: 18 }} />
-            </IconButton>
+          <ZoomDisplay sx={{ opacity: viewMode !== 'single' ? 0.4 : 1 }}>
+            {!loadedImage || viewMode !== 'single' ? '--' : `${Math.round(getEffectiveZoom())}%`}
+          </ZoomDisplay>
+          <Tooltip title={viewMode !== 'single' ? 'Zoom In (only available in single view)' : 'Zoom In'}>
+            <span>
+              <IconButton
+                size="small"
+                onClick={handleZoomIn}
+                disabled={!loadedImage || viewMode !== 'single'}
+                sx={{
+                  color: '#888',
+                  p: 0.5,
+                  opacity: viewMode !== 'single' ? 0.4 : 1,
+                }}
+              >
+                <ZoomInIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </span>
           </Tooltip>
-          <Tooltip title="Fit to View">
-            <IconButton size="small" onClick={handleFitToView} disabled={!loadedImage} sx={{ color: '#888', p: 0.5 }}>
-              <FitScreenIcon sx={{ fontSize: 18 }} />
-            </IconButton>
+          <Tooltip title={viewMode !== 'single' ? 'Fit to View (only available in single view)' : 'Fit to View'}>
+            <span>
+              <IconButton
+                size="small"
+                onClick={handleFitToView}
+                disabled={!loadedImage || viewMode !== 'single'}
+                sx={{
+                  color: '#888',
+                  p: 0.5,
+                  opacity: viewMode !== 'single' ? 0.4 : 1,
+                }}
+              >
+                <FitScreenIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </span>
           </Tooltip>
-          <Tooltip title="100%">
-            <Button
-              size="small"
-              onClick={handleZoom100}
-              disabled={!loadedImage}
-              sx={{ fontSize: 9, color: '#888', minWidth: 32, p: 0.5 }}
-            >
-              1:1
-            </Button>
+          <Tooltip title={viewMode !== 'single' ? '100% (only available in single view)' : '100%'}>
+            <span>
+              <IconButton
+                size="small"
+                onClick={handleZoom100}
+                disabled={!loadedImage || viewMode !== 'single'}
+                sx={{
+                  color: '#888',
+                  p: 0.5,
+                  opacity: viewMode !== 'single' ? 0.4 : 1,
+                }}
+              >
+                <Typography sx={{ fontSize: 11, fontWeight: 500 }}>100%</Typography>
+              </IconButton>
+            </span>
           </Tooltip>
         </Box>
 
