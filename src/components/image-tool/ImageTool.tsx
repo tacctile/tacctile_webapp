@@ -619,12 +619,17 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   };
 
   // Calculate the scale factor that makes the image fit in the container (0-1 range)
+  // Accounts for rotation: when rotated 90° or 270°, width and height are effectively swapped
   const calculateFitScale = useCallback(() => {
     if (!actualDimensions || !containerDimensions) return 1;
-    const scaleX = containerDimensions.width / actualDimensions.width;
-    const scaleY = containerDimensions.height / actualDimensions.height;
+    // When rotated 90° or 270°, the image's effective dimensions are swapped
+    const isRotated90or270 = rotation === 90 || rotation === 270;
+    const effectiveWidth = isRotated90or270 ? actualDimensions.height : actualDimensions.width;
+    const effectiveHeight = isRotated90or270 ? actualDimensions.width : actualDimensions.height;
+    const scaleX = containerDimensions.width / effectiveWidth;
+    const scaleY = containerDimensions.height / effectiveHeight;
     return Math.min(scaleX, scaleY);
-  }, [actualDimensions, containerDimensions]);
+  }, [actualDimensions, containerDimensions, rotation]);
 
   // Get the actual scale to apply to the image
   // zoom = 100 means fit-to-window, zoom = 200 means 2x the fit size
