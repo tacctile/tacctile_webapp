@@ -47,10 +47,15 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const timestamp = usePlayheadStore((state) => state.timestamp);
   const setTimestamp = usePlayheadStore((state) => state.setTimestamp);
+  const isPlaying = usePlayheadStore((state) => state.isPlaying);
+  const pause = usePlayheadStore((state) => state.pause);
+  const play = usePlayheadStore((state) => state.play);
 
   // Scrubbing state (drag playhead)
   const [isDragging, setIsDragging] = useState(false);
   const [isNearPlayhead, setIsNearPlayhead] = useState(false);
+  // Track if audio was playing when drag started (to resume on release)
+  const wasPlayingRef = useRef(false);
 
   // Flag hover state
   const [hoveredFlag, setHoveredFlag] = useState<Flag | null>(null);
@@ -336,19 +341,14 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     onSeek?.(clickTime);
   }, [duration, mouseToTime, setTimestamp, onSeek]);
 
-  // Scrub to position helper (for dragging - plays audio snippet)
+  // Scrub to position helper (for dragging - silent, visual only)
   const scrubToPosition = useCallback((e: React.MouseEvent) => {
     const scrubTime = mouseToTime(e);
     if (duration <= 0) return;
 
-    // Call scrub for audio feedback, or fall back to seek
-    if (onScrub) {
-      onScrub(scrubTime);
-    } else {
-      setTimestamp(scrubTime * 1000);
-      onSeek?.(scrubTime);
-    }
-  }, [duration, mouseToTime, setTimestamp, onSeek, onScrub]);
+    // Only update playhead position visually - NO audio during drag
+    setTimestamp(scrubTime * 1000);
+  }, [duration, mouseToTime, setTimestamp]);
 
   // Mouse handlers for scrubbing and panning
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -367,6 +367,8 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     // Check if clicking on a flag line - start dragging if onFlagDrag is provided
     const clickedFlag = findFlagNearMouse(e);
     if (clickedFlag) {
+      // Stop propagation to prevent selection creation in parent container
+      e.stopPropagation();
       if (onFlagDrag) {
         // Start dragging the flag
         setDraggingFlag(clickedFlag);
@@ -379,15 +381,20 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
       }
     }
 
-    // Near playhead = start scrubbing
+    // Near playhead = start scrubbing (silent drag)
     if (checkNearPlayhead(e)) {
+      // Track if audio was playing and pause it during drag
+      wasPlayingRef.current = isPlaying;
+      if (isPlaying) {
+        pause();
+      }
       setIsDragging(true);
       return;
     }
 
     // Otherwise click to seek
     seekToPosition(e);
-  }, [isLoaded, duration, isSpaceHeld, zoom, scrollOffset, checkNearPlayhead, seekToPosition, findFlagNearMouse, onFlagClick, onFlagDrag]);
+  }, [isLoaded, duration, isSpaceHeld, zoom, scrollOffset, checkNearPlayhead, seekToPosition, findFlagNearMouse, onFlagClick, onFlagDrag, isPlaying, pause]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     // Panning
@@ -430,13 +437,31 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
       // Convert time back to milliseconds for the callback
       onFlagDrag(draggingFlag.id, draggingFlagTime * 1000);
     }
+
+    // If we were dragging the playhead and audio was playing before, resume playback
+    if (isDragging && wasPlayingRef.current) {
+      // Seek to current position first, then resume playback
+      const currentTime = timestamp / 1000;
+      onSeek?.(currentTime);
+      play();
+      wasPlayingRef.current = false;
+    }
+
     setDraggingFlag(null);
     setDraggingFlagTime(null);
     setIsDragging(false);
     setIsPanning(false);
-  }, [draggingFlag, draggingFlagTime, onFlagDrag]);
+  }, [draggingFlag, draggingFlagTime, onFlagDrag, isDragging, timestamp, onSeek, play]);
 
   const handleMouseLeave = useCallback(() => {
+    // If we were dragging the playhead and audio was playing before, resume playback
+    if (isDragging && wasPlayingRef.current) {
+      const currentTime = timestamp / 1000;
+      onSeek?.(currentTime);
+      play();
+      wasPlayingRef.current = false;
+    }
+
     // Cancel flag dragging on mouse leave (don't save changes)
     setDraggingFlag(null);
     setDraggingFlagTime(null);
@@ -444,7 +469,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     setIsPanning(false);
     setIsNearPlayhead(false);
     setHoveredFlag(null);
-  }, []);
+  }, [isDragging, timestamp, onSeek, play]);
 
   // Wheel zoom handler - snaps to 0.5 increments
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -508,10 +533,10 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
   const getCursor = () => {
     if (isPanning) return 'grabbing';
     if (isSpaceHeld) return 'grab';
-    if (draggingFlag) return 'grabbing';
-    if (isDragging) return 'grabbing';
-    if (isNearPlayhead) return 'grab';
-    if (hoveredFlag) return 'grab';
+    if (draggingFlag) return 'ew-resize';
+    if (isDragging) return 'ew-resize';
+    if (isNearPlayhead) return 'ew-resize';
+    if (hoveredFlag) return 'ew-resize';
     if (isLoaded) return 'crosshair';
     return 'default';
   };
