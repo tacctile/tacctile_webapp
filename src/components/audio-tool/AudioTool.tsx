@@ -997,7 +997,6 @@ interface AudioToolProps {
 
 export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [selectedFile, setSelectedFile] = useState<typeof audioFiles[0] | null>(null);
-  const [loadedAudio, setLoadedAudio] = useState<typeof audioFiles[0] | null>(null);
   const [videoRefCollapsed, setVideoRefCollapsed] = useState(true); // collapsed by default, expands when video exists
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
   const [flags, setFlags] = useState<Flag[]>([]);
@@ -1012,12 +1011,18 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [isFileDragOver, setIsFileDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Real audio data state (Web Audio API)
+  // Audio data from Zustand store (persists across navigation)
+  const loadedAudio = useAudioToolStore((state) => state.loadedAudioFile);
+  const audioBuffer = useAudioToolStore((state) => state.audioBuffer);
+  const waveformData = useAudioToolStore((state) => state.waveformData);
+  const setStoreLoadedAudioFile = useAudioToolStore((state) => state.setLoadedAudioFile);
+  const setStoreAudioBuffer = useAudioToolStore((state) => state.setAudioBuffer);
+  const setStoreWaveformData = useAudioToolStore((state) => state.setWaveformData);
+
+  // Real audio data state (Web Audio API) - AudioContext needs to be local as it can't be serialized
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioBufferRef = useRef<AudioBuffer | null>(null);
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
-  const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
-  const [waveformData, setWaveformData] = useState<Float32Array | null>(null);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
 
   // Unified container ref and width for PlayheadLine (spans TimeScale + Waveform)
@@ -1113,11 +1118,31 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     if (loadedFileId) {
       const file = audioFiles.find(f => f.id === loadedFileId);
       if (file) {
-        setLoadedAudio(file);
+        // Store in Zustand for persistence across navigation
+        setStoreLoadedAudioFile(file as typeof audioFiles[0]);
         setSelectedFile(file);
       }
     }
-  }, [loadedFileId]);
+  }, [loadedFileId, setStoreLoadedAudioFile]);
+
+  // Restore AudioContext on mount when audio data exists in store
+  // AudioContext can't be serialized, so we need to create it when component mounts
+  useEffect(() => {
+    if (audioBuffer && !audioContext) {
+      // Create a new AudioContext for the restored audio
+      const ctx = new AudioContext();
+      audioContextRef.current = ctx;
+      audioBufferRef.current = audioBuffer;
+      setAudioContext(ctx);
+    }
+  }, [audioBuffer, audioContext]);
+
+  // Sync selectedFile with loadedAudio from store on mount
+  useEffect(() => {
+    if (loadedAudio && !selectedFile) {
+      setSelectedFile(loadedAudio as typeof audioFiles[0]);
+    }
+  }, [loadedAudio, selectedFile]);
 
   // Auto-expand video reference when video exists
   useEffect(() => {
@@ -1241,7 +1266,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
 
       // Store the decoded buffer for playback (both ref and state for hook reactivity)
       audioBufferRef.current = decodedBuffer;
-      setAudioBuffer(decodedBuffer);
+      setStoreAudioBuffer(decodedBuffer);
       setAudioContext(ctx);
 
       // PHASE 1: Waveform (instant)
@@ -1266,43 +1291,41 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         }
         waveform[i] = max; // Use peak value for each block
       }
-      setWaveformData(waveform);
+      setStoreWaveformData(waveform);
 
-      // Set loaded state immediately (waveform ready)
-      setLoadedAudio({
+      // Set loaded state immediately (waveform ready) - store in Zustand for persistence
+      const loadedFile = {
         ...fileItem,
         duration: decodedBuffer.duration,
-      });
-      setSelectedFile({
-        ...fileItem,
-        duration: decodedBuffer.duration,
-      });
+      };
+      setStoreLoadedAudioFile(loadedFile as typeof audioFiles[0]);
+      setSelectedFile(loadedFile);
 
       setIsLoadingAudio(false);
 
     } catch (error) {
       console.error('Error loading audio:', error);
-      // Fall back to mock data on error
-      setLoadedAudio(fileItem);
+      // Fall back to mock data on error - still store in Zustand for persistence
+      setStoreLoadedAudioFile(fileItem as typeof audioFiles[0]);
       setSelectedFile(fileItem);
       setIsLoadingAudio(false);
     }
-  }, []);
+  }, [setStoreAudioBuffer, setStoreWaveformData, setStoreLoadedAudioFile]);
 
   const handleDoubleClick = useCallback((item: typeof audioFiles[0]) => {
-    // Clear previous real audio data
-    setWaveformData(null);
-    setAudioBuffer(null);
+    // Clear previous real audio data from store
+    setStoreWaveformData(null);
+    setStoreAudioBuffer(null);
 
     if (item.path) {
       // Load real audio file
       loadAudioFile(item.path, item);
     } else {
-      // Use mock data for files without a path
-      setLoadedAudio(item);
+      // Use mock data for files without a path - store in Zustand for persistence
+      setStoreLoadedAudioFile(item as typeof audioFiles[0]);
       setSelectedFile(item);
     }
-  }, [loadAudioFile]);
+  }, [loadAudioFile, setStoreWaveformData, setStoreAudioBuffer, setStoreLoadedAudioFile]);
 
   const handleEQChange = useCallback((index: number, value: number) => {
     setEqValues(prev => {
@@ -1382,10 +1405,11 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         : null,
     };
 
-    setLoadedAudio(mockItem);
+    // Store in Zustand for persistence across navigation
+    setStoreLoadedAudioFile(mockItem as typeof audioFiles[0]);
     setSelectedFile(mockItem);
     showToast(`Loaded: ${file.name}`, 'success');
-  }, [showToast]);
+  }, [showToast, setStoreLoadedAudioFile]);
 
   // Handle file drag enter
   const handleFileDragEnter = useCallback((e: React.DragEvent) => {
