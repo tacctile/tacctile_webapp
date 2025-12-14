@@ -47,9 +47,6 @@ const FlagItem = styled(Box)({
   '&:hover': {
     backgroundColor: 'rgba(255,255,255,0.02)',
   },
-  '&:hover .flag-actions': {
-    opacity: 1,
-  },
 });
 
 const FlagHeader = styled(Box)({
@@ -57,14 +54,6 @@ const FlagHeader = styled(Box)({
   alignItems: 'center',
   padding: '8px 12px',
   gap: 8,
-});
-
-const FlagActions = styled(Box)({
-  display: 'flex',
-  alignItems: 'center',
-  gap: 2,
-  opacity: 0,
-  transition: 'opacity 0.15s',
 });
 
 const NotePreview = styled(Typography)({
@@ -655,17 +644,25 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
                         </IconButton>
                       </Tooltip>
 
-                      <FlagActions className="flag-actions">
-                        <Tooltip title="Delete flag">
-                          <IconButton
-                            size="small"
-                            onClick={(e) => { e.stopPropagation(); handleDelete(flag); }}
-                            sx={{ padding: '2px', color: '#555', '&:hover': { color: '#c45c5c' } }}
-                          >
-                            <DeleteIcon sx={{ fontSize: 13 }} />
-                          </IconButton>
-                        </Tooltip>
-                      </FlagActions>
+                      {/* Always-visible trash icon for deleting */}
+                      <Tooltip title="Delete flag">
+                        <IconButton
+                          size="small"
+                          onClick={(e) => { e.stopPropagation(); handleDelete(flag); }}
+                          sx={{
+                            padding: '4px',
+                            color: '#555',
+                            opacity: 0.7,
+                            transition: 'opacity 0.15s, color 0.15s',
+                            '&:hover': {
+                              color: '#c45c5c',
+                              opacity: 1,
+                            }
+                          }}
+                        >
+                          <DeleteIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Tooltip>
                     </>
                   )}
                 </FlagHeader>
