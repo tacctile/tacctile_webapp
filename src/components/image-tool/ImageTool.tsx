@@ -358,17 +358,21 @@ const defaultFilters: ImageFilters = {
 // ============================================================================
 
 const imageFiles: (FileItem & { format?: string; gps?: string | null; dimensions?: string })[] = [
-  { id: 'i1', type: 'image', fileName: 'thermal_anomaly_001.jpg', capturedAt: Date.now() - 5400000, user: 'Mike', deviceInfo: 'FLIR E8', flagCount: 1, hasFindings: true, format: 'JPEG / sRGB', gps: '39.95°N, 75.16°W', dimensions: '640 x 480' },
-  { id: 'i2', type: 'image', fileName: 'full_spectrum_023.jpg', capturedAt: Date.now() - 5200000, user: 'Sarah', deviceInfo: 'Modified Canon', flagCount: 0, hasFindings: false, format: 'RAW / Adobe RGB', gps: '39.95°N, 75.16°W', dimensions: '6000 x 4000' },
-  { id: 'i3', type: 'image', fileName: 'shadow_figure_frame.jpg', capturedAt: Date.now() - 4900000, user: 'Jen', deviceInfo: 'Sony A7IV', flagCount: 3, hasFindings: true, format: 'JPEG / sRGB', gps: '39.95°N, 75.16°W', dimensions: '4240 x 2832' },
-  { id: 'i4', type: 'image', fileName: 'baseline_room_01.jpg', capturedAt: Date.now() - 7200000, user: 'Mike', deviceInfo: 'iPhone 15 Pro', flagCount: 0, hasFindings: false, format: 'HEIC / P3', gps: null, dimensions: '4032 x 3024' },
-  { id: 'i5', type: 'image', fileName: 'audio_session_still.png', capturedAt: Date.now() - 6000000, user: 'Sarah', deviceInfo: 'Screen Capture', flagCount: 2, hasFindings: true, format: 'PNG / sRGB', gps: null, dimensions: '1920 x 1080' },
+  { id: 'i1', type: 'image', fileName: 'pexels-jmark-250591.jpg', thumbnailUrl: '/images/pexels-jmark-250591.jpg', capturedAt: Date.now() - 7200000, user: 'Mike', deviceInfo: 'Canon EOS R5', flagCount: 2, hasFindings: true, format: 'JPEG / sRGB', gps: '40.71°N, 74.00°W', dimensions: '4000 x 2667' },
+  { id: 'i2', type: 'image', fileName: 'pexels-mahima-518693-1250260.jpg', thumbnailUrl: '/images/pexels-mahima-518693-1250260.jpg', capturedAt: Date.now() - 6800000, user: 'Sarah', deviceInfo: 'Sony A7IV', flagCount: 0, hasFindings: false, format: 'JPEG / sRGB', gps: '34.05°N, 118.24°W', dimensions: '5472 x 3648' },
+  { id: 'i3', type: 'image', fileName: 'pexels-minan1398-906150.jpg', thumbnailUrl: '/images/pexels-minan1398-906150.jpg', capturedAt: Date.now() - 6400000, user: 'Jen', deviceInfo: 'Nikon Z6', flagCount: 1, hasFindings: true, format: 'JPEG / sRGB', gps: '51.50°N, 0.12°W', dimensions: '6000 x 4000' },
+  { id: 'i4', type: 'image', fileName: 'pexels-philippedonn-1133957.jpg', thumbnailUrl: '/images/pexels-philippedonn-1133957.jpg', capturedAt: Date.now() - 6000000, user: 'Mike', deviceInfo: 'iPhone 15 Pro', flagCount: 0, hasFindings: false, format: 'JPEG / P3', gps: '48.85°N, 2.35°E', dimensions: '4032 x 3024' },
+  { id: 'i5', type: 'image', fileName: 'pexels-pixabay-158063.jpg', thumbnailUrl: '/images/pexels-pixabay-158063.jpg', capturedAt: Date.now() - 5600000, user: 'Sarah', deviceInfo: 'Canon EOS R5', flagCount: 3, hasFindings: true, format: 'JPEG / sRGB', gps: '35.68°N, 139.76°E', dimensions: '5184 x 3456' },
+  { id: 'i6', type: 'image', fileName: 'pexels-pixabay-259915.jpg', thumbnailUrl: '/images/pexels-pixabay-259915.jpg', capturedAt: Date.now() - 5200000, user: 'Jen', deviceInfo: 'Fujifilm X-T5', flagCount: 0, hasFindings: false, format: 'JPEG / sRGB', gps: null, dimensions: '4896 x 3264' },
+  { id: 'i7', type: 'image', fileName: 'pexels-pixabay-459335.jpg', thumbnailUrl: '/images/pexels-pixabay-459335.jpg', capturedAt: Date.now() - 4800000, user: 'Mike', deviceInfo: 'Sony A7IV', flagCount: 1, hasFindings: true, format: 'JPEG / sRGB', gps: '37.77°N, 122.41°W', dimensions: '5760 x 3840' },
+  { id: 'i8', type: 'image', fileName: 'pexels-pixabay-68507.jpg', thumbnailUrl: '/images/pexels-pixabay-68507.jpg', capturedAt: Date.now() - 4400000, user: 'Sarah', deviceInfo: 'Nikon Z6', flagCount: 2, hasFindings: true, format: 'JPEG / sRGB', gps: '41.90°N, 12.49°E', dimensions: '4288 x 2848' },
+  { id: 'i9', type: 'image', fileName: 'pexels-soldiervip-1386604.jpg', thumbnailUrl: '/images/pexels-soldiervip-1386604.jpg', capturedAt: Date.now() - 4000000, user: 'Jen', deviceInfo: 'Canon EOS R5', flagCount: 0, hasFindings: false, format: 'JPEG / sRGB', gps: '52.52°N, 13.40°E', dimensions: '6000 x 4000' },
 ];
 
 const mockAnnotations: ImageAnnotation[] = [
-  { id: 'a1', type: 'rectangle', label: 'Shadow anomaly', user: 'Sarah', visible: true, x: 120, y: 80, width: 60, height: 100 },
-  { id: 'a2', type: 'circle', label: 'Orb location', user: 'Mike', visible: true, x: 300, y: 150, width: 40, height: 40 },
-  { id: 'a3', type: 'arrow', label: 'Movement direction', user: 'Jen', visible: false, x: 200, y: 200, width: 80, height: 0 },
+  { id: 'a1', type: 'rectangle', label: 'Area of interest', user: 'Sarah', visible: true, x: 120, y: 80, width: 60, height: 100 },
+  { id: 'a2', type: 'circle', label: 'Highlight region', user: 'Mike', visible: true, x: 300, y: 150, width: 40, height: 40 },
+  { id: 'a3', type: 'arrow', label: 'Direction indicator', user: 'Jen', visible: false, x: 200, y: 200, width: 80, height: 0 },
 ];
 
 // ============================================================================
