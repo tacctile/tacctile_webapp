@@ -494,6 +494,19 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const zoomIntervalRef = useRef<number | null>(null);
   const zoomAccelerationRef = useRef<number>(1);
 
+  // Live position refs for instant response during drag (bypass React batching)
+  const panLiveRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const splitPositionLiveRef = useRef<number>(50);
+  const marqueeLiveRef = useRef<{ start: { x: number; y: number } | null; end: { x: number; y: number } | null }>({ start: null, end: null });
+
+  // DOM refs for direct manipulation during drag
+  const imageRef = useRef<HTMLImageElement>(null);
+  const splitImageRef = useRef<HTMLImageElement>(null);
+  const splitOriginalImageRef = useRef<HTMLImageElement>(null);
+  const splitOriginalWrapperRef = useRef<HTMLDivElement>(null);
+  const splitDividerRef = useRef<HTMLDivElement>(null);
+  const marqueeOverlayRef = useRef<HTMLDivElement>(null);
+
   // Zoom constants - 100% = fit-to-window, can only zoom IN from there
   // Industry-standard non-linear zoom steps (like Photoshop)
   const ZOOM_STEPS = [100, 110, 125, 150, 175, 200, 250, 300, 400];
@@ -1178,6 +1191,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   }, [marqueeStart, marqueeEnd, containerDimensions, actualDimensions, getImageDisplaySize, panOffset, calculateFitScale, calculatePanToCenter]);
 
   // Handle marquee drawing start (mousedown when Ctrl held or marquee mode active)
+  // Uses refs for instant response during drawing
   const handleMarqueeStart = useCallback((e: React.MouseEvent) => {
     if (viewMode !== 'single' || !loadedImage) return;
     if (!isMarqueeModeActive && !isCtrlHeld) return;
@@ -1186,38 +1200,83 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     e.preventDefault();
     e.stopPropagation();
 
+    // Initialize live ref for instant response
+    const startPoint = { x: e.clientX, y: e.clientY };
+    marqueeLiveRef.current = { start: startPoint, end: startPoint };
+
     setIsMarqueeDrawing(true);
-    setMarqueeStart({ x: e.clientX, y: e.clientY });
-    setMarqueeEnd({ x: e.clientX, y: e.clientY });
+    setMarqueeStart(startPoint);
+    setMarqueeEnd(startPoint);
   }, [viewMode, loadedImage, isMarqueeModeActive, isCtrlHeld]);
 
   // Handle marquee drawing (document level)
+  // Uses refs and direct DOM manipulation for instant visual feedback
   useEffect(() => {
     if (!isMarqueeDrawing) return;
 
+    let rafId: number | null = null;
+
     const handleMouseMove = (e: MouseEvent) => {
-      setMarqueeEnd({ x: e.clientX, y: e.clientY });
+      // Update live ref immediately (no React re-render)
+      marqueeLiveRef.current.end = { x: e.clientX, y: e.clientY };
+
+      // Apply position directly to DOM element for instant visual feedback
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          const { start, end } = marqueeLiveRef.current;
+          if (!start || !end || !marqueeOverlayRef.current) return;
+
+          const left = Math.min(start.x, end.x);
+          const top = Math.min(start.y, end.y);
+          const width = Math.abs(end.x - start.x);
+          const height = Math.abs(end.y - start.y);
+
+          marqueeOverlayRef.current.style.left = `${left}px`;
+          marqueeOverlayRef.current.style.top = `${top}px`;
+          marqueeOverlayRef.current.style.width = `${width}px`;
+          marqueeOverlayRef.current.style.height = `${height}px`;
+        });
+      }
     };
 
     const handleMouseUp = () => {
-      if (marqueeStart && marqueeEnd) {
-        applyMarqueeZoom();
+      // Cancel any pending RAF
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
       }
+
+      // Commit final positions to state for zoom calculation
+      const { start, end } = marqueeLiveRef.current;
+      if (start && end) {
+        setMarqueeStart(start);
+        setMarqueeEnd(end);
+        // Apply zoom immediately after state update
+        requestAnimationFrame(() => {
+          applyMarqueeZoom();
+        });
+      }
+
       setIsMarqueeDrawing(false);
       setMarqueeStart(null);
       setMarqueeEnd(null);
+      marqueeLiveRef.current = { start: null, end: null };
     };
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
 
     return () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isMarqueeDrawing, marqueeStart, marqueeEnd, applyMarqueeZoom]);
+  }, [isMarqueeDrawing, applyMarqueeZoom]);
 
   // Handle pan start (mouse down on image)
+  // Uses refs for instant response - no React state updates during drag
   const handlePanStart = useCallback((e: React.MouseEvent) => {
     // Check for marquee mode or Ctrl key first - these take priority (only in single view)
     if ((isMarqueeModeActive || isCtrlHeld) && viewMode === 'single' && loadedImage) {
@@ -1229,6 +1288,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     if (!canPan() || viewMode === 'side-by-side') return;
 
     e.preventDefault();
+
+    // Initialize live ref with current pan offset
+    panLiveRef.current = { x: panOffset.x, y: panOffset.y };
+
     setIsPanning(true);
     panStartRef.current = {
       x: e.clientX,
@@ -1243,8 +1306,11 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   }, [canPan, viewMode, panOffset, isMarqueeModeActive, isCtrlHeld, loadedImage, handleMarqueeStart]);
 
   // Handle pan move (document level to catch mouse leaving image)
+  // Uses refs and direct DOM manipulation for 60fps responsiveness
   useEffect(() => {
     if (!isPanning) return;
+
+    let rafId: number | null = null;
 
     const handleMouseMove = (e: MouseEvent) => {
       if (!panStartRef.current) return;
@@ -1257,10 +1323,41 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         panStartRef.current.panY + deltaY
       );
 
-      setPanOffset(newPan);
+      // Update live ref immediately (no React re-render)
+      panLiveRef.current = newPan;
+
+      // Apply transform directly to DOM elements for instant visual feedback
+      // Use requestAnimationFrame for smooth 60fps updates
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          const transform = `translate(${panLiveRef.current.x}px, ${panLiveRef.current.y}px)`;
+
+          // Update single view image
+          if (imageRef.current) {
+            imageRef.current.style.transform = transform;
+          }
+
+          // Update split view images (both layers need same transform for alignment)
+          if (splitImageRef.current) {
+            splitImageRef.current.style.transform = transform;
+          }
+          if (splitOriginalImageRef.current) {
+            splitOriginalImageRef.current.style.transform = transform;
+          }
+        });
+      }
     };
 
     const handleMouseUp = () => {
+      // Cancel any pending RAF
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+
+      // Commit final position to React state (single update at end)
+      setPanOffset(panLiveRef.current);
+
       setIsPanning(false);
       panStartRef.current = null;
       document.body.style.cursor = '';
@@ -1271,6 +1368,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     document.addEventListener('mouseup', handleMouseUp);
 
     return () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
@@ -1290,7 +1390,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   }, []);
 
   // Handle split divider drag start
-  // Uses refs for immediate response without waiting for React state updates
+  // Uses refs and direct DOM manipulation for instant response (no React re-renders during drag)
   const handleSplitDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault(); // Prevent selection
     e.stopPropagation();
@@ -1298,6 +1398,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     // Capture initial values immediately
     const startX = e.clientX;
     const startPos = splitPosition;
+
+    // Initialize live ref
+    splitPositionLiveRef.current = splitPosition;
 
     // Get container rect once at the start for performance
     const container = splitContainerRef.current;
@@ -1311,15 +1414,49 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     document.body.style.userSelect = 'none';
     document.body.style.cursor = 'grabbing';
 
+    let rafId: number | null = null;
+
     const handleMouseMove = (moveE: MouseEvent) => {
       moveE.preventDefault(); // Prevent selection during drag
       // Use cached rect for immediate response (no DOM query)
-      const newPos = startPos + ((moveE.clientX - startX) / containerRect.width) * 100;
-      // Constrain between 3% and 97% for extended comparison range
-      setSplitPosition(Math.max(3, Math.min(97, newPos)));
+      const newPos = Math.max(3, Math.min(97, startPos + ((moveE.clientX - startX) / containerRect.width) * 100));
+
+      // Update live ref immediately (no React re-render)
+      splitPositionLiveRef.current = newPos;
+
+      // Apply position directly to DOM elements for instant visual feedback
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          const pos = splitPositionLiveRef.current;
+
+          // Update the divider position
+          if (splitDividerRef.current) {
+            splitDividerRef.current.style.left = `${pos}%`;
+          }
+
+          // Update the original image wrapper clip
+          if (splitOriginalWrapperRef.current) {
+            splitOriginalWrapperRef.current.style.width = `${pos}%`;
+            // Also update the inner container width
+            const innerContainer = splitOriginalWrapperRef.current.firstElementChild as HTMLElement;
+            if (innerContainer) {
+              innerContainer.style.width = `${100 / pos * 100}%`;
+            }
+          }
+        });
+      }
     };
 
     const handleMouseUp = () => {
+      // Cancel any pending RAF
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+
+      // Commit final position to React state (single update at end)
+      setSplitPosition(splitPositionLiveRef.current);
+
       setIsDraggingSplit(false);
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
@@ -1468,8 +1605,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               pointerEvents: 'none', // Let container handle mouse events
             }}
           >
-            {/* EDITED image - base layer (bottom) */}
+            {/* EDITED image - base layer (bottom) - ref for direct DOM manipulation during pan */}
             <img
+              ref={splitImageRef}
               src={imageUrl}
               alt={loadedImage.fileName}
               style={{
@@ -1487,7 +1625,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             />
           </Box>
           {/* ORIGINAL image wrapper - clips at splitPosition% with overflow:hidden */}
+          {/* Ref for direct DOM manipulation during split slider drag */}
           <Box
+            ref={splitOriginalWrapperRef}
             sx={{
               position: 'absolute',
               top: 0,
@@ -1514,7 +1654,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               }}
             >
               {/* ORIGINAL image - same size, position, and transform as edited for perfect alignment */}
+              {/* Ref for direct DOM manipulation during pan */}
               <img
+                ref={splitOriginalImageRef}
                 src={imageUrl}
                 alt={loadedImage.fileName}
                 style={{
@@ -1535,8 +1677,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
           <ViewLabel position="left">Original</ViewLabel>
           {/* EDITED label - top right */}
           <ViewLabel position="right">Edited</ViewLabel>
-          {/* Full-height draggable divider - spans entire viewable area */}
+          {/* Full-height draggable divider - ref for direct DOM manipulation during drag */}
           <SplitDivider
+            ref={splitDividerRef}
             isDragging={isDraggingSplit}
             sx={{
               left: `${splitPosition}%`,
@@ -1566,9 +1709,6 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       return 'default';
     };
 
-    // Get marquee rectangle for overlay
-    const marqueeRect = getMarqueeRect();
-
     return (
       <Box
         sx={{
@@ -1585,6 +1725,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         onDoubleClick={handleCanvasDoubleClick}
       >
         <img
+          ref={imageRef}
           src={imageUrl}
           alt={loadedImage.fileName}
           style={{
@@ -1605,15 +1746,16 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         {showOriginal && (
           <ViewLabel position="left">Original</ViewLabel>
         )}
-        {/* Marquee selection overlay */}
-        {isMarqueeDrawing && marqueeRect && canvasContainerRef.current && (
+        {/* Marquee selection overlay - uses ref for instant updates during drawing */}
+        {isMarqueeDrawing && (
           <Box
+            ref={marqueeOverlayRef}
             sx={{
               position: 'fixed',
-              left: marqueeRect.left,
-              top: marqueeRect.top,
-              width: marqueeRect.width,
-              height: marqueeRect.height,
+              left: marqueeStart?.x ?? 0,
+              top: marqueeStart?.y ?? 0,
+              width: 0,
+              height: 0,
               border: '2px dashed #19abb5',
               backgroundColor: 'rgba(25, 171, 181, 0.1)',
               pointerEvents: 'none',
