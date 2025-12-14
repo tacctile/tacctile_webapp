@@ -470,18 +470,19 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [containerDimensions, setContainerDimensions] = useState<{ width: number; height: number } | null>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
 
-  // Zoom state - stored as percentage of natural image size (100 = 1:1 pixels)
-  const [zoom, setZoom] = useState<number | 'fit'>('fit');
+  // Zoom state - stored as percentage relative to fit-to-window (100 = fit, 200 = 2x fit size)
+  // 100% is the baseline where the image perfectly fits the viewable area
+  const [zoom, setZoom] = useState<number>(100);
 
   // Pan state - offset in pixels from centered position
   const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const panStartRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
 
-  // Zoom constants
-  const ZOOM_MIN = 10;
-  const ZOOM_MAX = 400;
-  const ZOOM_STEP = 5;
+  // Zoom constants - 100% = fit-to-window, can only zoom IN from there
+  const ZOOM_MIN = 100; // Minimum is fit-to-window
+  const ZOOM_MAX = 400; // Maximum is 4x the fit size
+  const ZOOM_STEP = 5;  // 5% per click
 
   // Section collapse states
   const [histogramCollapsed, setHistogramCollapsed] = useState(false);
@@ -531,8 +532,8 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     setSelectedFile(item);
     setFilters(defaultFilters);
     setActualDimensions(null); // Reset until image loads
-    // Reset zoom and pan for new image
-    setZoom('fit');
+    // Reset zoom and pan for new image - 100% = fit-to-window
+    setZoom(100);
     setPanOffset({ x: 0, y: 0 });
     // Persist loaded file ID in navigation store
     setLoadedFile('images', item.id);
@@ -541,60 +542,56 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const handleViewModeChange = (_: React.MouseEvent<HTMLElement>, newMode: ViewMode | null) => {
     if (newMode) {
       setViewMode(newMode);
-      // Reset zoom and pan when switching view modes
-      setZoom('fit');
+      // Reset zoom and pan when switching view modes - 100% = fit-to-window
+      setZoom(100);
       setPanOffset({ x: 0, y: 0 });
     }
   };
 
-  // Calculate the fit zoom level (percentage that makes image fit in container)
-  const calculateFitZoom = useCallback(() => {
-    if (!actualDimensions || !containerDimensions) return 100;
+  // Calculate the scale factor that makes the image fit in the container (0-1 range)
+  const calculateFitScale = useCallback(() => {
+    if (!actualDimensions || !containerDimensions) return 1;
     const scaleX = containerDimensions.width / actualDimensions.width;
     const scaleY = containerDimensions.height / actualDimensions.height;
-    const fitScale = Math.min(scaleX, scaleY);
-    return fitScale * 100;
+    return Math.min(scaleX, scaleY);
   }, [actualDimensions, containerDimensions]);
 
-  // Get the effective zoom percentage (resolve 'fit' to actual value)
-  const getEffectiveZoom = useCallback(() => {
-    if (zoom === 'fit') {
-      return calculateFitZoom();
-    }
-    return zoom;
-  }, [zoom, calculateFitZoom]);
+  // Get the actual scale to apply to the image
+  // zoom = 100 means fit-to-window, zoom = 200 means 2x the fit size
+  const getActualScale = useCallback(() => {
+    const fitScale = calculateFitScale();
+    return fitScale * (zoom / 100);
+  }, [zoom, calculateFitScale]);
 
-  // Zoom in by 5%
+  // Get the display zoom percentage (same as zoom value)
+  // This is what users see: 100% = fit, 150% = 1.5x fit size
+  const getDisplayZoom = useCallback(() => {
+    return zoom;
+  }, [zoom]);
+
+  // Zoom in by 5% (up to 400%)
   const handleZoomIn = useCallback(() => {
-    const currentZoom = getEffectiveZoom();
-    const newZoom = Math.min(currentZoom + ZOOM_STEP, ZOOM_MAX);
-    if (newZoom !== currentZoom) {
+    const newZoom = Math.min(zoom + ZOOM_STEP, ZOOM_MAX);
+    if (newZoom !== zoom) {
       setZoom(newZoom);
       // Reset pan when zooming - will be recalculated based on constraints
       setPanOffset({ x: 0, y: 0 });
     }
-  }, [getEffectiveZoom]);
+  }, [zoom]);
 
-  // Zoom out by 5%
+  // Zoom out by 5% (stops at 100% = fit-to-window)
   const handleZoomOut = useCallback(() => {
-    const currentZoom = getEffectiveZoom();
-    const newZoom = Math.max(currentZoom - ZOOM_STEP, ZOOM_MIN);
-    if (newZoom !== currentZoom) {
+    const newZoom = Math.max(zoom - ZOOM_STEP, ZOOM_MIN);
+    if (newZoom !== zoom) {
       setZoom(newZoom);
       // Reset pan when zooming
       setPanOffset({ x: 0, y: 0 });
     }
-  }, [getEffectiveZoom]);
+  }, [zoom]);
 
-  // Set zoom to exactly 100% (1:1 pixels)
-  const handleZoom100 = useCallback(() => {
-    setZoom(100);
-    setPanOffset({ x: 0, y: 0 });
-  }, []);
-
-  // Set zoom to fit image in container
+  // Set zoom to fit image in container (100%)
   const handleFitToView = useCallback(() => {
-    setZoom('fit');
+    setZoom(100);
     setPanOffset({ x: 0, y: 0 });
   }, []);
 
@@ -762,12 +759,12 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   // Calculate image dimensions at current zoom
   const getImageDisplaySize = useCallback(() => {
     if (!actualDimensions) return { width: 0, height: 0 };
-    const effectiveZoom = getEffectiveZoom();
+    const actualScale = getActualScale();
     return {
-      width: actualDimensions.width * (effectiveZoom / 100),
-      height: actualDimensions.height * (effectiveZoom / 100),
+      width: actualDimensions.width * actualScale,
+      height: actualDimensions.height * actualScale,
     };
-  }, [actualDimensions, getEffectiveZoom]);
+  }, [actualDimensions, getActualScale]);
 
   // Check if image is larger than container (panning allowed)
   const canPan = useCallback(() => {
@@ -939,8 +936,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
     const imageUrl = getImageUrl(loadedImage);
 
-    // Get effective zoom and image display size
-    const effectiveZoom = getEffectiveZoom();
+    // Get image display size and check if panning is allowed
     const imageSize = getImageDisplaySize();
     const isPannable = canPan();
 
@@ -1216,14 +1212,20 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
         {/* Zoom Controls */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Tooltip title={viewMode !== 'single' ? 'Zoom Out (only available in single view)' : 'Zoom Out'}>
+          <Tooltip title={
+            viewMode !== 'single'
+              ? 'Zoom Out (only available in single view)'
+              : zoom <= ZOOM_MIN
+                ? 'At minimum zoom (100% = fit)'
+                : 'Zoom Out'
+          }>
             <span>
               <IconButton
                 size="small"
                 onClick={handleZoomOut}
-                disabled={!loadedImage || viewMode !== 'single'}
+                disabled={!loadedImage || viewMode !== 'single' || zoom <= ZOOM_MIN}
                 sx={{
-                  color: '#888',
+                  color: zoom <= ZOOM_MIN ? '#444' : '#888',
                   p: 0.5,
                   opacity: viewMode !== 'single' ? 0.4 : 1,
                 }}
@@ -1233,16 +1235,22 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             </span>
           </Tooltip>
           <ZoomDisplay sx={{ opacity: viewMode !== 'single' ? 0.4 : 1 }}>
-            {!loadedImage || viewMode !== 'single' ? '--' : `${Math.round(getEffectiveZoom())}%`}
+            {!loadedImage || viewMode !== 'single' ? '--' : `${Math.round(getDisplayZoom())}%`}
           </ZoomDisplay>
-          <Tooltip title={viewMode !== 'single' ? 'Zoom In (only available in single view)' : 'Zoom In'}>
+          <Tooltip title={
+            viewMode !== 'single'
+              ? 'Zoom In (only available in single view)'
+              : zoom >= ZOOM_MAX
+                ? 'At maximum zoom (400%)'
+                : 'Zoom In'
+          }>
             <span>
               <IconButton
                 size="small"
                 onClick={handleZoomIn}
-                disabled={!loadedImage || viewMode !== 'single'}
+                disabled={!loadedImage || viewMode !== 'single' || zoom >= ZOOM_MAX}
                 sx={{
-                  color: '#888',
+                  color: zoom >= ZOOM_MAX ? '#444' : '#888',
                   p: 0.5,
                   opacity: viewMode !== 'single' ? 0.4 : 1,
                 }}
@@ -1251,7 +1259,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               </IconButton>
             </span>
           </Tooltip>
-          <Tooltip title={viewMode !== 'single' ? 'Fit to View (only available in single view)' : 'Fit to View'}>
+          <Tooltip title={viewMode !== 'single' ? 'Fit to View (only available in single view)' : 'Fit to View (100%)'}>
             <span>
               <IconButton
                 size="small"
@@ -1264,22 +1272,6 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                 }}
               >
                 <FitScreenIcon sx={{ fontSize: 18 }} />
-              </IconButton>
-            </span>
-          </Tooltip>
-          <Tooltip title={viewMode !== 'single' ? '100% (only available in single view)' : '100%'}>
-            <span>
-              <IconButton
-                size="small"
-                onClick={handleZoom100}
-                disabled={!loadedImage || viewMode !== 'single'}
-                sx={{
-                  color: '#888',
-                  p: 0.5,
-                  opacity: viewMode !== 'single' ? 0.4 : 1,
-                }}
-              >
-                <Typography sx={{ fontSize: 11, fontWeight: 500 }}>100%</Typography>
               </IconButton>
             </span>
           </Tooltip>
