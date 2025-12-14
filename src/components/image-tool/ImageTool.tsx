@@ -444,6 +444,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [annotations, setAnnotations] = useState<ImageAnnotation[]>(mockAnnotations);
   const [splitPosition, setSplitPosition] = useState(50);
 
+  // State for actual image dimensions (read from loaded image)
+  const [actualDimensions, setActualDimensions] = useState<{ width: number; height: number } | null>(null);
+
   // Section collapse states
   const [histogramCollapsed, setHistogramCollapsed] = useState(false);
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
@@ -471,7 +474,8 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     severity: 'info',
   });
 
-  const loadedFileId = useNavigationStore((state) => state.loadedFiles.image);
+  const loadedFileId = useNavigationStore((state) => state.loadedFiles.images);
+  const setLoadedFile = useNavigationStore((state) => state.setLoadedFile);
 
   // Load image when navigated to
   useEffect(() => {
@@ -489,7 +493,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     setLoadedImage(item);
     setSelectedFile(item);
     setFilters(defaultFilters);
-  }, []);
+    setActualDimensions(null); // Reset until image loads
+    // Persist loaded file ID in navigation store
+    setLoadedFile('images', item.id);
+  }, [setLoadedFile]);
 
   const handleViewModeChange = (_: React.MouseEvent<HTMLElement>, newMode: ViewMode | null) => {
     if (newMode) setViewMode(newMode);
@@ -629,6 +636,18 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     e.stopPropagation();
   }, []);
 
+  // Handle image load to read actual dimensions
+  const handleImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    setActualDimensions({ width: img.naturalWidth, height: img.naturalHeight });
+  }, []);
+
+  // Get the image URL - could be thumbnailUrl for mock data or direct URL for imported files
+  const getImageUrl = (file: typeof imageFiles[0]) => {
+    // For mock data, thumbnailUrl points to the actual image
+    return file.thumbnailUrl || '';
+  };
+
   // Render placeholder or image
   const renderCanvas = () => {
     if (!loadedImage) {
@@ -655,35 +674,50 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       );
     }
 
-    // Fake image placeholder with gradient
-    const imageStyle = {
-      width: `${zoom}%`,
-      maxWidth: '100%',
-      aspectRatio: loadedImage.dimensions?.replace(' x ', ' / ') || '4 / 3',
-      background: 'linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 50%, #1a1a1a 100%)',
+    const imageUrl = getImageUrl(loadedImage);
+
+    // Container style for centering and fit-to-window
+    const containerStyle = {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      position: 'relative' as const,
+      width: '100%',
+      height: '100%',
+      padding: 2,
+    };
+
+    // Image style - fit to window with zoom support
+    const imageStyle = {
+      maxWidth: `${zoom}%`,
+      maxHeight: `${zoom}%`,
+      objectFit: 'contain' as const,
       borderRadius: 2,
-      overflow: 'hidden',
     };
 
     if (viewMode === 'side-by-side') {
       return (
         <Box sx={{ display: 'flex', width: '100%', height: '100%', gap: 2, p: 2 }}>
           {/* Original */}
-          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', overflow: 'hidden' }}>
             <Typography sx={{ fontSize: 10, color: '#666', mb: 1, textTransform: 'uppercase' }}>Original</Typography>
-            <Box sx={{ ...imageStyle, filter: 'none' }}>
-              <Typography sx={{ color: '#333', fontSize: 11 }}>{loadedImage.fileName}</Typography>
+            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', overflow: 'hidden' }}>
+              <img
+                src={imageUrl}
+                alt={loadedImage.fileName}
+                style={{ ...imageStyle, filter: 'none' }}
+                onLoad={handleImageLoad}
+              />
             </Box>
           </Box>
           {/* Edited */}
-          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', overflow: 'hidden' }}>
             <Typography sx={{ fontSize: 10, color: '#666', mb: 1, textTransform: 'uppercase' }}>Edited</Typography>
-            <Box sx={{ ...imageStyle }}>
-              <Typography sx={{ color: '#333', fontSize: 11 }}>{loadedImage.fileName}</Typography>
+            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', overflow: 'hidden' }}>
+              <img
+                src={imageUrl}
+                alt={loadedImage.fileName}
+                style={imageStyle}
+              />
             </Box>
           </Box>
         </Box>
@@ -692,9 +726,16 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
     if (viewMode === 'split') {
       return (
-        <Box sx={{ width: '100%', height: '100%', position: 'relative', p: 2 }}>
-          <Box sx={{ ...imageStyle, width: '100%', height: '100%', position: 'relative' }}>
-            {/* Original side */}
+        <Box sx={{ width: '100%', height: '100%', position: 'relative', p: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Box sx={{ position: 'relative', maxWidth: `${zoom}%`, maxHeight: `${zoom}%` }}>
+            {/* Full image (edited) */}
+            <img
+              src={imageUrl}
+              alt={loadedImage.fileName}
+              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 2 }}
+              onLoad={handleImageLoad}
+            />
+            {/* Original overlay (clipped) */}
             <Box sx={{
               position: 'absolute',
               left: 0,
@@ -704,14 +745,19 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               overflow: 'hidden',
               borderRight: '2px solid #19abb5',
             }}>
+              <img
+                src={imageUrl}
+                alt={loadedImage.fileName}
+                style={{ maxHeight: '100%', objectFit: 'contain', filter: 'none' }}
+              />
               <Typography sx={{
                 position: 'absolute',
                 left: 8,
                 top: 8,
                 fontSize: 9,
-                color: '#666',
+                color: '#ccc',
                 textTransform: 'uppercase',
-                backgroundColor: 'rgba(0,0,0,0.5)',
+                backgroundColor: 'rgba(0,0,0,0.6)',
                 padding: '2px 6px',
                 borderRadius: 2,
               }}>Original</Typography>
@@ -722,9 +768,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               right: 8,
               top: 8,
               fontSize: 9,
-              color: '#666',
+              color: '#ccc',
               textTransform: 'uppercase',
-              backgroundColor: 'rgba(0,0,0,0.5)',
+              backgroundColor: 'rgba(0,0,0,0.6)',
               padding: '2px 6px',
               borderRadius: 2,
             }}>Edited</Typography>
@@ -750,16 +796,20 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                 document.addEventListener('mouseup', handleMouseUp);
               }}
             />
-            <Typography sx={{ color: '#333', fontSize: 11 }}>{loadedImage.fileName}</Typography>
           </Box>
         </Box>
       );
     }
 
-    // Single view
+    // Single view - display actual image
     return (
-      <Box sx={{ ...imageStyle }}>
-        <Typography sx={{ color: '#333', fontSize: 11 }}>{loadedImage.fileName}</Typography>
+      <Box sx={containerStyle}>
+        <img
+          src={imageUrl}
+          alt={loadedImage.fileName}
+          style={imageStyle}
+          onLoad={handleImageLoad}
+        />
       </Box>
     );
   };
@@ -1134,7 +1184,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             <Box sx={{ flex: 1, minHeight: 0 }}>
               <FileLibrary
                 items={imageFiles}
-                selectedId={selectedFile?.id}
+                selectedId={loadedImage?.id}
                 onSelect={(item) => setSelectedFile(item as typeof imageFiles[0])}
                 onDoubleClick={(item) => handleDoubleClick(item as typeof imageFiles[0])}
                 filterByType="image"
@@ -1144,15 +1194,17 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         }
         metadataPanel={
           <MetadataPanel
-            data={selectedFile ? {
-              fileName: selectedFile.fileName,
-              capturedAt: selectedFile.capturedAt,
-              resolution: selectedFile.dimensions,
-              user: selectedFile.user,
-              device: selectedFile.deviceInfo,
-              format: selectedFile.format,
-              gps: selectedFile.gps || undefined,
-              flagCount: selectedFile.flagCount,
+            data={loadedImage ? {
+              fileName: loadedImage.fileName,
+              capturedAt: loadedImage.capturedAt,
+              resolution: actualDimensions
+                ? `${actualDimensions.width} x ${actualDimensions.height}`
+                : loadedImage.dimensions,
+              user: loadedImage.user,
+              device: loadedImage.deviceInfo,
+              format: loadedImage.fileName.split('.').pop()?.toUpperCase() || 'Unknown',
+              gps: loadedImage.gps || undefined,
+              flagCount: loadedImage.flagCount,
             } : null}
             type="image"
           />
