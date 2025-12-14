@@ -26,6 +26,8 @@ interface WaveformCanvasProps {
   onScrub?: (timeInSeconds: number) => void;
   onZoomChange?: (zoom: number) => void;
   onScrollChange?: (scrollOffset: number) => void;
+  /** When true, disables playhead dragging - click-to-seek only (for video files) */
+  hasVideo?: boolean;
 }
 
 export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
@@ -42,6 +44,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
   onScrub,
   onZoomChange,
   onScrollChange,
+  hasVideo = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -381,8 +384,8 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
       }
     }
 
-    // Near playhead = start scrubbing (silent drag)
-    if (checkNearPlayhead(e)) {
+    // Near playhead = start scrubbing (silent drag) - DISABLED for video files
+    if (!hasVideo && checkNearPlayhead(e)) {
       // Track if audio was playing and pause it during drag
       wasPlayingRef.current = isPlaying;
       if (isPlaying) {
@@ -392,9 +395,9 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
       return;
     }
 
-    // Otherwise click to seek
+    // Click to seek (works for both audio and video)
     seekToPosition(e);
-  }, [isLoaded, duration, isSpaceHeld, zoom, scrollOffset, checkNearPlayhead, seekToPosition, findFlagNearMouse, onFlagClick, onFlagDrag, isPlaying, pause]);
+  }, [isLoaded, duration, isSpaceHeld, zoom, scrollOffset, checkNearPlayhead, seekToPosition, findFlagNearMouse, onFlagClick, onFlagDrag, isPlaying, pause, hasVideo]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     // Panning
@@ -418,8 +421,9 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     }
 
     // Update cursor based on proximity to playhead or flags
+    // For video, don't show playhead drag cursor since dragging is disabled
     if (!isSpaceHeld) {
-      setIsNearPlayhead(checkNearPlayhead(e));
+      setIsNearPlayhead(!hasVideo && checkNearPlayhead(e));
       // Check if hovering over a flag line
       const flagNearMouse = findFlagNearMouse(e);
       setHoveredFlag(flagNearMouse);
@@ -429,7 +433,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     if (isDragging) {
       scrubToPosition(e);
     }
-  }, [isPanning, panStartX, panStartOffset, zoom, onScrollChange, isSpaceHeld, checkNearPlayhead, isDragging, scrubToPosition, findFlagNearMouse, draggingFlag, mouseToTime]);
+  }, [isPanning, panStartX, panStartOffset, zoom, onScrollChange, isSpaceHeld, checkNearPlayhead, isDragging, scrubToPosition, findFlagNearMouse, draggingFlag, mouseToTime, hasVideo]);
 
   const handleMouseUp = useCallback(() => {
     // Finalize flag dragging

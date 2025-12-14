@@ -3,10 +3,11 @@
  * Manages video synchronization with the waveform playhead
  *
  * Key design decisions:
- * 1. Video freezes during scrubbing (playhead drag, selection drag) - only updates on release
- * 2. Video updates on: play, pause, single click seek, scrub release
- * 3. Video does NOT update continuously during any scrubbing action
- * 4. Proper preloading and seek handling for fast response
+ * 1. Video uses click-to-seek only (no playhead dragging/scrubbing for video files)
+ * 2. Video updates on: play, pause, single click seek
+ * 3. Click-to-seek waits for 'seeked' event before updating UI
+ * 4. Loading indicator appears only if seek takes >500ms (avoids flicker)
+ * 5. Proper preloading and seek handling for fast response
  */
 
 import { useRef, useEffect, useCallback, useState } from 'react';
@@ -42,6 +43,9 @@ const DRIFT_CORRECTION_THRESHOLD = 0.3; // Only correct if video drifts > 0.3 se
 
 // Minimum time between drift corrections to avoid oscillation
 const DRIFT_CORRECTION_COOLDOWN_MS = 300;
+
+// Delay before showing loading indicator (to avoid flicker on fast seeks)
+const LOADING_INDICATOR_DELAY_MS = 500;
 
 /**
  * Hook for synchronizing video playback with the waveform playhead
@@ -81,6 +85,9 @@ export function useVideoSync({
   // Track the timestamp when scrubbing started (to update on release)
   const scrubStartTimestamp = useRef<number>(0);
 
+  // Timer for delayed loading indicator
+  const loadingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Get playhead state
   const timestamp = usePlayheadStore((state) => state.timestamp);
   const isPlaying = usePlayheadStore((state) => state.isPlaying);
@@ -88,6 +95,7 @@ export function useVideoSync({
 
   /**
    * Seek the video to a specific time, waiting for the seeked event
+   * Shows loading indicator only after LOADING_INDICATOR_DELAY_MS to avoid flicker on fast seeks
    */
   const seekTo = useCallback((timeInSeconds: number) => {
     const video = videoRef.current;
@@ -96,13 +104,31 @@ export function useVideoSync({
     // Clamp time to valid range
     const clampedTime = Math.max(0, Math.min(timeInSeconds, duration || video.duration || Infinity));
 
+    // Clear any existing loading timer
+    if (loadingTimerRef.current) {
+      clearTimeout(loadingTimerRef.current);
+      loadingTimerRef.current = null;
+    }
+
     // Mark that we're seeking
     isSeekingRef.current = true;
     wasPlayingBeforeSeekRef.current = isPlaying;
-    setIsVideoLoading(true);
+
+    // Start a delayed loading indicator - only show if seek takes longer than threshold
+    loadingTimerRef.current = setTimeout(() => {
+      if (isSeekingRef.current) {
+        setIsVideoLoading(true);
+      }
+    }, LOADING_INDICATOR_DELAY_MS);
 
     // Set up one-time seeked handler
     const handleSeeked = () => {
+      // Clear loading timer if seek completed before delay
+      if (loadingTimerRef.current) {
+        clearTimeout(loadingTimerRef.current);
+        loadingTimerRef.current = null;
+      }
+
       isSeekingRef.current = false;
       setIsVideoLoading(false);
       video.removeEventListener('seeked', handleSeeked);
@@ -328,6 +354,10 @@ export function useVideoSync({
       if (animationFrameRef.current !== null) {
         cancelAnimationFrame(animationFrameRef.current);
         animationFrameRef.current = null;
+      }
+      if (loadingTimerRef.current !== null) {
+        clearTimeout(loadingTimerRef.current);
+        loadingTimerRef.current = null;
       }
       setIsVideoReady(false);
       setIsVideoLoading(false);

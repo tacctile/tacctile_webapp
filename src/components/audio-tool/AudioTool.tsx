@@ -583,6 +583,8 @@ interface OverviewBarProps {
   onViewportDrag?: (newScrollOffset: number) => void;
   /** Callback when user is scrubbing (dragging playhead) */
   onScrub?: (timeInSeconds: number, isScrubbing: boolean) => void;
+  /** When true, disables playhead dragging - click-to-seek only (for video files) */
+  hasVideo?: boolean;
 }
 
 const OverviewBar: React.FC<OverviewBarProps> = ({
@@ -595,6 +597,7 @@ const OverviewBar: React.FC<OverviewBarProps> = ({
   onSeek,
   onViewportDrag,
   onScrub,
+  hasVideo = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -818,18 +821,20 @@ const OverviewBar: React.FC<OverviewBarProps> = ({
       }
     }
 
-    // Check if clicking near playhead (for scrubbing)
-    const playheadX = (currentTime / duration) * rect.width;
-    const playheadThreshold = 8;
-    if (Math.abs(x - playheadX) < playheadThreshold) {
-      setIsDraggingPlayhead(true);
-      onScrub?.(clickTime, true);
-      return;
+    // Check if clicking near playhead (for scrubbing) - DISABLED for video files
+    if (!hasVideo) {
+      const playheadX = (currentTime / duration) * rect.width;
+      const playheadThreshold = 8;
+      if (Math.abs(x - playheadX) < playheadThreshold) {
+        setIsDraggingPlayhead(true);
+        onScrub?.(clickTime, true);
+        return;
+      }
     }
 
-    // Otherwise, seek to clicked position
+    // Click to seek (works for both audio and video)
     onSeek?.(Math.max(0, Math.min(clickTime, duration)));
-  }, [isLoaded, duration, zoom, scrollOffset, currentTime, getViewportBounds, onSeek, onScrub]);
+  }, [isLoaded, duration, zoom, scrollOffset, currentTime, getViewportBounds, onSeek, onScrub, hasVideo]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!containerRef.current) return;
@@ -838,8 +843,9 @@ const OverviewBar: React.FC<OverviewBarProps> = ({
     const x = e.clientX - rect.left;
 
     // Update hover state for cursor (only when not dragging)
+    // For video, don't show playhead drag cursor since dragging is disabled
     if (!isDraggingViewport && !isDraggingPlayhead) {
-      setIsNearPlayhead(checkNearPlayhead(x, rect.width));
+      setIsNearPlayhead(!hasVideo && checkNearPlayhead(x, rect.width));
     }
 
     if (isDraggingViewport) {
@@ -852,7 +858,7 @@ const OverviewBar: React.FC<OverviewBarProps> = ({
       const time = ratio * duration;
       onScrub?.(time, true);
     }
-  }, [isDraggingViewport, isDraggingPlayhead, dragStartX, dragStartOffset, zoom, duration, onViewportDrag, onScrub, checkNearPlayhead]);
+  }, [isDraggingViewport, isDraggingPlayhead, dragStartX, dragStartOffset, zoom, duration, onViewportDrag, onScrub, checkNearPlayhead, hasVideo]);
 
   const handleMouseUp = useCallback(() => {
     if (isDraggingPlayhead) {
@@ -1228,8 +1234,9 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     }
   }, []);
 
-  // Calculate combined scrubbing state for video freeze behavior
-  // Video should freeze during: playhead scrub, selection creation/move/resize, overview scrub
+  // Calculate combined scrubbing state for audio-only file selection interactions
+  // Note: Video files use click-to-seek only (no playhead dragging)
+  // This state is mainly for audio-only file selection creation/move/resize
   const isVideoScrubbing = isScrubbing || (
     hasDragged && (
       interactionType === 'scrubPlayhead' ||
@@ -2241,29 +2248,8 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
                           objectFit: 'contain',
                         }}
                       />
-                      {/* Gray overlay when scrubbing - indicates video is frozen */}
-                      {isVideoScrubbing && (
-                        <Box
-                          sx={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            pointerEvents: 'none',
-                          }}
-                        >
-                          <Typography sx={{ color: '#888', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1 }}>
-                            Scrubbing
-                          </Typography>
-                        </Box>
-                      )}
-                      {/* Loading spinner when video is seeking */}
-                      {isVideoLoading && !isVideoScrubbing && (
+                      {/* Loading spinner when video is seeking (delayed to avoid flicker) */}
+                      {isVideoLoading && (
                         <Box
                           sx={{
                             position: 'absolute',
@@ -2650,6 +2636,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         onSeek={handleOverviewSeek}
         onViewportDrag={handleOverviewViewportDrag}
         onScrub={handleOverviewScrub}
+        hasVideo={loadedAudio?.hasVideo}
       />
 
       {/* Center content area - TimeScale, Waveform */}
@@ -2722,6 +2709,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             onScrub={audioScrub}
             onZoomChange={handleZoomChange}
             onScrollChange={handleScrollChange}
+            hasVideo={loadedAudio?.hasVideo}
           />
 
           {/* Marquee selection overlay */}
