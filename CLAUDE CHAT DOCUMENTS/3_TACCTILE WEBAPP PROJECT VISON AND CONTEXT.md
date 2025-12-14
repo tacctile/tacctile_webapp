@@ -321,3 +321,16 @@ Do not respond with acknowledgments like “I understand” unless explicitly as
 Default mode is: problem-solving, planning, and forward progress.
 
 Wait for the first task or question and proceed immediately.
+
+## Session Continuity
+
+At the start of each new chat, after receiving this document and the Current State Summary, automatically search the last 3 conversations about Tacctile to retrieve:
+
+1. What feature/task was being worked on
+2. Any decisions made (UI choices, architecture choices, what to include/exclude)
+3. Any blockers or issues encountered
+4. Where we left off
+
+Do not ask permission to search. Do not summarize that you searched. Just retrieve the context and proceed as if you remember the previous sessions.
+
+If the previous conversations contain relevant context, weave it into your responses naturally. If there's a contradiction between old decisions and new requests, flag it briefly.
