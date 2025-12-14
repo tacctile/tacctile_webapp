@@ -126,7 +126,7 @@ const SplitDivider = styled(Box)<{ isDragging?: boolean }>(({ isDragging }) => (
   width: 4,
   backgroundColor: isDragging ? '#4dd4df' : '#19abb5',
   cursor: isDragging ? 'grabbing' : 'grab',
-  zIndex: 10,
+  zIndex: 3, // Below ViewLabel (z-index: 5) so labels stay on top
   userSelect: 'none',
   '&:hover': {
     backgroundColor: '#4dd4df',
@@ -482,6 +482,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   // File drop zone state
   const [isFileDragOver, setIsFileDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const splitContainerRef = useRef<HTMLDivElement>(null);
 
   // Toast notification state
   const [toast, setToast] = useState<{
@@ -674,13 +675,21 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   }, []);
 
   // Handle split divider drag start
+  // Uses refs for immediate response without waiting for React state updates
   const handleSplitDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault(); // Prevent selection
     e.stopPropagation();
 
+    // Capture initial values immediately
     const startX = e.clientX;
     const startPos = splitPosition;
 
+    // Get container rect once at the start for performance
+    const container = splitContainerRef.current;
+    if (!container) return;
+    const containerRect = container.getBoundingClientRect();
+
+    // Set visual state for cursor styling
     setIsDraggingSplit(true);
 
     // Prevent text selection during drag
@@ -689,13 +698,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
     const handleMouseMove = (moveE: MouseEvent) => {
       moveE.preventDefault(); // Prevent selection during drag
-      const container = (e.target as HTMLElement).parentElement;
-      if (container) {
-        const rect = container.getBoundingClientRect();
-        const newPos = startPos + ((moveE.clientX - startX) / rect.width) * 100;
-        // Constrain between 10% and 90%
-        setSplitPosition(Math.max(10, Math.min(90, newPos)));
-      }
+      // Use cached rect for immediate response (no DOM query)
+      const newPos = startPos + ((moveE.clientX - startX) / containerRect.width) * 100;
+      // Constrain between 3% and 97% for extended comparison range
+      setSplitPosition(Math.max(3, Math.min(97, newPos)));
     };
 
     const handleMouseUp = () => {
@@ -745,17 +751,21 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       justifyContent: 'center',
       width: '100%',
       height: '100%',
-      padding: 16,
       position: 'relative' as const,
+      overflow: zoom > 100 ? 'auto' : 'hidden',
     };
 
-    // Image style - fit to window with zoom support
+    // Image style - fill container while maintaining aspect ratio
+    // Uses width/height 100% with object-fit: contain to maximize space usage
+    // Transform scale handles zoom levels beyond 100%
     const imageStyle = {
-      maxWidth: `${zoom}%`,
-      maxHeight: `${zoom}%`,
+      width: '100%',
+      height: '100%',
       objectFit: 'contain' as const,
       borderRadius: 2,
       userSelect: 'none' as const,
+      transform: zoom !== 100 ? `scale(${zoom / 100})` : undefined,
+      transformOrigin: 'center center',
     };
 
     // ========== SIDE-BY-SIDE VIEW ==========
@@ -832,14 +842,17 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
           justifyContent: 'center',
           userSelect: isDraggingSplit ? 'none' : 'auto',
         }}>
-          <Box sx={{
-            position: 'relative',
-            maxWidth: `${zoom}%`,
-            maxHeight: `${zoom}%`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
+          <Box
+            ref={splitContainerRef}
+            sx={{
+              position: 'relative',
+              maxWidth: `${zoom}%`,
+              maxHeight: `${zoom}%`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
             {/* Full image (edited) - base layer */}
             <img
               src={imageUrl}
@@ -942,19 +955,29 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               </Tooltip>
             </StyledToggleButton>
           </ToggleButtonGroup>
-          {/* A/B Toggle - only visible in single view */}
-          {viewMode === 'single' && (
-            <Tooltip title={showOriginal ? 'Viewing Original (click to see Edited)' : 'A/B Compare (click to see Original)'}>
+          {/* A/B Toggle - always visible, but only enabled in single view */}
+          <Tooltip title={
+            viewMode !== 'single'
+              ? 'A/B Compare (only available in single view)'
+              : showOriginal
+                ? 'Viewing Original (click to see Edited)'
+                : 'A/B Compare (click to see Original)'
+          }>
+            <span>
               <ToolButton
                 size="small"
-                active={showOriginal}
+                active={showOriginal && viewMode === 'single'}
                 onClick={handleABToggle}
-                disabled={!loadedImage}
+                disabled={!loadedImage || viewMode !== 'single'}
+                sx={{
+                  opacity: viewMode !== 'single' ? 0.4 : 1,
+                  cursor: viewMode !== 'single' ? 'not-allowed' : 'pointer',
+                }}
               >
                 <CompareArrowsIcon sx={{ fontSize: 16 }} />
               </ToolButton>
-            </Tooltip>
-          )}
+            </span>
+          </Tooltip>
         </Box>
 
         <ToolbarDivider />
