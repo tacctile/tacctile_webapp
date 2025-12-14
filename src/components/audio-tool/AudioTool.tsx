@@ -2178,7 +2178,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
                 <AddIcon sx={{ fontSize: 18 }} />
               </IconButton>
               <Typography sx={{ color: '#888', fontSize: 11, minWidth: 35, fontFamily: '"JetBrains Mono", monospace' }}>
-                {overviewZoom % 1 === 0 ? `${overviewZoom}x` : `${overviewZoom.toFixed(1)}x`}
+                {overviewZoom.toFixed(1)}x
               </Typography>
             </Box>
 
@@ -2560,8 +2560,28 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
                     backgroundColor: 'rgba(25, 171, 181, 0.2)',
                     borderLeft: leftPx >= 0 ? '2px solid #19abb5' : 'none',
                     borderRight: rightPx <= containerWidth ? '2px solid #19abb5' : 'none',
-                    pointerEvents: 'none',
+                    pointerEvents: 'auto',
+                    cursor: interactionType === 'moveSelection' ? 'grabbing' : 'grab',
                     zIndex: 4,
+                  }}
+                  onMouseDown={(e) => {
+                    // Don't handle if clicking on handles
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const localX = e.clientX - rect.left;
+                    const handleWidth = 8;
+
+                    // If clicking near edges (handles), let the handle handlers take over
+                    if (localX < handleWidth || localX > rect.width - handleWidth) {
+                      return;
+                    }
+
+                    // Start moving the selection
+                    e.stopPropagation();
+                    const time = pixelToTime(e.clientX - waveformContainerRef.current!.getBoundingClientRect().left, containerWidth);
+                    setInteractionType('moveSelection');
+                    setSelectionDragOffset(time - startTime);
+                    setHasDragged(true);
+                    setMouseDownPos({ x: e.clientX, time });
                   }}
                 >
                   {/* Start handle */}

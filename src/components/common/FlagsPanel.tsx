@@ -356,9 +356,14 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
     }
   };
 
-  // Handle flag click - jump to timestamp and open edit mode
+  // Handle flag click - only jump to timestamp (don't open edit mode)
   const handleFlagClick = (flag: Flag) => {
     onFlagClick?.(flag);
+  };
+
+  // Handle edit button click - open edit mode only
+  const handleEditClick = (e: React.MouseEvent, flag: Flag) => {
+    e.stopPropagation();
     startEditing(flag);
   };
 
@@ -630,17 +635,27 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
                         {flag.label || 'Untitled'}
                       </FlagLabel>
 
-                      <FlagActions className="flag-actions">
-                        <Tooltip title="Edit flag">
-                          <IconButton
-                            size="small"
-                            onClick={(e) => { e.stopPropagation(); startEditing(flag); }}
-                            sx={{ padding: '2px', color: '#555', '&:hover': { color: '#19abb5' } }}
-                          >
-                            <EditIcon sx={{ fontSize: 13 }} />
-                          </IconButton>
-                        </Tooltip>
+                      {/* Always-visible pencil icon for editing */}
+                      <Tooltip title="Edit flag">
+                        <IconButton
+                          size="small"
+                          onClick={(e) => handleEditClick(e, flag)}
+                          sx={{
+                            padding: '4px',
+                            color: '#555',
+                            opacity: 0.7,
+                            transition: 'opacity 0.15s, color 0.15s',
+                            '&:hover': {
+                              color: '#19abb5',
+                              opacity: 1,
+                            }
+                          }}
+                        >
+                          <EditIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Tooltip>
 
+                      <FlagActions className="flag-actions">
                         <Tooltip title="Delete flag">
                           <IconButton
                             size="small"
@@ -761,9 +776,7 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
                       px: '12px',
                       pb: 1,
                       pt: 0,
-                      cursor: 'pointer',
                     }}
-                    onClick={() => handleFlagClick(flag)}
                   >
                     <Typography
                       sx={{
