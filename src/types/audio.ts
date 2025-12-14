@@ -292,7 +292,7 @@ export interface AudioAnalysisData {
  */
 export interface LoadedAudioFile {
   id: string;
-  type: 'audio';
+  type: 'audio' | 'video';  // Support video files for audio extraction
   fileName: string;
   duration: number;
   capturedAt: number;
@@ -304,6 +304,7 @@ export interface LoadedAudioFile {
   gps?: string | null;
   hasVideo?: boolean;
   path?: string;
+  videoUrl?: string;  // URL to video file when type is 'video'
   sampleRate?: number;
   channels?: number;
 }

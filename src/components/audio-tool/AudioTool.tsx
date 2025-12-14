@@ -30,6 +30,7 @@ import { TimeScaleBar } from './TimeScaleBar';
 import { usePlayheadStore } from '@/stores/usePlayheadStore';
 import { useNavigationStore } from '@/stores/useNavigationStore';
 import { useAudioToolStore } from '@/stores/useAudioToolStore';
+import type { LoadedAudioFile } from '@/types/audio';
 import {
   isFileType,
   getFileTypeErrorMessage,
@@ -910,7 +911,37 @@ const OverviewBar: React.FC<OverviewBarProps> = ({
 // MOCK DATA
 // ============================================================================
 
-const audioFiles: (FileItem & { format?: string; gps?: string | null; hasVideo?: boolean; path?: string })[] = [
+// Extended file type with video properties
+type MediaFileItem = FileItem & {
+  format?: string;
+  gps?: string | null;
+  hasVideo?: boolean;
+  path?: string;
+  videoUrl?: string;  // URL to video file when hasVideo is true
+};
+
+// Helper to convert MediaFileItem to LoadedAudioFile (for audio and video only)
+const toLoadedAudioFile = (item: MediaFileItem): LoadedAudioFile | null => {
+  if (item.type === 'image') return null;
+  return {
+    id: item.id,
+    type: item.type, // 'audio' | 'video'
+    fileName: item.fileName,
+    duration: item.duration || 0,
+    capturedAt: item.capturedAt,
+    user: item.user,
+    deviceInfo: item.deviceInfo || '',
+    flagCount: item.flagCount,
+    hasFindings: item.hasFindings,
+    format: item.format,
+    gps: item.gps,
+    hasVideo: item.hasVideo,
+    path: item.path,
+    videoUrl: item.videoUrl,
+  };
+};
+
+const audioFiles: MediaFileItem[] = [
   { id: 'test-drums', type: 'audio', fileName: 'test_drums.mp3', duration: 0, capturedAt: Date.now(), user: 'You', deviceInfo: 'Imported', flagCount: 0, hasFindings: false, format: '44.1kHz / 16-bit', gps: null, hasVideo: false, path: '/audio/test_drums.mp3' },
   { id: 'test-drums-1', type: 'audio', fileName: 'test_drums1.mp3', duration: 0, capturedAt: Date.now(), user: 'You', deviceInfo: 'Imported', flagCount: 0, hasFindings: false, format: '44.1kHz / 16-bit', gps: null, hasVideo: false, path: '/audio/test_drums1.mp3' },
   { id: 'a1', type: 'audio', fileName: 'ambient_baseline.wav', duration: 1080, capturedAt: Date.now() - 7200000, user: 'Mike', deviceInfo: 'Zoom H6', flagCount: 0, hasFindings: false, format: '48kHz / 24-bit', gps: null, hasVideo: false },
@@ -918,6 +949,15 @@ const audioFiles: (FileItem & { format?: string; gps?: string | null; hasVideo?:
   { id: 'a3', type: 'audio', fileName: 'camera_01_audio_extract.wav', duration: 3847, capturedAt: Date.now() - 7000000, user: 'Sarah', deviceInfo: 'Sony A7IV', flagCount: 2, hasFindings: true, format: '48kHz / 16-bit', gps: '39.95°N, 75.16°W', hasVideo: true },
   { id: 'a4', type: 'audio', fileName: 'radio_sweep_session.wav', duration: 923, capturedAt: Date.now() - 5800000, user: 'Jen', deviceInfo: 'Tascam DR-40X', flagCount: 2, hasFindings: true, format: '44.1kHz / 16-bit', gps: null, hasVideo: false },
 ];
+
+// Video files that can be loaded for audio editing
+const videoFiles: MediaFileItem[] = [
+  { id: 'test-video', type: 'video', fileName: 'test_video.mp4', duration: 0, capturedAt: Date.now(), user: 'You', deviceInfo: 'Imported', flagCount: 0, hasFindings: false, format: '1080p / H.264', gps: null, hasVideo: true, path: '/video/test_video.mp4', videoUrl: '/video/test_video.mp4' },
+  { id: 'test-video-2', type: 'video', fileName: '1456996-hd_1920_1080_30fps.mp4', duration: 0, capturedAt: Date.now() - 3600000, user: 'Nick', deviceInfo: 'Sample Video', flagCount: 0, hasFindings: false, format: '1080p / H.264', gps: null, hasVideo: true, path: '/video/1456996-hd_1920_1080_30fps.mp4', videoUrl: '/video/1456996-hd_1920_1080_30fps.mp4' },
+];
+
+// Combined files for the file library
+const allMediaFiles: MediaFileItem[] = [...audioFiles, ...videoFiles];
 
 // Test users for multi-user collaboration simulation
 const TEST_USERS = [
@@ -996,11 +1036,16 @@ interface AudioToolProps {
 }
 
 export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
-  const [selectedFile, setSelectedFile] = useState<typeof audioFiles[0] | null>(null);
+  const [selectedFile, setSelectedFile] = useState<MediaFileItem | null>(null);
   const [videoRefCollapsed, setVideoRefCollapsed] = useState(true); // collapsed by default, expands when video exists
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
   const [flags, setFlags] = useState<Flag[]>([]);
   const [expandVideoModalOpen, setExpandVideoModalOpen] = useState(false);
+
+  // Video reference panel state
+  const [loadedVideoUrl, setLoadedVideoUrl] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isVideoSyncing, setIsVideoSyncing] = useState(false);
 
   // Flag user filter state
   const [enabledUserIds, setEnabledUserIds] = useState<string[]>([]);
@@ -1119,10 +1164,11 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   // Load file when navigated to
   useEffect(() => {
     if (loadedFileId) {
-      const file = audioFiles.find(f => f.id === loadedFileId);
+      const file = allMediaFiles.find(f => f.id === loadedFileId);
       if (file) {
         // Store in Zustand for persistence across navigation
-        setStoreLoadedAudioFile(file as typeof audioFiles[0]);
+        const loaded = toLoadedAudioFile(file);
+        if (loaded) setStoreLoadedAudioFile(loaded);
         setSelectedFile(file);
       }
     }
@@ -1182,6 +1228,42 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       return () => resizeObserver.disconnect();
     }
   }, []);
+
+  // Sync video playback with waveform playhead
+  // This syncs playhead position and play/pause state between video and waveform
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !loadedVideoUrl) return;
+
+    // Prevent recursive sync loops
+    if (isVideoSyncing) return;
+
+    const currentTimeSec = timestamp / 1000;
+
+    // Sync position: only update if difference is significant (>0.1 second)
+    if (Math.abs(video.currentTime - currentTimeSec) > 0.1) {
+      setIsVideoSyncing(true);
+      video.currentTime = currentTimeSec;
+      // Reset sync flag after a short delay
+      setTimeout(() => setIsVideoSyncing(false), 50);
+    }
+  }, [timestamp, loadedVideoUrl, isVideoSyncing]);
+
+  // Sync video play/pause state with waveform
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !loadedVideoUrl) return;
+
+    if (isPlaying) {
+      // Play video (muted since audio comes from waveform)
+      video.muted = true;
+      video.play().catch(() => {
+        // Ignore autoplay errors - user interaction may be required
+      });
+    } else {
+      video.pause();
+    }
+  }, [isPlaying, loadedVideoUrl]);
 
   // Sync local selection state with audio tool store (for TransportControls access)
   useEffect(() => {
@@ -1246,7 +1328,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   }, [isPlaying, timestamp, loadedAudio, overviewZoom, overviewScrollOffset]);
 
   // Load and decode real audio file
-  const loadAudioFile = useCallback(async (filePath: string, fileItem: typeof audioFiles[0]) => {
+  const loadAudioFile = useCallback(async (filePath: string, fileItem: MediaFileItem) => {
     try {
       setIsLoadingAudio(true);
 
@@ -1296,12 +1378,17 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       }
       setStoreWaveformData(waveform);
 
+      // Clear video URL since this is an audio file
+      setLoadedVideoUrl(null);
+
       // Set loaded state immediately (waveform ready) - store in Zustand for persistence
-      const loadedFile = {
+      const loadedFile: MediaFileItem = {
         ...fileItem,
         duration: decodedBuffer.duration,
+        hasVideo: false,
       };
-      setStoreLoadedAudioFile(loadedFile as typeof audioFiles[0]);
+      const loaded = toLoadedAudioFile(loadedFile);
+      if (loaded) setStoreLoadedAudioFile(loaded);
       setSelectedFile(loadedFile);
 
       setIsLoadingAudio(false);
@@ -1309,26 +1396,120 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     } catch (error) {
       console.error('Error loading audio:', error);
       // Fall back to mock data on error - still store in Zustand for persistence
-      setStoreLoadedAudioFile(fileItem as typeof audioFiles[0]);
+      const loaded = toLoadedAudioFile(fileItem);
+      if (loaded) setStoreLoadedAudioFile(loaded);
       setSelectedFile(fileItem);
       setIsLoadingAudio(false);
     }
   }, [setStoreAudioBuffer, setStoreWaveformData, setStoreLoadedAudioFile]);
 
-  const handleDoubleClick = useCallback((item: typeof audioFiles[0]) => {
+  // Load video file and extract audio for waveform editing
+  const loadVideoAudio = useCallback(async (videoPath: string, fileItem: MediaFileItem) => {
+    try {
+      setIsLoadingAudio(true);
+
+      // Create and resume audio context (needed for user interaction)
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+      }
+
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+
+      const ctx = audioContextRef.current;
+
+      // Set video URL for the Video Reference panel
+      setLoadedVideoUrl(videoPath);
+
+      // Extract audio from video using fetch + Web Audio API
+      // The browser will decode the video and give us the audio track
+      const response = await fetch(videoPath);
+      const arrayBuffer = await response.arrayBuffer();
+
+      // Try to decode audio from the video file
+      const decodedBuffer = await ctx.decodeAudioData(arrayBuffer);
+
+      // Store the decoded buffer for playback
+      audioBufferRef.current = decodedBuffer;
+      setStoreAudioBuffer(decodedBuffer);
+      setAudioContext(ctx);
+
+      // Generate waveform data
+      const channelData = decodedBuffer.getChannelData(0);
+      const samples = channelData.length;
+      const audioDuration = decodedBuffer.duration;
+
+      const targetPoints = Math.min(4000, Math.ceil(audioDuration * 40));
+      const blockSize = Math.floor(samples / targetPoints);
+      const waveform = new Float32Array(targetPoints);
+
+      for (let i = 0; i < targetPoints; i++) {
+        let max = 0;
+        const startSample = i * blockSize;
+        const endSample = Math.min(startSample + blockSize, samples);
+
+        for (let j = startSample; j < endSample; j++) {
+          const val = Math.abs(channelData[j]);
+          if (val > max) max = val;
+        }
+        waveform[i] = max;
+      }
+      setStoreWaveformData(waveform);
+
+      // Set loaded state - mark as having video
+      const loadedFile: MediaFileItem = {
+        ...fileItem,
+        duration: decodedBuffer.duration,
+        hasVideo: true,
+        videoUrl: videoPath,
+      };
+      const loaded = toLoadedAudioFile(loadedFile);
+      if (loaded) setStoreLoadedAudioFile(loaded);
+      setSelectedFile(loadedFile);
+
+      // Expand video reference panel since we have video
+      setVideoRefCollapsed(false);
+
+      setIsLoadingAudio(false);
+
+    } catch (error) {
+      console.error('Error loading video audio:', error);
+      // Fall back - still show video but without audio waveform
+      setLoadedVideoUrl(videoPath);
+      const loadedFile: MediaFileItem = {
+        ...fileItem,
+        hasVideo: true,
+        videoUrl: videoPath,
+      };
+      const loaded = toLoadedAudioFile(loadedFile);
+      if (loaded) setStoreLoadedAudioFile(loaded);
+      setSelectedFile(loadedFile);
+      setVideoRefCollapsed(false);
+      setIsLoadingAudio(false);
+    }
+  }, [setStoreAudioBuffer, setStoreWaveformData, setStoreLoadedAudioFile]);
+
+  const handleDoubleClick = useCallback((item: MediaFileItem) => {
     // Clear previous real audio data from store
     setStoreWaveformData(null);
     setStoreAudioBuffer(null);
 
-    if (item.path) {
-      // Load real audio file
+    // Check if this is a video file
+    if (item.type === 'video' && item.videoUrl) {
+      // Load video and extract audio
+      loadVideoAudio(item.videoUrl, item);
+    } else if (item.path) {
+      // Load regular audio file
       loadAudioFile(item.path, item);
     } else {
-      // Use mock data for files without a path - store in Zustand for persistence
-      setStoreLoadedAudioFile(item as typeof audioFiles[0]);
+      // Use mock data for files without a path
+      setLoadedVideoUrl(null);
+      const loaded = toLoadedAudioFile(item);
+      if (loaded) setStoreLoadedAudioFile(loaded);
       setSelectedFile(item);
     }
-  }, [loadAudioFile, setStoreWaveformData, setStoreAudioBuffer, setStoreLoadedAudioFile]);
+  }, [loadAudioFile, loadVideoAudio, setStoreWaveformData, setStoreAudioBuffer, setStoreLoadedAudioFile]);
 
   const handleEQChange = useCallback((index: number, value: number) => {
     setEqValues(prev => {
@@ -1409,8 +1590,8 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     };
 
     // Store in Zustand for persistence across navigation
-    setStoreLoadedAudioFile(mockItem as typeof audioFiles[0]);
-    setSelectedFile(mockItem);
+    setStoreLoadedAudioFile(mockItem as LoadedAudioFile);
+    setSelectedFile(mockItem as MediaFileItem);
     showToast(`Loaded: ${file.name}`, 'success');
   }, [showToast, setStoreLoadedAudioFile]);
 
@@ -2049,23 +2230,38 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         </InspectorSectionHeader>
         {!videoRefCollapsed && (
           <InspectorSectionContent sx={{ p: 0 }}>
-            {loadedAudio?.hasVideo ? (
+            {loadedAudio?.hasVideo && loadedVideoUrl ? (
               <>
                 <Box sx={{
-                  height: 100,
+                  position: 'relative',
                   backgroundColor: '#000',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
+                  aspectRatio: '16/9',
+                  maxHeight: 140,
                 }}>
-                  <Typography sx={{ color: '#333', fontSize: 10 }}>Synced video preview</Typography>
+                  <video
+                    ref={videoRef}
+                    src={loadedVideoUrl}
+                    muted
+                    playsInline
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain',
+                    }}
+                  />
                 </Box>
                 <Box sx={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 1 }}>
                   <Button
                     fullWidth
                     variant="outlined"
                     size="small"
-                    onClick={() => navigateToTool('video', loadedAudio?.id)}
+                    onClick={() => {
+                      // Navigate to Video Tool without pausing playback
+                      navigateToTool('video', loadedAudio?.id);
+                    }}
                     sx={{
                       fontSize: 10,
                       color: '#888',
@@ -2084,7 +2280,10 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
                     fullWidth
                     variant="outlined"
                     size="small"
-                    onClick={() => setExpandVideoModalOpen(true)}
+                    onClick={() => {
+                      // Open expand modal without pausing playback
+                      setExpandVideoModalOpen(true);
+                    }}
                     sx={{
                       fontSize: 10,
                       color: '#888',
@@ -2787,11 +2986,10 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             </Box>
             <Box sx={{ flex: 1, minHeight: 0 }}>
               <FileLibrary
-                items={audioFiles}
+                items={allMediaFiles}
                 selectedId={selectedFile?.id}
-                onSelect={(item) => setSelectedFile(item as typeof audioFiles[0])}
-                onDoubleClick={(item) => handleDoubleClick(item as typeof audioFiles[0])}
-                filterByType="audio"
+                onSelect={(item) => setSelectedFile(item as MediaFileItem)}
+                onDoubleClick={(item) => handleDoubleClick(item as MediaFileItem)}
               />
             </Box>
           </Box>
@@ -2808,12 +3006,12 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
               gps: selectedFile.gps || undefined,
               flagCount: selectedFile.flagCount,
             } : null}
-            type="audio"
+            type={selectedFile?.type === 'video' ? 'video' : 'audio'}
           />
         }
         inspectorPanel={inspectorContent}
         mainContent={mainContent}
-        filesTitle="Audio Files"
+        filesTitle="Media Files"
         inspectorTitle=""
         showTransport={false}
       />
@@ -2850,6 +3048,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         fileName={loadedAudio?.fileName || 'Unknown File'}
         duration={loadedAudio?.duration || 0}
         flags={flags}
+        videoUrl={loadedVideoUrl}
         onFlagClick={(flag) => {
           console.log('Jump to:', flag.timestamp);
           setTimestamp(flag.timestamp);
