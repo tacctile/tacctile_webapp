@@ -495,10 +495,30 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const zoomAccelerationRef = useRef<number>(1);
 
   // Zoom constants - 100% = fit-to-window, can only zoom IN from there
-  const ZOOM_MIN = 100; // Minimum is fit-to-window
-  const ZOOM_MAX = 400; // Maximum is 4x the fit size
-  const ZOOM_STEP = 5;  // 5% per click
-  const ZOOM_DOUBLE_CLICK_STEP = 10; // 10% per double-click
+  // Industry-standard non-linear zoom steps (like Photoshop)
+  const ZOOM_STEPS = [100, 110, 125, 150, 175, 200, 250, 300, 400];
+  const ZOOM_MIN = ZOOM_STEPS[0]; // Minimum is fit-to-window (100%)
+  const ZOOM_MAX = ZOOM_STEPS[ZOOM_STEPS.length - 1]; // Maximum is 400%
+
+  // Get the next zoom step up from current zoom
+  const getNextZoomStep = useCallback((currentZoom: number): number => {
+    for (const step of ZOOM_STEPS) {
+      if (step > currentZoom) {
+        return step;
+      }
+    }
+    return ZOOM_MAX;
+  }, []);
+
+  // Get the next zoom step down from current zoom
+  const getPrevZoomStep = useCallback((currentZoom: number): number => {
+    for (let i = ZOOM_STEPS.length - 1; i >= 0; i--) {
+      if (ZOOM_STEPS[i] < currentZoom) {
+        return ZOOM_STEPS[i];
+      }
+    }
+    return ZOOM_MIN;
+  }, []);
 
   // Section collapse states
   const [histogramCollapsed, setHistogramCollapsed] = useState(false);
@@ -597,25 +617,23 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     return zoom;
   }, [zoom]);
 
-  // Zoom in by 5% (up to 400%)
+  // Zoom in to next step (up to 400%)
   const handleZoomIn = useCallback(() => {
-    const newZoom = Math.min(zoom + ZOOM_STEP, ZOOM_MAX);
-    if (newZoom !== zoom) {
-      setZoom(newZoom);
-      // Reset pan when zooming - will be recalculated based on constraints
-      setPanOffset({ x: 0, y: 0 });
-    }
-  }, [zoom]);
+    if (zoom >= ZOOM_MAX) return;
+    const newZoom = getNextZoomStep(zoom);
+    setZoom(newZoom);
+    // Reset pan when zooming - will be recalculated based on constraints
+    setPanOffset({ x: 0, y: 0 });
+  }, [zoom, getNextZoomStep]);
 
-  // Zoom out by 5% (stops at 100% = fit-to-window)
+  // Zoom out to previous step (stops at 100% = fit-to-window)
   const handleZoomOut = useCallback(() => {
-    const newZoom = Math.max(zoom - ZOOM_STEP, ZOOM_MIN);
-    if (newZoom !== zoom) {
-      setZoom(newZoom);
-      // Reset pan when zooming
-      setPanOffset({ x: 0, y: 0 });
-    }
-  }, [zoom]);
+    if (zoom <= ZOOM_MIN) return;
+    const newZoom = getPrevZoomStep(zoom);
+    setZoom(newZoom);
+    // Reset pan when zooming
+    setPanOffset({ x: 0, y: 0 });
+  }, [zoom, getPrevZoomStep]);
 
   // Set zoom to fit image in container (100%)
   const handleFitToView = useCallback(() => {
@@ -632,69 +650,57 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     zoomAccelerationRef.current = 1;
   }, []);
 
-  // Start continuous zoom in (press and hold)
+  // Start continuous zoom in (press and hold) - moves through zoom steps
   const startContinuousZoomIn = useCallback(() => {
     if (viewMode !== 'single' || !loadedImage) return;
 
     // Initial zoom step
     handleZoomIn();
 
-    // Start acceleration from base level
-    zoomAccelerationRef.current = 1;
-    let tickCount = 0;
-
-    // Start interval for continuous zoom with acceleration
+    // Start interval for continuous zoom through steps (with slight delay between steps)
     zoomIntervalRef.current = window.setInterval(() => {
-      tickCount++;
-
-      // Increase acceleration every 5 ticks, up to 4x speed
-      if (tickCount % 5 === 0) {
-        zoomAccelerationRef.current = Math.min(4, zoomAccelerationRef.current + 0.5);
-      }
-
-      // Apply zoom with current acceleration
       setZoom(prevZoom => {
-        const step = ZOOM_STEP * zoomAccelerationRef.current;
-        const newZoom = Math.min(prevZoom + step, ZOOM_MAX);
-        if (newZoom >= ZOOM_MAX) {
+        // Find next step up from current zoom
+        let nextStep = ZOOM_MAX;
+        for (const step of ZOOM_STEPS) {
+          if (step > prevZoom) {
+            nextStep = step;
+            break;
+          }
+        }
+        if (nextStep >= ZOOM_MAX) {
           stopContinuousZoom();
         }
-        return newZoom;
+        return nextStep;
       });
-    }, 100); // 100ms interval for smooth continuous zoom
+    }, 250); // 250ms delay between steps for controlled stepping
   }, [viewMode, loadedImage, handleZoomIn, stopContinuousZoom]);
 
-  // Start continuous zoom out (press and hold)
+  // Start continuous zoom out (press and hold) - moves through zoom steps
   const startContinuousZoomOut = useCallback(() => {
     if (viewMode !== 'single' || !loadedImage) return;
 
     // Initial zoom step
     handleZoomOut();
 
-    // Start acceleration from base level
-    zoomAccelerationRef.current = 1;
-    let tickCount = 0;
-
-    // Start interval for continuous zoom with acceleration
+    // Start interval for continuous zoom through steps (with slight delay between steps)
     zoomIntervalRef.current = window.setInterval(() => {
-      tickCount++;
-
-      // Increase acceleration every 5 ticks, up to 4x speed
-      if (tickCount % 5 === 0) {
-        zoomAccelerationRef.current = Math.min(4, zoomAccelerationRef.current + 0.5);
-      }
-
-      // Apply zoom with current acceleration
       setZoom(prevZoom => {
-        const step = ZOOM_STEP * zoomAccelerationRef.current;
-        const newZoom = Math.max(prevZoom - step, ZOOM_MIN);
-        if (newZoom <= ZOOM_MIN) {
+        // Find next step down from current zoom
+        let nextStep = ZOOM_MIN;
+        for (let i = ZOOM_STEPS.length - 1; i >= 0; i--) {
+          if (ZOOM_STEPS[i] < prevZoom) {
+            nextStep = ZOOM_STEPS[i];
+            break;
+          }
+        }
+        if (nextStep <= ZOOM_MIN) {
           stopContinuousZoom();
           setPanOffset({ x: 0, y: 0 });
         }
-        return newZoom;
+        return nextStep;
       });
-    }, 100); // 100ms interval for smooth continuous zoom
+    }, 250); // 250ms delay between steps for controlled stepping
   }, [viewMode, loadedImage, handleZoomOut, stopContinuousZoom]);
 
   // Cleanup interval on unmount
@@ -977,23 +983,38 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     return { x: panX, y: panY };
   }, [actualDimensions, containerDimensions, calculateFitScale]);
 
-  // Handle double-click zoom in (centered on clicked point)
+  // Handle double-click zoom in/out (centered on clicked point, using zoom steps)
   const handleCanvasDoubleClick = useCallback((e: React.MouseEvent) => {
-    if (viewMode !== 'single' || !loadedImage) return;
+    if (viewMode !== 'single' || !loadedImage || !actualDimensions || !containerDimensions) return;
 
-    // Check if Alt key is held - zoom out
+    const fitScale = calculateFitScale();
+
+    // Helper to calculate constrained pan for a given zoom level
+    const constrainPanForZoom = (pan: { x: number; y: number }, targetZoom: number) => {
+      const newActualScale = fitScale * (targetZoom / 100);
+      const newImageWidth = actualDimensions.width * newActualScale;
+      const newImageHeight = actualDimensions.height * newActualScale;
+      const excessWidth = Math.max(0, newImageWidth - containerDimensions.width);
+      const excessHeight = Math.max(0, newImageHeight - containerDimensions.height);
+      return {
+        x: Math.max(-excessWidth / 2, Math.min(excessWidth / 2, pan.x)),
+        y: Math.max(-excessHeight / 2, Math.min(excessHeight / 2, pan.y)),
+      };
+    };
+
+    // Check if Alt key is held - zoom out to previous step
     if (e.altKey) {
       // Zoom out centered on LAST zoom-in point (or image center if none)
       if (zoom <= ZOOM_MIN) return;
 
-      const newZoom = Math.max(zoom - ZOOM_DOUBLE_CLICK_STEP, ZOOM_MIN);
+      const newZoom = getPrevZoomStep(zoom);
 
       if (lastZoomInPoint) {
         // Center on last zoom-in point
         const newPan = calculatePanToCenter(lastZoomInPoint.x, lastZoomInPoint.y, newZoom);
         setZoom(newZoom);
         if (newZoom > ZOOM_MIN) {
-          setPanOffset(constrainPan(newPan.x, newPan.y));
+          setPanOffset(constrainPanForZoom(newPan, newZoom));
         } else {
           setPanOffset({ x: 0, y: 0 });
         }
@@ -1007,7 +1028,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       return;
     }
 
-    // Regular double-click - zoom in centered on clicked point
+    // Regular double-click - zoom in to next step centered on clicked point
     if (zoom >= ZOOM_MAX) return;
 
     const imageCoords = screenToImageCoords(e.clientX, e.clientY);
@@ -1016,15 +1037,15 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     // Store this as the last zoom-in point
     setLastZoomInPoint({ x: imageCoords.x, y: imageCoords.y });
 
-    // Calculate new zoom level
-    const newZoom = Math.min(zoom + ZOOM_DOUBLE_CLICK_STEP, ZOOM_MAX);
+    // Calculate new zoom level - use next zoom step
+    const newZoom = getNextZoomStep(zoom);
 
     // Calculate pan to center on clicked point
     const newPan = calculatePanToCenter(imageCoords.x, imageCoords.y, newZoom);
 
     setZoom(newZoom);
-    setPanOffset(constrainPan(newPan.x, newPan.y));
-  }, [viewMode, loadedImage, zoom, lastZoomInPoint, screenToImageCoords, calculatePanToCenter, constrainPan]);
+    setPanOffset(constrainPanForZoom(newPan, newZoom));
+  }, [viewMode, loadedImage, zoom, lastZoomInPoint, screenToImageCoords, calculatePanToCenter, actualDimensions, containerDimensions, calculateFitScale, getNextZoomStep, getPrevZoomStep]);
 
   // Track Ctrl key state for marquee zoom
   useEffect(() => {
@@ -1135,12 +1156,24 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     // Calculate pan to center on selection center
     const newPan = calculatePanToCenter(centerX, centerY, newZoom);
 
+    // Calculate pan constraints based on NEW zoom level (not current zoom)
+    // This is critical - we need to constrain using the new image size
+    const newActualScale = fitScale * (newZoom / 100);
+    const newImageWidth = actualDimensions.width * newActualScale;
+    const newImageHeight = actualDimensions.height * newActualScale;
+    const excessWidth = Math.max(0, newImageWidth - containerDimensions.width);
+    const excessHeight = Math.max(0, newImageHeight - containerDimensions.height);
+    const constrainedPan = {
+      x: Math.max(-excessWidth / 2, Math.min(excessWidth / 2, newPan.x)),
+      y: Math.max(-excessHeight / 2, Math.min(excessHeight / 2, newPan.y)),
+    };
+
     setZoom(newZoom);
-    setPanOffset(constrainPan(newPan.x, newPan.y));
+    setPanOffset(constrainedPan);
 
     // Deactivate marquee mode after zoom
     setIsMarqueeModeActive(false);
-  }, [marqueeStart, marqueeEnd, containerDimensions, actualDimensions, getImageDisplaySize, panOffset, calculateFitScale, calculatePanToCenter, constrainPan]);
+  }, [marqueeStart, marqueeEnd, containerDimensions, actualDimensions, getImageDisplaySize, panOffset, calculateFitScale, calculatePanToCenter]);
 
   // Handle marquee drawing start (mousedown when Ctrl held or marquee mode active)
   const handleMarqueeStart = useCallback((e: React.MouseEvent) => {
