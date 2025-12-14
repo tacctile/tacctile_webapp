@@ -32,6 +32,7 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import AddIcon from '@mui/icons-material/Add';
 import PersonIcon from '@mui/icons-material/Person';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
+import CropFreeIcon from '@mui/icons-material/CropFree';
 
 import { WorkspaceLayout } from '@/components/layout';
 import { FileLibrary, type FileItem } from '@/components/file-library';
@@ -479,10 +480,25 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [isPanning, setIsPanning] = useState(false);
   const panStartRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
 
+  // Last zoom-in point (in image pixel coordinates, for Alt+double-click zoom out)
+  const [lastZoomInPoint, setLastZoomInPoint] = useState<{ x: number; y: number } | null>(null);
+
+  // Marquee zoom state
+  const [isMarqueeModeActive, setIsMarqueeModeActive] = useState(false);
+  const [isMarqueeDrawing, setIsMarqueeDrawing] = useState(false);
+  const [marqueeStart, setMarqueeStart] = useState<{ x: number; y: number } | null>(null);
+  const [marqueeEnd, setMarqueeEnd] = useState<{ x: number; y: number } | null>(null);
+  const [isCtrlHeld, setIsCtrlHeld] = useState(false);
+
+  // Press-and-hold zoom refs
+  const zoomIntervalRef = useRef<number | null>(null);
+  const zoomAccelerationRef = useRef<number>(1);
+
   // Zoom constants - 100% = fit-to-window, can only zoom IN from there
   const ZOOM_MIN = 100; // Minimum is fit-to-window
   const ZOOM_MAX = 400; // Maximum is 4x the fit size
   const ZOOM_STEP = 5;  // 5% per click
+  const ZOOM_DOUBLE_CLICK_STEP = 10; // 10% per double-click
 
   // Section collapse states
   const [histogramCollapsed, setHistogramCollapsed] = useState(false);
@@ -535,6 +551,12 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     // Reset zoom and pan for new image - 100% = fit-to-window
     setZoom(100);
     setPanOffset({ x: 0, y: 0 });
+    // Reset zoom tracking state
+    setLastZoomInPoint(null);
+    setIsMarqueeModeActive(false);
+    setIsMarqueeDrawing(false);
+    setMarqueeStart(null);
+    setMarqueeEnd(null);
     // Persist loaded file ID in navigation store
     setLoadedFile('images', item.id);
   }, [setLoadedFile]);
@@ -545,6 +567,12 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       // Reset zoom and pan when switching view modes - 100% = fit-to-window
       setZoom(100);
       setPanOffset({ x: 0, y: 0 });
+      // Reset zoom tracking state
+      setLastZoomInPoint(null);
+      setIsMarqueeModeActive(false);
+      setIsMarqueeDrawing(false);
+      setMarqueeStart(null);
+      setMarqueeEnd(null);
     }
   };
 
@@ -593,6 +621,89 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const handleFitToView = useCallback(() => {
     setZoom(100);
     setPanOffset({ x: 0, y: 0 });
+  }, []);
+
+  // Stop continuous zoom (clears interval and resets acceleration)
+  const stopContinuousZoom = useCallback(() => {
+    if (zoomIntervalRef.current) {
+      clearInterval(zoomIntervalRef.current);
+      zoomIntervalRef.current = null;
+    }
+    zoomAccelerationRef.current = 1;
+  }, []);
+
+  // Start continuous zoom in (press and hold)
+  const startContinuousZoomIn = useCallback(() => {
+    if (viewMode !== 'single' || !loadedImage) return;
+
+    // Initial zoom step
+    handleZoomIn();
+
+    // Start acceleration from base level
+    zoomAccelerationRef.current = 1;
+    let tickCount = 0;
+
+    // Start interval for continuous zoom with acceleration
+    zoomIntervalRef.current = window.setInterval(() => {
+      tickCount++;
+
+      // Increase acceleration every 5 ticks, up to 4x speed
+      if (tickCount % 5 === 0) {
+        zoomAccelerationRef.current = Math.min(4, zoomAccelerationRef.current + 0.5);
+      }
+
+      // Apply zoom with current acceleration
+      setZoom(prevZoom => {
+        const step = ZOOM_STEP * zoomAccelerationRef.current;
+        const newZoom = Math.min(prevZoom + step, ZOOM_MAX);
+        if (newZoom >= ZOOM_MAX) {
+          stopContinuousZoom();
+        }
+        return newZoom;
+      });
+    }, 100); // 100ms interval for smooth continuous zoom
+  }, [viewMode, loadedImage, handleZoomIn, stopContinuousZoom]);
+
+  // Start continuous zoom out (press and hold)
+  const startContinuousZoomOut = useCallback(() => {
+    if (viewMode !== 'single' || !loadedImage) return;
+
+    // Initial zoom step
+    handleZoomOut();
+
+    // Start acceleration from base level
+    zoomAccelerationRef.current = 1;
+    let tickCount = 0;
+
+    // Start interval for continuous zoom with acceleration
+    zoomIntervalRef.current = window.setInterval(() => {
+      tickCount++;
+
+      // Increase acceleration every 5 ticks, up to 4x speed
+      if (tickCount % 5 === 0) {
+        zoomAccelerationRef.current = Math.min(4, zoomAccelerationRef.current + 0.5);
+      }
+
+      // Apply zoom with current acceleration
+      setZoom(prevZoom => {
+        const step = ZOOM_STEP * zoomAccelerationRef.current;
+        const newZoom = Math.max(prevZoom - step, ZOOM_MIN);
+        if (newZoom <= ZOOM_MIN) {
+          stopContinuousZoom();
+          setPanOffset({ x: 0, y: 0 });
+        }
+        return newZoom;
+      });
+    }, 100); // 100ms interval for smooth continuous zoom
+  }, [viewMode, loadedImage, handleZoomOut, stopContinuousZoom]);
+
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (zoomIntervalRef.current) {
+        clearInterval(zoomIntervalRef.current);
+      }
+    };
   }, []);
 
   const handleFilterChange = (key: keyof ImageFilters) => (value: number) => {
@@ -801,8 +912,284 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     };
   }, [calculatePanConstraints]);
 
+  // Convert screen coordinates to image pixel coordinates
+  const screenToImageCoords = useCallback((screenX: number, screenY: number) => {
+    if (!canvasContainerRef.current || !actualDimensions || !containerDimensions) {
+      return null;
+    }
+
+    const containerRect = canvasContainerRef.current.getBoundingClientRect();
+    const imageSize = getImageDisplaySize();
+
+    // Calculate where the image is positioned in the container (centered)
+    const imageLeft = (containerDimensions.width - imageSize.width) / 2 + panOffset.x;
+    const imageTop = (containerDimensions.height - imageSize.height) / 2 + panOffset.y;
+
+    // Calculate click position relative to image
+    const clickX = screenX - containerRect.left - imageLeft;
+    const clickY = screenY - containerRect.top - imageTop;
+
+    // Convert to image pixel coordinates (0-1 normalized)
+    const normalizedX = clickX / imageSize.width;
+    const normalizedY = clickY / imageSize.height;
+
+    // Check if click is within image bounds
+    if (normalizedX < 0 || normalizedX > 1 || normalizedY < 0 || normalizedY > 1) {
+      return null;
+    }
+
+    // Return actual image pixel coordinates
+    return {
+      x: normalizedX * actualDimensions.width,
+      y: normalizedY * actualDimensions.height,
+      normalizedX,
+      normalizedY,
+    };
+  }, [actualDimensions, containerDimensions, getImageDisplaySize, panOffset]);
+
+  // Calculate pan offset to center a specific image point in the viewport
+  const calculatePanToCenter = useCallback((imageX: number, imageY: number, newZoom: number) => {
+    if (!actualDimensions || !containerDimensions) {
+      return { x: 0, y: 0 };
+    }
+
+    // Calculate the new fit scale and actual scale
+    const fitScale = calculateFitScale();
+    const newActualScale = fitScale * (newZoom / 100);
+
+    // New image size at new zoom level
+    const newImageWidth = actualDimensions.width * newActualScale;
+    const newImageHeight = actualDimensions.height * newActualScale;
+
+    // Normalized position of the target point (0-1)
+    const normalizedX = imageX / actualDimensions.width;
+    const normalizedY = imageY / actualDimensions.height;
+
+    // Position of target point in the new zoomed image (from center of image)
+    const targetOffsetFromCenterX = (normalizedX - 0.5) * newImageWidth;
+    const targetOffsetFromCenterY = (normalizedY - 0.5) * newImageHeight;
+
+    // Pan to center the target point in viewport
+    // We need the target point to be at viewport center, so pan is negative of target offset
+    const panX = -targetOffsetFromCenterX;
+    const panY = -targetOffsetFromCenterY;
+
+    return { x: panX, y: panY };
+  }, [actualDimensions, containerDimensions, calculateFitScale]);
+
+  // Handle double-click zoom in (centered on clicked point)
+  const handleCanvasDoubleClick = useCallback((e: React.MouseEvent) => {
+    if (viewMode !== 'single' || !loadedImage) return;
+
+    // Check if Alt key is held - zoom out
+    if (e.altKey) {
+      // Zoom out centered on LAST zoom-in point (or image center if none)
+      if (zoom <= ZOOM_MIN) return;
+
+      const newZoom = Math.max(zoom - ZOOM_DOUBLE_CLICK_STEP, ZOOM_MIN);
+
+      if (lastZoomInPoint) {
+        // Center on last zoom-in point
+        const newPan = calculatePanToCenter(lastZoomInPoint.x, lastZoomInPoint.y, newZoom);
+        setZoom(newZoom);
+        if (newZoom > ZOOM_MIN) {
+          setPanOffset(constrainPan(newPan.x, newPan.y));
+        } else {
+          setPanOffset({ x: 0, y: 0 });
+        }
+      } else {
+        // No previous zoom point, zoom out from center
+        setZoom(newZoom);
+        if (newZoom <= ZOOM_MIN) {
+          setPanOffset({ x: 0, y: 0 });
+        }
+      }
+      return;
+    }
+
+    // Regular double-click - zoom in centered on clicked point
+    if (zoom >= ZOOM_MAX) return;
+
+    const imageCoords = screenToImageCoords(e.clientX, e.clientY);
+    if (!imageCoords) return;
+
+    // Store this as the last zoom-in point
+    setLastZoomInPoint({ x: imageCoords.x, y: imageCoords.y });
+
+    // Calculate new zoom level
+    const newZoom = Math.min(zoom + ZOOM_DOUBLE_CLICK_STEP, ZOOM_MAX);
+
+    // Calculate pan to center on clicked point
+    const newPan = calculatePanToCenter(imageCoords.x, imageCoords.y, newZoom);
+
+    setZoom(newZoom);
+    setPanOffset(constrainPan(newPan.x, newPan.y));
+  }, [viewMode, loadedImage, zoom, lastZoomInPoint, screenToImageCoords, calculatePanToCenter, constrainPan]);
+
+  // Track Ctrl key state for marquee zoom
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Control' && viewMode === 'single' && loadedImage) {
+        setIsCtrlHeld(true);
+      }
+      // Escape key cancels marquee mode
+      if (e.key === 'Escape' && isMarqueeModeActive) {
+        setIsMarqueeModeActive(false);
+        setIsMarqueeDrawing(false);
+        setMarqueeStart(null);
+        setMarqueeEnd(null);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Control') {
+        setIsCtrlHeld(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [viewMode, loadedImage, isMarqueeModeActive]);
+
+  // Toggle marquee zoom mode (toolbar icon click)
+  const toggleMarqueeMode = useCallback(() => {
+    setIsMarqueeModeActive(prev => !prev);
+    setIsMarqueeDrawing(false);
+    setMarqueeStart(null);
+    setMarqueeEnd(null);
+  }, []);
+
+  // Calculate marquee rectangle in screen coordinates for display
+  const getMarqueeRect = useCallback(() => {
+    if (!marqueeStart || !marqueeEnd) return null;
+
+    return {
+      left: Math.min(marqueeStart.x, marqueeEnd.x),
+      top: Math.min(marqueeStart.y, marqueeEnd.y),
+      width: Math.abs(marqueeEnd.x - marqueeStart.x),
+      height: Math.abs(marqueeEnd.y - marqueeStart.y),
+    };
+  }, [marqueeStart, marqueeEnd]);
+
+  // Apply marquee zoom - zoom to fit selected area in viewport
+  const applyMarqueeZoom = useCallback(() => {
+    if (!marqueeStart || !marqueeEnd || !containerDimensions || !actualDimensions) {
+      return;
+    }
+
+    const containerRect = canvasContainerRef.current?.getBoundingClientRect();
+    if (!containerRect) return;
+
+    // Convert screen marquee coordinates to image coordinates
+    const imageSize = getImageDisplaySize();
+    const imageLeft = (containerDimensions.width - imageSize.width) / 2 + panOffset.x;
+    const imageTop = (containerDimensions.height - imageSize.height) / 2 + panOffset.y;
+
+    // Marquee corners in image-relative coordinates
+    const marqueeImageLeft = Math.min(marqueeStart.x, marqueeEnd.x) - containerRect.left - imageLeft;
+    const marqueeImageTop = Math.min(marqueeStart.y, marqueeEnd.y) - containerRect.top - imageTop;
+    const marqueeImageRight = Math.max(marqueeStart.x, marqueeEnd.x) - containerRect.left - imageLeft;
+    const marqueeImageBottom = Math.max(marqueeStart.y, marqueeEnd.y) - containerRect.top - imageTop;
+
+    // Convert to normalized image coordinates (0-1)
+    const normalizedLeft = Math.max(0, marqueeImageLeft / imageSize.width);
+    const normalizedTop = Math.max(0, marqueeImageTop / imageSize.height);
+    const normalizedRight = Math.min(1, marqueeImageRight / imageSize.width);
+    const normalizedBottom = Math.min(1, marqueeImageBottom / imageSize.height);
+
+    // Calculate selection dimensions in image pixels
+    const selectionWidth = (normalizedRight - normalizedLeft) * actualDimensions.width;
+    const selectionHeight = (normalizedBottom - normalizedTop) * actualDimensions.height;
+
+    // Minimum selection size check
+    if (selectionWidth < 10 || selectionHeight < 10) {
+      return;
+    }
+
+    // Center of selection in image pixels
+    const centerX = ((normalizedLeft + normalizedRight) / 2) * actualDimensions.width;
+    const centerY = ((normalizedTop + normalizedBottom) / 2) * actualDimensions.height;
+
+    // Store as last zoom-in point
+    setLastZoomInPoint({ x: centerX, y: centerY });
+
+    // Calculate zoom level to fit selection in viewport
+    // First, calculate what zoom would fit the selection width/height
+    const fitScale = calculateFitScale();
+    const zoomForWidth = (containerDimensions.width / selectionWidth) / fitScale * 100;
+    const zoomForHeight = (containerDimensions.height / selectionHeight) / fitScale * 100;
+
+    // Use the smaller zoom to ensure both dimensions fit, capped at max
+    const newZoom = Math.min(Math.min(zoomForWidth, zoomForHeight), ZOOM_MAX);
+
+    // Don't zoom if result would be less than minimum
+    if (newZoom < ZOOM_MIN) {
+      return;
+    }
+
+    // Calculate pan to center on selection center
+    const newPan = calculatePanToCenter(centerX, centerY, newZoom);
+
+    setZoom(newZoom);
+    setPanOffset(constrainPan(newPan.x, newPan.y));
+
+    // Deactivate marquee mode after zoom
+    setIsMarqueeModeActive(false);
+  }, [marqueeStart, marqueeEnd, containerDimensions, actualDimensions, getImageDisplaySize, panOffset, calculateFitScale, calculatePanToCenter, constrainPan]);
+
+  // Handle marquee drawing start (mousedown when Ctrl held or marquee mode active)
+  const handleMarqueeStart = useCallback((e: React.MouseEvent) => {
+    if (viewMode !== 'single' || !loadedImage) return;
+    if (!isMarqueeModeActive && !isCtrlHeld) return;
+
+    // Prevent triggering pan
+    e.preventDefault();
+    e.stopPropagation();
+
+    setIsMarqueeDrawing(true);
+    setMarqueeStart({ x: e.clientX, y: e.clientY });
+    setMarqueeEnd({ x: e.clientX, y: e.clientY });
+  }, [viewMode, loadedImage, isMarqueeModeActive, isCtrlHeld]);
+
+  // Handle marquee drawing (document level)
+  useEffect(() => {
+    if (!isMarqueeDrawing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      setMarqueeEnd({ x: e.clientX, y: e.clientY });
+    };
+
+    const handleMouseUp = () => {
+      if (marqueeStart && marqueeEnd) {
+        applyMarqueeZoom();
+      }
+      setIsMarqueeDrawing(false);
+      setMarqueeStart(null);
+      setMarqueeEnd(null);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isMarqueeDrawing, marqueeStart, marqueeEnd, applyMarqueeZoom]);
+
   // Handle pan start (mouse down on image)
   const handlePanStart = useCallback((e: React.MouseEvent) => {
+    // Check for marquee mode or Ctrl key first - these take priority
+    if ((isMarqueeModeActive || isCtrlHeld) && viewMode === 'single' && loadedImage) {
+      handleMarqueeStart(e);
+      return;
+    }
+
     if (!canPan() || viewMode !== 'single') return;
 
     e.preventDefault();
@@ -817,7 +1204,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     // Change cursor for entire document during drag
     document.body.style.cursor = 'grabbing';
     document.body.style.userSelect = 'none';
-  }, [canPan, viewMode, panOffset]);
+  }, [canPan, viewMode, panOffset, isMarqueeModeActive, isCtrlHeld, loadedImage, handleMarqueeStart]);
 
   // Handle pan move (document level to catch mouse leaving image)
   useEffect(() => {
@@ -1114,6 +1501,24 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     // ========== SINGLE VIEW ==========
     // Shows ORIGINAL label when A/B toggle is active
     // Supports zoom and pan when image is larger than container
+
+    // Determine cursor based on state
+    const getCursor = () => {
+      // Marquee drawing - crosshair
+      if (isMarqueeDrawing) return 'crosshair';
+      // Panning - grabbing hand
+      if (isPanning) return 'grabbing';
+      // Marquee mode active or Ctrl held - crosshair
+      if (isMarqueeModeActive || isCtrlHeld) return 'crosshair';
+      // Can pan (zoomed in) - grab hand
+      if (isPannable) return 'grab';
+      // At fit (100%) - default
+      return 'default';
+    };
+
+    // Get marquee rectangle for overlay
+    const marqueeRect = getMarqueeRect();
+
     return (
       <Box
         sx={{
@@ -1124,9 +1529,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
           height: '100%',
           position: 'relative',
           overflow: 'hidden', // Clip zoomed image at container edges
-          cursor: isPannable ? (isPanning ? 'grabbing' : 'grab') : 'default',
+          cursor: getCursor(),
         }}
         onMouseDown={handlePanStart}
+        onDoubleClick={handleCanvasDoubleClick}
       >
         <img
           src={imageUrl}
@@ -1148,6 +1554,22 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         {/* Show ORIGINAL label only when A/B toggle is on */}
         {showOriginal && (
           <ViewLabel position="left">Original</ViewLabel>
+        )}
+        {/* Marquee selection overlay */}
+        {isMarqueeDrawing && marqueeRect && canvasContainerRef.current && (
+          <Box
+            sx={{
+              position: 'fixed',
+              left: marqueeRect.left,
+              top: marqueeRect.top,
+              width: marqueeRect.width,
+              height: marqueeRect.height,
+              border: '2px dashed #19abb5',
+              backgroundColor: 'rgba(25, 171, 181, 0.1)',
+              pointerEvents: 'none',
+              zIndex: 100,
+            }}
+          />
         )}
       </Box>
     );
@@ -1217,12 +1639,17 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               ? 'Zoom Out (only available in single view)'
               : zoom <= ZOOM_MIN
                 ? 'At minimum zoom (100% = fit)'
-                : 'Zoom Out'
+                : 'Zoom Out (hold for continuous)'
           }>
             <span>
               <IconButton
                 size="small"
-                onClick={handleZoomOut}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  startContinuousZoomOut();
+                }}
+                onMouseUp={stopContinuousZoom}
+                onMouseLeave={stopContinuousZoom}
                 disabled={!loadedImage || viewMode !== 'single' || zoom <= ZOOM_MIN}
                 sx={{
                   color: zoom <= ZOOM_MIN ? '#444' : '#888',
@@ -1242,12 +1669,17 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               ? 'Zoom In (only available in single view)'
               : zoom >= ZOOM_MAX
                 ? 'At maximum zoom (400%)'
-                : 'Zoom In'
+                : 'Zoom In (hold for continuous)'
           }>
             <span>
               <IconButton
                 size="small"
-                onClick={handleZoomIn}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  startContinuousZoomIn();
+                }}
+                onMouseUp={stopContinuousZoom}
+                onMouseLeave={stopContinuousZoom}
                 disabled={!loadedImage || viewMode !== 'single' || zoom >= ZOOM_MAX}
                 sx={{
                   color: zoom >= ZOOM_MAX ? '#444' : '#888',
@@ -1273,6 +1705,25 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               >
                 <FitScreenIcon sx={{ fontSize: 18 }} />
               </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title={
+            viewMode !== 'single'
+              ? 'Zoom to Selection (only available in single view)'
+              : 'Zoom to Selection (Ctrl+drag)'
+          }>
+            <span>
+              <ToolButton
+                size="small"
+                active={isMarqueeModeActive}
+                onClick={toggleMarqueeMode}
+                disabled={!loadedImage || viewMode !== 'single'}
+                sx={{
+                  opacity: viewMode !== 'single' ? 0.4 : 1,
+                }}
+              >
+                <CropFreeIcon sx={{ fontSize: 18 }} />
+              </ToolButton>
             </span>
           </Tooltip>
         </Box>
