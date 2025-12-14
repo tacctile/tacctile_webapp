@@ -15,7 +15,7 @@ import ImageIcon from '@mui/icons-material/Image';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import FitScreenIcon from '@mui/icons-material/FitScreen';
-import CropIcon from '@mui/icons-material/Crop';
+import RotateLeftIcon from '@mui/icons-material/RotateLeft';
 import RotateRightIcon from '@mui/icons-material/RotateRight';
 import FlipIcon from '@mui/icons-material/Flip';
 import RectangleOutlinedIcon from '@mui/icons-material/RectangleOutlined';
@@ -464,6 +464,11 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [isDraggingSplit, setIsDraggingSplit] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false); // A/B toggle state
 
+  // Transform state (rotation and flip) - non-destructive, CSS-based
+  const [rotation, setRotation] = useState<0 | 90 | 180 | 270>(0);
+  const [flipH, setFlipH] = useState(false);
+  const [flipV, setFlipV] = useState(false);
+
   // State for actual image dimensions (read from loaded image)
   const [actualDimensions, setActualDimensions] = useState<{ width: number; height: number } | null>(null);
 
@@ -590,6 +595,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     setIsMarqueeDrawing(false);
     setMarqueeStart(null);
     setMarqueeEnd(null);
+    // Reset transforms for new image
+    setRotation(0);
+    setFlipH(false);
+    setFlipV(false);
     // Persist loaded file ID in navigation store
     setLoadedFile('images', item.id);
   }, [setLoadedFile]);
@@ -735,6 +744,41 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     setFilters(defaultFilters);
   };
 
+  // Transform handlers - instant, CSS-based transforms
+  const handleRotateCW = useCallback(() => {
+    setRotation(prev => ((prev + 90) % 360) as 0 | 90 | 180 | 270);
+  }, []);
+
+  const handleRotateCCW = useCallback(() => {
+    setRotation(prev => ((prev - 90 + 360) % 360) as 0 | 90 | 180 | 270);
+  }, []);
+
+  const handleFlipH = useCallback(() => {
+    setFlipH(prev => !prev);
+  }, []);
+
+  const handleFlipV = useCallback(() => {
+    setFlipV(prev => !prev);
+  }, []);
+
+  // Build CSS transform string for image transforms
+  const getImageTransform = useCallback((includeTranslate: boolean = true, x: number = 0, y: number = 0) => {
+    const transforms: string[] = [];
+    if (includeTranslate) {
+      transforms.push(`translate(${x}px, ${y}px)`);
+    }
+    if (rotation !== 0) {
+      transforms.push(`rotate(${rotation}deg)`);
+    }
+    if (flipH) {
+      transforms.push('scaleX(-1)');
+    }
+    if (flipV) {
+      transforms.push('scaleY(-1)');
+    }
+    return transforms.length > 0 ? transforms.join(' ') : 'none';
+  }, [rotation, flipH, flipV]);
+
   const toggleAnnotationVisibility = (id: string) => {
     setAnnotations(prev => prev.map(a => a.id === id ? { ...a, visible: !a.visible } : a));
   };
@@ -792,6 +836,13 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     setLoadedImage(mockItem);
     setSelectedFile(mockItem);
     setFilters(defaultFilters);
+    // Reset transforms for new image
+    setRotation(0);
+    setFlipH(false);
+    setFlipV(false);
+    // Reset zoom and pan
+    setZoom(100);
+    setPanOffset({ x: 0, y: 0 });
     showToast(`Loaded: ${file.name}`, 'success');
   }, [showToast]);
 
@@ -1542,7 +1593,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             />
             <ViewLabel position="left">Original</ViewLabel>
           </Box>
-          {/* Edited side */}
+          {/* Edited side - shows transforms */}
           <Box sx={{
             flex: 1,
             display: 'flex',
@@ -1560,6 +1611,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                 objectFit: 'contain',
                 borderRadius: 2,
                 userSelect: 'none',
+                transform: getImageTransform(false),
               }}
               draggable={false}
             />
@@ -1611,6 +1663,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             }}
           >
             {/* EDITED image - base layer (bottom) - ref for direct DOM manipulation during pan */}
+            {/* Both images share transforms so they stay aligned for comparison */}
             <img
               ref={splitImageRef}
               src={imageUrl}
@@ -1623,7 +1676,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                 objectFit: actualDimensions ? 'fill' : 'contain',
                 borderRadius: 2,
                 userSelect: 'none',
-                transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
+                transform: getImageTransform(true, panOffset.x, panOffset.y),
               }}
               onLoad={handleImageLoad}
               draggable={false}
@@ -1660,6 +1713,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             >
               {/* ORIGINAL image - same size, position, and transform as edited for perfect alignment */}
               {/* Ref for direct DOM manipulation during pan */}
+              {/* Both images share transforms so they stay aligned for comparison */}
               <img
                 ref={splitOriginalImageRef}
                 src={imageUrl}
@@ -1672,7 +1726,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                   objectFit: actualDimensions ? 'fill' : 'contain',
                   borderRadius: 2,
                   userSelect: 'none',
-                  transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
+                  transform: getImageTransform(true, panOffset.x, panOffset.y),
                 }}
                 draggable={false}
               />
@@ -1729,6 +1783,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         onMouseDown={handlePanStart}
         onDoubleClick={handleCanvasDoubleClick}
       >
+        {/* In A/B comparison: showOriginal=true shows original (no transforms), showOriginal=false shows edited (with transforms) */}
         <img
           ref={imageRef}
           src={imageUrl}
@@ -1741,7 +1796,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             objectFit: actualDimensions ? 'fill' : 'contain',
             borderRadius: 2,
             userSelect: 'none',
-            transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
+            // When showing original (A/B toggle), no transforms. When showing edited, apply transforms.
+            transform: showOriginal
+              ? `translate(${panOffset.x}px, ${panOffset.y}px)`
+              : getImageTransform(true, panOffset.x, panOffset.y),
             pointerEvents: 'none', // Let container handle mouse events
           }}
           onLoad={handleImageLoad}
@@ -1927,21 +1985,44 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
         <ToolbarDivider />
 
-        {/* Crop/Rotate Tools */}
+        {/* Transform Tools - Rotate/Flip (non-destructive) */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Tooltip title="Crop">
-            <ToolButton size="small" disabled={!loadedImage}>
-              <CropIcon sx={{ fontSize: 18 }} />
+          <Tooltip title="Rotate 90° Counter-Clockwise">
+            <ToolButton
+              size="small"
+              disabled={!loadedImage}
+              onClick={handleRotateCCW}
+            >
+              <RotateLeftIcon sx={{ fontSize: 18 }} />
             </ToolButton>
           </Tooltip>
-          <Tooltip title="Rotate 90°">
-            <ToolButton size="small" disabled={!loadedImage}>
+          <Tooltip title="Rotate 90° Clockwise">
+            <ToolButton
+              size="small"
+              disabled={!loadedImage}
+              onClick={handleRotateCW}
+            >
               <RotateRightIcon sx={{ fontSize: 18 }} />
             </ToolButton>
           </Tooltip>
           <Tooltip title="Flip Horizontal">
-            <ToolButton size="small" disabled={!loadedImage}>
+            <ToolButton
+              size="small"
+              disabled={!loadedImage}
+              onClick={handleFlipH}
+              active={flipH}
+            >
               <FlipIcon sx={{ fontSize: 18 }} />
+            </ToolButton>
+          </Tooltip>
+          <Tooltip title="Flip Vertical">
+            <ToolButton
+              size="small"
+              disabled={!loadedImage}
+              onClick={handleFlipV}
+              active={flipV}
+            >
+              <FlipIcon sx={{ fontSize: 18, transform: 'rotate(90deg)' }} />
             </ToolButton>
           </Tooltip>
         </Box>
