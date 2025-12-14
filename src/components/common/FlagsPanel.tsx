@@ -7,6 +7,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import UndoIcon from '@mui/icons-material/Undo';
 import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 
 const Container = styled(Box)({
   display: 'flex',
@@ -174,6 +176,10 @@ interface FlagsPanelProps {
   onFlagUpdate?: (flagId: string, updates: { label?: string; note?: string }) => void;
   onFlagDelete?: (flagId: string) => void;
   disabled?: boolean;
+  /** Whether flags are visible on the waveform (for toggle icon) */
+  flagsVisibleOnWaveform?: boolean;
+  /** Callback when waveform visibility is toggled */
+  onWaveformVisibilityToggle?: () => void;
 }
 
 const formatTimestamp = (ms: number): string => {
@@ -206,6 +212,8 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
   onFlagUpdate,
   onFlagDelete,
   disabled = false,
+  flagsVisibleOnWaveform = true,
+  onWaveformVisibilityToggle,
 }) => {
   const [expandedFlags, setExpandedFlags] = useState<string[]>([]);
   const [deletedFlag, setDeletedFlag] = useState<Flag | null>(null);
@@ -389,21 +397,42 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
             {isFilterActive ? `(${visibleFlagCount} of ${totalFlagCount})` : `(${totalFlagCount})`}
           </Typography>
         </Box>
-        {derivedUsers.length > 0 && (
-          <Tooltip title="Filter by user">
-            <IconButton
-              size="small"
-              onClick={handleFilterClick}
-              sx={{
-                padding: '4px',
-                color: isFilterActive ? '#19abb5' : '#666',
-                '&:hover': { color: '#19abb5' }
-              }}
-            >
-              <FilterListIcon sx={{ fontSize: 16 }} />
-            </IconButton>
-          </Tooltip>
-        )}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          {onWaveformVisibilityToggle && (
+            <Tooltip title={flagsVisibleOnWaveform ? "Hide flags on waveform" : "Show flags on waveform"}>
+              <IconButton
+                size="small"
+                onClick={onWaveformVisibilityToggle}
+                sx={{
+                  padding: '4px',
+                  color: flagsVisibleOnWaveform ? '#19abb5' : '#666',
+                  '&:hover': { color: '#19abb5' }
+                }}
+              >
+                {flagsVisibleOnWaveform ? (
+                  <VisibilityIcon sx={{ fontSize: 16 }} />
+                ) : (
+                  <VisibilityOffIcon sx={{ fontSize: 16 }} />
+                )}
+              </IconButton>
+            </Tooltip>
+          )}
+          {derivedUsers.length > 0 && (
+            <Tooltip title="Filter by user">
+              <IconButton
+                size="small"
+                onClick={handleFilterClick}
+                sx={{
+                  padding: '4px',
+                  color: isFilterActive ? '#19abb5' : '#666',
+                  '&:hover': { color: '#19abb5' }
+                }}
+              >
+                <FilterListIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
       </Header>
 
       {/* User filter popover */}

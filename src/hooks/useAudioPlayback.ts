@@ -48,6 +48,8 @@ interface UseAudioPlaybackReturn {
   pause: () => void;
   /** Seek to a specific time in seconds */
   seek: (timeInSeconds: number) => void;
+  /** Scrub audio at a specific time (plays short snippet for audible feedback) */
+  scrub: (timeInSeconds: number) => void;
   /** The AnalyserNode for spectrum visualization */
   analyserNode: AnalyserNode | null;
 }
@@ -98,6 +100,11 @@ export function useAudioPlayback({
 
   // Ref to hold the restart function for looping (avoids circular dependency)
   const restartPlaybackRef = useRef<((offset: number) => void) | null>(null);
+
+  // Scrub source node ref (separate from main playback source for scrubbing while paused)
+  const scrubSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const scrubGainRef = useRef<GainNode | null>(null);
+  const scrubTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Playhead store state
   const isPlaying = usePlayheadStore((state) => state.isPlaying);
@@ -683,11 +690,84 @@ export function useAudioPlayback({
     }
   }, [duration, setTimestamp, isPlaying, startPlayback]);
 
+  /**
+   * Scrub function - plays a short audio snippet at the specified position
+   * Used for audible feedback when dragging the playhead while paused
+   */
+  const scrub = useCallback((timeInSeconds: number) => {
+    if (!audioContext || !audioBuffer) return;
+
+    const clampedTime = Math.max(0, Math.min(timeInSeconds, duration));
+    setTimestamp(clampedTime * 1000);
+
+    // If already playing, seek handles the audio update
+    if (isPlaying) {
+      startPlayback(clampedTime);
+      return;
+    }
+
+    // Resume audio context if suspended
+    if (audioContext.state === 'suspended') {
+      audioContext.resume();
+    }
+
+    // Stop any existing scrub playback
+    if (scrubSourceRef.current) {
+      try {
+        scrubSourceRef.current.stop();
+      } catch {
+        // Ignore errors if already stopped
+      }
+      scrubSourceRef.current.disconnect();
+      scrubSourceRef.current = null;
+    }
+
+    // Clear any pending scrub timeout
+    if (scrubTimeoutRef.current) {
+      clearTimeout(scrubTimeoutRef.current);
+      scrubTimeoutRef.current = null;
+    }
+
+    // Create a new scrub source node
+    const scrubSource = audioContext.createBufferSource();
+    scrubSource.buffer = audioBuffer;
+    scrubSource.playbackRate.value = playbackSpeed;
+
+    // Create gain node for scrub if not exists (for fade out)
+    if (!scrubGainRef.current) {
+      scrubGainRef.current = audioContext.createGain();
+      scrubGainRef.current.connect(audioContext.destination);
+    }
+    scrubGainRef.current.gain.setValueAtTime(0.8, audioContext.currentTime);
+
+    // Connect scrub source to gain node (bypassing filters for lower latency)
+    scrubSource.connect(scrubGainRef.current);
+
+    // Start playback at the scrub position
+    const scrubDuration = 0.08; // 80ms snippet
+    scrubSource.start(0, clampedTime, scrubDuration);
+    scrubSourceRef.current = scrubSource;
+
+    // Auto-cleanup after snippet ends
+    scrubTimeoutRef.current = setTimeout(() => {
+      if (scrubSourceRef.current === scrubSource) {
+        try {
+          scrubSource.stop();
+        } catch {
+          // Ignore
+        }
+        scrubSource.disconnect();
+        scrubSourceRef.current = null;
+      }
+    }, scrubDuration * 1000 + 20);
+  }, [audioContext, audioBuffer, duration, isPlaying, playbackSpeed, setTimestamp, startPlayback]);
+
   return {
     isPlaying,
     play,
     pause: pausePlayback,
     seek,
+    scrub,
     analyserNode: analyserNodeRef.current,
   };
 }
