@@ -2258,12 +2258,12 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             </StyledToggleButton>
             <StyledToggleButton value="side-by-side">
               <Tooltip title="Side by Side">
-                <ViewColumnIcon sx={{ fontSize: 16 }} />
+                <CompareIcon sx={{ fontSize: 16 }} />
               </Tooltip>
             </StyledToggleButton>
             <StyledToggleButton value="split">
               <Tooltip title="Split View">
-                <CompareIcon sx={{ fontSize: 16 }} />
+                <ViewColumnIcon sx={{ fontSize: 16 }} />
               </Tooltip>
             </StyledToggleButton>
           </ToggleButtonGroup>
