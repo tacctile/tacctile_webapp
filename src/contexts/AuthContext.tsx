@@ -3,17 +3,24 @@
  * Provides Firebase authentication state and methods throughout the app
  */
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { firebaseAuthService } from '@/services/auth/FirebaseAuthService';
-import { supabaseService } from '@/services/supabase/SupabaseService';
-import { stripeService } from '@/services/billing/StripeService';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
+import { firebaseAuthService } from "@/services/auth/FirebaseAuthService";
+import { supabaseService } from "@/services/supabase/SupabaseService";
+import { stripeService } from "@/services/billing/StripeService";
+import { setSentryUser } from "@/services/monitoring/sentry";
 import type {
   User,
   AuthState,
   AuthCredentials,
   SignUpCredentials,
   Subscription,
-} from '@/types';
+} from "@/types";
 
 // ============================================================================
 // CONTEXT TYPES
@@ -27,8 +34,14 @@ interface AuthContextType extends AuthState {
   signOut: () => Promise<void>;
   sendPasswordResetEmail: (email: string) => Promise<void>;
   resendEmailVerification: () => Promise<void>;
-  updateProfile: (profile: { displayName?: string; photoURL?: string }) => Promise<User>;
-  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  updateProfile: (profile: {
+    displayName?: string;
+    photoURL?: string;
+  }) => Promise<User>;
+  changePassword: (
+    currentPassword: string,
+    newPassword: string,
+  ) => Promise<void>;
   deleteAccount: (password?: string) => Promise<void>;
 
   // Subscription
@@ -73,6 +86,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         firebaseAuthService.onAuthStateChange(async (user) => {
           if (!mounted) return;
 
+          // Set Sentry user context for error tracking
+          setSentryUser(user);
+
           if (user) {
             // Sync user to Supabase
             await supabaseService.upsertUser(user);
@@ -98,7 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       } catch (error) {
         if (!mounted) return;
-        console.error('[AuthContext] Initialization failed:', error);
+        console.error("[AuthContext] Initialization failed:", error);
         setState({
           user: null,
           loading: false,
@@ -129,31 +145,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const signInWithEmail = useCallback(async (credentials: AuthCredentials): Promise<User> => {
-    setState((prev) => ({ ...prev, loading: true, error: null }));
-    try {
-      const user = await firebaseAuthService.signInWithEmail(credentials);
-      return user;
-    } catch (error) {
-      setState((prev) => ({ ...prev, error: (error as Error).message }));
-      throw error;
-    } finally {
-      setState((prev) => ({ ...prev, loading: false }));
-    }
-  }, []);
+  const signInWithEmail = useCallback(
+    async (credentials: AuthCredentials): Promise<User> => {
+      setState((prev) => ({ ...prev, loading: true, error: null }));
+      try {
+        const user = await firebaseAuthService.signInWithEmail(credentials);
+        return user;
+      } catch (error) {
+        setState((prev) => ({ ...prev, error: (error as Error).message }));
+        throw error;
+      } finally {
+        setState((prev) => ({ ...prev, loading: false }));
+      }
+    },
+    [],
+  );
 
-  const signUpWithEmail = useCallback(async (credentials: SignUpCredentials): Promise<User> => {
-    setState((prev) => ({ ...prev, loading: true, error: null }));
-    try {
-      const user = await firebaseAuthService.signUpWithEmail(credentials);
-      return user;
-    } catch (error) {
-      setState((prev) => ({ ...prev, error: (error as Error).message }));
-      throw error;
-    } finally {
-      setState((prev) => ({ ...prev, loading: false }));
-    }
-  }, []);
+  const signUpWithEmail = useCallback(
+    async (credentials: SignUpCredentials): Promise<User> => {
+      setState((prev) => ({ ...prev, loading: true, error: null }));
+      try {
+        const user = await firebaseAuthService.signUpWithEmail(credentials);
+        return user;
+      } catch (error) {
+        setState((prev) => ({ ...prev, error: (error as Error).message }));
+        throw error;
+      } finally {
+        setState((prev) => ({ ...prev, loading: false }));
+      }
+    },
+    [],
+  );
 
   const signOut = useCallback(async (): Promise<void> => {
     setState((prev) => ({ ...prev, loading: true, error: null }));
@@ -167,14 +189,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const sendPasswordResetEmail = useCallback(async (email: string): Promise<void> => {
-    try {
-      await firebaseAuthService.sendPasswordResetEmail(email);
-    } catch (error) {
-      setState((prev) => ({ ...prev, error: (error as Error).message }));
-      throw error;
-    }
-  }, []);
+  const sendPasswordResetEmail = useCallback(
+    async (email: string): Promise<void> => {
+      try {
+        await firebaseAuthService.sendPasswordResetEmail(email);
+      } catch (error) {
+        setState((prev) => ({ ...prev, error: (error as Error).message }));
+        throw error;
+      }
+    },
+    [],
+  );
 
   const resendEmailVerification = useCallback(async (): Promise<void> => {
     try {
@@ -186,7 +211,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const updateProfile = useCallback(
-    async (profile: { displayName?: string; photoURL?: string }): Promise<User> => {
+    async (profile: {
+      displayName?: string;
+      photoURL?: string;
+    }): Promise<User> => {
       try {
         const user = await firebaseAuthService.updateUserProfile(profile);
         await supabaseService.upsertUser(user);
@@ -196,7 +224,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw error;
       }
     },
-    []
+    [],
   );
 
   const changePassword = useCallback(
@@ -208,17 +236,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw error;
       }
     },
-    []
+    [],
   );
 
-  const deleteAccount = useCallback(async (password?: string): Promise<void> => {
-    try {
-      await firebaseAuthService.deleteAccount(password);
-    } catch (error) {
-      setState((prev) => ({ ...prev, error: (error as Error).message }));
-      throw error;
-    }
-  }, []);
+  const deleteAccount = useCallback(
+    async (password?: string): Promise<void> => {
+      try {
+        await firebaseAuthService.deleteAccount(password);
+      } catch (error) {
+        setState((prev) => ({ ...prev, error: (error as Error).message }));
+        throw error;
+      }
+    },
+    [],
+  );
 
   const refreshSubscription = useCallback(async (): Promise<void> => {
     if (!state.user) return;
@@ -257,7 +288,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }
@@ -276,7 +307,7 @@ export function useRequireAuth(): User | null {
   useEffect(() => {
     if (initialized && !loading && !user) {
       // In a real app, redirect to login page
-      console.log('[useRequireAuth] User not authenticated');
+      console.log("[useRequireAuth] User not authenticated");
     }
   }, [user, loading, initialized]);
 
@@ -287,12 +318,12 @@ export function useRequireAuth(): User | null {
 /**
  * Hook to check if user has required subscription tier
  */
-export function useRequireTier(requiredTier: 'pro'): boolean {
+export function useRequireTier(requiredTier: "pro"): boolean {
   const { subscription } = useAuth();
 
   if (!subscription) return false;
-  if (requiredTier === 'pro') {
-    return subscription.tier === 'pro';
+  if (requiredTier === "pro") {
+    return subscription.tier === "pro";
   }
   return true;
 }
