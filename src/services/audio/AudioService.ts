@@ -372,3 +372,6 @@ class AudioService {
 // Export singleton instance
 export const audioService = new AudioService();
 export default audioService;
+
+// Export class for testing
+export { AudioService };
