@@ -331,6 +331,29 @@ At the start of each new chat, after receiving this document and the Current Sta
 3. Any blockers or issues encountered
 4. Where we left off
 
+Testing Requirements
+Every feature prompt sent to Claude Code must include test scenarios. Before merging any implementation:
+
+Unit tests exist - Stores, services, and utilities have corresponding test files
+Component tests exist - User interactions are verified programmatically
+All tests pass - npm test shows green before merge
+Coverage maintained - New code maintains 80% coverage threshold
+
+When writing prompts for Claude Code, include in EXPLICIT REQUIREMENTS:
+TESTING REQUIREMENTS:
+- Create [feature].test.ts/.tsx in appropriate __tests__ directory
+- Test: [specific scenario 1]
+- Test: [specific scenario 2]
+- Test: [specific scenario 3]
+- Ensure all tests pass before completion
+When testing manually on Vercel preview:
+
+Run automated tests first: npm test
+Then manually verify visual/interaction behavior
+Only merge if both automated and manual tests pass
+
+Exception: UI polish (colors, spacing, animations) can be merged without tests if core logic is already tested.
+
 Do not ask permission to search. Do not summarize that you searched. Just retrieve the context and proceed as if you remember the previous sessions.
 
 If the previous conversations contain relevant context, weave it into your responses naturally. If there's a contradiction between old decisions and new requests, flag it briefly.
