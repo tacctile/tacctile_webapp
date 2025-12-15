@@ -10,10 +10,13 @@
     "preview": "vite preview",
     "lint": "eslint --ext .ts,.tsx .",
     "type-check": "tsc --noEmit",
-    "test": "npm run lint && npm run type-check",
-    "test:unit": "vitest",
-    "test:unit:watch": "vitest --watch",
-    "test:unit:coverage": "vitest --coverage"
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:all": "npm run test && npm run test:e2e"
   },
   "keywords": [
     "field",
@@ -102,6 +105,11 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.1",
+    "@testing-library/user-event": "^14.6.1",
     "@types/leaflet": "^1.9.20",
     "@types/lodash": "^4.17.20",
     "@types/paper": "^0.11.14",
@@ -113,9 +121,11 @@
     "@typescript-eslint/parser": "^8.16.0",
     "@vitejs/plugin-react": "^4.3.4",
     "@vitest/coverage-v8": "^2.1.8",
+    "@vitest/ui": "^4.0.15",
     "eslint": "^8.57.1",
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.16",
+    "jsdom": "^27.3.0",
     "typescript": "~5.7.2",
     "vite": "^6.0.7",
     "vite-plugin-pwa": "^0.21.1",
