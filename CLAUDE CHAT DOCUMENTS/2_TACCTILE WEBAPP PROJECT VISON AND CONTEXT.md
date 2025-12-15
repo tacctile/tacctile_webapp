@@ -111,6 +111,32 @@ This section defines the exact format for all prompts sent to Claude Code web se
 
 ---
 
+Claude Code Session Management
+CRITICAL: Every prompt runs in a completely fresh Claude Code session with zero memory of previous sessions.
+What this means:
+
+Claude Code session 1 creates tests → merge → close session
+Claude Code session 2 adds CI/CD → has no idea tests were added in session 1
+Claude Code session 3 enhances monitoring → has no idea sessions 1 or 2 happened
+
+Why this matters for prompt writing:
+
+Never reference "the tests we just wrote" (Claude Code doesn't know about them)
+Never say "using the CI workflow from earlier" (it doesn't exist in memory)
+Always include full context: "Testing infrastructure exists (166 tests in src/**/tests/), vitest configured"
+
+The workflow:
+
+New Claude Code session → paste prompt → wait for completion
+Review output → test locally → push to GitHub → merge
+Close that session completely
+Open brand new Claude Code session for next prompt
+Repeat
+
+Never assume continuity between Claude Code sessions. Each one starts from a blank slate and only knows what's in the actual codebase files.
+
+---
+
 ## Prompt Structure
 
 Every prompt must contain these sections in this exact order:
