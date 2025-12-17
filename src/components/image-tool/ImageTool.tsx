@@ -847,7 +847,6 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const storeCanUndo = useImageToolStore((state) => state.canUndo);
   const storeCanRedo = useImageToolStore((state) => state.canRedo);
   const clearAnnotations = useImageToolStore((state) => state.clearAnnotations);
-  const adjustments = useImageToolStore((state) => state.adjustments);
 
   // Drawing state for annotation in progress
   const [isDrawingAnnotation, setIsDrawingAnnotation] = useState(false);
@@ -1297,28 +1296,27 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   );
 
   // Build CSS filter string for exposure and contrast adjustments
-  // Exposure/Contrast values are -100 to +100, convert to CSS filter values:
-  // - brightness(1) = no change, brightness(0.5) = -100, brightness(1.5) = +100
-  // - contrast(1) = no change, contrast(0.5) = -100, contrast(1.5) = +100
+  // Exposure slider: -5 to +5 → brightness 0.5 to 1.5
+  // Contrast slider: -100 to +100 → contrast 0.5 to 1.5
   const getImageFilter = useCallback(() => {
-    const filters: string[] = [];
+    const cssFilters: string[] = [];
 
-    // Convert exposure (-100 to +100) to brightness (0.5 to 1.5)
-    // 0 → 1, -100 → 0.5, +100 → 1.5
-    if (adjustments.exposure !== 0) {
-      const brightness = 1 + adjustments.exposure / 200;
-      filters.push(`brightness(${brightness})`);
+    // Convert exposure (-5 to +5) to brightness (0.5 to 1.5)
+    // 0 → 1, -5 → 0.5, +5 → 1.5
+    if (filters.exposure !== 0) {
+      const brightness = 1 + filters.exposure / 10;
+      cssFilters.push(`brightness(${brightness})`);
     }
 
     // Convert contrast (-100 to +100) to contrast (0.5 to 1.5)
     // 0 → 1, -100 → 0.5, +100 → 1.5
-    if (adjustments.contrast !== 0) {
-      const contrast = 1 + adjustments.contrast / 200;
-      filters.push(`contrast(${contrast})`);
+    if (filters.contrast !== 0) {
+      const contrast = 1 + filters.contrast / 200;
+      cssFilters.push(`contrast(${contrast})`);
     }
 
-    return filters.length > 0 ? filters.join(" ") : "none";
-  }, [adjustments.exposure, adjustments.contrast]);
+    return cssFilters.length > 0 ? cssFilters.join(" ") : "none";
+  }, [filters.exposure, filters.contrast]);
 
   // Toggle annotation visibility using store
   const toggleAnnotationVisibility = useCallback(
