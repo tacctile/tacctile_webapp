@@ -1264,8 +1264,13 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       const childExports = exportsByParent.get(item.id) || [];
 
       // Add the item with version information
+      // Use real annotation count from state (falls back to static flagCount for unvisited images)
+      const realFlagCount =
+        annotationCountsPerImage.get(item.id) ?? (item as ImageFileType).flagCount ?? 0;
+
       const itemWithVersions: GalleryItemWithVersions = {
         ...(item as ImageFileType),
+        flagCount: realFlagCount,
         versions: childExports,
         versionCount: 1 + childExports.length, // Original + exports
       };
@@ -1277,7 +1282,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     // This is intentional - exports should always have a parent
 
     return result;
-  }, [importedImages, deletedImageIds]);
+  }, [importedImages, deletedImageIds, annotationCountsPerImage]);
 
   // Keep sortedGalleryItems for backward compatibility (FileLibrary still uses flat list)
   const sortedGalleryItems = useMemo(() => {
@@ -1406,6 +1411,15 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [editingAnnotationColor, setEditingAnnotationColor] =
     useState<string>("");
 
+  // Custom color picker state
+  const [colorPickerAnchorEl, setColorPickerAnchorEl] =
+    useState<HTMLElement | null>(null);
+  const [customColorHue, setCustomColorHue] = useState(180); // Default cyan hue
+  const [customColorSaturation, setCustomColorSaturation] = useState(80);
+  const [customColorLightness, setCustomColorLightness] = useState(50);
+  // User's saved custom color (persists across annotations)
+  const [userCustomColor, setUserCustomColor] = useState<string | null>(null);
+
   const [splitPosition, setSplitPosition] = useState(50);
   const [isDraggingSplit, setIsDraggingSplit] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false); // A/B toggle state
@@ -1526,6 +1540,11 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     new Map(),
   );
 
+  // State to track annotation counts per image (for reactive flag badge updates)
+  const [annotationCountsPerImage, setAnnotationCountsPerImage] = useState<
+    Map<string, number>
+  >(new Map());
+
   // Divider state for filters/annotations split (percentage for filters section)
   const [sectionDividerPosition, setSectionDividerPosition] = useState(60); // 60% for filters
   const [isDraggingDivider, setIsDraggingDivider] = useState(false);
@@ -1613,11 +1632,24 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
   // Keep the annotations map in sync whenever annotations change for the current image
   useEffect(() => {
-    if (loadedImage?.id && storeAnnotations.length > 0) {
-      annotationsPerImageRef.current.set(
-        loadedImage.id,
-        JSON.parse(JSON.stringify(storeAnnotations)),
-      );
+    if (loadedImage?.id) {
+      // Update the ref
+      if (storeAnnotations.length > 0) {
+        annotationsPerImageRef.current.set(
+          loadedImage.id,
+          JSON.parse(JSON.stringify(storeAnnotations)),
+        );
+      } else {
+        // Remove from ref if no annotations
+        annotationsPerImageRef.current.delete(loadedImage.id);
+      }
+
+      // Update the annotation counts state (triggers re-render for flag badges)
+      setAnnotationCountsPerImage((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(loadedImage.id, storeAnnotations.length);
+        return newMap;
+      });
     }
   }, [loadedImage?.id, storeAnnotations]);
 
@@ -2284,7 +2316,107 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     setEditingAnnotationNotes("");
     setEditingAnnotationColor("");
     setEditPopoverAnchorEl(null);
+    setColorPickerAnchorEl(null);
   }, []);
+
+  // Convert HSL to hex color
+  const hslToHex = useCallback(
+    (h: number, s: number, l: number): string => {
+      s /= 100;
+      l /= 100;
+      const c = (1 - Math.abs(2 * l - 1)) * s;
+      const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+      const m = l - c / 2;
+      let r = 0,
+        g = 0,
+        b = 0;
+
+      if (0 <= h && h < 60) {
+        r = c;
+        g = x;
+        b = 0;
+      } else if (60 <= h && h < 120) {
+        r = x;
+        g = c;
+        b = 0;
+      } else if (120 <= h && h < 180) {
+        r = 0;
+        g = c;
+        b = x;
+      } else if (180 <= h && h < 240) {
+        r = 0;
+        g = x;
+        b = c;
+      } else if (240 <= h && h < 300) {
+        r = x;
+        g = 0;
+        b = c;
+      } else if (300 <= h && h < 360) {
+        r = c;
+        g = 0;
+        b = x;
+      }
+
+      const toHex = (n: number) => {
+        const hex = Math.round((n + m) * 255).toString(16);
+        return hex.length === 1 ? "0" + hex : hex;
+      };
+
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    },
+    [],
+  );
+
+  // Get preview color from HSL values
+  const getCustomColorPreview = useCallback(() => {
+    return hslToHex(customColorHue, customColorSaturation, customColorLightness);
+  }, [customColorHue, customColorSaturation, customColorLightness, hslToHex]);
+
+  // Open color picker
+  const handleOpenColorPicker = useCallback(
+    (e: React.MouseEvent<HTMLElement>) => {
+      setColorPickerAnchorEl(e.currentTarget);
+    },
+    [],
+  );
+
+  // Close color picker
+  const handleCloseColorPicker = useCallback(() => {
+    setColorPickerAnchorEl(null);
+  }, []);
+
+  // Apply custom color and save as user default
+  const handleApplyCustomColor = useCallback(() => {
+    const newColor = getCustomColorPreview();
+    setEditingAnnotationColor(newColor);
+    setUserCustomColor(newColor);
+    setColorPickerAnchorEl(null);
+
+    // Update all annotations by the same user to use this new color
+    if (editingAnnotationId) {
+      const currentAnnotation = storeAnnotations.find(
+        (a) => a.id === editingAnnotationId,
+      );
+      if (currentAnnotation) {
+        const userAnnotations = storeAnnotations.filter(
+          (a) =>
+            a.userId === currentAnnotation.userId &&
+            a.id !== editingAnnotationId,
+        );
+        pushHistory("Update user color");
+        // Update all other annotations by this user
+        userAnnotations.forEach((ann) => {
+          updateAnnotation(ann.id, { color: newColor });
+        });
+      }
+    }
+  }, [
+    getCustomColorPreview,
+    editingAnnotationId,
+    storeAnnotations,
+    pushHistory,
+    updateAnnotation,
+  ]);
 
   const handleDeleteAnnotation = useCallback(
     (id: string) => {
@@ -3907,8 +4039,41 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       );
       if (!annotation || annotation.locked) return;
 
-      const deltaX = coords.normalizedX - annotationDragStart.mouseX;
-      const deltaY = coords.normalizedY - annotationDragStart.mouseY;
+      // Raw delta in screen/display space
+      let deltaX = coords.normalizedX - annotationDragStart.mouseX;
+      let deltaY = coords.normalizedY - annotationDragStart.mouseY;
+
+      // Apply inverse transform to convert screen delta to image space delta
+      // When image is rotated/flipped, screen movement must be mapped to image coordinates
+
+      // First, handle rotation (apply inverse rotation to delta)
+      // Rotation is clockwise: 90° means image top edge is now on the right
+      // So dragging right in screen space = dragging down in image space
+      if (rotation === 90) {
+        // Screen right (+X) → Image down (+Y), Screen down (+Y) → Image left (-X)
+        const temp = deltaX;
+        deltaX = -deltaY;
+        deltaY = temp;
+      } else if (rotation === 180) {
+        // Screen right (+X) → Image left (-X), Screen down (+Y) → Image up (-Y)
+        deltaX = -deltaX;
+        deltaY = -deltaY;
+      } else if (rotation === 270) {
+        // Screen right (+X) → Image up (-Y), Screen down (+Y) → Image right (+X)
+        const temp = deltaX;
+        deltaX = deltaY;
+        deltaY = -temp;
+      }
+
+      // Then, handle flips (apply inverse flip to delta)
+      // If image is flipped horizontally, screen right movement should still move annotation right visually
+      // But in image space (which is flipped), that means moving left
+      if (flipH) {
+        deltaX = -deltaX;
+      }
+      if (flipV) {
+        deltaY = -deltaY;
+      }
 
       if (isDraggingAnnotation) {
         // Moving the annotation
@@ -4060,6 +4225,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     screenToImageCoords,
     storeAnnotations,
     updateAnnotation,
+    rotation,
+    flipH,
+    flipV,
   ]);
 
   // Re-constrain pan when zoom changes
@@ -5933,7 +6101,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                 <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
                   Color
                 </Typography>
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, alignItems: "center" }}>
                   {ANNOTATION_COLORS.map((colorOption) => (
                     <Tooltip
                       key={colorOption.value}
@@ -5966,8 +6134,213 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                       />
                     </Tooltip>
                   ))}
+                  {/* Custom color picker button (rainbow) */}
+                  <Tooltip title="Custom color" placement="top">
+                    <Box
+                      onClick={handleOpenColorPicker}
+                      sx={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: "50%",
+                        background:
+                          "conic-gradient(red, yellow, lime, aqua, blue, magenta, red)",
+                        cursor: "pointer",
+                        border:
+                          userCustomColor &&
+                          editingAnnotationColor === userCustomColor
+                            ? "2px solid #fff"
+                            : "2px solid transparent",
+                        boxShadow:
+                          userCustomColor &&
+                          editingAnnotationColor === userCustomColor
+                            ? "0 0 0 1px #19abb5"
+                            : "none",
+                        transition: "all 0.15s ease",
+                        "&:hover": {
+                          transform: "scale(1.1)",
+                        },
+                      }}
+                    />
+                  </Tooltip>
                 </Box>
               </Box>
+
+              {/* Color Picker Popover */}
+              <Popover
+                open={Boolean(colorPickerAnchorEl)}
+                anchorEl={colorPickerAnchorEl}
+                onClose={handleCloseColorPicker}
+                anchorOrigin={{
+                  vertical: "bottom",
+                  horizontal: "left",
+                }}
+                transformOrigin={{
+                  vertical: "top",
+                  horizontal: "left",
+                }}
+                slotProps={{
+                  paper: {
+                    sx: {
+                      backgroundColor: "#1a1a1a",
+                      border: "1px solid #333",
+                      borderRadius: 1,
+                      p: 1.5,
+                      width: 180,
+                    },
+                  },
+                }}
+              >
+                {/* Hue slider (color wheel representation) */}
+                <Box sx={{ mb: 1.5 }}>
+                  <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
+                    Hue
+                  </Typography>
+                  <Box
+                    sx={{
+                      position: "relative",
+                      height: 16,
+                      borderRadius: 1,
+                      background:
+                        "linear-gradient(to right, red, yellow, lime, aqua, blue, magenta, red)",
+                      cursor: "pointer",
+                    }}
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const x = e.clientX - rect.left;
+                      const hue = Math.round((x / rect.width) * 360);
+                      setCustomColorHue(Math.max(0, Math.min(360, hue)));
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        top: -2,
+                        left: `${(customColorHue / 360) * 100}%`,
+                        transform: "translateX(-50%)",
+                        width: 6,
+                        height: 20,
+                        backgroundColor: "#fff",
+                        borderRadius: 0.5,
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.5)",
+                        pointerEvents: "none",
+                      }}
+                    />
+                  </Box>
+                </Box>
+
+                {/* Saturation slider */}
+                <Box sx={{ mb: 1.5 }}>
+                  <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
+                    Saturation
+                  </Typography>
+                  <Box
+                    sx={{
+                      position: "relative",
+                      height: 16,
+                      borderRadius: 1,
+                      background: `linear-gradient(to right, hsl(${customColorHue}, 0%, ${customColorLightness}%), hsl(${customColorHue}, 100%, ${customColorLightness}%))`,
+                      cursor: "pointer",
+                    }}
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const x = e.clientX - rect.left;
+                      const sat = Math.round((x / rect.width) * 100);
+                      setCustomColorSaturation(Math.max(0, Math.min(100, sat)));
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        top: -2,
+                        left: `${customColorSaturation}%`,
+                        transform: "translateX(-50%)",
+                        width: 6,
+                        height: 20,
+                        backgroundColor: "#fff",
+                        borderRadius: 0.5,
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.5)",
+                        pointerEvents: "none",
+                      }}
+                    />
+                  </Box>
+                </Box>
+
+                {/* Lightness slider */}
+                <Box sx={{ mb: 1.5 }}>
+                  <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
+                    Lightness
+                  </Typography>
+                  <Box
+                    sx={{
+                      position: "relative",
+                      height: 16,
+                      borderRadius: 1,
+                      background: `linear-gradient(to right, hsl(${customColorHue}, ${customColorSaturation}%, 0%), hsl(${customColorHue}, ${customColorSaturation}%, 50%), hsl(${customColorHue}, ${customColorSaturation}%, 100%))`,
+                      cursor: "pointer",
+                    }}
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const x = e.clientX - rect.left;
+                      const light = Math.round((x / rect.width) * 100);
+                      setCustomColorLightness(Math.max(0, Math.min(100, light)));
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        top: -2,
+                        left: `${customColorLightness}%`,
+                        transform: "translateX(-50%)",
+                        width: 6,
+                        height: 20,
+                        backgroundColor: "#fff",
+                        borderRadius: 0.5,
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.5)",
+                        pointerEvents: "none",
+                      }}
+                    />
+                  </Box>
+                </Box>
+
+                {/* Preview swatch */}
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    mb: 1.5,
+                  }}
+                >
+                  <Typography sx={{ fontSize: 9, color: "#666" }}>
+                    Preview:
+                  </Typography>
+                  <Box
+                    sx={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: "50%",
+                      backgroundColor: getCustomColorPreview(),
+                      border: "2px solid #444",
+                    }}
+                  />
+                </Box>
+
+                {/* Apply button */}
+                <Button
+                  size="small"
+                  variant="contained"
+                  fullWidth
+                  onClick={handleApplyCustomColor}
+                  sx={{
+                    fontSize: 10,
+                    backgroundColor: "#19abb5",
+                    py: 0.5,
+                    "&:hover": { backgroundColor: "#15959e" },
+                  }}
+                >
+                  Apply Color
+                </Button>
+              </Popover>
               <Box
                 sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}
               >
@@ -6526,7 +6899,8 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             backgroundColor: "#1a1a1a",
             border: "1px solid #333",
             borderRadius: 2,
-            minWidth: 340,
+            width: 360,
+            minHeight: 320,
           },
         }}
       >
@@ -6587,22 +6961,23 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               />
             </RadioGroup>
           </FormControl>
-          {exportWithAnnotations && (
-            <Box
-              sx={{
-                mt: 2,
-                p: 1.5,
-                backgroundColor: "rgba(255, 180, 0, 0.1)",
-                border: "1px solid rgba(255, 180, 0, 0.3)",
-                borderRadius: 1,
-              }}
-            >
-              <Typography sx={{ fontSize: 11, color: "#ffb400" }}>
-                Annotations will be permanently baked into the exported image
-                and cannot be removed.
-              </Typography>
-            </Box>
-          )}
+          {/* Warning box - always rendered to maintain fixed dialog size */}
+          <Box
+            sx={{
+              mt: 2,
+              p: 1.5,
+              backgroundColor: "rgba(255, 180, 0, 0.1)",
+              border: "1px solid rgba(255, 180, 0, 0.3)",
+              borderRadius: 1,
+              opacity: exportWithAnnotations ? 1 : 0,
+              transition: "opacity 0.15s ease",
+            }}
+          >
+            <Typography sx={{ fontSize: 11, color: "#ffb400" }}>
+              Annotations will be permanently baked into the exported image
+              and cannot be removed.
+            </Typography>
+          </Box>
           <Typography
             sx={{ fontSize: 11, color: "#666", mt: 2, fontStyle: "italic" }}
           >
