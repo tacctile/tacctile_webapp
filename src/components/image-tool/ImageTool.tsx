@@ -442,7 +442,7 @@ const StackedGridItem = styled(Box)<{
   cursor: "pointer",
   overflow: "visible",
   // Only selected image has a border - no glow for flagged images
-  border: selected ? "2px solid #19abb5" : "2px solid transparent",
+  border: selected ? "3px solid #19abb5" : "3px solid transparent",
   transition: "all 0.2s ease",
   // Stack effect pseudo-elements for items with versions
   ...(hasVersions && {
@@ -4881,38 +4881,18 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                             >
                               {annotation.userDisplayName}
                             </Typography>
-                            <Box
+                            <Typography
                               sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 0.5,
+                                fontSize: 11,
+                                color: "#ccc",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
                               }}
                             >
-                              <Typography
-                                sx={{
-                                  fontSize: 11,
-                                  color: "#ccc",
-                                  whiteSpace: "nowrap",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  flex: 1,
-                                  minWidth: 0,
-                                }}
-                              >
-                                {annotation.label ||
-                                  `${annotation.type.charAt(0).toUpperCase() + annotation.type.slice(1)}`}
-                              </Typography>
-                              {/* Notes indicator icon - only shown if notes exist */}
-                              {annotation.notes && (
-                                <DescriptionOutlinedIcon
-                                  sx={{
-                                    fontSize: 14,
-                                    color: "#888",
-                                    flexShrink: 0,
-                                  }}
-                                />
-                              )}
-                            </Box>
+                              {annotation.label ||
+                                `${annotation.type.charAt(0).toUpperCase() + annotation.type.slice(1)}`}
+                            </Typography>
                           </Box>
                           {/* Action icons */}
                           <Box
@@ -4922,6 +4902,18 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                               gap: 0.25,
                             }}
                           >
+                            {/* Notes indicator icon - only shown if notes exist */}
+                            {annotation.notes && (
+                              <Tooltip title="Has notes">
+                                <DescriptionOutlinedIcon
+                                  sx={{
+                                    fontSize: 14,
+                                    color: "#888",
+                                    flexShrink: 0,
+                                  }}
+                                />
+                              </Tooltip>
+                            )}
                             <Tooltip
                               title={annotation.visible ? "Hide" : "Show"}
                             >
