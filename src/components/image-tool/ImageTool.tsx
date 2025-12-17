@@ -1355,6 +1355,34 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       cssFilters.push(`hue-rotate(${tintHueRotate}deg)`);
     }
 
+    // Highlights slider: -100 to +100
+    // Approximation: brightness + inverse contrast
+    // Positive: brighten with reduced contrast (simulates targeting bright areas)
+    // Negative: darken with increased contrast (pulls back blown highlights)
+    // At 0: no effect
+    if (filters.highlights !== 0) {
+      // Brightness: 0.8 (at -100) to 1.2 (at +100)
+      const highlightsBrightness = 1 + (filters.highlights / 100) * 0.2;
+      // Contrast: 1.15 (at -100) to 0.85 (at +100) — inverted relationship
+      const highlightsContrast = 1 - (filters.highlights / 100) * 0.15;
+      cssFilters.push(`brightness(${highlightsBrightness})`);
+      cssFilters.push(`contrast(${highlightsContrast})`);
+    }
+
+    // Shadows slider: -100 to +100
+    // Approximation: brightness + subtle contrast
+    // Positive: lift shadows (brightness up, slight contrast boost to maintain punch)
+    // Negative: crush shadows (brightness down, slight contrast reduction)
+    // At 0: no effect
+    if (filters.shadows !== 0) {
+      // Brightness: 0.7 (at -100) to 1.3 (at +100)
+      const shadowsBrightness = 1 + (filters.shadows / 100) * 0.3;
+      // Contrast: 0.9 (at -100) to 1.1 (at +100)
+      const shadowsContrast = 1 + (filters.shadows / 100) * 0.1;
+      cssFilters.push(`brightness(${shadowsBrightness})`);
+      cssFilters.push(`contrast(${shadowsContrast})`);
+    }
+
     return cssFilters.length > 0 ? cssFilters.join(" ") : "none";
   }, [
     filters.exposure,
@@ -1363,6 +1391,8 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     filters.vibrance,
     filters.temperature,
     filters.tint,
+    filters.highlights,
+    filters.shadows,
   ]);
 
   // Toggle annotation visibility using store
