@@ -1168,9 +1168,17 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   // State for locally imported images (added to gallery with 'local' source badge)
   const [importedImages, setImportedImages] = useState<typeof imageFiles>([]);
 
+  // Track deleted image IDs (for filtering out from both imageFiles and importedImages)
+  const [deletedImageIds, setDeletedImageIds] = useState<Set<string>>(
+    new Set(),
+  );
+
   // Gallery items with version stacking: exports are hidden from main list but tracked on their originals
   const galleryItemsWithVersions = useMemo((): GalleryItemWithVersions[] => {
-    const allItems = [...imageFiles, ...importedImages];
+    // Filter out deleted items from all sources
+    const allItems = [...imageFiles, ...importedImages].filter(
+      (item) => !deletedImageIds.has(item.id),
+    );
     const result: GalleryItemWithVersions[] = [];
     const exportsByParent = new Map<string, ImageFileType[]>();
 
@@ -1212,12 +1220,15 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     // This is intentional - exports should always have a parent
 
     return result;
-  }, [importedImages]);
+  }, [importedImages, deletedImageIds]);
 
   // Keep sortedGalleryItems for backward compatibility (FileLibrary still uses flat list)
   const sortedGalleryItems = useMemo(() => {
     // For non-image types or any component that needs the flat list with exports
-    const allItems = [...imageFiles, ...importedImages];
+    // Filter out deleted items from all sources
+    const allItems = [...imageFiles, ...importedImages].filter(
+      (item) => !deletedImageIds.has(item.id),
+    );
     const result: typeof imageFiles = [];
     const exportsByParent = new Map<string, typeof imageFiles>();
 
@@ -1254,7 +1265,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     });
 
     return result;
-  }, [importedImages]);
+  }, [importedImages, deletedImageIds]);
 
   const [viewMode, setViewMode] = useState<ViewMode>("single");
   const [activeTool, setActiveTool] = useState<AnnotationTool>(null);
@@ -1594,7 +1605,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const handleConfirmDeleteExport = useCallback(() => {
     if (!exportToDelete) return;
 
-    // Remove the export from importedImages state
+    // Add to deleted IDs set (works for both imageFiles and importedImages)
+    setDeletedImageIds((prev) => new Set([...prev, exportToDelete.id]));
+
+    // Also remove from importedImages state (for dynamically added exports)
     setImportedImages((prev) =>
       prev.filter((img) => img.id !== exportToDelete.id),
     );
