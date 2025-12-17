@@ -4292,38 +4292,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       );
       if (!annotation || annotation.locked) return;
 
-      // Raw delta in screen/display space
-      let deltaX = coords.normalizedX - annotationDragStart.mouseX;
-      let deltaY = coords.normalizedY - annotationDragStart.mouseY;
-
-      // Apply correct coordinate transformation based on rotation
-      // The annotation should follow the mouse cursor visually, regardless of image rotation
-      // Transform delta from display space to image space
-      if (rotation === 90) {
-        // 90° CW: deltaX becomes deltaY, deltaY becomes -deltaX
-        const temp = deltaX;
-        deltaX = deltaY;
-        deltaY = -temp;
-      } else if (rotation === 180) {
-        // 180°: deltaX becomes -deltaX, deltaY becomes -deltaY
-        deltaX = -deltaX;
-        deltaY = -deltaY;
-      } else if (rotation === 270) {
-        // 270° CW: deltaX becomes -deltaY, deltaY becomes deltaX
-        const temp = deltaX;
-        deltaX = -deltaY;
-        deltaY = temp;
-      }
-
-      // Then, handle flips (apply inverse flip to delta)
-      // If image is flipped horizontally, screen right movement should still move annotation right visually
-      // But in image space (which is flipped), that means moving left
-      if (flipH) {
-        deltaX = -deltaX;
-      }
-      if (flipV) {
-        deltaY = -deltaY;
-      }
+      // Delta in image space - screenToImageCoords already applies inverse rotation/flip
+      const deltaX = coords.normalizedX - annotationDragStart.mouseX;
+      const deltaY = coords.normalizedY - annotationDragStart.mouseY;
 
       if (isDraggingAnnotation) {
         // Moving the annotation
