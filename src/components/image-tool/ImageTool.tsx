@@ -665,13 +665,17 @@ const VersionsModalItemInfo = styled(Box)({
 type ViewMode = "single" | "side-by-side" | "split";
 type AnnotationTool = "rectangle" | "circle" | "arrow" | null;
 
-// History entry for undo/redo - captures both filters and transforms
-interface EditHistoryEntry {
-  filters: ImageFilters;
-  rotation: 0 | 90 | 180 | 270;
-  flipH: boolean;
-  flipV: boolean;
-}
+// Type-based history entries for undo/redo - each action type tracked separately
+type HistoryEntry =
+  | { type: 'rotate'; before: 0 | 90 | 180 | 270; after: 0 | 90 | 180 | 270 }
+  | { type: 'flip_horizontal'; before: boolean; after: boolean }
+  | { type: 'flip_vertical'; before: boolean; after: boolean }
+  | { type: 'filter_change'; beforeFilters: ImageFilters; afterFilters: ImageFilters }
+  | { type: 'annotation_draw'; annotation: ImageAnnotation & { color?: string; strokeWidth?: number; userId?: string; userDisplayName?: string; label?: string; visible?: boolean; locked?: boolean; createdAt?: Date; updatedAt?: Date } }
+  | { type: 'annotation_move'; id: string; before: { x: number; y: number; centerX?: number; centerY?: number; startX?: number; startY?: number; endX?: number; endY?: number }; after: { x: number; y: number; centerX?: number; centerY?: number; startX?: number; startY?: number; endX?: number; endY?: number } }
+  | { type: 'annotation_resize'; id: string; before: { x?: number; y?: number; width?: number; height?: number; centerX?: number; centerY?: number; radiusX?: number; radiusY?: number; startX?: number; startY?: number; endX?: number; endY?: number }; after: { x?: number; y?: number; width?: number; height?: number; centerX?: number; centerY?: number; radiusX?: number; radiusY?: number; startX?: number; startY?: number; endX?: number; endY?: number } }
+  | { type: 'annotation_delete'; annotation: ImageAnnotation & { color?: string; strokeWidth?: number; userId?: string; userDisplayName?: string; label?: string; visible?: boolean; locked?: boolean; createdAt?: Date; updatedAt?: Date } }
+  | { type: 'annotation_color'; id: string; before: string; after: string };
 
 const MAX_HISTORY_DEPTH = 20;
 
@@ -1425,6 +1429,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [customColorLightness, setCustomColorLightness] = useState(50);
   // User's saved custom color (persists across annotations)
   const [userCustomColor, setUserCustomColor] = useState<string | null>(null);
+  // Track which color slider is being dragged for live updates
+  const [draggingColorSlider, setDraggingColorSlider] = useState<'hue' | 'saturation' | 'lightness' | null>(null);
+  const colorSliderRef = useRef<HTMLDivElement | null>(null);
 
   const [splitPosition, setSplitPosition] = useState(50);
   const [isDraggingSplit, setIsDraggingSplit] = useState(false);
@@ -1435,11 +1442,12 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [flipH, setFlipH] = useState(false);
   const [flipV, setFlipV] = useState(false);
 
-  // Undo/redo stacks for filters and transforms (20-step limit)
-  // undoStack: states we can undo TO (the "before" states)
-  // redoStack: states we can redo TO (states that were undone)
-  const [undoStack, setUndoStack] = useState<EditHistoryEntry[]>([]);
-  const [redoStack, setRedoStack] = useState<EditHistoryEntry[]>([]);
+  // Unified undo/redo stacks for all actions (20-step limit)
+  // Each entry tracks a specific action type with before/after state
+  // undoStack: actions that can be undone (in order, newest at end)
+  // redoStack: actions that were undone and can be redone
+  const [undoStack, setUndoStack] = useState<HistoryEntry[]>([]);
+  const [redoStack, setRedoStack] = useState<HistoryEntry[]>([]);
 
   // Ref to track filter state when slider drag starts (for capturing history on release)
   const filterDragStartRef = useRef<ImageFilters | null>(null);
@@ -2077,122 +2085,144 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     setFilters(defaultFilters);
   };
 
-  // Helper to push current state to undo stack (called BEFORE making changes)
-  // This captures the "before" state so undo can restore it
-  const pushToUndoStack = useCallback(
-    (
-      beforeFilters: ImageFilters,
-      beforeRotation: 0 | 90 | 180 | 270,
-      beforeFlipH: boolean,
-      beforeFlipV: boolean,
-    ) => {
-      const entry: EditHistoryEntry = {
-        filters: { ...beforeFilters },
-        rotation: beforeRotation,
-        flipH: beforeFlipH,
-        flipV: beforeFlipV,
-      };
+  // Helper to push a history entry to undo stack
+  const pushHistoryEntry = useCallback((entry: HistoryEntry) => {
+    setUndoStack((prev) => {
+      const newStack = [...prev, entry];
+      // Limit to MAX_HISTORY_DEPTH (20 entries)
+      if (newStack.length > MAX_HISTORY_DEPTH) {
+        return newStack.slice(-MAX_HISTORY_DEPTH);
+      }
+      return newStack;
+    });
+    // Clear redo stack when making a new edit (standard undo behavior)
+    setRedoStack([]);
+  }, []);
 
-      setUndoStack((prev) => {
-        const newStack = [...prev, entry];
-        // Limit to MAX_HISTORY_DEPTH (20 entries)
-        if (newStack.length > MAX_HISTORY_DEPTH) {
-          return newStack.slice(-MAX_HISTORY_DEPTH);
-        }
-        return newStack;
-      });
-
-      // Clear redo stack when making a new edit (standard undo behavior)
-      setRedoStack([]);
-    },
-    [],
-  );
-
-  // Transform handlers - instant, CSS-based transforms
-  // Each captures current state BEFORE the change
+  // Transform handlers - instant, CSS-based transforms with type-based history
   const handleRotateCW = useCallback(() => {
-    pushToUndoStack(filters, rotation, flipH, flipV);
-    setRotation((prev) => ((prev + 90) % 360) as 0 | 90 | 180 | 270);
-  }, [pushToUndoStack, filters, rotation, flipH, flipV]);
+    const before = rotation;
+    const after = ((rotation + 90) % 360) as 0 | 90 | 180 | 270;
+    pushHistoryEntry({ type: 'rotate', before, after });
+    setRotation(after);
+  }, [pushHistoryEntry, rotation]);
 
   const handleRotateCCW = useCallback(() => {
-    pushToUndoStack(filters, rotation, flipH, flipV);
-    setRotation((prev) => ((prev - 90 + 360) % 360) as 0 | 90 | 180 | 270);
-  }, [pushToUndoStack, filters, rotation, flipH, flipV]);
+    const before = rotation;
+    const after = ((rotation - 90 + 360) % 360) as 0 | 90 | 180 | 270;
+    pushHistoryEntry({ type: 'rotate', before, after });
+    setRotation(after);
+  }, [pushHistoryEntry, rotation]);
 
   const handleFlipH = useCallback(() => {
-    pushToUndoStack(filters, rotation, flipH, flipV);
+    pushHistoryEntry({ type: 'flip_horizontal', before: flipH, after: !flipH });
     setFlipH((prev) => !prev);
-  }, [pushToUndoStack, filters, rotation, flipH, flipV]);
+  }, [pushHistoryEntry, flipH]);
 
   const handleFlipV = useCallback(() => {
-    pushToUndoStack(filters, rotation, flipH, flipV);
+    pushHistoryEntry({ type: 'flip_vertical', before: flipV, after: !flipV });
     setFlipV((prev) => !prev);
-  }, [pushToUndoStack, filters, rotation, flipH, flipV]);
+  }, [pushHistoryEntry, flipV]);
 
-  // Undo handler - restores previous state from undo stack
+  // Unified undo handler - reverses ONLY the specific action type
   const handleUndo = useCallback(() => {
     if (undoStack.length === 0) return;
 
-    // Save current state to redo stack BEFORE applying undo
-    const currentState: EditHistoryEntry = {
-      filters: { ...filters },
-      rotation,
-      flipH,
-      flipV,
-    };
-    setRedoStack((prev) => [...prev, currentState]);
-
-    // Pop and apply the previous state from undo stack
     const newUndoStack = [...undoStack];
-    const previousState = newUndoStack.pop()!;
+    const entry = newUndoStack.pop()!;
     setUndoStack(newUndoStack);
+    setRedoStack((prev) => [...prev, entry]);
 
-    setFilters(previousState.filters);
-    setRotation(previousState.rotation);
-    setFlipH(previousState.flipH);
-    setFlipV(previousState.flipV);
-  }, [undoStack, filters, rotation, flipH, flipV]);
+    // Apply reverse action based on type
+    switch (entry.type) {
+      case 'rotate':
+        setRotation(entry.before);
+        break;
+      case 'flip_horizontal':
+        setFlipH(entry.before);
+        break;
+      case 'flip_vertical':
+        setFlipV(entry.before);
+        break;
+      case 'filter_change':
+        setFilters(entry.beforeFilters);
+        break;
+      case 'annotation_draw':
+        // Remove the drawn annotation
+        deleteAnnotation(entry.annotation.id);
+        break;
+      case 'annotation_move':
+        // Restore annotation to its previous position
+        updateAnnotation(entry.id, entry.before);
+        break;
+      case 'annotation_resize':
+        // Restore annotation to its previous dimensions
+        updateAnnotation(entry.id, entry.before);
+        break;
+      case 'annotation_delete':
+        // Re-add the deleted annotation
+        setAnnotations([...storeAnnotations, entry.annotation as StoreImageAnnotation]);
+        break;
+      case 'annotation_color':
+        // Restore previous color
+        updateAnnotation(entry.id, { color: entry.before });
+        break;
+    }
+  }, [undoStack, deleteAnnotation, updateAnnotation, setAnnotations, storeAnnotations]);
 
-  // Redo handler - restores next state from redo stack
+  // Unified redo handler - re-applies the specific action type
   const handleRedo = useCallback(() => {
     if (redoStack.length === 0) return;
 
-    // Save current state to undo stack BEFORE applying redo
-    const currentState: EditHistoryEntry = {
-      filters: { ...filters },
-      rotation,
-      flipH,
-      flipV,
-    };
-    setUndoStack((prev) => [...prev, currentState]);
-
-    // Pop and apply the next state from redo stack
     const newRedoStack = [...redoStack];
-    const nextState = newRedoStack.pop()!;
+    const entry = newRedoStack.pop()!;
     setRedoStack(newRedoStack);
+    setUndoStack((prev) => [...prev, entry]);
 
-    setFilters(nextState.filters);
-    setRotation(nextState.rotation);
-    setFlipH(nextState.flipH);
-    setFlipV(nextState.flipV);
-  }, [redoStack, filters, rotation, flipH, flipV]);
+    // Re-apply action based on type
+    switch (entry.type) {
+      case 'rotate':
+        setRotation(entry.after);
+        break;
+      case 'flip_horizontal':
+        setFlipH(entry.after);
+        break;
+      case 'flip_vertical':
+        setFlipV(entry.after);
+        break;
+      case 'filter_change':
+        setFilters(entry.afterFilters);
+        break;
+      case 'annotation_draw':
+        // Re-add the annotation
+        setAnnotations([...storeAnnotations, entry.annotation as StoreImageAnnotation]);
+        break;
+      case 'annotation_move':
+        // Move annotation to its new position
+        updateAnnotation(entry.id, entry.after);
+        break;
+      case 'annotation_resize':
+        // Resize annotation to its new dimensions
+        updateAnnotation(entry.id, entry.after);
+        break;
+      case 'annotation_delete':
+        // Re-delete the annotation
+        deleteAnnotation(entry.annotation.id);
+        break;
+      case 'annotation_color':
+        // Apply new color
+        updateAnnotation(entry.id, { color: entry.after });
+        break;
+    }
+  }, [redoStack, deleteAnnotation, updateAnnotation, setAnnotations, storeAnnotations]);
 
-  // Check if undo/redo are available (either local filter/transform history OR store annotation history)
-  const canUndo = undoStack.length > 0 || storeCanUndo();
-  const canRedo = redoStack.length > 0 || storeCanRedo();
+  // Check if undo/redo are available (unified stack only)
+  const canUndo = undoStack.length > 0;
+  const canRedo = redoStack.length > 0;
 
-  // Combined undo handler for toolbar button (calls both local and store undo)
-  const handleCombinedUndo = useCallback(() => {
-    storeUndo();
-    handleUndo();
-  }, [storeUndo, handleUndo]);
-
-  // Combined redo handler for toolbar button (calls both local and store redo)
-  const handleCombinedRedo = useCallback(() => {
-    storeRedo();
-    handleRedo();
-  }, [storeRedo, handleRedo]);
+  // Unified undo/redo handlers for toolbar (no longer calls store undo/redo separately)
+  const handleCombinedUndo = handleUndo;
+  const handleCombinedRedo = handleRedo;
 
   // Handler for when filter slider drag starts (mousedown on filter section)
   const handleFilterDragStart = useCallback(() => {
@@ -2212,13 +2242,17 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       );
 
       if (filtersChanged) {
-        // Push the "before" state to undo stack
-        pushToUndoStack(startFilters, rotation, flipH, flipV);
+        // Push filter change entry with before and after state
+        pushHistoryEntry({
+          type: 'filter_change',
+          beforeFilters: { ...startFilters },
+          afterFilters: { ...filters },
+        });
       }
 
       filterDragStartRef.current = null;
     }
-  }, [filters, rotation, flipH, flipV, pushToUndoStack]);
+  }, [filters, pushHistoryEntry]);
 
   // Handlers for the horizontal divider between filters and annotations
   const handleDividerMouseDown = useCallback((e: React.MouseEvent) => {
@@ -2386,6 +2420,39 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     setColorPickerAnchorEl(null);
   }, []);
 
+  // Handle color slider drag for live updates
+  useEffect(() => {
+    if (!draggingColorSlider || !colorSliderRef.current) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!colorSliderRef.current) return;
+      const rect = colorSliderRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const ratio = Math.max(0, Math.min(1, x / rect.width));
+
+      if (draggingColorSlider === 'hue') {
+        setCustomColorHue(Math.round(ratio * 360));
+      } else if (draggingColorSlider === 'saturation') {
+        setCustomColorSaturation(Math.round(ratio * 100));
+      } else if (draggingColorSlider === 'lightness') {
+        setCustomColorLightness(Math.round(ratio * 100));
+      }
+    };
+
+    const handleMouseUp = () => {
+      setDraggingColorSlider(null);
+      colorSliderRef.current = null;
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [draggingColorSlider]);
+
   // Apply custom color and save as user default
   const handleApplyCustomColor = useCallback(() => {
     const newColor = getCustomColorPreview();
@@ -2421,12 +2488,24 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
   const handleDeleteAnnotation = useCallback(
     (id: string) => {
-      deleteAnnotation(id);
+      // Find the annotation to save for undo history
+      const annotationToDelete = storeAnnotations.find((a) => a.id === id);
+      if (annotationToDelete) {
+        // Remove from store directly (bypass store's deleteAnnotation to avoid its history)
+        setAnnotations(storeAnnotations.filter((a) => a.id !== id));
+        selectAnnotation(null);
+
+        // Push to local history for undo
+        pushHistoryEntry({
+          type: 'annotation_delete',
+          annotation: annotationToDelete,
+        });
+      }
       if (editingAnnotationId === id) {
         setEditingAnnotationId(null);
       }
     },
-    [deleteAnnotation, editingAnnotationId],
+    [storeAnnotations, setAnnotations, selectAnnotation, pushHistoryEntry, editingAnnotationId],
   );
 
   // Toggle lock state for annotation
@@ -3479,30 +3558,25 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
           (a) => a.id === selectedAnnotationId,
         );
         if (selectedAnn && !selectedAnn.locked) {
-          deleteAnnotation(selectedAnnotationId);
+          handleDeleteAnnotation(selectedAnnotationId);
         }
       }
 
       // Undo/Redo keyboard shortcuts (only when not typing in text input)
       if (!isTyping && loadedImage) {
-        // Ctrl+Z = Undo (both transforms and annotations via store)
+        // Ctrl+Z = Undo (unified history handles all action types)
         if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "z") {
           e.preventDefault();
-          // Use store undo which handles annotation history
-          storeUndo();
           handleUndo();
         }
-        // Ctrl+Shift+Z = Redo (both transforms and annotations via store)
+        // Ctrl+Shift+Z = Redo (unified history handles all action types)
         if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "z") {
           e.preventDefault();
-          // Use store redo which handles annotation history
-          storeRedo();
           handleRedo();
         }
         // Ctrl+Y = Redo (alternative, common in Windows)
         if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "y") {
           e.preventDefault();
-          storeRedo();
           handleRedo();
         }
       }
@@ -3528,12 +3602,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     activeTool,
     handleUndo,
     handleRedo,
-    storeUndo,
-    storeRedo,
     selectedAnnotationId,
     selectAnnotation,
     storeAnnotations,
-    deleteAnnotation,
+    handleDeleteAnnotation,
   ]);
 
   // Toggle marquee zoom mode (toolbar icon click)
@@ -3938,10 +4010,15 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         if (Math.abs(width) > 0.01 || Math.abs(height) > 0.01) {
           // Get a random user for this annotation
           const randomUser = getRandomUser();
+          const now = new Date();
+          const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-          // Create annotation data for the store
+          // Create annotation data for the store and history
+          let newAnnotation: StoreImageAnnotation | null = null;
+
           if (activeTool === "rectangle") {
-            addAnnotation({
+            newAnnotation = {
+              id,
               type: "rectangle",
               x: startX,
               y: startY,
@@ -3958,14 +4035,17 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               opacity: 1,
               visible: true,
               locked: false,
-            });
+              createdAt: now,
+              updatedAt: now,
+            } as StoreImageAnnotation;
           } else if (activeTool === "circle") {
             // Circle uses centerX/centerY and radiusX/radiusY
             const centerX = startX + (endX - startX) / 2;
             const centerY = startY + (endY - startY) / 2;
             const radiusX = (endX - startX) / 2;
             const radiusY = (endY - startY) / 2;
-            addAnnotation({
+            newAnnotation = {
+              id,
               type: "circle",
               centerX,
               centerY,
@@ -3980,9 +4060,12 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               opacity: 1,
               visible: true,
               locked: false,
-            });
+              createdAt: now,
+              updatedAt: now,
+            } as StoreImageAnnotation;
           } else if (activeTool === "arrow") {
-            addAnnotation({
+            newAnnotation = {
+              id,
               type: "arrow",
               startX: drawingStartPoint.x,
               startY: drawingStartPoint.y,
@@ -3997,6 +4080,20 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               opacity: 1,
               visible: true,
               locked: false,
+              createdAt: now,
+              updatedAt: now,
+            } as StoreImageAnnotation;
+          }
+
+          if (newAnnotation) {
+            // Add annotation to store using setAnnotations
+            setAnnotations([...storeAnnotations, newAnnotation]);
+            selectAnnotation(id);
+
+            // Push to local history for undo/redo
+            pushHistoryEntry({
+              type: 'annotation_draw',
+              annotation: newAnnotation,
             });
           }
 
@@ -4023,7 +4120,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     activeTool,
     drawingStartPoint,
     screenToImageCoords,
-    addAnnotation,
+    storeAnnotations,
+    setAnnotations,
+    selectAnnotation,
+    pushHistoryEntry,
   ]);
 
   // Handle annotation drag/resize (mouse move and mouse up)
@@ -4044,26 +4144,23 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       let deltaX = coords.normalizedX - annotationDragStart.mouseX;
       let deltaY = coords.normalizedY - annotationDragStart.mouseY;
 
-      // Apply inverse transform to convert screen delta to image space delta
-      // When image is rotated/flipped, screen movement must be mapped to image coordinates
-
-      // First, handle rotation (apply inverse rotation to delta)
-      // Rotation is clockwise: 90° means image top edge is now on the right
-      // So dragging right in screen space = dragging down in image space
+      // Apply correct coordinate transformation based on rotation
+      // The annotation should follow the mouse cursor visually, regardless of image rotation
+      // Transform delta from display space to image space
       if (rotation === 90) {
-        // Screen right (+X) → Image down (+Y), Screen down (+Y) → Image left (-X)
-        const temp = deltaX;
-        deltaX = -deltaY;
-        deltaY = temp;
-      } else if (rotation === 180) {
-        // Screen right (+X) → Image left (-X), Screen down (+Y) → Image up (-Y)
-        deltaX = -deltaX;
-        deltaY = -deltaY;
-      } else if (rotation === 270) {
-        // Screen right (+X) → Image up (-Y), Screen down (+Y) → Image right (+X)
+        // 90° CW: deltaX becomes deltaY, deltaY becomes -deltaX
         const temp = deltaX;
         deltaX = deltaY;
         deltaY = -temp;
+      } else if (rotation === 180) {
+        // 180°: deltaX becomes -deltaX, deltaY becomes -deltaY
+        deltaX = -deltaX;
+        deltaY = -deltaY;
+      } else if (rotation === 270) {
+        // 270° CW: deltaX becomes -deltaY, deltaY becomes deltaX
+        const temp = deltaX;
+        deltaX = -deltaY;
+        deltaY = temp;
       }
 
       // Then, handle flips (apply inverse flip to delta)
@@ -4200,8 +4297,125 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     };
 
     const handleMouseUp = () => {
-      // History is pushed at the START of drag/resize (in mousedown handlers)
-      // so undo restores the pre-move/resize state
+      // Push history entry at END of drag/resize with before and after positions
+      if (annotationDragStart && selectedAnnotationId) {
+        const annotation = storeAnnotations.find(
+          (a) => a.id === selectedAnnotationId,
+        );
+
+        if (annotation) {
+          if (isDraggingAnnotation) {
+            // Push move history with before/after positions
+            if (annotation.type === "rectangle") {
+              pushHistoryEntry({
+                type: 'annotation_move',
+                id: selectedAnnotationId,
+                before: {
+                  x: annotationDragStart.annotationX,
+                  y: annotationDragStart.annotationY,
+                },
+                after: {
+                  x: annotation.x,
+                  y: annotation.y,
+                },
+              });
+            } else if (annotation.type === "circle") {
+              pushHistoryEntry({
+                type: 'annotation_move',
+                id: selectedAnnotationId,
+                before: {
+                  x: annotationDragStart.annotationX,
+                  y: annotationDragStart.annotationY,
+                  centerX: annotationDragStart.centerX,
+                  centerY: annotationDragStart.centerY,
+                },
+                after: {
+                  x: annotation.centerX,
+                  y: annotation.centerY,
+                  centerX: annotation.centerX,
+                  centerY: annotation.centerY,
+                },
+              });
+            } else if (annotation.type === "arrow") {
+              pushHistoryEntry({
+                type: 'annotation_move',
+                id: selectedAnnotationId,
+                before: {
+                  x: annotationDragStart.annotationX,
+                  y: annotationDragStart.annotationY,
+                  startX: annotationDragStart.startX,
+                  startY: annotationDragStart.startY,
+                  endX: annotationDragStart.endX,
+                  endY: annotationDragStart.endY,
+                },
+                after: {
+                  x: annotation.startX,
+                  y: annotation.startY,
+                  startX: annotation.startX,
+                  startY: annotation.startY,
+                  endX: annotation.endX,
+                  endY: annotation.endY,
+                },
+              });
+            }
+          } else if (isResizingAnnotation) {
+            // Push resize history with before/after dimensions
+            if (annotation.type === "rectangle") {
+              pushHistoryEntry({
+                type: 'annotation_resize',
+                id: selectedAnnotationId,
+                before: {
+                  x: annotationDragStart.annotationX,
+                  y: annotationDragStart.annotationY,
+                  width: annotationDragStart.annotationWidth,
+                  height: annotationDragStart.annotationHeight,
+                },
+                after: {
+                  x: annotation.x,
+                  y: annotation.y,
+                  width: annotation.width,
+                  height: annotation.height,
+                },
+              });
+            } else if (annotation.type === "circle") {
+              pushHistoryEntry({
+                type: 'annotation_resize',
+                id: selectedAnnotationId,
+                before: {
+                  centerX: annotationDragStart.centerX,
+                  centerY: annotationDragStart.centerY,
+                  radiusX: annotationDragStart.radiusX,
+                  radiusY: annotationDragStart.radiusY,
+                },
+                after: {
+                  centerX: annotation.centerX,
+                  centerY: annotation.centerY,
+                  radiusX: annotation.radiusX,
+                  radiusY: annotation.radiusY,
+                },
+              });
+            } else if (annotation.type === "arrow") {
+              pushHistoryEntry({
+                type: 'annotation_resize',
+                id: selectedAnnotationId,
+                before: {
+                  startX: annotationDragStart.startX,
+                  startY: annotationDragStart.startY,
+                  endX: annotationDragStart.endX,
+                  endY: annotationDragStart.endY,
+                },
+                after: {
+                  startX: annotation.startX,
+                  startY: annotation.startY,
+                  endX: annotation.endX,
+                  endY: annotation.endY,
+                },
+              });
+            }
+          }
+        }
+      }
+
       setIsDraggingAnnotation(false);
       setIsResizingAnnotation(false);
       setActiveResizeHandle(null);
@@ -4226,6 +4440,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     screenToImageCoords,
     storeAnnotations,
     updateAnnotation,
+    pushHistoryEntry,
     rotation,
     flipH,
     flipV,
@@ -4650,10 +4865,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       const coords = screenToImageCoords(e.clientX, e.clientY);
       if (!coords) return;
 
-      // Push history BEFORE the move starts so undo restores pre-move state
-      pushHistory("Move annotation");
-
-      // Set up drag state
+      // Set up drag state (history will be pushed on mouse up)
       if (ann.type === "rectangle") {
         setAnnotationDragStart({
           mouseX: coords.normalizedX,
@@ -4710,9 +4922,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       const coords = screenToImageCoords(e.clientX, e.clientY);
       if (!coords) return;
 
-      // Push history BEFORE the resize starts so undo restores pre-resize state
-      pushHistory("Resize annotation");
-
+      // History will be pushed on mouse up with before/after state
       if (ann.type === "rectangle") {
         setAnnotationDragStart({
           mouseX: coords.normalizedX,
@@ -6205,7 +6415,11 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                         "linear-gradient(to right, red, yellow, lime, aqua, blue, magenta, red)",
                       cursor: "pointer",
                     }}
-                    onClick={(e) => {
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      colorSliderRef.current = e.currentTarget;
+                      setDraggingColorSlider('hue');
+                      // Update immediately on click
                       const rect = e.currentTarget.getBoundingClientRect();
                       const x = e.clientX - rect.left;
                       const hue = Math.round((x / rect.width) * 360);
@@ -6242,7 +6456,11 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                       background: `linear-gradient(to right, hsl(${customColorHue}, 0%, ${customColorLightness}%), hsl(${customColorHue}, 100%, ${customColorLightness}%))`,
                       cursor: "pointer",
                     }}
-                    onClick={(e) => {
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      colorSliderRef.current = e.currentTarget;
+                      setDraggingColorSlider('saturation');
+                      // Update immediately on click
                       const rect = e.currentTarget.getBoundingClientRect();
                       const x = e.clientX - rect.left;
                       const sat = Math.round((x / rect.width) * 100);
@@ -6279,7 +6497,11 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                       background: `linear-gradient(to right, hsl(${customColorHue}, ${customColorSaturation}%, 0%), hsl(${customColorHue}, ${customColorSaturation}%, 50%), hsl(${customColorHue}, ${customColorSaturation}%, 100%))`,
                       cursor: "pointer",
                     }}
-                    onClick={(e) => {
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      colorSliderRef.current = e.currentTarget;
+                      setDraggingColorSlider('lightness');
+                      // Update immediately on click
                       const rect = e.currentTarget.getBoundingClientRect();
                       const x = e.clientX - rect.left;
                       const light = Math.round((x / rect.width) * 100);
