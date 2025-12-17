@@ -385,8 +385,6 @@ interface ImageFilters {
   clarity: number;
   sharpness: number;
   noiseReduction: number;
-  // Vignette
-  vignette: number;
 }
 
 const defaultFilters: ImageFilters = {
@@ -403,7 +401,6 @@ const defaultFilters: ImageFilters = {
   clarity: 0,
   sharpness: 0,
   noiseReduction: 0,
-  vignette: 0,
 };
 
 // ============================================================================
@@ -1295,9 +1292,13 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     [rotation, flipH, flipV],
   );
 
-  // Build CSS filter string for exposure and contrast adjustments
+  // Build CSS filter string for exposure, contrast, and color adjustments
   // Exposure slider: -5 to +5 → brightness 0.5 to 1.5
   // Contrast slider: -100 to +100 → contrast 0.5 to 1.5
+  // Saturation slider: -100 to +100 → saturate 0 to 2
+  // Vibrance slider: -100 to +100 → saturate 0.5 to 1.5 (subtler)
+  // Temperature slider: -100 to +100 → warm (sepia + hue shift) or cool (hue shift to blue)
+  // Tint slider: -100 to +100 → hue-rotate -30deg to +30deg
   const getImageFilter = useCallback(() => {
     const cssFilters: string[] = [];
 
@@ -1315,8 +1316,54 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       cssFilters.push(`contrast(${contrast})`);
     }
 
+    // Convert saturation (-100 to +100) to saturate (0 to 2)
+    // 0 → 1, -100 → 0 (grayscale), +100 → 2 (vivid)
+    if (filters.saturation !== 0) {
+      const saturate = 1 + filters.saturation / 100;
+      cssFilters.push(`saturate(${saturate})`);
+    }
+
+    // Convert vibrance (-100 to +100) to saturate (0.5 to 1.5)
+    // Vibrance is a subtler version of saturation
+    // 0 → 1, -100 → 0.5, +100 → 1.5
+    if (filters.vibrance !== 0) {
+      const vibranceSaturate = 1 + filters.vibrance / 200;
+      cssFilters.push(`saturate(${vibranceSaturate})`);
+    }
+
+    // Convert temperature (-100 to +100) to warm/cool color shift
+    // Warm (positive): add sepia and shift hue toward orange
+    // Cool (negative): shift hue toward blue
+    if (filters.temperature !== 0) {
+      if (filters.temperature > 0) {
+        // Warm: sepia (0 to 0.3) + hue-rotate toward orange (-10deg)
+        const sepia = (filters.temperature / 100) * 0.3;
+        const hueShift = (filters.temperature / 100) * -10;
+        cssFilters.push(`sepia(${sepia})`);
+        cssFilters.push(`hue-rotate(${hueShift}deg)`);
+      } else {
+        // Cool: shift hue toward blue (up to 30deg)
+        const hueShift = (filters.temperature / 100) * -30;
+        cssFilters.push(`hue-rotate(${hueShift}deg)`);
+      }
+    }
+
+    // Convert tint (-100 to +100) to hue-rotate (-30deg to +30deg)
+    // Shifts the entire color spectrum
+    if (filters.tint !== 0) {
+      const tintHueRotate = (filters.tint / 100) * 30;
+      cssFilters.push(`hue-rotate(${tintHueRotate}deg)`);
+    }
+
     return cssFilters.length > 0 ? cssFilters.join(" ") : "none";
-  }, [filters.exposure, filters.contrast]);
+  }, [
+    filters.exposure,
+    filters.contrast,
+    filters.saturation,
+    filters.vibrance,
+    filters.temperature,
+    filters.tint,
+  ]);
 
   // Toggle annotation visibility using store
   const toggleAnnotationVisibility = useCallback(
@@ -3460,19 +3507,6 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                 min={0}
                 max={100}
                 onChange={handleFilterChange("noiseReduction")}
-                disabled={!loadedImage}
-              />
-            </FilterGroup>
-
-            {/* Vignette */}
-            <FilterGroup>
-              <FilterGroupTitle>Effects</FilterGroupTitle>
-              <PrecisionSlider
-                label="Vignette"
-                value={filters.vignette}
-                min={-100}
-                max={100}
-                onChange={handleFilterChange("vignette")}
                 disabled={!loadedImage}
               />
             </FilterGroup>
