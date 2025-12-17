@@ -15,6 +15,9 @@ import {
   ToggleButtonGroup,
   Snackbar,
   Alert,
+  Modal,
+  Backdrop,
+  Fade,
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import ImageIcon from "@mui/icons-material/Image";
@@ -41,9 +44,12 @@ import PersonIcon from "@mui/icons-material/Person";
 import FileUploadIcon from "@mui/icons-material/FileUpload";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import CropFreeIcon from "@mui/icons-material/CropFree";
+import LayersIcon from "@mui/icons-material/Layers";
+import CloseIcon from "@mui/icons-material/Close";
+import CloudIcon from "@mui/icons-material/Cloud";
 
 import { WorkspaceLayout } from "@/components/layout";
-import { FileLibrary, type FileItem } from "@/components/file-library";
+import { type FileItem } from "@/components/file-library";
 import { MetadataPanel, PrecisionSlider } from "@/components/common";
 import { useNavigationStore } from "@/stores/useNavigationStore";
 import { useImageToolStore } from "@/stores/useImageToolStore";
@@ -368,6 +374,204 @@ const AnnotationIcon = styled(Box)<{ type: string }>(({ type }) => {
 });
 
 // ============================================================================
+// VERSION STACKING STYLED COMPONENTS
+// ============================================================================
+
+// Container for the custom image gallery with version stacking
+const ImageGalleryGrid = styled(Box)({
+  display: "grid",
+  gridTemplateColumns: "repeat(2, 1fr)",
+  gridAutoRows: "min-content",
+  alignContent: "start",
+  gap: 6,
+  padding: "4px 0",
+});
+
+// Image gallery item with stack effect on hover
+const StackedGridItem = styled(Box)<{
+  selected?: boolean;
+  hasFindings?: boolean;
+  hasVersions?: boolean;
+}>(({ selected, hasFindings, hasVersions }) => ({
+  position: "relative",
+  aspectRatio: "16/9",
+  backgroundColor: "#1a1a1a",
+  borderRadius: 4,
+  cursor: "pointer",
+  overflow: "visible",
+  border: selected
+    ? "2px solid #19abb5"
+    : hasFindings
+      ? "2px solid rgba(25, 171, 181, 0.4)"
+      : "2px solid transparent",
+  boxShadow: hasFindings ? "0 0 8px rgba(25, 171, 181, 0.3)" : "none",
+  transition: "all 0.2s ease",
+  // Stack effect pseudo-elements for items with versions
+  ...(hasVersions && {
+    "&::before, &::after": {
+      content: '""',
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: "#252525",
+      borderRadius: 4,
+      border: "1px solid #333",
+      transition: "all 0.2s ease",
+      zIndex: -1,
+    },
+    "&::before": {
+      transform: "translate(3px, 3px)",
+      opacity: 0,
+    },
+    "&::after": {
+      transform: "translate(6px, 6px)",
+      opacity: 0,
+    },
+  }),
+  "&:hover": {
+    borderColor: "#19abb5",
+    ...(hasVersions && {
+      "&::before": {
+        opacity: 0.7,
+      },
+      "&::after": {
+        opacity: 0.4,
+      },
+    }),
+  },
+}));
+
+// Inner container to clip the image content
+const GridItemInner = styled(Box)({
+  position: "relative",
+  width: "100%",
+  height: "100%",
+  borderRadius: 4,
+  overflow: "hidden",
+  backgroundColor: "#1a1a1a",
+});
+
+// Version indicator badge (lower right corner)
+const VersionBadge = styled(Box)({
+  position: "absolute",
+  bottom: 4,
+  right: 4,
+  display: "flex",
+  alignItems: "center",
+  gap: 2,
+  backgroundColor: "rgba(0, 0, 0, 0.8)",
+  borderRadius: 4,
+  padding: "2px 6px",
+  fontSize: 10,
+  fontWeight: 600,
+  color: "#fff",
+  zIndex: 2,
+});
+
+// Source badge for gallery thumbnails (upper left)
+const GallerySourceBadge = styled(Box)({
+  position: "absolute",
+  top: 4,
+  left: 4,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  backgroundColor: "rgba(0, 0, 0, 0.7)",
+  borderRadius: 4,
+  padding: 3,
+  width: 22,
+  height: 22,
+  zIndex: 2,
+});
+
+// Overlay for filename at bottom
+const GalleryOverlay = styled(Box)({
+  position: "absolute",
+  bottom: 0,
+  left: 0,
+  right: 0,
+  padding: "4px 6px",
+  background: "linear-gradient(transparent, rgba(0,0,0,0.8))",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-start",
+  zIndex: 1,
+});
+
+// Thumbnail container
+const GalleryThumbnail = styled(Box)({
+  width: "100%",
+  height: "100%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  backgroundColor: "#252525",
+});
+
+// Flag badge for gallery
+const GalleryFlagBadge = styled(Box)({
+  display: "flex",
+  alignItems: "center",
+  gap: 2,
+  fontSize: "10px",
+  color: "#19abb5",
+});
+
+// Versions modal styles
+const VersionsModalContent = styled(Box)({
+  position: "absolute",
+  top: "50%",
+  left: "50%",
+  transform: "translate(-50%, -50%)",
+  backgroundColor: "#1a1a1a",
+  borderRadius: 8,
+  border: "1px solid #333",
+  boxShadow: "0 8px 32px rgba(0, 0, 0, 0.5)",
+  padding: 24,
+  maxWidth: 600,
+  width: "90%",
+  maxHeight: "80vh",
+  overflow: "auto",
+  outline: "none",
+});
+
+const VersionsModalHeader = styled(Box)({
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  marginBottom: 16,
+});
+
+const VersionsModalGrid = styled(Box)({
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+  gap: 12,
+});
+
+const VersionsModalItem = styled(Box)<{ selected?: boolean }>(
+  ({ selected }) => ({
+    position: "relative",
+    aspectRatio: "16/9",
+    backgroundColor: "#252525",
+    borderRadius: 4,
+    cursor: "pointer",
+    overflow: "hidden",
+    border: selected ? "2px solid #19abb5" : "2px solid transparent",
+    transition: "all 0.15s ease",
+    "&:hover": {
+      borderColor: "#19abb5",
+      transform: "scale(1.02)",
+    },
+  }),
+);
+
+const VersionsModalItemInfo = styled(Box)({
+  padding: "8px 0 0 0",
+});
+
+// ============================================================================
 // TYPES
 // ============================================================================
 
@@ -436,6 +640,20 @@ const defaultFilters: ImageFilters = {
   sharpness: 0,
   noiseReduction: 0,
 };
+
+// Extended type for gallery items that tracks version information
+type ImageFileType = FileItem & {
+  format?: string;
+  gps?: string | null;
+  dimensions?: string;
+  parentId?: string;
+};
+
+// Gallery item with version tracking for stacking UI
+interface GalleryItemWithVersions extends ImageFileType {
+  versions?: ImageFileType[]; // Array of exports for this original
+  versionCount?: number; // Total count including original (1 = no exports)
+}
 
 // ============================================================================
 // MOCK DATA
@@ -874,17 +1092,17 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   // State for locally imported images (added to gallery with 'local' source badge)
   const [importedImages, setImportedImages] = useState<typeof imageFiles>([]);
 
-  // Combine and sort gallery items: exports appear right after their parent image
-  const sortedGalleryItems = useMemo(() => {
+  // Gallery items with version stacking: exports are hidden from main list but tracked on their originals
+  const galleryItemsWithVersions = useMemo((): GalleryItemWithVersions[] => {
     const allItems = [...imageFiles, ...importedImages];
-    const result: typeof imageFiles = [];
-    const exportsByParent = new Map<string, typeof imageFiles>();
+    const result: GalleryItemWithVersions[] = [];
+    const exportsByParent = new Map<string, ImageFileType[]>();
 
     // Group exports by their parentId
     allItems.forEach((item) => {
       if (item.source === "export" && item.parentId) {
         const existing = exportsByParent.get(item.parentId) || [];
-        existing.push(item);
+        existing.push(item as ImageFileType);
         exportsByParent.set(item.parentId, existing);
       }
     });
@@ -894,24 +1112,62 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       exports.sort((a, b) => a.capturedAt - b.capturedAt);
     });
 
-    // Build final list: non-export items followed by their exports
+    // Build final list: only non-export items, with version info attached
     allItems.forEach((item) => {
-      // Skip exports (they'll be inserted after their parent)
+      // Skip exports - they are accessed via their parent's versions array
       if (item.source === "export" && item.parentId) {
         return;
       }
 
-      // Add the non-export item
-      result.push(item);
+      // Get any exports for this item
+      const childExports = exportsByParent.get(item.id) || [];
 
-      // Add any exports that belong to this item
+      // Add the item with version information
+      const itemWithVersions: GalleryItemWithVersions = {
+        ...(item as ImageFileType),
+        versions: childExports,
+        versionCount: 1 + childExports.length, // Original + exports
+      };
+
+      result.push(itemWithVersions);
+    });
+
+    // Note: Orphaned exports (without a valid parent) are not shown in the gallery
+    // This is intentional - exports should always have a parent
+
+    return result;
+  }, [importedImages]);
+
+  // Keep sortedGalleryItems for backward compatibility (FileLibrary still uses flat list)
+  const sortedGalleryItems = useMemo(() => {
+    // For non-image types or any component that needs the flat list with exports
+    const allItems = [...imageFiles, ...importedImages];
+    const result: typeof imageFiles = [];
+    const exportsByParent = new Map<string, typeof imageFiles>();
+
+    allItems.forEach((item) => {
+      if (item.source === "export" && item.parentId) {
+        const existing = exportsByParent.get(item.parentId) || [];
+        existing.push(item);
+        exportsByParent.set(item.parentId, existing);
+      }
+    });
+
+    exportsByParent.forEach((exports) => {
+      exports.sort((a, b) => a.capturedAt - b.capturedAt);
+    });
+
+    allItems.forEach((item) => {
+      if (item.source === "export" && item.parentId) {
+        return;
+      }
+      result.push(item);
       const childExports = exportsByParent.get(item.id);
       if (childExports) {
         result.push(...childExports);
       }
     });
 
-    // Add any orphaned exports (exports whose parent doesn't exist) at the end
     exportsByParent.forEach((exports, parentId) => {
       const parentExists = allItems.some(
         (item) => item.id === parentId && item.source !== "export",
@@ -927,6 +1183,11 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [viewMode, setViewMode] = useState<ViewMode>("single");
   const [activeTool, setActiveTool] = useState<AnnotationTool>(null);
   const [filters, setFilters] = useState<ImageFilters>(defaultFilters);
+
+  // Versions modal state
+  const [versionsModalOpen, setVersionsModalOpen] = useState(false);
+  const [versionsModalItem, setVersionsModalItem] =
+    useState<GalleryItemWithVersions | null>(null);
 
   // Use store for annotations instead of local state
   const storeAnnotations = useImageToolStore((state) => state.annotations);
@@ -1146,6 +1407,109 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     },
     [setLoadedFile, clearAnnotations],
   );
+
+  // Reusable function to load an image into the viewer (used by multiple handlers)
+  const loadImageIntoViewer = useCallback(
+    (item: ImageFileType) => {
+      setLoadedImage(item as (typeof imageFiles)[0]);
+      setSelectedFile(item as (typeof imageFiles)[0]);
+      setFilters(defaultFilters);
+      setActualDimensions(null);
+      setZoom(100);
+      setPanOffset({ x: 0, y: 0 });
+      setLastZoomInPoint(null);
+      setIsMarqueeModeActive(false);
+      setIsMarqueeDrawing(false);
+      setMarqueeStart(null);
+      setMarqueeEnd(null);
+      setRotation(0);
+      setFlipH(false);
+      setFlipV(false);
+      setUndoStack([]);
+      setRedoStack([]);
+      clearAnnotations();
+      setActiveTool(null);
+      setLoadedFile("images", item.id);
+    },
+    [setLoadedFile, clearAnnotations],
+  );
+
+  // Handle single click on gallery item - opens modal if has versions
+  const handleGalleryItemClick = useCallback(
+    (item: GalleryItemWithVersions) => {
+      setSelectedFile(item as (typeof imageFiles)[0]);
+      // If item has versions (exports), open the modal
+      if (item.versionCount && item.versionCount > 1) {
+        setVersionsModalItem(item);
+        setVersionsModalOpen(true);
+      }
+      // If no versions, single click just selects (no action)
+    },
+    [],
+  );
+
+  // Handle double click on gallery item - loads directly if no versions
+  const handleGalleryItemDoubleClick = useCallback(
+    (item: GalleryItemWithVersions) => {
+      // If item has versions, open the modal (same as single click)
+      if (item.versionCount && item.versionCount > 1) {
+        setVersionsModalItem(item);
+        setVersionsModalOpen(true);
+      } else {
+        // No versions - load directly into viewer
+        loadImageIntoViewer(item);
+      }
+    },
+    [loadImageIntoViewer],
+  );
+
+  // Handle double-click on a version in the modal - loads that version
+  const handleVersionSelect = useCallback(
+    (item: ImageFileType) => {
+      loadImageIntoViewer(item);
+      setVersionsModalOpen(false);
+      setVersionsModalItem(null);
+    },
+    [loadImageIntoViewer],
+  );
+
+  // Close versions modal without loading anything
+  const handleCloseVersionsModal = useCallback(() => {
+    setVersionsModalOpen(false);
+    setVersionsModalItem(null);
+  }, []);
+
+  // Helper function to get source badge info (for custom gallery rendering)
+  const getSourceBadgeInfo = useCallback((source?: string) => {
+    const iconSize = 14;
+    const iconColor = "#ffffff";
+    switch (source) {
+      case "local":
+        return {
+          icon: (
+            <FileUploadIcon sx={{ fontSize: iconSize, color: iconColor }} />
+          ),
+          tooltip: "Local import",
+        };
+      case "drive":
+        return {
+          icon: <CloudIcon sx={{ fontSize: iconSize, color: iconColor }} />,
+          tooltip: "Google Drive",
+        };
+      case "export":
+        return {
+          icon: (
+            <FileDownloadIcon sx={{ fontSize: iconSize, color: iconColor }} />
+          ),
+          tooltip: "Exported file",
+        };
+      default:
+        return {
+          icon: <CloudIcon sx={{ fontSize: iconSize, color: iconColor }} />,
+          tooltip: "Google Drive",
+        };
+    }
+  }, []);
 
   const handleViewModeChange = (
     _: React.MouseEvent<HTMLElement>,
@@ -4274,18 +4638,126 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                 Export
               </ExportButton>
             </Box>
-            <Box sx={{ flex: 1, minHeight: 0 }}>
-              <FileLibrary
-                items={sortedGalleryItems}
-                selectedId={loadedImage?.id}
-                onSelect={(item) =>
-                  setSelectedFile(item as (typeof imageFiles)[0])
-                }
-                onDoubleClick={(item) =>
-                  handleDoubleClick(item as (typeof imageFiles)[0])
-                }
-                filterByType="image"
-              />
+            <Box
+              sx={{
+                flex: 1,
+                minHeight: 0,
+                overflow: "auto",
+                padding: "4px 6px",
+              }}
+            >
+              {/* Custom Image Gallery with Version Stacking */}
+              <ImageGalleryGrid>
+                {galleryItemsWithVersions.map((item) => {
+                  const hasVersions = (item.versionCount ?? 1) > 1;
+                  const sourceInfo = getSourceBadgeInfo(item.source);
+                  return (
+                    <Tooltip
+                      key={item.id}
+                      title={hasVersions ? "Versions available" : ""}
+                      arrow
+                      placement="top"
+                      enterDelay={300}
+                    >
+                      <StackedGridItem
+                        selected={item.id === loadedImage?.id}
+                        hasFindings={item.hasFindings}
+                        hasVersions={hasVersions}
+                        onClick={() => handleGalleryItemClick(item)}
+                        onDoubleClick={() => handleGalleryItemDoubleClick(item)}
+                      >
+                        <GridItemInner>
+                          <GalleryThumbnail>
+                            {item.thumbnailUrl ? (
+                              <img
+                                src={item.thumbnailUrl}
+                                alt={item.fileName}
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "cover",
+                                }}
+                              />
+                            ) : (
+                              <ImageIcon sx={{ fontSize: 24, color: "#999" }} />
+                            )}
+                          </GalleryThumbnail>
+
+                          {/* Source badge (upper left) */}
+                          <Tooltip
+                            title={sourceInfo.tooltip}
+                            arrow
+                            placement="top"
+                          >
+                            <GallerySourceBadge>
+                              {sourceInfo.icon}
+                            </GallerySourceBadge>
+                          </Tooltip>
+
+                          {/* Version badge (lower right) - only shown if has versions */}
+                          {hasVersions && (
+                            <VersionBadge>
+                              <LayersIcon sx={{ fontSize: 12 }} />
+                              {item.versionCount}
+                            </VersionBadge>
+                          )}
+
+                          {/* Flag badge (upper right) */}
+                          {item.flagCount > 0 && (
+                            <Box
+                              sx={{
+                                position: "absolute",
+                                top: 4,
+                                right: 4,
+                                zIndex: 2,
+                              }}
+                            >
+                              <GalleryFlagBadge
+                                sx={{
+                                  backgroundColor: "rgba(0,0,0,0.6)",
+                                  padding: "2px 4px",
+                                  borderRadius: 1,
+                                }}
+                              >
+                                <Box
+                                  component="span"
+                                  sx={{ display: "flex", alignItems: "center" }}
+                                >
+                                  <svg
+                                    width="10"
+                                    height="10"
+                                    viewBox="0 0 24 24"
+                                    fill="currentColor"
+                                  >
+                                    <path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z" />
+                                  </svg>
+                                </Box>
+                                {item.flagCount}
+                              </GalleryFlagBadge>
+                            </Box>
+                          )}
+
+                          {/* Filename overlay at bottom */}
+                          <GalleryOverlay>
+                            <Typography
+                              sx={{
+                                fontSize: "10px",
+                                color: "#fff",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                width: "100%",
+                              }}
+                            >
+                              {item.fileName}
+                            </Typography>
+                          </GalleryOverlay>
+                        </GridItemInner>
+                      </StackedGridItem>
+                    </Tooltip>
+                  );
+                })}
+              </ImageGalleryGrid>
             </Box>
           </Box>
         }
@@ -4350,6 +4822,180 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
           {toast.message}
         </Alert>
       </Snackbar>
+
+      {/* Versions Modal - shows all versions (original + exports) for an image */}
+      <Modal
+        open={versionsModalOpen}
+        onClose={handleCloseVersionsModal}
+        closeAfterTransition
+        slots={{ backdrop: Backdrop }}
+        slotProps={{
+          backdrop: {
+            timeout: 200,
+            sx: { backgroundColor: "rgba(0, 0, 0, 0.8)" },
+          },
+        }}
+      >
+        <Fade in={versionsModalOpen}>
+          <VersionsModalContent>
+            <VersionsModalHeader>
+              <Box>
+                <Typography
+                  sx={{ fontSize: 16, fontWeight: 600, color: "#e1e1e1" }}
+                >
+                  Image Versions
+                </Typography>
+                <Typography sx={{ fontSize: 12, color: "#888", mt: 0.5 }}>
+                  {versionsModalItem?.fileName ?? ""}
+                </Typography>
+              </Box>
+              <IconButton
+                onClick={handleCloseVersionsModal}
+                sx={{ color: "#888", "&:hover": { color: "#e1e1e1" } }}
+              >
+                <CloseIcon />
+              </IconButton>
+            </VersionsModalHeader>
+
+            <Typography sx={{ fontSize: 11, color: "#666", mb: 2 }}>
+              Double-click to load a version into the viewer
+            </Typography>
+
+            <VersionsModalGrid>
+              {/* Original image */}
+              {versionsModalItem && (
+                <Box>
+                  <VersionsModalItem
+                    selected={versionsModalItem.id === loadedImage?.id}
+                    onDoubleClick={() => handleVersionSelect(versionsModalItem)}
+                  >
+                    {versionsModalItem.thumbnailUrl ? (
+                      <img
+                        src={versionsModalItem.thumbnailUrl}
+                        alt={versionsModalItem.fileName}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
+                      />
+                    ) : (
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          height: "100%",
+                        }}
+                      >
+                        <ImageIcon sx={{ fontSize: 24, color: "#666" }} />
+                      </Box>
+                    )}
+                    {/* Source badge */}
+                    <Tooltip
+                      title={
+                        getSourceBadgeInfo(versionsModalItem.source).tooltip
+                      }
+                      arrow
+                      placement="top"
+                    >
+                      <GallerySourceBadge>
+                        {getSourceBadgeInfo(versionsModalItem.source).icon}
+                      </GallerySourceBadge>
+                    </Tooltip>
+                  </VersionsModalItem>
+                  <VersionsModalItemInfo>
+                    <Typography
+                      sx={{
+                        fontSize: 11,
+                        color: "#e1e1e1",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {versionsModalItem.fileName}
+                    </Typography>
+                    <Typography sx={{ fontSize: 10, color: "#19abb5" }}>
+                      Original
+                    </Typography>
+                  </VersionsModalItemInfo>
+                </Box>
+              )}
+
+              {/* Export versions */}
+              {versionsModalItem?.versions?.map((version) => {
+                const versionSourceInfo = getSourceBadgeInfo(version.source);
+                return (
+                  <Box key={version.id}>
+                    <VersionsModalItem
+                      selected={version.id === loadedImage?.id}
+                      onDoubleClick={() => handleVersionSelect(version)}
+                    >
+                      {version.thumbnailUrl ? (
+                        <img
+                          src={version.thumbnailUrl}
+                          alt={version.fileName}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                          }}
+                        />
+                      ) : (
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            height: "100%",
+                          }}
+                        >
+                          <ImageIcon sx={{ fontSize: 24, color: "#666" }} />
+                        </Box>
+                      )}
+                      {/* Source badge */}
+                      <Tooltip
+                        title={versionSourceInfo.tooltip}
+                        arrow
+                        placement="top"
+                      >
+                        <GallerySourceBadge>
+                          {versionSourceInfo.icon}
+                        </GallerySourceBadge>
+                      </Tooltip>
+                    </VersionsModalItem>
+                    <VersionsModalItemInfo>
+                      <Typography
+                        sx={{
+                          fontSize: 11,
+                          color: "#e1e1e1",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {version.fileName}
+                      </Typography>
+                      <Typography sx={{ fontSize: 10, color: "#888" }}>
+                        {new Date(version.capturedAt).toLocaleString(
+                          undefined,
+                          {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          },
+                        )}
+                      </Typography>
+                    </VersionsModalItemInfo>
+                  </Box>
+                );
+              })}
+            </VersionsModalGrid>
+          </VersionsModalContent>
+        </Fade>
+      </Modal>
     </>
   );
 };
