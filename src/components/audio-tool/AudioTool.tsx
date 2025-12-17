@@ -14,6 +14,7 @@ import { styled } from "@mui/material/styles";
 import MicIcon from "@mui/icons-material/Mic";
 import VideocamIcon from "@mui/icons-material/Videocam";
 import FileUploadIcon from "@mui/icons-material/FileUpload";
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import ZoomInIcon from "@mui/icons-material/ZoomIn";
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
@@ -221,7 +222,7 @@ const FileDropZone = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
   cursor: "pointer",
 }));
 
-// Import button for left panel - full width
+// Import/Export buttons for left panel - side by side
 const ImportButton = styled(Button)({
   fontSize: 9,
   color: "#888",
@@ -229,7 +230,8 @@ const ImportButton = styled(Button)({
   border: "1px solid #333",
   padding: "6px 8px",
   textTransform: "none",
-  width: "100%",
+  flex: 1,
+  minWidth: 0,
   justifyContent: "center",
   "&:hover": {
     backgroundColor: "#333",
@@ -238,6 +240,31 @@ const ImportButton = styled(Button)({
   },
   "& .MuiButton-startIcon": {
     marginRight: 4,
+  },
+});
+
+const ExportButton = styled(Button)({
+  fontSize: 9,
+  color: "#888",
+  backgroundColor: "#252525",
+  border: "1px solid #333",
+  padding: "6px 8px",
+  textTransform: "none",
+  flex: 1,
+  minWidth: 0,
+  justifyContent: "center",
+  "&:hover": {
+    backgroundColor: "#333",
+    borderColor: "#19abb5",
+    color: "#19abb5",
+  },
+  "& .MuiButton-startIcon": {
+    marginRight: 4,
+  },
+  "&.Mui-disabled": {
+    color: "#444",
+    backgroundColor: "#1a1a1a",
+    borderColor: "#252525",
   },
 });
 
@@ -1545,7 +1572,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     }
   }, [loadedAudio, selectedFile]);
 
-
   // Generate test flags when test_drums.mp3 is loaded
   useEffect(() => {
     if (loadedAudio?.fileName === "test_drums.mp3") {
@@ -2059,6 +2085,11 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   // Handle Import button click
   const handleImportClick = useCallback(() => {
     fileInputRef.current?.click();
+  }, []);
+
+  // Handle Export button click
+  const handleExportClick = useCallback(() => {
+    console.log("Export clicked - will open export panel");
   }, []);
 
   // Handle file input change
@@ -2819,132 +2850,129 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
           </Box>
         </InspectorSectionHeader>
         <InspectorSectionContent sx={{ p: 0 }}>
-            {loadedAudio?.hasVideo && loadedVideoUrl ? (
-              <>
-                <Box
-                  sx={{
-                    position: "relative",
-                    backgroundColor: "#000",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    aspectRatio: "16/9",
-                    maxHeight: 140,
-                  }}
-                >
-                  {/* Only render video when modal is closed to avoid two video instances */}
-                  {!expandVideoModalOpen ? (
-                    <>
-                      <video
-                        ref={videoRef}
-                        src={loadedVideoUrl}
-                        muted
-                        playsInline
-                        preload="auto"
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "contain",
-                        }}
-                      />
-                      {/* Loading spinner when video is seeking (delayed to avoid flicker) */}
-                      {isVideoLoading && (
-                        <Box
-                          sx={{
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            backgroundColor: "rgba(0, 0, 0, 0.3)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            pointerEvents: "none",
-                          }}
-                        >
-                          <CircularProgress
-                            size={24}
-                            sx={{ color: "#19abb5" }}
-                          />
-                        </Box>
-                      )}
-                    </>
-                  ) : (
-                    <Typography sx={{ color: "#555", fontSize: 10 }}>
-                      Video playing in expanded view
-                    </Typography>
-                  )}
-                </Box>
-                <Box
-                  sx={{
-                    padding: "8px 12px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 1,
-                  }}
-                >
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    size="small"
-                    onClick={() => {
-                      // Navigate to Video Tool without pausing playback
-                      navigateToTool("video", loadedAudio?.id);
-                    }}
-                    sx={{
-                      fontSize: 10,
-                      color: "#888",
-                      borderColor: "#333",
-                      py: 0.75,
-                      "&:hover": {
-                        borderColor: "#19abb5",
-                        color: "#19abb5",
-                        backgroundColor: "rgba(25, 171, 181, 0.05)",
-                      },
-                    }}
-                  >
-                    Open in Video Tool
-                  </Button>
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    size="small"
-                    onClick={() => {
-                      // Open expand modal without pausing playback
-                      setExpandVideoModalOpen(true);
-                    }}
-                    sx={{
-                      fontSize: 10,
-                      color: "#888",
-                      borderColor: "#333",
-                      py: 0.75,
-                      "&:hover": {
-                        borderColor: "#19abb5",
-                        color: "#19abb5",
-                        backgroundColor: "rgba(25, 171, 181, 0.05)",
-                      },
-                    }}
-                  >
-                    Expand Video
-                  </Button>
-                </Box>
-              </>
-            ) : (
+          {loadedAudio?.hasVideo && loadedVideoUrl ? (
+            <>
               <Box
                 sx={{
-                  padding: "16px 12px",
+                  position: "relative",
+                  backgroundColor: "#000",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  aspectRatio: "16/9",
+                  maxHeight: 140,
                 }}
               >
-                <Typography sx={{ color: "#444", fontSize: 10 }}>
-                  No video linked to this audio
-                </Typography>
+                {/* Only render video when modal is closed to avoid two video instances */}
+                {!expandVideoModalOpen ? (
+                  <>
+                    <video
+                      ref={videoRef}
+                      src={loadedVideoUrl}
+                      muted
+                      playsInline
+                      preload="auto"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                      }}
+                    />
+                    {/* Loading spinner when video is seeking (delayed to avoid flicker) */}
+                    {isVideoLoading && (
+                      <Box
+                        sx={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          backgroundColor: "rgba(0, 0, 0, 0.3)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          pointerEvents: "none",
+                        }}
+                      >
+                        <CircularProgress size={24} sx={{ color: "#19abb5" }} />
+                      </Box>
+                    )}
+                  </>
+                ) : (
+                  <Typography sx={{ color: "#555", fontSize: 10 }}>
+                    Video playing in expanded view
+                  </Typography>
+                )}
               </Box>
-            )}
-          </InspectorSectionContent>
+              <Box
+                sx={{
+                  padding: "8px 12px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 1,
+                }}
+              >
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {
+                    // Navigate to Video Tool without pausing playback
+                    navigateToTool("video", loadedAudio?.id);
+                  }}
+                  sx={{
+                    fontSize: 10,
+                    color: "#888",
+                    borderColor: "#333",
+                    py: 0.75,
+                    "&:hover": {
+                      borderColor: "#19abb5",
+                      color: "#19abb5",
+                      backgroundColor: "rgba(25, 171, 181, 0.05)",
+                    },
+                  }}
+                >
+                  Open in Video Tool
+                </Button>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {
+                    // Open expand modal without pausing playback
+                    setExpandVideoModalOpen(true);
+                  }}
+                  sx={{
+                    fontSize: 10,
+                    color: "#888",
+                    borderColor: "#333",
+                    py: 0.75,
+                    "&:hover": {
+                      borderColor: "#19abb5",
+                      color: "#19abb5",
+                      backgroundColor: "rgba(25, 171, 181, 0.05)",
+                    },
+                  }}
+                >
+                  Expand Video
+                </Button>
+              </Box>
+            </>
+          ) : (
+            <Box
+              sx={{
+                padding: "16px 12px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Typography sx={{ color: "#444", fontSize: 10 }}>
+                No video linked to this audio
+              </Typography>
+            </Box>
+          )}
+        </InspectorSectionContent>
       </InspectorSection>
 
       {/* Container for Filters and Flags with draggable divider */}
@@ -3697,11 +3725,12 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
           <Box
             sx={{ display: "flex", flexDirection: "column", height: "100%" }}
           >
-            {/* Import button header - full width */}
+            {/* Import/Export buttons header - side by side */}
             <Box
               sx={{
                 display: "flex",
                 padding: "6px",
+                gap: "6px",
                 borderBottom: "1px solid #252525",
                 backgroundColor: "#1a1a1a",
               }}
@@ -3712,6 +3741,13 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
               >
                 Import
               </ImportButton>
+              <ExportButton
+                startIcon={<FileDownloadIcon sx={{ fontSize: 12 }} />}
+                onClick={handleExportClick}
+                disabled={!loadedAudio}
+              >
+                Export
+              </ExportButton>
             </Box>
             <Box sx={{ flex: 1, minHeight: 0 }}>
               <FileLibrary
