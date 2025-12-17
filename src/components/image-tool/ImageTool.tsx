@@ -1230,6 +1230,12 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     new Set(),
   );
 
+  // State to track annotation counts per image (for reactive flag badge updates)
+  // Must be declared before galleryItemsWithVersions useMemo which uses it
+  const [annotationCountsPerImage, setAnnotationCountsPerImage] = useState<
+    Map<string, number>
+  >(new Map());
+
   // Gallery items with version stacking: exports are hidden from main list but tracked on their originals
   const galleryItemsWithVersions = useMemo((): GalleryItemWithVersions[] => {
     // Filter out deleted items from all sources
@@ -1539,11 +1545,6 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const annotationsPerImageRef = useRef<Map<string, StoreImageAnnotation[]>>(
     new Map(),
   );
-
-  // State to track annotation counts per image (for reactive flag badge updates)
-  const [annotationCountsPerImage, setAnnotationCountsPerImage] = useState<
-    Map<string, number>
-  >(new Map());
 
   // Divider state for filters/annotations split (percentage for filters section)
   const [sectionDividerPosition, setSectionDividerPosition] = useState(60); // 60% for filters
