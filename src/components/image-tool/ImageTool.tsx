@@ -453,6 +453,7 @@ const imageFiles: (FileItem & {
     format: "JPEG / sRGB",
     gps: "40.71°N, 74.00°W",
     dimensions: "4000 x 2667",
+    source: "drive",
   },
   {
     id: "i2",
@@ -467,6 +468,7 @@ const imageFiles: (FileItem & {
     format: "JPEG / sRGB",
     gps: "34.05°N, 118.24°W",
     dimensions: "5472 x 3648",
+    source: "drive",
   },
   {
     id: "i3",
@@ -481,6 +483,7 @@ const imageFiles: (FileItem & {
     format: "JPEG / sRGB",
     gps: "51.50°N, 0.12°W",
     dimensions: "6000 x 4000",
+    source: "drive",
   },
   {
     id: "i4",
@@ -495,6 +498,7 @@ const imageFiles: (FileItem & {
     format: "JPEG / P3",
     gps: "48.85°N, 2.35°E",
     dimensions: "4032 x 3024",
+    source: "drive",
   },
   {
     id: "i5",
@@ -509,6 +513,7 @@ const imageFiles: (FileItem & {
     format: "JPEG / sRGB",
     gps: "35.68°N, 139.76°E",
     dimensions: "5184 x 3456",
+    source: "drive",
   },
   {
     id: "i6",
@@ -523,6 +528,7 @@ const imageFiles: (FileItem & {
     format: "JPEG / sRGB",
     gps: null,
     dimensions: "4896 x 3264",
+    source: "drive",
   },
   {
     id: "i7",
@@ -537,6 +543,7 @@ const imageFiles: (FileItem & {
     format: "JPEG / sRGB",
     gps: "37.77°N, 122.41°W",
     dimensions: "5760 x 3840",
+    source: "drive",
   },
   {
     id: "i8",
@@ -551,6 +558,7 @@ const imageFiles: (FileItem & {
     format: "JPEG / sRGB",
     gps: "41.90°N, 12.49°E",
     dimensions: "4288 x 2848",
+    source: "drive",
   },
   {
     id: "i9",
@@ -565,6 +573,7 @@ const imageFiles: (FileItem & {
     format: "JPEG / sRGB",
     gps: "52.52°N, 13.40°E",
     dimensions: "6000 x 4000",
+    source: "drive",
   },
 ];
 
@@ -853,6 +862,8 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [loadedImage, setLoadedImage] = useState<(typeof imageFiles)[0] | null>(
     null,
   );
+  // State for locally imported images (added to gallery with 'local' source badge)
+  const [importedImages, setImportedImages] = useState<(typeof imageFiles)>([]);
   const [viewMode, setViewMode] = useState<ViewMode>("single");
   const [activeTool, setActiveTool] = useState<AnnotationTool>(null);
   const [filters, setFilters] = useState<ImageFilters>(defaultFilters);
@@ -1624,11 +1635,15 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         gps: testMetadata?.gpsCoordinates
           ? formatGPSCoordinates(testMetadata.gpsCoordinates)
           : null,
+        source: "local" as const, // Locally imported file
       };
 
       // Store the original image URL and filename for export
       setImportedImageUrl(objectUrl);
       setImportedFileName(file.name);
+
+      // Add imported image to the gallery list (with 'local' source badge)
+      setImportedImages((prev) => [...prev, mockItem]);
 
       setLoadedImage(mockItem);
       setSelectedFile(mockItem);
@@ -4153,7 +4168,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             </Box>
             <Box sx={{ flex: 1, minHeight: 0 }}>
               <FileLibrary
-                items={imageFiles}
+                items={[...imageFiles, ...importedImages]}
                 selectedId={loadedImage?.id}
                 onSelect={(item) =>
                   setSelectedFile(item as (typeof imageFiles)[0])

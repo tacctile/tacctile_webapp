@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { Box, Typography, TextField, InputAdornment, Chip, Select, MenuItem, FormControl, Collapse, IconButton } from '@mui/material';
+import { Box, Typography, TextField, InputAdornment, Chip, Select, MenuItem, FormControl, Collapse, IconButton, Tooltip } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import SearchIcon from '@mui/icons-material/Search';
 import VideocamIcon from '@mui/icons-material/Videocam';
@@ -8,8 +8,13 @@ import PhotoIcon from '@mui/icons-material/Photo';
 import FlagIcon from '@mui/icons-material/Flag';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import FileUploadIcon from '@mui/icons-material/FileUpload';
+import CloudIcon from '@mui/icons-material/Cloud';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
 
 // Types
+export type FileSource = 'local' | 'drive' | 'export';
+
 export interface FileItem {
   id: string;
   type: 'video' | 'audio' | 'image';
@@ -21,6 +26,7 @@ export interface FileItem {
   deviceInfo?: string;
   flagCount: number;
   hasFindings: boolean;
+  source?: FileSource; // Where the file came from: local upload, Google Drive, or export
 }
 
 export type MediaFilter = 'all' | 'video' | 'audio' | 'image';
@@ -255,6 +261,20 @@ const FlagBadge = styled(Box)({
   color: '#19abb5',
 });
 
+const SourceBadge = styled(Box)({
+  position: 'absolute',
+  top: 4,
+  left: 4,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  borderRadius: 4,
+  padding: 3,
+  width: 22,
+  height: 22,
+});
+
 const Duration = styled(Typography)({
   fontSize: '10px',
   color: '#666',
@@ -278,6 +298,34 @@ const getTypeIcon = (type: 'video' | 'audio' | 'image', size: number = 16) => {
     case 'video': return <VideocamIcon sx={{ fontSize: size, color }} />;
     case 'audio': return <MicIcon sx={{ fontSize: size, color }} />;
     case 'image': return <PhotoIcon sx={{ fontSize: size, color }} />;
+  }
+};
+
+const getSourceInfo = (source?: FileSource): { icon: React.ReactNode; tooltip: string } => {
+  const iconSize = 14;
+  const iconColor = '#ffffff';
+  switch (source) {
+    case 'local':
+      return {
+        icon: <FileUploadIcon sx={{ fontSize: iconSize, color: iconColor }} />,
+        tooltip: 'Local import',
+      };
+    case 'drive':
+      return {
+        icon: <CloudIcon sx={{ fontSize: iconSize, color: iconColor }} />,
+        tooltip: 'Google Drive',
+      };
+    case 'export':
+      return {
+        icon: <FileDownloadIcon sx={{ fontSize: iconSize, color: iconColor }} />,
+        tooltip: 'Exported file',
+      };
+    default:
+      // Default to drive for images without source (backward compatibility)
+      return {
+        icon: <CloudIcon sx={{ fontSize: iconSize, color: iconColor }} />,
+        tooltip: 'Google Drive',
+      };
   }
 };
 
@@ -497,6 +545,15 @@ export const FileLibrary: React.FC<FileLibraryProps> = ({
           getTypeIcon(item.type, 24)
         )}
       </Thumbnail>
+
+      {/* Source badge in upper left corner */}
+      {item.type === 'image' && (
+        <Tooltip title={getSourceInfo(item.source).tooltip} arrow placement="top">
+          <SourceBadge>
+            {getSourceInfo(item.source).icon}
+          </SourceBadge>
+        </Tooltip>
+      )}
 
       <GridOverlay>
         <Typography sx={{ fontSize: '10px', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
