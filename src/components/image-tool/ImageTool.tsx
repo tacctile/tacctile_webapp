@@ -1761,23 +1761,73 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     return zoom;
   }, [zoom]);
 
+  // Helper function to calculate pan offset to center on a normalized point (0-1)
+  // Used for zooming to selected annotation
+  const calculatePanToCenterNormalized = useCallback(
+    (normalizedX: number, normalizedY: number, targetZoom: number) => {
+      if (!actualDimensions || !containerDimensions) return { x: 0, y: 0 };
+      const fitScale = calculateFitScale();
+      const actualScale = fitScale * (targetZoom / 100);
+      const imageWidth = actualDimensions.width * actualScale;
+      const imageHeight = actualDimensions.height * actualScale;
+      // Pan to center the point: pan = imageSize * (0.5 - normalizedCoord)
+      const panX = imageWidth * (0.5 - normalizedX);
+      const panY = imageHeight * (0.5 - normalizedY);
+      // Constrain to valid pan range at the new zoom level
+      const excessWidth = Math.max(0, imageWidth - containerDimensions.width);
+      const excessHeight = Math.max(0, imageHeight - containerDimensions.height);
+      return {
+        x: Math.max(-excessWidth / 2, Math.min(excessWidth / 2, panX)),
+        y: Math.max(-excessHeight / 2, Math.min(excessHeight / 2, panY)),
+      };
+    },
+    [actualDimensions, containerDimensions, calculateFitScale]
+  );
+
+  // Get center point of selected annotation (normalized 0-1 coords)
+  const getSelectedAnnotationCenter = useCallback(() => {
+    if (!selectedAnnotationId) return null;
+    const ann = storeAnnotations.find((a) => a.id === selectedAnnotationId);
+    if (!ann) return null;
+    if (ann.type === "rectangle") {
+      return { x: ann.x + ann.width / 2, y: ann.y + ann.height / 2 };
+    } else if (ann.type === "circle") {
+      return { x: ann.centerX, y: ann.centerY };
+    } else if (ann.type === "arrow") {
+      return { x: (ann.startX + ann.endX) / 2, y: (ann.startY + ann.endY) / 2 };
+    }
+    return null;
+  }, [selectedAnnotationId, storeAnnotations]);
+
   // Zoom in to next step (up to 400%)
   const handleZoomIn = useCallback(() => {
     if (zoom >= ZOOM_MAX) return;
     const newZoom = getNextZoomStep(zoom);
     setZoom(newZoom);
-    // Reset pan when zooming - will be recalculated based on constraints
-    setPanOffset({ x: 0, y: 0 });
-  }, [zoom, getNextZoomStep]);
+    // If an annotation is selected, zoom centered on it; otherwise zoom to center
+    const annCenter = getSelectedAnnotationCenter();
+    if (annCenter) {
+      const newPan = calculatePanToCenterNormalized(annCenter.x, annCenter.y, newZoom);
+      setPanOffset(newPan);
+    } else {
+      setPanOffset({ x: 0, y: 0 });
+    }
+  }, [zoom, getNextZoomStep, getSelectedAnnotationCenter, calculatePanToCenterNormalized]);
 
   // Zoom out to previous step (stops at 100% = fit-to-window)
   const handleZoomOut = useCallback(() => {
     if (zoom <= ZOOM_MIN) return;
     const newZoom = getPrevZoomStep(zoom);
     setZoom(newZoom);
-    // Reset pan when zooming
-    setPanOffset({ x: 0, y: 0 });
-  }, [zoom, getPrevZoomStep]);
+    // If an annotation is selected, zoom centered on it; otherwise zoom to center
+    const annCenter = getSelectedAnnotationCenter();
+    if (annCenter) {
+      const newPan = calculatePanToCenterNormalized(annCenter.x, annCenter.y, newZoom);
+      setPanOffset(newPan);
+    } else {
+      setPanOffset({ x: 0, y: 0 });
+    }
+  }, [zoom, getPrevZoomStep, getSelectedAnnotationCenter, calculatePanToCenterNormalized]);
 
   // Set zoom to fit image in container (100%)
   const handleFitToView = useCallback(() => {
@@ -1967,9 +2017,21 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     setFlipV(nextState.flipV);
   }, [redoStack, filters, rotation, flipH, flipV]);
 
-  // Check if undo/redo are available
-  const canUndo = undoStack.length > 0;
-  const canRedo = redoStack.length > 0;
+  // Check if undo/redo are available (either local filter/transform history OR store annotation history)
+  const canUndo = undoStack.length > 0 || storeCanUndo();
+  const canRedo = redoStack.length > 0 || storeCanRedo();
+
+  // Combined undo handler for toolbar button (calls both local and store undo)
+  const handleCombinedUndo = useCallback(() => {
+    storeUndo();
+    handleUndo();
+  }, [storeUndo, handleUndo]);
+
+  // Combined redo handler for toolbar button (calls both local and store redo)
+  const handleCombinedRedo = useCallback(() => {
+    storeRedo();
+    handleRedo();
+  }, [storeRedo, handleRedo]);
 
   // Handler for when filter slider drag starts (mousedown on filter section)
   const handleFilterDragStart = useCallback(() => {
@@ -4231,6 +4293,8 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     // Render resize handles for selected annotation
     const renderResizeHandles = (ann: StoreImageAnnotation) => {
       if (ann.id !== selectedAnnotationId) return null;
+      // Don't show resize handles for locked annotations
+      if (ann.locked) return null;
 
       const handleSize = 8;
       const handles: { handle: ResizeHandle; x: number; y: number }[] = [];
@@ -4484,16 +4548,18 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                   const y1 = ann.startY * imageSize.height;
                   const x2 = ann.endX * imageSize.width;
                   const y2 = ann.endY * imageSize.height;
-                  // Calculate arrow head
+                  // Calculate arrow head - increased size for visibility (2x larger)
                   const dx = x2 - x1;
                   const dy = y2 - y1;
                   const angle = Math.atan2(dy, dx);
-                  const headLength = ann.headSize || 12;
+                  const headLength = ann.headSize || 24; // Increased from 12 to 24
                   const headAngle = Math.PI / 6; // 30 degrees
                   const headX1 = x2 - headLength * Math.cos(angle - headAngle);
                   const headY1 = y2 - headLength * Math.sin(angle - headAngle);
                   const headX2 = x2 - headLength * Math.cos(angle + headAngle);
                   const headY2 = y2 - headLength * Math.sin(angle + headAngle);
+                  // Ensure minimum stroke width of 3 for arrow visibility
+                  const arrowStrokeWidth = Math.max(strokeWidth, 3);
                   return (
                     <g key={ann.id}>
                       {/* Hit area - transparent thick line for easier clicking */}
@@ -4519,40 +4585,30 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                             x2={x2}
                             y2={y2}
                             stroke={strokeColor}
-                            strokeWidth={baseStrokeWidth + 4}
+                            strokeWidth={arrowStrokeWidth + 4}
                             opacity={0.3}
                             style={{ pointerEvents: "none" }}
                           />
                         </>
                       )}
-                      {/* Main arrow */}
+                      {/* Main arrow line */}
                       <line
                         x1={x1}
                         y1={y1}
                         x2={x2}
                         y2={y2}
                         stroke={strokeColor}
-                        strokeWidth={strokeWidth}
+                        strokeWidth={arrowStrokeWidth}
                         opacity={ann.opacity || 1}
                         style={{ pointerEvents: "none" }}
                       />
-                      <line
-                        x1={x2}
-                        y1={y2}
-                        x2={headX1}
-                        y2={headY1}
+                      {/* Arrowhead as filled polygon for better visibility */}
+                      <polygon
+                        points={`${x2},${y2} ${headX1},${headY1} ${headX2},${headY2}`}
+                        fill={strokeColor}
                         stroke={strokeColor}
-                        strokeWidth={strokeWidth}
-                        opacity={ann.opacity || 1}
-                        style={{ pointerEvents: "none" }}
-                      />
-                      <line
-                        x1={x2}
-                        y1={y2}
-                        x2={headX2}
-                        y2={headY2}
-                        stroke={strokeColor}
-                        strokeWidth={strokeWidth}
+                        strokeWidth={arrowStrokeWidth}
+                        strokeLinejoin="round"
                         opacity={ann.opacity || 1}
                         style={{ pointerEvents: "none" }}
                       />
@@ -4626,7 +4682,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                   const endX = startX + width;
                   const endY = startY + height;
                   const angle = Math.atan2(height, width);
-                  const headLength = 12;
+                  const headLength = 24; // Increased from 12 for better visibility
                   const headAngle = Math.PI / 6;
                   const headX1 =
                     endX - headLength * Math.cos(angle - headAngle);
@@ -4644,26 +4700,16 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                         x2={endX}
                         y2={endY}
                         stroke="#19abb5"
-                        strokeWidth={2}
+                        strokeWidth={3}
                         strokeDasharray="4 2"
                       />
-                      <line
-                        x1={endX}
-                        y1={endY}
-                        x2={headX1}
-                        y2={headY1}
+                      <polygon
+                        points={`${endX},${endY} ${headX1},${headY1} ${headX2},${headY2}`}
+                        fill="#19abb5"
                         stroke="#19abb5"
-                        strokeWidth={2}
-                        strokeDasharray="4 2"
-                      />
-                      <line
-                        x1={endX}
-                        y1={endY}
-                        x2={headX2}
-                        y2={headY2}
-                        stroke="#19abb5"
-                        strokeWidth={2}
-                        strokeDasharray="4 2"
+                        strokeWidth={3}
+                        strokeLinejoin="round"
+                        opacity={0.7}
                       />
                     </g>
                   );
@@ -4973,7 +5019,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               <ToolButton
                 size="small"
                 disabled={!loadedImage || !canUndo}
-                onClick={handleUndo}
+                onClick={handleCombinedUndo}
                 sx={{
                   color: !loadedImage || !canUndo ? "#444" : "#888",
                 }}
@@ -4987,7 +5033,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               <ToolButton
                 size="small"
                 disabled={!loadedImage || !canRedo}
-                onClick={handleRedo}
+                onClick={handleCombinedRedo}
                 sx={{
                   color: !loadedImage || !canRedo ? "#444" : "#888",
                 }}
