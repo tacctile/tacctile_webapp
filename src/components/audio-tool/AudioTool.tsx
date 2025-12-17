@@ -14,10 +14,10 @@ import { styled } from "@mui/material/styles";
 import MicIcon from "@mui/icons-material/Mic";
 import VideocamIcon from "@mui/icons-material/Videocam";
 import FileUploadIcon from "@mui/icons-material/FileUpload";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import ExpandLessIcon from "@mui/icons-material/ExpandLess";
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
-import ZoomInIcon from "@mui/icons-material/ZoomIn";
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import SearchIcon from "@mui/icons-material/Search";
+import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
+import RadioButtonCheckedIcon from "@mui/icons-material/RadioButtonChecked";
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
 
@@ -224,7 +224,7 @@ const FileDropZone = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
   cursor: "pointer",
 }));
 
-// Import button for left panel - full width
+// Import/Export buttons for left panel - side by side
 const ImportButton = styled(Button)({
   fontSize: 9,
   color: "#888",
@@ -232,7 +232,8 @@ const ImportButton = styled(Button)({
   border: "1px solid #333",
   padding: "6px 8px",
   textTransform: "none",
-  width: "100%",
+  flex: 1,
+  minWidth: 0,
   justifyContent: "center",
   "&:hover": {
     backgroundColor: "#333",
@@ -242,6 +243,58 @@ const ImportButton = styled(Button)({
   "& .MuiButton-startIcon": {
     marginRight: 4,
   },
+});
+
+const ExportButton = styled(Button)({
+  fontSize: 9,
+  color: "#888",
+  backgroundColor: "#252525",
+  border: "1px solid #333",
+  padding: "6px 8px",
+  textTransform: "none",
+  flex: 1,
+  minWidth: 0,
+  justifyContent: "center",
+  "&:hover": {
+    backgroundColor: "#333",
+    borderColor: "#19abb5",
+    color: "#19abb5",
+  },
+  "&.Mui-disabled": {
+    color: "#555",
+    backgroundColor: "#1a1a1a",
+    borderColor: "#2a2a2a",
+  },
+  "& .MuiButton-startIcon": {
+    marginRight: 4,
+  },
+});
+
+// Export panel - slides down from Import/Export area
+const ExportPanel = styled(Box)<{ isOpen: boolean }>(({ isOpen }) => ({
+  position: "absolute",
+  top: 0,
+  left: 0,
+  right: 0,
+  backgroundColor: "#1a1a1a",
+  borderBottom: "1px solid #333",
+  padding: isOpen ? "16px" : "0 16px",
+  height: isOpen ? "auto" : 0,
+  overflow: "hidden",
+  transition: "all 0.25s ease",
+  opacity: isOpen ? 1 : 0,
+  zIndex: 10,
+}));
+
+// Zoom/Height controls container under waveform
+const WaveformControlsBar = styled(Box)({
+  height: 36,
+  backgroundColor: "#111",
+  borderTop: "1px solid #252525",
+  display: "flex",
+  alignItems: "center",
+  padding: "0 12px",
+  gap: 16,
 });
 
 // ============================================================================
@@ -1370,7 +1423,6 @@ interface AudioToolProps {
 
 export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [selectedFile, setSelectedFile] = useState<MediaFileItem | null>(null);
-  const [videoRefCollapsed, setVideoRefCollapsed] = useState(true); // collapsed by default, expands when video exists
   const [flags, setFlags] = useState<Flag[]>([]);
 
   // Draggable divider state for Filters/Flags sections (percentage for filters section)
@@ -1457,8 +1509,12 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [zoomToolActive, setZoomToolActive] = useState(false);
 
   // Zoom section state (inspector panel)
-  const [zoomSectionOpen, setZoomSectionOpen] = useState(true);
   const [waveformHeight, setWaveformHeight] = useState(1); // 0.5 to 2.0
+
+  // Export panel state
+  const [exportPanelOpen, setExportPanelOpen] = useState(false);
+  const [exportSelectedRegionOnly, setExportSelectedRegionOnly] =
+    useState(false);
 
   // Marquee zoom selection state
   const [marqueeStart, setMarqueeStart] = useState<number | null>(null);
@@ -1550,15 +1606,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     }
   }, [loadedAudio, selectedFile]);
 
-  // Auto-expand video reference when video exists
-  useEffect(() => {
-    if (loadedAudio?.hasVideo) {
-      setVideoRefCollapsed(false);
-    } else {
-      setVideoRefCollapsed(true);
-    }
-  }, [loadedAudio?.hasVideo]);
-
   // Generate test flags when test_drums.mp3 is loaded
   useEffect(() => {
     if (loadedAudio?.fileName === "test_drums.mp3") {
@@ -1603,7 +1650,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const { isVideoLoading, isVideoReady } = useVideoSync({
     videoRef,
     videoUrl: loadedVideoUrl,
-    isActive: !expandVideoModalOpen && !videoRefCollapsed && !!loadedVideoUrl,
+    isActive: !expandVideoModalOpen && !!loadedVideoUrl,
     duration: loadedAudio?.duration || 0,
     isScrubbing: isVideoScrubbing,
   });
@@ -1826,9 +1873,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         if (loaded) setStoreLoadedAudioFile(loaded);
         setSelectedFile(loadedFile);
 
-        // Expand video reference panel since we have video
-        setVideoRefCollapsed(false);
-
         setIsLoadingAudio(false);
       } catch (error) {
         console.error("Error loading video audio:", error);
@@ -1842,7 +1886,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         const loaded = toLoadedAudioFile(loadedFile);
         if (loaded) setStoreLoadedAudioFile(loaded);
         setSelectedFile(loadedFile);
-        setVideoRefCollapsed(false);
         setIsLoadingAudio(false);
       }
     },
@@ -2077,6 +2120,59 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const handleImportClick = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
+
+  // Handle Export button click - opens the export panel
+  const handleExportClick = useCallback(() => {
+    // Reset to default when opening
+    setExportSelectedRegionOnly(false);
+    setExportPanelOpen(true);
+  }, []);
+
+  // Handle Export panel cancel
+  const handleExportCancel = useCallback(() => {
+    setExportPanelOpen(false);
+  }, []);
+
+  // Handle Export panel confirm
+  const handleExportConfirm = useCallback(() => {
+    if (!loadedAudio) return;
+
+    // Get export range
+    const hasSelection = selectionStart !== null && selectionEnd !== null;
+    const exportStart = hasSelection && exportSelectedRegionOnly
+      ? Math.min(selectionStart, selectionEnd)
+      : 0;
+    const exportEnd = hasSelection && exportSelectedRegionOnly
+      ? Math.max(selectionStart, selectionEnd)
+      : loadedAudio.duration;
+
+    // For now, just log the export action (actual export logic would go here)
+    console.log("Export audio:", {
+      fileName: loadedAudio.fileName,
+      range: { start: exportStart, end: exportEnd },
+      exportSelectedRegionOnly,
+      filters,
+    });
+
+    // Show toast notification
+    setToast({
+      open: true,
+      message: exportSelectedRegionOnly && hasSelection
+        ? `Exported selected region (${formatTimeForExport(exportStart)} - ${formatTimeForExport(exportEnd)})`
+        : "Audio exported with all filters applied",
+      severity: "success",
+    });
+
+    // Close the panel
+    setExportPanelOpen(false);
+  }, [loadedAudio, selectionStart, selectionEnd, exportSelectedRegionOnly, filters]);
+
+  // Format time for export display (seconds to mm:ss format)
+  const formatTimeForExport = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
 
   // Handle file input change
   const handleFileInputChange = useCallback(
@@ -2820,10 +2916,13 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         overflow: "hidden",
       }}
     >
-      {/* Video Reference - collapsible section (always show header) */}
+      {/* Video Reference - always visible, no collapse */}
       <InspectorSection sx={{ flexShrink: 0 }}>
         <InspectorSectionHeader
-          onClick={() => setVideoRefCollapsed(!videoRefCollapsed)}
+          sx={{
+            cursor: "default",
+            "&:hover": { backgroundColor: "#1a1a1a" },
+          }}
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
             <InspectorSectionTitle>Video Reference</InspectorSectionTitle>
@@ -2831,260 +2930,134 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
               <VideocamIcon sx={{ fontSize: 12, color: "#19abb5" }} />
             )}
           </Box>
-          {videoRefCollapsed ? (
-            <ChevronRightIcon sx={{ fontSize: 16, color: "#666" }} />
-          ) : (
-            <ExpandMoreIcon sx={{ fontSize: 16, color: "#666" }} />
-          )}
         </InspectorSectionHeader>
-        {!videoRefCollapsed && (
-          <InspectorSectionContent sx={{ p: 0 }}>
-            {loadedAudio?.hasVideo && loadedVideoUrl ? (
-              <>
-                <Box
-                  sx={{
-                    position: "relative",
-                    backgroundColor: "#000",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    aspectRatio: "16/9",
-                    maxHeight: 140,
-                  }}
-                >
-                  {/* Only render video when modal is closed to avoid two video instances */}
-                  {!expandVideoModalOpen ? (
-                    <>
-                      <video
-                        ref={videoRef}
-                        src={loadedVideoUrl}
-                        muted
-                        playsInline
-                        preload="auto"
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "contain",
-                        }}
-                      />
-                      {/* Loading spinner when video is seeking (delayed to avoid flicker) */}
-                      {isVideoLoading && (
-                        <Box
-                          sx={{
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            backgroundColor: "rgba(0, 0, 0, 0.3)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            pointerEvents: "none",
-                          }}
-                        >
-                          <CircularProgress
-                            size={24}
-                            sx={{ color: "#19abb5" }}
-                          />
-                        </Box>
-                      )}
-                    </>
-                  ) : (
-                    <Typography sx={{ color: "#555", fontSize: 10 }}>
-                      Video playing in expanded view
-                    </Typography>
-                  )}
-                </Box>
-                <Box
-                  sx={{
-                    padding: "8px 12px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 1,
-                  }}
-                >
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    size="small"
-                    onClick={() => {
-                      // Navigate to Video Tool without pausing playback
-                      navigateToTool("video", loadedAudio?.id);
-                    }}
-                    sx={{
-                      fontSize: 10,
-                      color: "#888",
-                      borderColor: "#333",
-                      py: 0.75,
-                      "&:hover": {
-                        borderColor: "#19abb5",
-                        color: "#19abb5",
-                        backgroundColor: "rgba(25, 171, 181, 0.05)",
-                      },
-                    }}
-                  >
-                    Open in Video Tool
-                  </Button>
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    size="small"
-                    onClick={() => {
-                      // Open expand modal without pausing playback
-                      setExpandVideoModalOpen(true);
-                    }}
-                    sx={{
-                      fontSize: 10,
-                      color: "#888",
-                      borderColor: "#333",
-                      py: 0.75,
-                      "&:hover": {
-                        borderColor: "#19abb5",
-                        color: "#19abb5",
-                        backgroundColor: "rgba(25, 171, 181, 0.05)",
-                      },
-                    }}
-                  >
-                    Expand Video
-                  </Button>
-                </Box>
-              </>
-            ) : (
+        <InspectorSectionContent sx={{ p: 0 }}>
+          {loadedAudio?.hasVideo && loadedVideoUrl ? (
+            <>
               <Box
                 sx={{
-                  padding: "16px 12px",
+                  position: "relative",
+                  backgroundColor: "#000",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  aspectRatio: "16/9",
+                  maxHeight: 180,
                 }}
               >
-                <Typography sx={{ color: "#444", fontSize: 10 }}>
-                  No video linked to this audio
-                </Typography>
+                {/* Only render video when modal is closed to avoid two video instances */}
+                {!expandVideoModalOpen ? (
+                  <>
+                    <video
+                      ref={videoRef}
+                      src={loadedVideoUrl}
+                      muted
+                      playsInline
+                      preload="auto"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                      }}
+                    />
+                    {/* Loading spinner when video is seeking (delayed to avoid flicker) */}
+                    {isVideoLoading && (
+                      <Box
+                        sx={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          backgroundColor: "rgba(0, 0, 0, 0.3)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          pointerEvents: "none",
+                        }}
+                      >
+                        <CircularProgress
+                          size={24}
+                          sx={{ color: "#19abb5" }}
+                        />
+                      </Box>
+                    )}
+                  </>
+                ) : (
+                  <Typography sx={{ color: "#555", fontSize: 10 }}>
+                    Video playing in expanded view
+                  </Typography>
+                )}
               </Box>
-            )}
-          </InspectorSectionContent>
-        )}
-      </InspectorSection>
-
-      {/* Zoom - collapsible section */}
-      <InspectorSection sx={{ flexShrink: 0 }}>
-        <InspectorSectionHeader
-          onClick={() => setZoomSectionOpen(!zoomSectionOpen)}
-        >
-          <InspectorSectionTitle>Zoom</InspectorSectionTitle>
-          {zoomSectionOpen ? (
-            <ExpandLessIcon sx={{ fontSize: 18, color: "#666" }} />
-          ) : (
-            <ExpandMoreIcon sx={{ fontSize: 18, color: "#666" }} />
-          )}
-        </InspectorSectionHeader>
-        {zoomSectionOpen && (
-          <InspectorSectionContent>
-            {/* Zoom controls */}
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-              <Tooltip title="Zoom to selection">
-                <IconButton
+              <Box
+                sx={{
+                  padding: "8px 12px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 1,
+                }}
+              >
+                <Button
+                  fullWidth
+                  variant="outlined"
                   size="small"
-                  onClick={() => setZoomToolActive(!zoomToolActive)}
-                  disabled={!loadedAudio}
+                  onClick={() => {
+                    // Navigate to Video Tool without pausing playback
+                    navigateToTool("video", loadedAudio?.id);
+                  }}
                   sx={{
-                    color: zoomToolActive ? "#19abb5" : "#888",
-                    padding: "4px",
-                    "&:hover": { color: "#19abb5" },
-                    "&.Mui-disabled": { color: "#444" },
+                    fontSize: 10,
+                    color: "#888",
+                    borderColor: "#333",
+                    py: 0.75,
+                    "&:hover": {
+                      borderColor: "#19abb5",
+                      color: "#19abb5",
+                      backgroundColor: "rgba(25, 171, 181, 0.05)",
+                    },
                   }}
                 >
-                  <ZoomInIcon sx={{ fontSize: 18 }} />
-                </IconButton>
-              </Tooltip>
-              <IconButton
-                size="small"
-                onClick={handleZoomOut}
-                disabled={!loadedAudio}
-                sx={{
-                  color: "#888",
-                  padding: "4px",
-                  "&:hover": { color: "#19abb5" },
-                  "&.Mui-disabled": { color: "#444" },
-                }}
-              >
-                <RemoveIcon sx={{ fontSize: 18 }} />
-              </IconButton>
-              <Slider
-                value={overviewZoom}
-                min={1}
-                max={10}
-                step={0.5}
-                onChange={(_, value) => handleZoomSliderChange(value as number)}
-                disabled={!loadedAudio}
-                sx={{
-                  flex: 1,
-                  color: "#19abb5",
-                  "& .MuiSlider-thumb": { width: 12, height: 12 },
-                  "& .MuiSlider-track": { height: 3 },
-                  "& .MuiSlider-rail": { height: 3, backgroundColor: "#333" },
-                }}
-              />
-              <IconButton
-                size="small"
-                onClick={handleZoomIn}
-                disabled={!loadedAudio}
-                sx={{
-                  color: "#888",
-                  padding: "4px",
-                  "&:hover": { color: "#19abb5" },
-                  "&.Mui-disabled": { color: "#444" },
-                }}
-              >
-                <AddIcon sx={{ fontSize: 18 }} />
-              </IconButton>
-              <Typography
-                sx={{
-                  color: "#888",
-                  fontSize: 11,
-                  minWidth: 35,
-                  fontFamily: '"JetBrains Mono", monospace',
-                }}
-              >
-                {overviewZoom.toFixed(1)}x
+                  Open in Video Tool
+                </Button>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {
+                    // Open expand modal without pausing playback
+                    setExpandVideoModalOpen(true);
+                  }}
+                  sx={{
+                    fontSize: 10,
+                    color: "#888",
+                    borderColor: "#333",
+                    py: 0.75,
+                    "&:hover": {
+                      borderColor: "#19abb5",
+                      color: "#19abb5",
+                      backgroundColor: "rgba(25, 171, 181, 0.05)",
+                    },
+                  }}
+                >
+                  Expand Video
+                </Button>
+              </Box>
+            </>
+          ) : (
+            <Box
+              sx={{
+                padding: "16px 12px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Typography sx={{ color: "#444", fontSize: 10 }}>
+                No video linked to this audio
               </Typography>
             </Box>
-
-            {/* Waveform height control */}
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Typography sx={{ fontSize: 11, color: "#888", minWidth: 50 }}>
-                Height
-              </Typography>
-              <Slider
-                value={waveformHeight}
-                min={0.5}
-                max={2}
-                step={0.1}
-                onChange={(_, value) => setWaveformHeight(value as number)}
-                disabled={!loadedAudio}
-                sx={{
-                  flex: 1,
-                  color: "#19abb5",
-                  "& .MuiSlider-thumb": { width: 12, height: 12 },
-                  "& .MuiSlider-track": { height: 3 },
-                  "& .MuiSlider-rail": { height: 3, backgroundColor: "#333" },
-                }}
-              />
-              <Typography
-                sx={{
-                  color: "#888",
-                  fontSize: 11,
-                  minWidth: 30,
-                  fontFamily: '"JetBrains Mono", monospace',
-                }}
-              >
-                {waveformHeight.toFixed(1)}x
-              </Typography>
-            </Box>
-          </InspectorSectionContent>
-        )}
+          )}
+        </InspectorSectionContent>
       </InspectorSection>
 
       {/* Container for Filters and Flags with draggable divider */}
@@ -3660,6 +3633,120 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
           />
         </Box>
 
+        {/* Zoom/Height Controls Bar - under waveform */}
+        <WaveformControlsBar>
+          {/* Zoom controls */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <Tooltip title="Zoom to selection">
+              <IconButton
+                size="small"
+                onClick={() => setZoomToolActive(!zoomToolActive)}
+                disabled={!loadedAudio}
+                sx={{
+                  color: zoomToolActive ? "#19abb5" : "#666",
+                  padding: "2px",
+                  "&:hover": { color: "#19abb5" },
+                  "&.Mui-disabled": { color: "#444" },
+                }}
+              >
+                <SearchIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Tooltip>
+            <IconButton
+              size="small"
+              onClick={handleZoomOut}
+              disabled={!loadedAudio}
+              sx={{
+                color: "#666",
+                padding: "2px",
+                "&:hover": { color: "#19abb5" },
+                "&.Mui-disabled": { color: "#444" },
+              }}
+            >
+              <RemoveIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+            <Slider
+              value={overviewZoom}
+              min={1}
+              max={10}
+              step={0.5}
+              onChange={(_, value) => handleZoomSliderChange(value as number)}
+              disabled={!loadedAudio}
+              sx={{
+                width: 80,
+                color: "#19abb5",
+                "& .MuiSlider-thumb": { width: 10, height: 10 },
+                "& .MuiSlider-track": { height: 2 },
+                "& .MuiSlider-rail": { height: 2, backgroundColor: "#333" },
+              }}
+            />
+            <IconButton
+              size="small"
+              onClick={handleZoomIn}
+              disabled={!loadedAudio}
+              sx={{
+                color: "#666",
+                padding: "2px",
+                "&:hover": { color: "#19abb5" },
+                "&.Mui-disabled": { color: "#444" },
+              }}
+            >
+              <AddIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+            <Typography
+              sx={{
+                color: "#777",
+                fontSize: 10,
+                minWidth: 28,
+                fontFamily: '"JetBrains Mono", monospace',
+              }}
+            >
+              {overviewZoom.toFixed(1)}x
+            </Typography>
+          </Box>
+
+          {/* Separator */}
+          <Box
+            sx={{
+              width: 1,
+              height: 16,
+              backgroundColor: "#333",
+            }}
+          />
+
+          {/* Height controls */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <Typography sx={{ fontSize: 10, color: "#666" }}>
+              Height
+            </Typography>
+            <Slider
+              value={waveformHeight}
+              min={0.5}
+              max={2}
+              step={0.1}
+              onChange={(_, value) => setWaveformHeight(value as number)}
+              disabled={!loadedAudio}
+              sx={{
+                width: 60,
+                color: "#19abb5",
+                "& .MuiSlider-thumb": { width: 10, height: 10 },
+                "& .MuiSlider-track": { height: 2 },
+                "& .MuiSlider-rail": { height: 2, backgroundColor: "#333" },
+              }}
+            />
+            <Typography
+              sx={{
+                color: "#777",
+                fontSize: 10,
+                minWidth: 28,
+                fontFamily: '"JetBrains Mono", monospace',
+              }}
+            >
+              {waveformHeight.toFixed(1)}x
+            </Typography>
+          </Box>
+        </WaveformControlsBar>
+
         {/* Loading indicator overlay */}
         {isLoadingAudio && (
           <Box
@@ -3716,13 +3803,14 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       <WorkspaceLayout
         filesPanel={
           <Box
-            sx={{ display: "flex", flexDirection: "column", height: "100%" }}
+            sx={{ display: "flex", flexDirection: "column", height: "100%", position: "relative" }}
           >
-            {/* Import button header - full width */}
+            {/* Import/Export buttons header - side by side */}
             <Box
               sx={{
                 display: "flex",
                 padding: "6px",
+                gap: "6px",
                 borderBottom: "1px solid #252525",
                 backgroundColor: "#1a1a1a",
               }}
@@ -3733,8 +3821,16 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
               >
                 Import
               </ImportButton>
+              <ExportButton
+                startIcon={<FileDownloadIcon sx={{ fontSize: 12 }} />}
+                onClick={handleExportClick}
+                disabled={!loadedAudio}
+              >
+                Export
+              </ExportButton>
             </Box>
-            <Box sx={{ flex: 1, minHeight: 0 }}>
+            {/* File list area - can be covered by export panel */}
+            <Box sx={{ flex: 1, minHeight: 0, position: "relative" }}>
               <FileLibrary
                 items={allMediaFiles}
                 selectedId={selectedFile?.id}
@@ -3743,6 +3839,113 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
                   handleDoubleClick(item as MediaFileItem)
                 }
               />
+              {/* Export panel - slides down over file list */}
+              <ExportPanel isOpen={exportPanelOpen}>
+                <Typography
+                  sx={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#e1e1e1",
+                    mb: 2,
+                  }}
+                >
+                  Export Audio
+                </Typography>
+
+                {/* Show radio options only if a region is selected */}
+                {selectionStart !== null && selectionEnd !== null ? (
+                  <Box sx={{ mb: 2 }}>
+                    <Box
+                      onClick={() => setExportSelectedRegionOnly(false)}
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        cursor: "pointer",
+                        mb: 1,
+                        py: 0.5,
+                        "&:hover": { opacity: 0.8 },
+                      }}
+                    >
+                      {exportSelectedRegionOnly ? (
+                        <RadioButtonUncheckedIcon
+                          sx={{ fontSize: 18, color: "#666" }}
+                        />
+                      ) : (
+                        <RadioButtonCheckedIcon
+                          sx={{ fontSize: 18, color: "#19abb5" }}
+                        />
+                      )}
+                      <Typography sx={{ fontSize: 11, color: "#ccc" }}>
+                        Export full audio
+                      </Typography>
+                    </Box>
+                    <Box
+                      onClick={() => setExportSelectedRegionOnly(true)}
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        cursor: "pointer",
+                        py: 0.5,
+                        "&:hover": { opacity: 0.8 },
+                      }}
+                    >
+                      {exportSelectedRegionOnly ? (
+                        <RadioButtonCheckedIcon
+                          sx={{ fontSize: 18, color: "#19abb5" }}
+                        />
+                      ) : (
+                        <RadioButtonUncheckedIcon
+                          sx={{ fontSize: 18, color: "#666" }}
+                        />
+                      )}
+                      <Typography sx={{ fontSize: 11, color: "#ccc" }}>
+                        Export selected region only ({formatTimeForExport(Math.min(selectionStart, selectionEnd))} - {formatTimeForExport(Math.max(selectionStart, selectionEnd))})
+                      </Typography>
+                    </Box>
+                  </Box>
+                ) : null}
+
+                <Typography
+                  sx={{
+                    fontSize: 10,
+                    color: "#666",
+                    mb: 2,
+                  }}
+                >
+                  Your audio will be exported with all filters applied.
+                </Typography>
+
+                {/* Action buttons */}
+                <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
+                  <Button
+                    size="small"
+                    onClick={handleExportCancel}
+                    sx={{
+                      fontSize: 10,
+                      color: "#888",
+                      textTransform: "none",
+                      "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.05)" },
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={handleExportConfirm}
+                    sx={{
+                      fontSize: 10,
+                      backgroundColor: "#19abb5",
+                      textTransform: "none",
+                      "&:hover": { backgroundColor: "#15959e" },
+                    }}
+                  >
+                    Export
+                  </Button>
+                </Box>
+              </ExportPanel>
             </Box>
           </Box>
         }
