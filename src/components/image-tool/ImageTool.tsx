@@ -510,7 +510,7 @@ const GalleryThumbnail = styled(Box)({
   backgroundColor: "#252525",
 });
 
-// Flag badge for gallery (upper right) - matches source badge styling
+// Flag badge for gallery (upper right) - matches version badge styling
 const GalleryFlagBadge = styled(Box)({
   position: "absolute",
   top: 4,
@@ -519,12 +519,12 @@ const GalleryFlagBadge = styled(Box)({
   alignItems: "center",
   justifyContent: "center",
   gap: 2,
-  backgroundColor: "rgba(0, 0, 0, 0.7)",
+  backgroundColor: "rgba(0, 0, 0, 0.8)",
   borderRadius: 4,
   padding: "2px 6px",
   fontSize: 10,
   fontWeight: 600,
-  color: "#19abb5",
+  color: "#fff",
   zIndex: 2,
 });
 
@@ -4746,8 +4746,8 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                         {item.flagCount > 0 && (
                           <GalleryFlagBadge>
                             <svg
-                              width="10"
-                              height="10"
+                              width="12"
+                              height="12"
                               viewBox="0 0 24 24"
                               fill="currentColor"
                             >
