@@ -453,8 +453,27 @@ const GridItemInner = styled(Box)({
   backgroundColor: "#1a1a1a",
 });
 
+// Hover overlay for items with versions - shows "X versions available" text
+const VersionHoverOverlay = styled(Box)<{ visible?: boolean }>(
+  ({ visible }) => ({
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    opacity: visible ? 1 : 0,
+    transition: "opacity 150ms ease",
+    zIndex: 3,
+    pointerEvents: "none",
+  }),
+);
+
 // Version indicator badge (lower right corner)
-const VersionBadge = styled(Box)({
+const VersionBadge = styled(Box)<{ faded?: boolean }>(({ faded }) => ({
   position: "absolute",
   bottom: 4,
   right: 4,
@@ -468,10 +487,12 @@ const VersionBadge = styled(Box)({
   fontWeight: 600,
   color: "#fff",
   zIndex: 2,
-});
+  opacity: faded ? 0 : 1,
+  transition: "opacity 150ms ease",
+}));
 
 // Source badge for gallery thumbnails (upper left)
-const GallerySourceBadge = styled(Box)({
+const GallerySourceBadge = styled(Box)<{ faded?: boolean }>(({ faded }) => ({
   position: "absolute",
   top: 4,
   left: 4,
@@ -484,7 +505,9 @@ const GallerySourceBadge = styled(Box)({
   width: 22,
   height: 22,
   zIndex: 2,
-});
+  opacity: faded ? 0 : 1,
+  transition: "opacity 150ms ease",
+}));
 
 // Overlay for filename at bottom
 const GalleryOverlay = styled(Box)({
@@ -511,7 +534,7 @@ const GalleryThumbnail = styled(Box)({
 });
 
 // Flag badge for gallery (upper right) - matches version badge styling
-const GalleryFlagBadge = styled(Box)({
+const GalleryFlagBadge = styled(Box)<{ faded?: boolean }>(({ faded }) => ({
   position: "absolute",
   top: 4,
   right: 4,
@@ -526,7 +549,9 @@ const GalleryFlagBadge = styled(Box)({
   fontWeight: 600,
   color: "#fff",
   zIndex: 2,
-});
+  opacity: faded ? 0 : 1,
+  transition: "opacity 150ms ease",
+}));
 
 // Versions modal styles
 const VersionsModalContent = styled(Box)({
@@ -1197,6 +1222,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [versionsModalOpen, setVersionsModalOpen] = useState(false);
   const [versionsModalItem, setVersionsModalItem] =
     useState<GalleryItemWithVersions | null>(null);
+
+  // Hover state for gallery items with versions (to show overlay)
+  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
 
   // Use store for annotations instead of local state
   const storeAnnotations = useImageToolStore((state) => state.annotations);
@@ -4691,6 +4719,8 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                 {galleryItemsWithVersions.map((item) => {
                   const hasVersions = (item.versionCount ?? 1) > 1;
                   const sourceInfo = getSourceBadgeInfo(item.source);
+                  const isHoveredWithVersions =
+                    hasVersions && hoveredItemId === item.id;
                   return (
                     <StackedGridItem
                       key={item.id}
@@ -4699,6 +4729,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                       hasVersions={hasVersions}
                       onClick={() => handleGalleryItemClick(item)}
                       onDoubleClick={() => handleGalleryItemDoubleClick(item)}
+                      onMouseEnter={() =>
+                        hasVersions && setHoveredItemId(item.id)
+                      }
+                      onMouseLeave={() => setHoveredItemId(null)}
                     >
                       <GridItemInner>
                         <GalleryThumbnail>
@@ -4717,13 +4751,27 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                           )}
                         </GalleryThumbnail>
 
+                        {/* Hover overlay for items with versions */}
+                        <VersionHoverOverlay visible={isHoveredWithVersions}>
+                          <Typography
+                            sx={{
+                              color: "#fff",
+                              fontSize: 14,
+                              fontWeight: 500,
+                              textAlign: "center",
+                            }}
+                          >
+                            {item.versionCount} versions available
+                          </Typography>
+                        </VersionHoverOverlay>
+
                         {/* Source badge (upper left) - tooltip on badge only */}
                         <Tooltip
                           title={sourceInfo.tooltip}
                           arrow
                           placement="top"
                         >
-                          <GallerySourceBadge>
+                          <GallerySourceBadge faded={isHoveredWithVersions}>
                             {sourceInfo.icon}
                           </GallerySourceBadge>
                         </Tooltip>
@@ -4735,7 +4783,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                             arrow
                             placement="top"
                           >
-                            <VersionBadge>
+                            <VersionBadge faded={isHoveredWithVersions}>
                               <LayersIcon sx={{ fontSize: 12 }} />
                               {item.versionCount}
                             </VersionBadge>
@@ -4744,7 +4792,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
                         {/* Flag badge (upper right) */}
                         {item.flagCount > 0 && (
-                          <GalleryFlagBadge>
+                          <GalleryFlagBadge faded={isHoveredWithVersions}>
                             <svg
                               width="12"
                               height="12"
