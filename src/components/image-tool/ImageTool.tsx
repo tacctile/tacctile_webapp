@@ -1168,6 +1168,11 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   // State for locally imported images (added to gallery with 'local' source badge)
   const [importedImages, setImportedImages] = useState<typeof imageFiles>([]);
 
+  // Track deleted image IDs (for filtering out from both imageFiles and importedImages)
+  const [deletedImageIds, setDeletedImageIds] = useState<Set<string>>(
+    new Set(),
+  );
+
   // Gallery items with version stacking: exports are hidden from main list but tracked on their originals
   const galleryItemsWithVersions = useMemo((): GalleryItemWithVersions[] => {
     // Filter out deleted items from all sources
@@ -1275,10 +1280,6 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [deleteExportConfirmOpen, setDeleteExportConfirmOpen] = useState(false);
   const [exportToDelete, setExportToDelete] = useState<ImageFileType | null>(
     null,
-  );
-  // Track deleted image IDs (for filtering out from both imageFiles and importedImages)
-  const [deletedImageIds, setDeletedImageIds] = useState<Set<string>>(
-    new Set(),
   );
 
   // Hover state for gallery items with versions (to show overlay)
