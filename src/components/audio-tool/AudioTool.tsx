@@ -1456,8 +1456,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [zoomToolActive, setZoomToolActive] = useState(false);
 
-  // Zoom section state (inspector panel)
-  const [zoomSectionOpen, setZoomSectionOpen] = useState(true);
+  // Waveform height state
   const [waveformHeight, setWaveformHeight] = useState(1); // 0.5 to 2.0
 
   // Marquee zoom selection state
@@ -2968,125 +2967,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         )}
       </InspectorSection>
 
-      {/* Zoom - collapsible section */}
-      <InspectorSection sx={{ flexShrink: 0 }}>
-        <InspectorSectionHeader
-          onClick={() => setZoomSectionOpen(!zoomSectionOpen)}
-        >
-          <InspectorSectionTitle>Zoom</InspectorSectionTitle>
-          {zoomSectionOpen ? (
-            <ExpandLessIcon sx={{ fontSize: 18, color: "#666" }} />
-          ) : (
-            <ExpandMoreIcon sx={{ fontSize: 18, color: "#666" }} />
-          )}
-        </InspectorSectionHeader>
-        {zoomSectionOpen && (
-          <InspectorSectionContent>
-            {/* Zoom controls */}
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-              <Tooltip title="Zoom to selection">
-                <IconButton
-                  size="small"
-                  onClick={() => setZoomToolActive(!zoomToolActive)}
-                  disabled={!loadedAudio}
-                  sx={{
-                    color: zoomToolActive ? "#19abb5" : "#888",
-                    padding: "4px",
-                    "&:hover": { color: "#19abb5" },
-                    "&.Mui-disabled": { color: "#444" },
-                  }}
-                >
-                  <ZoomInIcon sx={{ fontSize: 18 }} />
-                </IconButton>
-              </Tooltip>
-              <IconButton
-                size="small"
-                onClick={handleZoomOut}
-                disabled={!loadedAudio}
-                sx={{
-                  color: "#888",
-                  padding: "4px",
-                  "&:hover": { color: "#19abb5" },
-                  "&.Mui-disabled": { color: "#444" },
-                }}
-              >
-                <RemoveIcon sx={{ fontSize: 18 }} />
-              </IconButton>
-              <Slider
-                value={overviewZoom}
-                min={1}
-                max={10}
-                step={0.5}
-                onChange={(_, value) => handleZoomSliderChange(value as number)}
-                disabled={!loadedAudio}
-                sx={{
-                  flex: 1,
-                  color: "#19abb5",
-                  "& .MuiSlider-thumb": { width: 12, height: 12 },
-                  "& .MuiSlider-track": { height: 3 },
-                  "& .MuiSlider-rail": { height: 3, backgroundColor: "#333" },
-                }}
-              />
-              <IconButton
-                size="small"
-                onClick={handleZoomIn}
-                disabled={!loadedAudio}
-                sx={{
-                  color: "#888",
-                  padding: "4px",
-                  "&:hover": { color: "#19abb5" },
-                  "&.Mui-disabled": { color: "#444" },
-                }}
-              >
-                <AddIcon sx={{ fontSize: 18 }} />
-              </IconButton>
-              <Typography
-                sx={{
-                  color: "#888",
-                  fontSize: 11,
-                  minWidth: 35,
-                  fontFamily: '"JetBrains Mono", monospace',
-                }}
-              >
-                {overviewZoom.toFixed(1)}x
-              </Typography>
-            </Box>
-
-            {/* Waveform height control */}
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Typography sx={{ fontSize: 11, color: "#888", minWidth: 50 }}>
-                Height
-              </Typography>
-              <Slider
-                value={waveformHeight}
-                min={0.5}
-                max={2}
-                step={0.1}
-                onChange={(_, value) => setWaveformHeight(value as number)}
-                disabled={!loadedAudio}
-                sx={{
-                  flex: 1,
-                  color: "#19abb5",
-                  "& .MuiSlider-thumb": { width: 12, height: 12 },
-                  "& .MuiSlider-track": { height: 3 },
-                  "& .MuiSlider-rail": { height: 3, backgroundColor: "#333" },
-                }}
-              />
-              <Typography
-                sx={{
-                  color: "#888",
-                  fontSize: 11,
-                  minWidth: 30,
-                  fontFamily: '"JetBrains Mono", monospace',
-                }}
-              >
-                {waveformHeight.toFixed(1)}x
-              </Typography>
-            </Box>
-          </InspectorSectionContent>
-        )}
-      </InspectorSection>
-
       {/* Container for Filters and Flags with draggable divider */}
       <Box
         ref={dividerContainerRef}
@@ -3658,6 +3538,126 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             zoom={overviewZoom}
             scrollOffset={overviewScrollOffset}
           />
+        </Box>
+
+        {/* Waveform Controls - Zoom and Height */}
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+            px: 1.5,
+            py: 0.75,
+            backgroundColor: "#111",
+            borderBottom: "1px solid #252525",
+          }}
+        >
+          {/* Zoom controls */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flex: 1 }}>
+            <Tooltip title="Zoom to selection">
+              <IconButton
+                size="small"
+                onClick={() => setZoomToolActive(!zoomToolActive)}
+                disabled={!loadedAudio}
+                sx={{
+                  color: zoomToolActive ? "#19abb5" : "#666",
+                  padding: "2px",
+                  "&:hover": { color: "#19abb5" },
+                  "&.Mui-disabled": { color: "#333" },
+                }}
+              >
+                <ZoomInIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Tooltip>
+            <IconButton
+              size="small"
+              onClick={handleZoomOut}
+              disabled={!loadedAudio}
+              sx={{
+                color: "#666",
+                padding: "2px",
+                "&:hover": { color: "#19abb5" },
+                "&.Mui-disabled": { color: "#333" },
+              }}
+            >
+              <RemoveIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+            <Slider
+              value={overviewZoom}
+              min={1}
+              max={10}
+              step={0.5}
+              onChange={(_, value) => handleZoomSliderChange(value as number)}
+              disabled={!loadedAudio}
+              sx={{
+                flex: 1,
+                minWidth: 60,
+                color: "#19abb5",
+                "& .MuiSlider-thumb": { width: 10, height: 10 },
+                "& .MuiSlider-track": { height: 2 },
+                "& .MuiSlider-rail": { height: 2, backgroundColor: "#333" },
+              }}
+            />
+            <IconButton
+              size="small"
+              onClick={handleZoomIn}
+              disabled={!loadedAudio}
+              sx={{
+                color: "#666",
+                padding: "2px",
+                "&:hover": { color: "#19abb5" },
+                "&.Mui-disabled": { color: "#333" },
+              }}
+            >
+              <AddIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+            <Typography
+              sx={{
+                color: "#666",
+                fontSize: 10,
+                minWidth: 28,
+                fontFamily: '"JetBrains Mono", monospace',
+              }}
+            >
+              {overviewZoom.toFixed(1)}x
+            </Typography>
+          </Box>
+
+          {/* Divider */}
+          <Box sx={{ width: 1, height: 16, backgroundColor: "#333" }} />
+
+          {/* Height control */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, minWidth: 140 }}>
+            <Typography sx={{ fontSize: 10, color: "#666" }}>
+              Height
+            </Typography>
+            <Slider
+              value={waveformHeight}
+              min={0.5}
+              max={2}
+              step={0.1}
+              onChange={(_, value) => setWaveformHeight(value as number)}
+              disabled={!loadedAudio}
+              sx={{
+                flex: 1,
+                minWidth: 50,
+                color: "#19abb5",
+                "& .MuiSlider-thumb": { width: 10, height: 10 },
+                "& .MuiSlider-track": { height: 2 },
+                "& .MuiSlider-rail": { height: 2, backgroundColor: "#333" },
+              }}
+            />
+            <Typography
+              sx={{
+                color: "#666",
+                fontSize: 10,
+                minWidth: 26,
+                fontFamily: '"JetBrains Mono", monospace',
+              }}
+            >
+              {waveformHeight.toFixed(1)}x
+            </Typography>
+          </Box>
         </Box>
 
         {/* Loading indicator overlay */}
