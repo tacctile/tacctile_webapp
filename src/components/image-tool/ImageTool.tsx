@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Box,
   Typography,
@@ -9,239 +9,245 @@ import {
   ToggleButtonGroup,
   Snackbar,
   Alert,
-} from '@mui/material';
-import { styled } from '@mui/material/styles';
-import ImageIcon from '@mui/icons-material/Image';
-import ZoomInIcon from '@mui/icons-material/ZoomIn';
-import ZoomOutIcon from '@mui/icons-material/ZoomOut';
-import FitScreenIcon from '@mui/icons-material/FitScreen';
-import RotateLeftIcon from '@mui/icons-material/RotateLeft';
-import RotateRightIcon from '@mui/icons-material/RotateRight';
-import FlipIcon from '@mui/icons-material/Flip';
-import UndoIcon from '@mui/icons-material/Undo';
-import RedoIcon from '@mui/icons-material/Redo';
-import RectangleOutlinedIcon from '@mui/icons-material/RectangleOutlined';
-import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import CompareIcon from '@mui/icons-material/Compare';
-import ViewColumnIcon from '@mui/icons-material/ViewColumn';
-import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import AddIcon from '@mui/icons-material/Add';
-import PersonIcon from '@mui/icons-material/Person';
-import FileUploadIcon from '@mui/icons-material/FileUpload';
-import CropFreeIcon from '@mui/icons-material/CropFree';
+} from "@mui/material";
+import { styled } from "@mui/material/styles";
+import ImageIcon from "@mui/icons-material/Image";
+import ZoomInIcon from "@mui/icons-material/ZoomIn";
+import ZoomOutIcon from "@mui/icons-material/ZoomOut";
+import FitScreenIcon from "@mui/icons-material/FitScreen";
+import RotateLeftIcon from "@mui/icons-material/RotateLeft";
+import RotateRightIcon from "@mui/icons-material/RotateRight";
+import FlipIcon from "@mui/icons-material/Flip";
+import UndoIcon from "@mui/icons-material/Undo";
+import RedoIcon from "@mui/icons-material/Redo";
+import RectangleOutlinedIcon from "@mui/icons-material/RectangleOutlined";
+import CircleOutlinedIcon from "@mui/icons-material/CircleOutlined";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import CompareIcon from "@mui/icons-material/Compare";
+import ViewColumnIcon from "@mui/icons-material/ViewColumn";
+import CompareArrowsIcon from "@mui/icons-material/CompareArrows";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
+import AddIcon from "@mui/icons-material/Add";
+import PersonIcon from "@mui/icons-material/Person";
+import FileUploadIcon from "@mui/icons-material/FileUpload";
+import CropFreeIcon from "@mui/icons-material/CropFree";
 
-import { WorkspaceLayout } from '@/components/layout';
-import { FileLibrary, type FileItem } from '@/components/file-library';
-import { MetadataPanel, PrecisionSlider } from '@/components/common';
-import { useNavigationStore } from '@/stores/useNavigationStore';
-import { useImageToolStore } from '@/stores/useImageToolStore';
-import type { ImageAnnotation as StoreImageAnnotation } from '@/types/image';
+import { WorkspaceLayout } from "@/components/layout";
+import { FileLibrary, type FileItem } from "@/components/file-library";
+import { MetadataPanel, PrecisionSlider } from "@/components/common";
+import { useNavigationStore } from "@/stores/useNavigationStore";
+import { useImageToolStore } from "@/stores/useImageToolStore";
+import type { ImageAnnotation as StoreImageAnnotation } from "@/types/image";
 import {
   isFileType,
   getFileTypeErrorMessage,
   getAcceptString,
-} from '@/utils/fileTypes';
+} from "@/utils/fileTypes";
 import {
   generateTestMetadataIfDev,
   formatGPSCoordinates,
-} from '@/utils/testMetadataGenerator';
+} from "@/utils/testMetadataGenerator";
 
 // ============================================================================
 // STYLED COMPONENTS
 // ============================================================================
 
 const MainContainer = styled(Box)({
-  display: 'flex',
-  flexDirection: 'column',
-  height: '100%',
-  backgroundColor: '#0d0d0d',
+  display: "flex",
+  flexDirection: "column",
+  height: "100%",
+  backgroundColor: "#0d0d0d",
 });
 
 const Toolbar = styled(Box)({
   height: 40,
-  backgroundColor: '#161616',
-  borderBottom: '1px solid #252525',
-  display: 'flex',
-  alignItems: 'center',
-  padding: '0 12px',
+  backgroundColor: "#161616",
+  borderBottom: "1px solid #252525",
+  display: "flex",
+  alignItems: "center",
+  padding: "0 12px",
   gap: 8,
 });
 
 const ToolbarDivider = styled(Box)({
   width: 1,
   height: 24,
-  backgroundColor: '#2b2b2b',
-  margin: '0 4px',
+  backgroundColor: "#2b2b2b",
+  margin: "0 4px",
 });
 
 const CanvasArea = styled(Box)({
   flex: 1,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  backgroundColor: '#0a0a0a',
-  position: 'relative',
-  overflow: 'hidden',
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  backgroundColor: "#0a0a0a",
+  position: "relative",
+  overflow: "hidden",
   minHeight: 0,
 });
 
 const StyledToggleButton = styled(ToggleButton)({
-  border: 'none',
-  padding: '4px 8px',
-  color: '#888',
-  '&.Mui-selected': {
-    backgroundColor: 'rgba(25, 171, 181, 0.2)',
-    color: '#19abb5',
-    '&:hover': {
-      backgroundColor: 'rgba(25, 171, 181, 0.3)',
+  border: "none",
+  padding: "4px 8px",
+  color: "#888",
+  "&.Mui-selected": {
+    backgroundColor: "rgba(25, 171, 181, 0.2)",
+    color: "#19abb5",
+    "&:hover": {
+      backgroundColor: "rgba(25, 171, 181, 0.3)",
     },
   },
-  '&:hover': {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  "&:hover": {
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
 });
 
 const ToolButton = styled(IconButton)<{ active?: boolean }>(({ active }) => ({
   padding: 6,
-  color: active ? '#19abb5' : '#888',
-  backgroundColor: active ? 'rgba(25, 171, 181, 0.15)' : 'transparent',
-  '&:hover': {
-    backgroundColor: active ? 'rgba(25, 171, 181, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+  color: active ? "#19abb5" : "#888",
+  backgroundColor: active ? "rgba(25, 171, 181, 0.15)" : "transparent",
+  "&:hover": {
+    backgroundColor: active
+      ? "rgba(25, 171, 181, 0.25)"
+      : "rgba(255, 255, 255, 0.05)",
   },
 }));
 
 const ZoomDisplay = styled(Typography)({
   fontSize: 11,
-  color: '#888',
+  color: "#888",
   fontFamily: '"JetBrains Mono", monospace',
   minWidth: 45,
-  textAlign: 'center',
+  textAlign: "center",
 });
 
-const SplitDivider = styled(Box)<{ isDragging?: boolean }>(({ isDragging }) => ({
-  position: 'absolute',
-  top: 0,
-  bottom: 0,
-  width: 4,
-  backgroundColor: isDragging ? '#4dd4df' : '#19abb5',
-  cursor: isDragging ? 'grabbing' : 'grab',
-  zIndex: 3, // Below ViewLabel (z-index: 5) so labels stay on top
-  userSelect: 'none',
-  '&:hover': {
-    backgroundColor: '#4dd4df',
-  },
-  // Centered drag handle pill
-  '&::after': {
-    content: '""',
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: 8,
-    height: 48,
-    backgroundColor: isDragging ? '#5ee0ea' : '#2bc4cf',
-    borderRadius: 4,
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)',
-  },
-  '&:hover::after': {
-    backgroundColor: '#5ee0ea',
-  },
-}));
+const SplitDivider = styled(Box)<{ isDragging?: boolean }>(
+  ({ isDragging }) => ({
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    width: 4,
+    backgroundColor: isDragging ? "#4dd4df" : "#19abb5",
+    cursor: isDragging ? "grabbing" : "grab",
+    zIndex: 3, // Below ViewLabel (z-index: 5) so labels stay on top
+    userSelect: "none",
+    "&:hover": {
+      backgroundColor: "#4dd4df",
+    },
+    // Centered drag handle pill
+    "&::after": {
+      content: '""',
+      position: "absolute",
+      top: "50%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+      width: 8,
+      height: 48,
+      backgroundColor: isDragging ? "#5ee0ea" : "#2bc4cf",
+      borderRadius: 4,
+      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.3)",
+    },
+    "&:hover::after": {
+      backgroundColor: "#5ee0ea",
+    },
+  }),
+);
 
 const BottomBar = styled(Box)({
   height: 32,
-  backgroundColor: '#161616',
-  borderTop: '1px solid #252525',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  padding: '0 12px',
+  backgroundColor: "#161616",
+  borderTop: "1px solid #252525",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  padding: "0 12px",
 });
 
 // Label for ORIGINAL/EDITED in view modes
-const ViewLabel = styled(Typography)<{ position: 'left' | 'right' }>(({ position }) => ({
-  position: 'absolute',
-  top: 12,
-  [position]: 12,
-  fontSize: 10,
-  fontWeight: 600,
-  color: '#fff',
-  textTransform: 'uppercase',
-  backgroundColor: 'rgba(0, 0, 0, 0.7)',
-  padding: '4px 8px',
-  borderRadius: 4,
-  letterSpacing: '0.5px',
-  zIndex: 5,
-  pointerEvents: 'none',
-}));
+const ViewLabel = styled(Typography)<{ position: "left" | "right" }>(
+  ({ position }) => ({
+    position: "absolute",
+    top: 12,
+    [position]: 12,
+    fontSize: 10,
+    fontWeight: 600,
+    color: "#fff",
+    textTransform: "uppercase",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    padding: "4px 8px",
+    borderRadius: 4,
+    letterSpacing: "0.5px",
+    zIndex: 5,
+    pointerEvents: "none",
+  }),
+);
 
 // File drop zone for center canvas when no file loaded
 const FileDropZone = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  color: isActive ? '#19abb5' : '#444',
-  backgroundColor: isActive ? 'rgba(25, 171, 181, 0.08)' : 'transparent',
-  border: isActive ? '2px dashed #19abb5' : '2px dashed transparent',
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  color: isActive ? "#19abb5" : "#444",
+  backgroundColor: isActive ? "rgba(25, 171, 181, 0.08)" : "transparent",
+  border: isActive ? "2px dashed #19abb5" : "2px dashed transparent",
   borderRadius: 8,
   padding: 32,
   margin: 16,
-  transition: 'all 0.2s ease',
-  cursor: 'pointer',
+  transition: "all 0.2s ease",
+  cursor: "pointer",
 }));
 
 // Import button for left panel - full width
 const ImportButton = styled(Button)({
   fontSize: 9,
-  color: '#888',
-  backgroundColor: '#252525',
-  border: '1px solid #333',
-  padding: '6px 8px',
-  textTransform: 'none',
-  width: '100%',
-  justifyContent: 'center',
-  '&:hover': {
-    backgroundColor: '#333',
-    borderColor: '#19abb5',
-    color: '#19abb5',
+  color: "#888",
+  backgroundColor: "#252525",
+  border: "1px solid #333",
+  padding: "6px 8px",
+  textTransform: "none",
+  width: "100%",
+  justifyContent: "center",
+  "&:hover": {
+    backgroundColor: "#333",
+    borderColor: "#19abb5",
+    color: "#19abb5",
   },
-  '& .MuiButton-startIcon': {
+  "& .MuiButton-startIcon": {
     marginRight: 4,
   },
 });
 
 // Right Panel Styled Components
 const InspectorSection = styled(Box)({
-  borderBottom: '1px solid #252525',
+  borderBottom: "1px solid #252525",
 });
 
 const SectionHeader = styled(Box)({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  padding: '8px 12px',
-  cursor: 'pointer',
-  backgroundColor: '#1a1a1a',
-  '&:hover': {
-    backgroundColor: '#1e1e1e',
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  padding: "8px 12px",
+  cursor: "pointer",
+  backgroundColor: "#1a1a1a",
+  "&:hover": {
+    backgroundColor: "#1e1e1e",
   },
 });
 
 const SectionTitle = styled(Typography)({
   fontSize: 10,
   fontWeight: 600,
-  color: '#666',
-  textTransform: 'uppercase',
+  color: "#666",
+  textTransform: "uppercase",
 });
 
 const SectionContent = styled(Box)({
-  padding: '8px 12px',
+  padding: "8px 12px",
 });
 
 const FilterGroup = styled(Box)({
@@ -251,8 +257,8 @@ const FilterGroup = styled(Box)({
 const FilterGroupTitle = styled(Typography)({
   fontSize: 9,
   fontWeight: 600,
-  color: '#555',
-  textTransform: 'uppercase',
+  color: "#555",
+  textTransform: "uppercase",
   marginBottom: 8,
   paddingLeft: 2,
 });
@@ -260,70 +266,70 @@ const FilterGroupTitle = styled(Typography)({
 // Navigator styled components
 const NavigatorContainer = styled(Box)({
   height: 100,
-  backgroundColor: '#0a0a0a',
+  backgroundColor: "#0a0a0a",
   borderRadius: 4,
-  position: 'relative',
-  overflow: 'hidden',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
+  position: "relative",
+  overflow: "hidden",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
 });
 
-const NavigatorThumbnail = styled('img')({
-  maxWidth: '100%',
-  maxHeight: '100%',
-  objectFit: 'contain',
-  display: 'block',
+const NavigatorThumbnail = styled("img")({
+  maxWidth: "100%",
+  maxHeight: "100%",
+  objectFit: "contain",
+  display: "block",
 });
 
 const NavigatorViewportRect = styled(Box)({
-  position: 'absolute',
-  border: '1.5px solid #19abb5',
-  backgroundColor: 'rgba(25, 171, 181, 0.25)',
-  pointerEvents: 'none',
-  boxSizing: 'border-box',
+  position: "absolute",
+  border: "1.5px solid #19abb5",
+  backgroundColor: "rgba(25, 171, 181, 0.25)",
+  pointerEvents: "none",
+  boxSizing: "border-box",
 });
 
 const NavigatorZoomDisplay = styled(Typography)({
-  position: 'absolute',
+  position: "absolute",
   bottom: 4,
   right: 6,
   fontSize: 10,
   fontFamily: '"JetBrains Mono", monospace',
-  color: '#888',
-  backgroundColor: 'rgba(0, 0, 0, 0.6)',
-  padding: '1px 4px',
+  color: "#888",
+  backgroundColor: "rgba(0, 0, 0, 0.6)",
+  padding: "1px 4px",
   borderRadius: 2,
 });
 
 // Annotation List styled components
 const AnnotationItem = styled(Box)({
-  display: 'flex',
-  alignItems: 'center',
+  display: "flex",
+  alignItems: "center",
   gap: 8,
-  padding: '6px 8px',
+  padding: "6px 8px",
   borderRadius: 4,
-  cursor: 'pointer',
-  '&:hover': {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+  cursor: "pointer",
+  "&:hover": {
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
   },
 });
 
 const AnnotationIcon = styled(Box)<{ type: string }>(({ type }) => {
   const colors: Record<string, string> = {
-    rectangle: '#c45c5c',
-    circle: '#5a9a6b',
-    arrow: '#5a7fbf',
+    rectangle: "#c45c5c",
+    circle: "#5a9a6b",
+    arrow: "#5a7fbf",
   };
   return {
     width: 20,
     height: 20,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: 4,
-    backgroundColor: colors[type] || '#666',
-    color: '#fff',
+    backgroundColor: colors[type] || "#666",
+    color: "#fff",
     fontSize: 12,
   };
 });
@@ -332,8 +338,8 @@ const AnnotationIcon = styled(Box)<{ type: string }>(({ type }) => {
 // TYPES
 // ============================================================================
 
-type ViewMode = 'single' | 'side-by-side' | 'split';
-type AnnotationTool = 'rectangle' | 'circle' | 'arrow' | null;
+type ViewMode = "single" | "side-by-side" | "split";
+type AnnotationTool = "rectangle" | "circle" | "arrow" | null;
 
 // Transform state for undo/redo history
 interface TransformState {
@@ -347,19 +353,19 @@ const MAX_HISTORY_DEPTH = 50;
 // Annotation interface with coordinates relative to image dimensions (0-1 normalized)
 interface ImageAnnotation {
   id: string;
-  type: 'rectangle' | 'circle' | 'arrow';
+  type: "rectangle" | "circle" | "arrow";
   // All coordinates are normalized (0-1 range relative to image dimensions)
-  x: number;        // Left edge for rect/circle, start point for arrow
-  y: number;        // Top edge for rect/circle, start point for arrow
-  width: number;    // Width for rect/circle, end x offset for arrow
-  height: number;   // Height for rect/circle, end y offset for arrow
+  x: number; // Left edge for rect/circle, start point for arrow
+  y: number; // Top edge for rect/circle, start point for arrow
+  width: number; // Width for rect/circle, end x offset for arrow
+  height: number; // Height for rect/circle, end y offset for arrow
 }
 
 // Placeholder users for random assignment when creating annotations
 const PLACEHOLDER_USERS = [
-  { userId: 'user-sarah', userDisplayName: 'Sarah' },
-  { userId: 'user-mike', userDisplayName: 'Mike' },
-  { userId: 'user-jen', userDisplayName: 'Jen' },
+  { userId: "user-sarah", userDisplayName: "Sarah" },
+  { userId: "user-mike", userDisplayName: "Mike" },
+  { userId: "user-jen", userDisplayName: "Jen" },
 ];
 
 interface ImageFilters {
@@ -404,18 +410,138 @@ const defaultFilters: ImageFilters = {
 // MOCK DATA
 // ============================================================================
 
-const imageFiles: (FileItem & { format?: string; gps?: string | null; dimensions?: string })[] = [
-  { id: 'i1', type: 'image', fileName: 'pexels-jmark-250591.jpg', thumbnailUrl: '/images/pexels-jmark-250591.jpg', capturedAt: Date.now() - 7200000, user: 'Mike', deviceInfo: 'Canon EOS R5', flagCount: 2, hasFindings: true, format: 'JPEG / sRGB', gps: '40.71°N, 74.00°W', dimensions: '4000 x 2667' },
-  { id: 'i2', type: 'image', fileName: 'pexels-mahima-518693-1250260.jpg', thumbnailUrl: '/images/pexels-mahima-518693-1250260.jpg', capturedAt: Date.now() - 6800000, user: 'Sarah', deviceInfo: 'Sony A7IV', flagCount: 0, hasFindings: false, format: 'JPEG / sRGB', gps: '34.05°N, 118.24°W', dimensions: '5472 x 3648' },
-  { id: 'i3', type: 'image', fileName: 'pexels-minan1398-906150.jpg', thumbnailUrl: '/images/pexels-minan1398-906150.jpg', capturedAt: Date.now() - 6400000, user: 'Jen', deviceInfo: 'Nikon Z6', flagCount: 1, hasFindings: true, format: 'JPEG / sRGB', gps: '51.50°N, 0.12°W', dimensions: '6000 x 4000' },
-  { id: 'i4', type: 'image', fileName: 'pexels-philippedonn-1133957.jpg', thumbnailUrl: '/images/pexels-philippedonn-1133957.jpg', capturedAt: Date.now() - 6000000, user: 'Mike', deviceInfo: 'iPhone 15 Pro', flagCount: 0, hasFindings: false, format: 'JPEG / P3', gps: '48.85°N, 2.35°E', dimensions: '4032 x 3024' },
-  { id: 'i5', type: 'image', fileName: 'pexels-pixabay-158063.jpg', thumbnailUrl: '/images/pexels-pixabay-158063.jpg', capturedAt: Date.now() - 5600000, user: 'Sarah', deviceInfo: 'Canon EOS R5', flagCount: 3, hasFindings: true, format: 'JPEG / sRGB', gps: '35.68°N, 139.76°E', dimensions: '5184 x 3456' },
-  { id: 'i6', type: 'image', fileName: 'pexels-pixabay-259915.jpg', thumbnailUrl: '/images/pexels-pixabay-259915.jpg', capturedAt: Date.now() - 5200000, user: 'Jen', deviceInfo: 'Fujifilm X-T5', flagCount: 0, hasFindings: false, format: 'JPEG / sRGB', gps: null, dimensions: '4896 x 3264' },
-  { id: 'i7', type: 'image', fileName: 'pexels-pixabay-459335.jpg', thumbnailUrl: '/images/pexels-pixabay-459335.jpg', capturedAt: Date.now() - 4800000, user: 'Mike', deviceInfo: 'Sony A7IV', flagCount: 1, hasFindings: true, format: 'JPEG / sRGB', gps: '37.77°N, 122.41°W', dimensions: '5760 x 3840' },
-  { id: 'i8', type: 'image', fileName: 'pexels-pixabay-68507.jpg', thumbnailUrl: '/images/pexels-pixabay-68507.jpg', capturedAt: Date.now() - 4400000, user: 'Sarah', deviceInfo: 'Nikon Z6', flagCount: 2, hasFindings: true, format: 'JPEG / sRGB', gps: '41.90°N, 12.49°E', dimensions: '4288 x 2848' },
-  { id: 'i9', type: 'image', fileName: 'pexels-soldiervip-1386604.jpg', thumbnailUrl: '/images/pexels-soldiervip-1386604.jpg', capturedAt: Date.now() - 4000000, user: 'Jen', deviceInfo: 'Canon EOS R5', flagCount: 0, hasFindings: false, format: 'JPEG / sRGB', gps: '52.52°N, 13.40°E', dimensions: '6000 x 4000' },
+const imageFiles: (FileItem & {
+  format?: string;
+  gps?: string | null;
+  dimensions?: string;
+})[] = [
+  {
+    id: "i1",
+    type: "image",
+    fileName: "pexels-jmark-250591.jpg",
+    thumbnailUrl: "/images/pexels-jmark-250591.jpg",
+    capturedAt: Date.now() - 7200000,
+    user: "Mike",
+    deviceInfo: "Canon EOS R5",
+    flagCount: 2,
+    hasFindings: true,
+    format: "JPEG / sRGB",
+    gps: "40.71°N, 74.00°W",
+    dimensions: "4000 x 2667",
+  },
+  {
+    id: "i2",
+    type: "image",
+    fileName: "pexels-mahima-518693-1250260.jpg",
+    thumbnailUrl: "/images/pexels-mahima-518693-1250260.jpg",
+    capturedAt: Date.now() - 6800000,
+    user: "Sarah",
+    deviceInfo: "Sony A7IV",
+    flagCount: 0,
+    hasFindings: false,
+    format: "JPEG / sRGB",
+    gps: "34.05°N, 118.24°W",
+    dimensions: "5472 x 3648",
+  },
+  {
+    id: "i3",
+    type: "image",
+    fileName: "pexels-minan1398-906150.jpg",
+    thumbnailUrl: "/images/pexels-minan1398-906150.jpg",
+    capturedAt: Date.now() - 6400000,
+    user: "Jen",
+    deviceInfo: "Nikon Z6",
+    flagCount: 1,
+    hasFindings: true,
+    format: "JPEG / sRGB",
+    gps: "51.50°N, 0.12°W",
+    dimensions: "6000 x 4000",
+  },
+  {
+    id: "i4",
+    type: "image",
+    fileName: "pexels-philippedonn-1133957.jpg",
+    thumbnailUrl: "/images/pexels-philippedonn-1133957.jpg",
+    capturedAt: Date.now() - 6000000,
+    user: "Mike",
+    deviceInfo: "iPhone 15 Pro",
+    flagCount: 0,
+    hasFindings: false,
+    format: "JPEG / P3",
+    gps: "48.85°N, 2.35°E",
+    dimensions: "4032 x 3024",
+  },
+  {
+    id: "i5",
+    type: "image",
+    fileName: "pexels-pixabay-158063.jpg",
+    thumbnailUrl: "/images/pexels-pixabay-158063.jpg",
+    capturedAt: Date.now() - 5600000,
+    user: "Sarah",
+    deviceInfo: "Canon EOS R5",
+    flagCount: 3,
+    hasFindings: true,
+    format: "JPEG / sRGB",
+    gps: "35.68°N, 139.76°E",
+    dimensions: "5184 x 3456",
+  },
+  {
+    id: "i6",
+    type: "image",
+    fileName: "pexels-pixabay-259915.jpg",
+    thumbnailUrl: "/images/pexels-pixabay-259915.jpg",
+    capturedAt: Date.now() - 5200000,
+    user: "Jen",
+    deviceInfo: "Fujifilm X-T5",
+    flagCount: 0,
+    hasFindings: false,
+    format: "JPEG / sRGB",
+    gps: null,
+    dimensions: "4896 x 3264",
+  },
+  {
+    id: "i7",
+    type: "image",
+    fileName: "pexels-pixabay-459335.jpg",
+    thumbnailUrl: "/images/pexels-pixabay-459335.jpg",
+    capturedAt: Date.now() - 4800000,
+    user: "Mike",
+    deviceInfo: "Sony A7IV",
+    flagCount: 1,
+    hasFindings: true,
+    format: "JPEG / sRGB",
+    gps: "37.77°N, 122.41°W",
+    dimensions: "5760 x 3840",
+  },
+  {
+    id: "i8",
+    type: "image",
+    fileName: "pexels-pixabay-68507.jpg",
+    thumbnailUrl: "/images/pexels-pixabay-68507.jpg",
+    capturedAt: Date.now() - 4400000,
+    user: "Sarah",
+    deviceInfo: "Nikon Z6",
+    flagCount: 2,
+    hasFindings: true,
+    format: "JPEG / sRGB",
+    gps: "41.90°N, 12.49°E",
+    dimensions: "4288 x 2848",
+  },
+  {
+    id: "i9",
+    type: "image",
+    fileName: "pexels-soldiervip-1386604.jpg",
+    thumbnailUrl: "/images/pexels-soldiervip-1386604.jpg",
+    capturedAt: Date.now() - 4000000,
+    user: "Jen",
+    deviceInfo: "Canon EOS R5",
+    flagCount: 0,
+    hasFindings: false,
+    format: "JPEG / sRGB",
+    gps: "52.52°N, 13.40°E",
+    dimensions: "6000 x 4000",
+  },
 ];
-
 
 // ============================================================================
 // NAVIGATOR COMPONENT
@@ -443,7 +569,12 @@ const Navigator: React.FC<NavigatorProps> = ({
   const navigatorRef = useRef<HTMLDivElement>(null);
   const thumbnailRef = useRef<HTMLImageElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [thumbnailRect, setThumbnailRect] = useState<{ width: number; height: number; left: number; top: number } | null>(null);
+  const [thumbnailRect, setThumbnailRect] = useState<{
+    width: number;
+    height: number;
+    left: number;
+    top: number;
+  } | null>(null);
 
   // Update thumbnail rect when image loads or container resizes
   useEffect(() => {
@@ -490,8 +621,14 @@ const Navigator: React.FC<NavigatorProps> = ({
     const imageDisplayHeight = actualDimensions.height * actualScale;
 
     // Calculate what portion of the image is visible (0-1 range)
-    const visibleWidthRatio = Math.min(1, containerDimensions.width / imageDisplayWidth);
-    const visibleHeightRatio = Math.min(1, containerDimensions.height / imageDisplayHeight);
+    const visibleWidthRatio = Math.min(
+      1,
+      containerDimensions.width / imageDisplayWidth,
+    );
+    const visibleHeightRatio = Math.min(
+      1,
+      containerDimensions.height / imageDisplayHeight,
+    );
 
     // Calculate the center offset as a ratio of total image size
     // panOffset is relative to centered position
@@ -510,59 +647,106 @@ const Navigator: React.FC<NavigatorProps> = ({
     const rectTop = centerY - rectHeight / 2 + panYRatio * thumbnailRect.height;
 
     return {
-      left: Math.max(thumbnailRect.left, Math.min(rectLeft, thumbnailRect.left + thumbnailRect.width - rectWidth)),
-      top: Math.max(thumbnailRect.top, Math.min(rectTop, thumbnailRect.top + thumbnailRect.height - rectHeight)),
+      left: Math.max(
+        thumbnailRect.left,
+        Math.min(
+          rectLeft,
+          thumbnailRect.left + thumbnailRect.width - rectWidth,
+        ),
+      ),
+      top: Math.max(
+        thumbnailRect.top,
+        Math.min(
+          rectTop,
+          thumbnailRect.top + thumbnailRect.height - rectHeight,
+        ),
+      ),
       width: rectWidth,
       height: rectHeight,
     };
-  }, [thumbnailRect, actualDimensions, containerDimensions, zoom, panOffset, calculateFitScale]);
+  }, [
+    thumbnailRect,
+    actualDimensions,
+    containerDimensions,
+    zoom,
+    panOffset,
+    calculateFitScale,
+  ]);
 
   // Handle click/drag on navigator
-  const handleNavigatorInteraction = useCallback((clientX: number, clientY: number) => {
-    if (!navigatorRef.current || !thumbnailRect || !actualDimensions || !containerDimensions) return;
+  const handleNavigatorInteraction = useCallback(
+    (clientX: number, clientY: number) => {
+      if (
+        !navigatorRef.current ||
+        !thumbnailRect ||
+        !actualDimensions ||
+        !containerDimensions
+      )
+        return;
 
-    const navRect = navigatorRef.current.getBoundingClientRect();
-    const clickX = clientX - navRect.left;
-    const clickY = clientY - navRect.top;
+      const navRect = navigatorRef.current.getBoundingClientRect();
+      const clickX = clientX - navRect.left;
+      const clickY = clientY - navRect.top;
 
-    // Calculate where we clicked relative to thumbnail center (as ratio)
-    const thumbCenterX = thumbnailRect.left + thumbnailRect.width / 2;
-    const thumbCenterY = thumbnailRect.top + thumbnailRect.height / 2;
+      // Calculate where we clicked relative to thumbnail center (as ratio)
+      const thumbCenterX = thumbnailRect.left + thumbnailRect.width / 2;
+      const thumbCenterY = thumbnailRect.top + thumbnailRect.height / 2;
 
-    const clickOffsetRatioX = (clickX - thumbCenterX) / thumbnailRect.width;
-    const clickOffsetRatioY = (clickY - thumbCenterY) / thumbnailRect.height;
+      const clickOffsetRatioX = (clickX - thumbCenterX) / thumbnailRect.width;
+      const clickOffsetRatioY = (clickY - thumbCenterY) / thumbnailRect.height;
 
-    // Calculate the actual pan offset needed
-    const fitScale = calculateFitScale();
-    const actualScale = fitScale * (zoom / 100);
-    const imageDisplayWidth = actualDimensions.width * actualScale;
-    const imageDisplayHeight = actualDimensions.height * actualScale;
+      // Calculate the actual pan offset needed
+      const fitScale = calculateFitScale();
+      const actualScale = fitScale * (zoom / 100);
+      const imageDisplayWidth = actualDimensions.width * actualScale;
+      const imageDisplayHeight = actualDimensions.height * actualScale;
 
-    // Convert click ratio to pan offset
-    const newPanX = -clickOffsetRatioX * imageDisplayWidth;
-    const newPanY = -clickOffsetRatioY * imageDisplayHeight;
+      // Convert click ratio to pan offset
+      const newPanX = -clickOffsetRatioX * imageDisplayWidth;
+      const newPanY = -clickOffsetRatioY * imageDisplayHeight;
 
-    // Constrain pan to valid range
-    const maxPanX = Math.max(0, (imageDisplayWidth - containerDimensions.width) / 2);
-    const maxPanY = Math.max(0, (imageDisplayHeight - containerDimensions.height) / 2);
+      // Constrain pan to valid range
+      const maxPanX = Math.max(
+        0,
+        (imageDisplayWidth - containerDimensions.width) / 2,
+      );
+      const maxPanY = Math.max(
+        0,
+        (imageDisplayHeight - containerDimensions.height) / 2,
+      );
 
-    const constrainedPanX = Math.max(-maxPanX, Math.min(maxPanX, newPanX));
-    const constrainedPanY = Math.max(-maxPanY, Math.min(maxPanY, newPanY));
+      const constrainedPanX = Math.max(-maxPanX, Math.min(maxPanX, newPanX));
+      const constrainedPanY = Math.max(-maxPanY, Math.min(maxPanY, newPanY));
 
-    onPanChange(constrainedPanX, constrainedPanY);
-  }, [thumbnailRect, actualDimensions, containerDimensions, zoom, calculateFitScale, onPanChange]);
+      onPanChange(constrainedPanX, constrainedPanY);
+    },
+    [
+      thumbnailRect,
+      actualDimensions,
+      containerDimensions,
+      zoom,
+      calculateFitScale,
+      onPanChange,
+    ],
+  );
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-    handleNavigatorInteraction(e.clientX, e.clientY);
-  }, [handleNavigatorInteraction]);
-
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (isDragging) {
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      setIsDragging(true);
       handleNavigatorInteraction(e.clientX, e.clientY);
-    }
-  }, [isDragging, handleNavigatorInteraction]);
+    },
+    [handleNavigatorInteraction],
+  );
+
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (isDragging) {
+        handleNavigatorInteraction(e.clientX, e.clientY);
+      }
+    },
+    [isDragging, handleNavigatorInteraction],
+  );
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -571,33 +755,39 @@ const Navigator: React.FC<NavigatorProps> = ({
   // Add/remove global mouse listeners for drag
   useEffect(() => {
     if (isDragging) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
       return () => {
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
       };
     }
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
   const viewportRect = getViewportRect();
-  const showViewportRect = imageUrl && thumbnailRect && viewportRect.width > 0 && viewportRect.height > 0;
+  const showViewportRect =
+    imageUrl &&
+    thumbnailRect &&
+    viewportRect.width > 0 &&
+    viewportRect.height > 0;
   // Only show viewport rect if it doesn't cover the entire thumbnail (i.e., we're zoomed in)
-  const isZoomedIn = showViewportRect && (
-    viewportRect.width < thumbnailRect!.width - 2 ||
-    viewportRect.height < thumbnailRect!.height - 2
-  );
+  const isZoomedIn =
+    showViewportRect &&
+    (viewportRect.width < thumbnailRect!.width - 2 ||
+      viewportRect.height < thumbnailRect!.height - 2);
 
   return (
     <NavigatorContainer
       ref={navigatorRef}
       onMouseDown={imageUrl ? handleMouseDown : undefined}
       sx={{
-        cursor: imageUrl ? (isDragging ? 'grabbing' : 'crosshair') : 'default',
+        cursor: imageUrl ? (isDragging ? "grabbing" : "crosshair") : "default",
       }}
     >
       {!imageUrl ? (
-        <Typography sx={{ fontSize: 10, color: '#444' }}>No image loaded</Typography>
+        <Typography sx={{ fontSize: 10, color: "#444" }}>
+          No image loaded
+        </Typography>
       ) : (
         <>
           <NavigatorThumbnail
@@ -632,9 +822,13 @@ interface ImageToolProps {
 }
 
 export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
-  const [selectedFile, setSelectedFile] = useState<typeof imageFiles[0] | null>(null);
-  const [loadedImage, setLoadedImage] = useState<typeof imageFiles[0] | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('single');
+  const [selectedFile, setSelectedFile] = useState<
+    (typeof imageFiles)[0] | null
+  >(null);
+  const [loadedImage, setLoadedImage] = useState<(typeof imageFiles)[0] | null>(
+    null,
+  );
+  const [viewMode, setViewMode] = useState<ViewMode>("single");
   const [activeTool, setActiveTool] = useState<AnnotationTool>(null);
   const [filters, setFilters] = useState<ImageFilters>(defaultFilters);
 
@@ -642,8 +836,12 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const storeAnnotations = useImageToolStore((state) => state.annotations);
   const addAnnotation = useImageToolStore((state) => state.addAnnotation);
   const selectAnnotation = useImageToolStore((state) => state.selectAnnotation);
-  const setAnnotationVisibility = useImageToolStore((state) => state.setAnnotationVisibility);
-  const selectedAnnotationId = useImageToolStore((state) => state.selectedAnnotationId);
+  const setAnnotationVisibility = useImageToolStore(
+    (state) => state.setAnnotationVisibility,
+  );
+  const selectedAnnotationId = useImageToolStore(
+    (state) => state.selectedAnnotationId,
+  );
   const storeUndo = useImageToolStore((state) => state.undo);
   const storeRedo = useImageToolStore((state) => state.redo);
   const storeCanUndo = useImageToolStore((state) => state.canUndo);
@@ -652,8 +850,14 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
   // Drawing state for annotation in progress
   const [isDrawingAnnotation, setIsDrawingAnnotation] = useState(false);
-  const [drawingStartPoint, setDrawingStartPoint] = useState<{ x: number; y: number } | null>(null);
-  const [currentDrawingEnd, setCurrentDrawingEnd] = useState<{ x: number; y: number } | null>(null);
+  const [drawingStartPoint, setDrawingStartPoint] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [currentDrawingEnd, setCurrentDrawingEnd] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [splitPosition, setSplitPosition] = useState(50);
   const [isDraggingSplit, setIsDraggingSplit] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false); // A/B toggle state
@@ -668,10 +872,16 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [redoStack, setRedoStack] = useState<TransformState[]>([]);
 
   // State for actual image dimensions (read from loaded image)
-  const [actualDimensions, setActualDimensions] = useState<{ width: number; height: number } | null>(null);
+  const [actualDimensions, setActualDimensions] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
 
   // Container dimensions for calculating fit zoom
-  const [containerDimensions, setContainerDimensions] = useState<{ width: number; height: number } | null>(null);
+  const [containerDimensions, setContainerDimensions] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
 
   // Zoom state - stored as percentage relative to fit-to-window (100 = fit, 200 = 2x fit size)
@@ -679,18 +889,34 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [zoom, setZoom] = useState<number>(100);
 
   // Pan state - offset in pixels from centered position
-  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({
+    x: 0,
+    y: 0,
+  });
   const [isPanning, setIsPanning] = useState(false);
-  const panStartRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+  const panStartRef = useRef<{
+    x: number;
+    y: number;
+    panX: number;
+    panY: number;
+  } | null>(null);
 
   // Last zoom-in point (in image pixel coordinates, for Alt+double-click zoom out)
-  const [lastZoomInPoint, setLastZoomInPoint] = useState<{ x: number; y: number } | null>(null);
+  const [lastZoomInPoint, setLastZoomInPoint] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
 
   // Marquee zoom state
   const [isMarqueeModeActive, setIsMarqueeModeActive] = useState(false);
   const [isMarqueeDrawing, setIsMarqueeDrawing] = useState(false);
-  const [marqueeStart, setMarqueeStart] = useState<{ x: number; y: number } | null>(null);
-  const [marqueeEnd, setMarqueeEnd] = useState<{ x: number; y: number } | null>(null);
+  const [marqueeStart, setMarqueeStart] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [marqueeEnd, setMarqueeEnd] = useState<{ x: number; y: number } | null>(
+    null,
+  );
   const [isCtrlHeld, setIsCtrlHeld] = useState(false);
 
   // Press-and-hold zoom refs
@@ -700,7 +926,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   // Live position refs for instant response during drag (bypass React batching)
   const panLiveRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const splitPositionLiveRef = useRef<number>(50);
-  const marqueeLiveRef = useRef<{ start: { x: number; y: number } | null; end: { x: number; y: number } | null }>({ start: null, end: null });
+  const marqueeLiveRef = useRef<{
+    start: { x: number; y: number } | null;
+    end: { x: number; y: number } | null;
+  }>({ start: null, end: null });
 
   // DOM refs for direct manipulation during drag
   const imageRef = useRef<HTMLImageElement>(null);
@@ -742,8 +971,12 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [annotationsCollapsed, setAnnotationsCollapsed] = useState(false);
 
   // Filter visibility by user (based on placeholder users)
-  const [userVisibility, setUserVisibility] = useState<Record<string, boolean>>(() =>
-    PLACEHOLDER_USERS.reduce((acc, user) => ({ ...acc, [user.userDisplayName]: true }), {} as Record<string, boolean>)
+  const [userVisibility, setUserVisibility] = useState<Record<string, boolean>>(
+    () =>
+      PLACEHOLDER_USERS.reduce(
+        (acc, user) => ({ ...acc, [user.userDisplayName]: true }),
+        {} as Record<string, boolean>,
+      ),
   );
 
   // File drop zone state
@@ -755,11 +988,11 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [toast, setToast] = useState<{
     open: boolean;
     message: string;
-    severity: 'success' | 'error' | 'info' | 'warning';
+    severity: "success" | "error" | "info" | "warning";
   }>({
     open: false,
-    message: '',
-    severity: 'info',
+    message: "",
+    severity: "info",
   });
 
   const loadedFileId = useNavigationStore((state) => state.loadedFiles.images);
@@ -768,7 +1001,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   // Load image when navigated to
   useEffect(() => {
     if (loadedFileId) {
-      const file = imageFiles.find(f => f.id === loadedFileId);
+      const file = imageFiles.find((f) => f.id === loadedFileId);
       if (file) {
         setLoadedImage(file);
         setSelectedFile(file);
@@ -777,35 +1010,41 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     }
   }, [loadedFileId]);
 
-  const handleDoubleClick = useCallback((item: typeof imageFiles[0]) => {
-    setLoadedImage(item);
-    setSelectedFile(item);
-    setFilters(defaultFilters);
-    setActualDimensions(null); // Reset until image loads
-    // Reset zoom and pan for new image - 100% = fit-to-window
-    setZoom(100);
-    setPanOffset({ x: 0, y: 0 });
-    // Reset zoom tracking state
-    setLastZoomInPoint(null);
-    setIsMarqueeModeActive(false);
-    setIsMarqueeDrawing(false);
-    setMarqueeStart(null);
-    setMarqueeEnd(null);
-    // Reset transforms for new image
-    setRotation(0);
-    setFlipH(false);
-    setFlipV(false);
-    // Clear history stacks for new image
-    setUndoStack([]);
-    setRedoStack([]);
-    // Clear annotations from store for new image
-    clearAnnotations();
-    setActiveTool(null);
-    // Persist loaded file ID in navigation store
-    setLoadedFile('images', item.id);
-  }, [setLoadedFile, clearAnnotations]);
+  const handleDoubleClick = useCallback(
+    (item: (typeof imageFiles)[0]) => {
+      setLoadedImage(item);
+      setSelectedFile(item);
+      setFilters(defaultFilters);
+      setActualDimensions(null); // Reset until image loads
+      // Reset zoom and pan for new image - 100% = fit-to-window
+      setZoom(100);
+      setPanOffset({ x: 0, y: 0 });
+      // Reset zoom tracking state
+      setLastZoomInPoint(null);
+      setIsMarqueeModeActive(false);
+      setIsMarqueeDrawing(false);
+      setMarqueeStart(null);
+      setMarqueeEnd(null);
+      // Reset transforms for new image
+      setRotation(0);
+      setFlipH(false);
+      setFlipV(false);
+      // Clear history stacks for new image
+      setUndoStack([]);
+      setRedoStack([]);
+      // Clear annotations from store for new image
+      clearAnnotations();
+      setActiveTool(null);
+      // Persist loaded file ID in navigation store
+      setLoadedFile("images", item.id);
+    },
+    [setLoadedFile, clearAnnotations],
+  );
 
-  const handleViewModeChange = (_: React.MouseEvent<HTMLElement>, newMode: ViewMode | null) => {
+  const handleViewModeChange = (
+    _: React.MouseEvent<HTMLElement>,
+    newMode: ViewMode | null,
+  ) => {
     if (newMode) {
       setViewMode(newMode);
       // Reset zoom and pan when switching view modes - 100% = fit-to-window
@@ -826,8 +1065,12 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     if (!actualDimensions || !containerDimensions) return 1;
     // When rotated 90° or 270°, the image's effective dimensions are swapped
     const isRotated90or270 = rotation === 90 || rotation === 270;
-    const effectiveWidth = isRotated90or270 ? actualDimensions.height : actualDimensions.width;
-    const effectiveHeight = isRotated90or270 ? actualDimensions.width : actualDimensions.height;
+    const effectiveWidth = isRotated90or270
+      ? actualDimensions.height
+      : actualDimensions.width;
+    const effectiveHeight = isRotated90or270
+      ? actualDimensions.width
+      : actualDimensions.height;
     const scaleX = containerDimensions.width / effectiveWidth;
     const scaleY = containerDimensions.height / effectiveHeight;
     return Math.min(scaleX, scaleY);
@@ -882,14 +1125,14 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   // Start continuous zoom in (press and hold) - moves through zoom steps
   const startContinuousZoomIn = useCallback(() => {
     // Enable for single and split view, not side-by-side
-    if (viewMode === 'side-by-side' || !loadedImage) return;
+    if (viewMode === "side-by-side" || !loadedImage) return;
 
     // Initial zoom step
     handleZoomIn();
 
     // Start interval for continuous zoom through steps (with slight delay between steps)
     zoomIntervalRef.current = window.setInterval(() => {
-      setZoom(prevZoom => {
+      setZoom((prevZoom) => {
         // Find next step up from current zoom
         let nextStep = ZOOM_MAX;
         for (const step of ZOOM_STEPS) {
@@ -909,14 +1152,14 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   // Start continuous zoom out (press and hold) - moves through zoom steps
   const startContinuousZoomOut = useCallback(() => {
     // Enable for single and split view, not side-by-side
-    if (viewMode === 'side-by-side' || !loadedImage) return;
+    if (viewMode === "side-by-side" || !loadedImage) return;
 
     // Initial zoom step
     handleZoomOut();
 
     // Start interval for continuous zoom through steps (with slight delay between steps)
     zoomIntervalRef.current = window.setInterval(() => {
-      setZoom(prevZoom => {
+      setZoom((prevZoom) => {
         // Find next step down from current zoom
         let nextStep = ZOOM_MIN;
         for (let i = ZOOM_STEPS.length - 1; i >= 0; i--) {
@@ -944,7 +1187,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   }, []);
 
   const handleFilterChange = (key: keyof ImageFilters) => (value: number) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
+    setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleResetFilters = () => {
@@ -954,7 +1197,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   // Helper to push current state to undo stack before making changes
   const pushToUndoStack = useCallback(() => {
     const currentState: TransformState = { rotation, flipH, flipV };
-    setUndoStack(prev => {
+    setUndoStack((prev) => {
       const newStack = [...prev, currentState];
       // Limit to MAX_HISTORY_DEPTH
       if (newStack.length > MAX_HISTORY_DEPTH) {
@@ -969,22 +1212,22 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   // Transform handlers - instant, CSS-based transforms
   const handleRotateCW = useCallback(() => {
     pushToUndoStack();
-    setRotation(prev => ((prev + 90) % 360) as 0 | 90 | 180 | 270);
+    setRotation((prev) => ((prev + 90) % 360) as 0 | 90 | 180 | 270);
   }, [pushToUndoStack]);
 
   const handleRotateCCW = useCallback(() => {
     pushToUndoStack();
-    setRotation(prev => ((prev - 90 + 360) % 360) as 0 | 90 | 180 | 270);
+    setRotation((prev) => ((prev - 90 + 360) % 360) as 0 | 90 | 180 | 270);
   }, [pushToUndoStack]);
 
   const handleFlipH = useCallback(() => {
     pushToUndoStack();
-    setFlipH(prev => !prev);
+    setFlipH((prev) => !prev);
   }, [pushToUndoStack]);
 
   const handleFlipV = useCallback(() => {
     pushToUndoStack();
-    setFlipV(prev => !prev);
+    setFlipV((prev) => !prev);
   }, [pushToUndoStack]);
 
   // Undo handler - pops from undo stack, pushes current state to redo stack
@@ -993,7 +1236,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
     // Push current state to redo stack
     const currentState: TransformState = { rotation, flipH, flipV };
-    setRedoStack(prev => [...prev, currentState]);
+    setRedoStack((prev) => [...prev, currentState]);
 
     // Pop from undo stack and apply
     const newUndoStack = [...undoStack];
@@ -1013,7 +1256,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
     // Push current state to undo stack
     const currentState: TransformState = { rotation, flipH, flipV };
-    setUndoStack(prev => [...prev, currentState]);
+    setUndoStack((prev) => [...prev, currentState]);
 
     // Pop from redo stack and apply
     const newRedoStack = [...redoStack];
@@ -1032,38 +1275,67 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const canRedo = redoStack.length > 0;
 
   // Build CSS transform string for image transforms
-  const getImageTransform = useCallback((includeTranslate: boolean = true, x: number = 0, y: number = 0) => {
-    const transforms: string[] = [];
-    if (includeTranslate) {
-      transforms.push(`translate(${x}px, ${y}px)`);
+  const getImageTransform = useCallback(
+    (includeTranslate: boolean = true, x: number = 0, y: number = 0) => {
+      const transforms: string[] = [];
+      if (includeTranslate) {
+        transforms.push(`translate(${x}px, ${y}px)`);
+      }
+      if (rotation !== 0) {
+        transforms.push(`rotate(${rotation}deg)`);
+      }
+      if (flipH) {
+        transforms.push("scaleX(-1)");
+      }
+      if (flipV) {
+        transforms.push("scaleY(-1)");
+      }
+      return transforms.length > 0 ? transforms.join(" ") : "none";
+    },
+    [rotation, flipH, flipV],
+  );
+
+  // Build CSS filter string for exposure and contrast adjustments
+  // Exposure slider: -5 to +5 → brightness 0.5 to 1.5
+  // Contrast slider: -100 to +100 → contrast 0.5 to 1.5
+  const getImageFilter = useCallback(() => {
+    const cssFilters: string[] = [];
+
+    // Convert exposure (-5 to +5) to brightness (0.5 to 1.5)
+    // 0 → 1, -5 → 0.5, +5 → 1.5
+    if (filters.exposure !== 0) {
+      const brightness = 1 + filters.exposure / 10;
+      cssFilters.push(`brightness(${brightness})`);
     }
-    if (rotation !== 0) {
-      transforms.push(`rotate(${rotation}deg)`);
+
+    // Convert contrast (-100 to +100) to contrast (0.5 to 1.5)
+    // 0 → 1, -100 → 0.5, +100 → 1.5
+    if (filters.contrast !== 0) {
+      const contrast = 1 + filters.contrast / 200;
+      cssFilters.push(`contrast(${contrast})`);
     }
-    if (flipH) {
-      transforms.push('scaleX(-1)');
-    }
-    if (flipV) {
-      transforms.push('scaleY(-1)');
-    }
-    return transforms.length > 0 ? transforms.join(' ') : 'none';
-  }, [rotation, flipH, flipV]);
+
+    return cssFilters.length > 0 ? cssFilters.join(" ") : "none";
+  }, [filters.exposure, filters.contrast]);
 
   // Toggle annotation visibility using store
-  const toggleAnnotationVisibility = useCallback((id: string) => {
-    const annotation = storeAnnotations.find(a => a.id === id);
-    if (annotation) {
-      setAnnotationVisibility(id, !annotation.visible);
-    }
-  }, [storeAnnotations, setAnnotationVisibility]);
+  const toggleAnnotationVisibility = useCallback(
+    (id: string) => {
+      const annotation = storeAnnotations.find((a) => a.id === id);
+      if (annotation) {
+        setAnnotationVisibility(id, !annotation.visible);
+      }
+    },
+    [storeAnnotations, setAnnotationVisibility],
+  );
 
   const toggleUserVisibility = (user: string) => {
-    setUserVisibility(prev => ({ ...prev, [user]: !prev[user] }));
+    setUserVisibility((prev) => ({ ...prev, [user]: !prev[user] }));
   };
 
   // Get unique users from placeholder users (not derived from annotations)
   const getUniqueUsers = () => {
-    return PLACEHOLDER_USERS.map(u => u.userDisplayName);
+    return PLACEHOLDER_USERS.map((u) => u.userDisplayName);
   };
 
   // Helper to get a random placeholder user
@@ -1077,66 +1349,75 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   // ============================================================================
 
   // Show toast notification
-  const showToast = useCallback((message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'info') => {
-    setToast({ open: true, message, severity });
-  }, []);
+  const showToast = useCallback(
+    (
+      message: string,
+      severity: "success" | "error" | "info" | "warning" = "info",
+    ) => {
+      setToast({ open: true, message, severity });
+    },
+    [],
+  );
 
   // Close toast
   const handleCloseToast = useCallback(() => {
-    setToast(prev => ({ ...prev, open: false }));
+    setToast((prev) => ({ ...prev, open: false }));
   }, []);
 
   // Process dropped/imported image file
-  const processImageFile = useCallback((file: File) => {
-    if (!isFileType(file, 'image')) {
-      showToast(getFileTypeErrorMessage('image'), 'error');
-      return;
-    }
+  const processImageFile = useCallback(
+    (file: File) => {
+      if (!isFileType(file, "image")) {
+        showToast(getFileTypeErrorMessage("image"), "error");
+        return;
+      }
 
-    // Try to generate test metadata in development mode
-    const testMetadata = generateTestMetadataIfDev(file);
+      // Try to generate test metadata in development mode
+      const testMetadata = generateTestMetadataIfDev(file);
 
-    // Create a mock image item from the imported file (Quick Analysis Mode)
-    // Use test metadata if available (dev mode), otherwise use defaults
-    const mockItem = {
-      id: testMetadata?.id || `import-${Date.now()}`,
-      type: 'image' as const,
-      fileName: file.name,
-      capturedAt: testMetadata?.timestamp.getTime() || Date.now(),
-      user: testMetadata?.user || 'Imported',
-      deviceInfo: testMetadata?.deviceId || 'Imported File',
-      format: file.type || 'image/unknown',
-      dimensions: '4000 x 3000',
-      flagCount: 0,
-      gps: testMetadata?.gpsCoordinates
-        ? formatGPSCoordinates(testMetadata.gpsCoordinates)
-        : null,
-    };
+      // Create a mock image item from the imported file (Quick Analysis Mode)
+      // Use test metadata if available (dev mode), otherwise use defaults
+      const mockItem = {
+        id: testMetadata?.id || `import-${Date.now()}`,
+        type: "image" as const,
+        fileName: file.name,
+        capturedAt: testMetadata?.timestamp.getTime() || Date.now(),
+        user: testMetadata?.user || "Imported",
+        deviceInfo: testMetadata?.deviceId || "Imported File",
+        format: file.type || "image/unknown",
+        dimensions: "4000 x 3000",
+        flagCount: 0,
+        gps: testMetadata?.gpsCoordinates
+          ? formatGPSCoordinates(testMetadata.gpsCoordinates)
+          : null,
+      };
 
-    setLoadedImage(mockItem);
-    setSelectedFile(mockItem);
-    setFilters(defaultFilters);
-    // Reset transforms for new image
-    setRotation(0);
-    setFlipH(false);
-    setFlipV(false);
-    // Clear history stacks for new image
-    setUndoStack([]);
-    setRedoStack([]);
-    // Clear annotations from store for new image
-    clearAnnotations();
-    setActiveTool(null);
-    // Reset zoom and pan
-    setZoom(100);
-    setPanOffset({ x: 0, y: 0 });
-    showToast(`Loaded: ${file.name}`, 'success');
-  }, [showToast, clearAnnotations]);
+      setLoadedImage(mockItem);
+      setSelectedFile(mockItem);
+      setFilters(defaultFilters);
+      // Reset transforms for new image
+      setRotation(0);
+      setFlipH(false);
+      setFlipV(false);
+      // Clear history stacks for new image
+      setUndoStack([]);
+      setRedoStack([]);
+      // Clear annotations from store for new image
+      clearAnnotations();
+      setActiveTool(null);
+      // Reset zoom and pan
+      setZoom(100);
+      setPanOffset({ x: 0, y: 0 });
+      showToast(`Loaded: ${file.name}`, "success");
+    },
+    [showToast, clearAnnotations],
+  );
 
   // Handle file drag enter
   const handleFileDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.dataTransfer.types.includes('Files')) {
+    if (e.dataTransfer.types.includes("Files")) {
       setIsFileDragOver(true);
     }
   }, []);
@@ -1152,22 +1433,25 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const handleFileDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.dataTransfer.types.includes('Files')) {
-      e.dataTransfer.dropEffect = 'copy';
+    if (e.dataTransfer.types.includes("Files")) {
+      e.dataTransfer.dropEffect = "copy";
     }
   }, []);
 
   // Handle file drop
-  const handleFileDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsFileDragOver(false);
+  const handleFileDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsFileDragOver(false);
 
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      processImageFile(files[0]);
-    }
-  }, [processImageFile]);
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length > 0) {
+        processImageFile(files[0]);
+      }
+    },
+    [processImageFile],
+  );
 
   // Handle Import button click
   const handleImportClick = useCallback(() => {
@@ -1175,15 +1459,18 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   }, []);
 
   // Handle file input change
-  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length > 0) {
-      processImageFile(files[0]);
-    }
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  }, [processImageFile]);
+  const handleFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(e.target.files || []);
+      if (files.length > 0) {
+        processImageFile(files[0]);
+      }
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    },
+    [processImageFile],
+  );
 
   // Handle drop zone click
   const handleDropZoneClick = useCallback((e: React.MouseEvent) => {
@@ -1194,15 +1481,21 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   }, []);
 
   // Handle image load to read actual dimensions
-  const handleImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
-    const img = e.currentTarget;
-    setActualDimensions({ width: img.naturalWidth, height: img.naturalHeight });
-  }, []);
+  const handleImageLoad = useCallback(
+    (e: React.SyntheticEvent<HTMLImageElement>) => {
+      const img = e.currentTarget;
+      setActualDimensions({
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+      });
+    },
+    [],
+  );
 
   // Get the image URL - could be thumbnailUrl for mock data or direct URL for imported files
-  const getImageUrl = (file: typeof imageFiles[0]) => {
+  const getImageUrl = (file: (typeof imageFiles)[0]) => {
     // For mock data, thumbnailUrl points to the actual image
-    return file.thumbnailUrl || '';
+    return file.thumbnailUrl || "";
   };
 
   // Track container dimensions for fit zoom calculation
@@ -1239,7 +1532,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const canPan = useCallback(() => {
     if (!containerDimensions) return false;
     const imageSize = getImageDisplaySize();
-    return imageSize.width > containerDimensions.width || imageSize.height > containerDimensions.height;
+    return (
+      imageSize.width > containerDimensions.width ||
+      imageSize.height > containerDimensions.height
+    );
   }, [containerDimensions, getImageDisplaySize]);
 
   // Calculate pan constraints to keep image filling the viewport
@@ -1248,8 +1544,14 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     const imageSize = getImageDisplaySize();
 
     // Calculate how much the image exceeds the container in each direction
-    const excessWidth = Math.max(0, imageSize.width - containerDimensions.width);
-    const excessHeight = Math.max(0, imageSize.height - containerDimensions.height);
+    const excessWidth = Math.max(
+      0,
+      imageSize.width - containerDimensions.width,
+    );
+    const excessHeight = Math.max(
+      0,
+      imageSize.height - containerDimensions.height,
+    );
 
     // Pan constraints: image edges must not go past container edges
     // When centered, pan is 0. Max pan is half the excess (can pan left or right)
@@ -1262,157 +1564,217 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   }, [containerDimensions, getImageDisplaySize]);
 
   // Constrain pan offset to valid range
-  const constrainPan = useCallback((x: number, y: number) => {
-    const constraints = calculatePanConstraints();
-    return {
-      x: Math.max(constraints.minX, Math.min(constraints.maxX, x)),
-      y: Math.max(constraints.minY, Math.min(constraints.maxY, y)),
-    };
-  }, [calculatePanConstraints]);
+  const constrainPan = useCallback(
+    (x: number, y: number) => {
+      const constraints = calculatePanConstraints();
+      return {
+        x: Math.max(constraints.minX, Math.min(constraints.maxX, x)),
+        y: Math.max(constraints.minY, Math.min(constraints.maxY, y)),
+      };
+    },
+    [calculatePanConstraints],
+  );
 
   // Convert screen coordinates to image pixel coordinates
-  const screenToImageCoords = useCallback((screenX: number, screenY: number) => {
-    if (!canvasContainerRef.current || !actualDimensions || !containerDimensions) {
-      return null;
-    }
+  const screenToImageCoords = useCallback(
+    (screenX: number, screenY: number) => {
+      if (
+        !canvasContainerRef.current ||
+        !actualDimensions ||
+        !containerDimensions
+      ) {
+        return null;
+      }
 
-    const containerRect = canvasContainerRef.current.getBoundingClientRect();
-    const imageSize = getImageDisplaySize();
+      const containerRect = canvasContainerRef.current.getBoundingClientRect();
+      const imageSize = getImageDisplaySize();
 
-    // Calculate where the image is positioned in the container (centered)
-    const imageLeft = (containerDimensions.width - imageSize.width) / 2 + panOffset.x;
-    const imageTop = (containerDimensions.height - imageSize.height) / 2 + panOffset.y;
+      // Calculate where the image is positioned in the container (centered)
+      const imageLeft =
+        (containerDimensions.width - imageSize.width) / 2 + panOffset.x;
+      const imageTop =
+        (containerDimensions.height - imageSize.height) / 2 + panOffset.y;
 
-    // Calculate click position relative to image
-    const clickX = screenX - containerRect.left - imageLeft;
-    const clickY = screenY - containerRect.top - imageTop;
+      // Calculate click position relative to image
+      const clickX = screenX - containerRect.left - imageLeft;
+      const clickY = screenY - containerRect.top - imageTop;
 
-    // Convert to image pixel coordinates (0-1 normalized)
-    const normalizedX = clickX / imageSize.width;
-    const normalizedY = clickY / imageSize.height;
+      // Convert to image pixel coordinates (0-1 normalized)
+      const normalizedX = clickX / imageSize.width;
+      const normalizedY = clickY / imageSize.height;
 
-    // Check if click is within image bounds
-    if (normalizedX < 0 || normalizedX > 1 || normalizedY < 0 || normalizedY > 1) {
-      return null;
-    }
+      // Check if click is within image bounds
+      if (
+        normalizedX < 0 ||
+        normalizedX > 1 ||
+        normalizedY < 0 ||
+        normalizedY > 1
+      ) {
+        return null;
+      }
 
-    // Return actual image pixel coordinates
-    return {
-      x: normalizedX * actualDimensions.width,
-      y: normalizedY * actualDimensions.height,
-      normalizedX,
-      normalizedY,
-    };
-  }, [actualDimensions, containerDimensions, getImageDisplaySize, panOffset]);
+      // Return actual image pixel coordinates
+      return {
+        x: normalizedX * actualDimensions.width,
+        y: normalizedY * actualDimensions.height,
+        normalizedX,
+        normalizedY,
+      };
+    },
+    [actualDimensions, containerDimensions, getImageDisplaySize, panOffset],
+  );
 
   // Calculate pan offset to center a specific image point in the viewport
-  const calculatePanToCenter = useCallback((imageX: number, imageY: number, newZoom: number) => {
-    if (!actualDimensions || !containerDimensions) {
-      return { x: 0, y: 0 };
-    }
+  const calculatePanToCenter = useCallback(
+    (imageX: number, imageY: number, newZoom: number) => {
+      if (!actualDimensions || !containerDimensions) {
+        return { x: 0, y: 0 };
+      }
 
-    // Calculate the new fit scale and actual scale
-    const fitScale = calculateFitScale();
-    const newActualScale = fitScale * (newZoom / 100);
+      // Calculate the new fit scale and actual scale
+      const fitScale = calculateFitScale();
+      const newActualScale = fitScale * (newZoom / 100);
 
-    // New image size at new zoom level
-    const newImageWidth = actualDimensions.width * newActualScale;
-    const newImageHeight = actualDimensions.height * newActualScale;
-
-    // Normalized position of the target point (0-1)
-    const normalizedX = imageX / actualDimensions.width;
-    const normalizedY = imageY / actualDimensions.height;
-
-    // Position of target point in the new zoomed image (from center of image)
-    const targetOffsetFromCenterX = (normalizedX - 0.5) * newImageWidth;
-    const targetOffsetFromCenterY = (normalizedY - 0.5) * newImageHeight;
-
-    // Pan to center the target point in viewport
-    // We need the target point to be at viewport center, so pan is negative of target offset
-    const panX = -targetOffsetFromCenterX;
-    const panY = -targetOffsetFromCenterY;
-
-    return { x: panX, y: panY };
-  }, [actualDimensions, containerDimensions, calculateFitScale]);
-
-  // Handle double-click zoom in/out (centered on clicked point, using zoom steps)
-  const handleCanvasDoubleClick = useCallback((e: React.MouseEvent) => {
-    if (viewMode !== 'single' || !loadedImage || !actualDimensions || !containerDimensions) return;
-
-    const fitScale = calculateFitScale();
-
-    // Helper to calculate constrained pan for a given zoom level
-    const constrainPanForZoom = (pan: { x: number; y: number }, targetZoom: number) => {
-      const newActualScale = fitScale * (targetZoom / 100);
+      // New image size at new zoom level
       const newImageWidth = actualDimensions.width * newActualScale;
       const newImageHeight = actualDimensions.height * newActualScale;
-      const excessWidth = Math.max(0, newImageWidth - containerDimensions.width);
-      const excessHeight = Math.max(0, newImageHeight - containerDimensions.height);
-      return {
-        x: Math.max(-excessWidth / 2, Math.min(excessWidth / 2, pan.x)),
-        y: Math.max(-excessHeight / 2, Math.min(excessHeight / 2, pan.y)),
+
+      // Normalized position of the target point (0-1)
+      const normalizedX = imageX / actualDimensions.width;
+      const normalizedY = imageY / actualDimensions.height;
+
+      // Position of target point in the new zoomed image (from center of image)
+      const targetOffsetFromCenterX = (normalizedX - 0.5) * newImageWidth;
+      const targetOffsetFromCenterY = (normalizedY - 0.5) * newImageHeight;
+
+      // Pan to center the target point in viewport
+      // We need the target point to be at viewport center, so pan is negative of target offset
+      const panX = -targetOffsetFromCenterX;
+      const panY = -targetOffsetFromCenterY;
+
+      return { x: panX, y: panY };
+    },
+    [actualDimensions, containerDimensions, calculateFitScale],
+  );
+
+  // Handle double-click zoom in/out (centered on clicked point, using zoom steps)
+  const handleCanvasDoubleClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (
+        viewMode !== "single" ||
+        !loadedImage ||
+        !actualDimensions ||
+        !containerDimensions
+      )
+        return;
+
+      const fitScale = calculateFitScale();
+
+      // Helper to calculate constrained pan for a given zoom level
+      const constrainPanForZoom = (
+        pan: { x: number; y: number },
+        targetZoom: number,
+      ) => {
+        const newActualScale = fitScale * (targetZoom / 100);
+        const newImageWidth = actualDimensions.width * newActualScale;
+        const newImageHeight = actualDimensions.height * newActualScale;
+        const excessWidth = Math.max(
+          0,
+          newImageWidth - containerDimensions.width,
+        );
+        const excessHeight = Math.max(
+          0,
+          newImageHeight - containerDimensions.height,
+        );
+        return {
+          x: Math.max(-excessWidth / 2, Math.min(excessWidth / 2, pan.x)),
+          y: Math.max(-excessHeight / 2, Math.min(excessHeight / 2, pan.y)),
+        };
       };
-    };
 
-    // Check if Alt key is held - zoom out to previous step
-    if (e.altKey) {
-      // Zoom out centered on LAST zoom-in point (or image center if none)
-      if (zoom <= ZOOM_MIN) return;
+      // Check if Alt key is held - zoom out to previous step
+      if (e.altKey) {
+        // Zoom out centered on LAST zoom-in point (or image center if none)
+        if (zoom <= ZOOM_MIN) return;
 
-      const newZoom = getPrevZoomStep(zoom);
+        const newZoom = getPrevZoomStep(zoom);
 
-      if (lastZoomInPoint) {
-        // Center on last zoom-in point
-        const newPan = calculatePanToCenter(lastZoomInPoint.x, lastZoomInPoint.y, newZoom);
-        setZoom(newZoom);
-        if (newZoom > ZOOM_MIN) {
-          setPanOffset(constrainPanForZoom(newPan, newZoom));
+        if (lastZoomInPoint) {
+          // Center on last zoom-in point
+          const newPan = calculatePanToCenter(
+            lastZoomInPoint.x,
+            lastZoomInPoint.y,
+            newZoom,
+          );
+          setZoom(newZoom);
+          if (newZoom > ZOOM_MIN) {
+            setPanOffset(constrainPanForZoom(newPan, newZoom));
+          } else {
+            setPanOffset({ x: 0, y: 0 });
+          }
         } else {
-          setPanOffset({ x: 0, y: 0 });
+          // No previous zoom point, zoom out from center
+          setZoom(newZoom);
+          if (newZoom <= ZOOM_MIN) {
+            setPanOffset({ x: 0, y: 0 });
+          }
         }
-      } else {
-        // No previous zoom point, zoom out from center
-        setZoom(newZoom);
-        if (newZoom <= ZOOM_MIN) {
-          setPanOffset({ x: 0, y: 0 });
-        }
+        return;
       }
-      return;
-    }
 
-    // Regular double-click - zoom in to next step centered on clicked point
-    if (zoom >= ZOOM_MAX) return;
+      // Regular double-click - zoom in to next step centered on clicked point
+      if (zoom >= ZOOM_MAX) return;
 
-    const imageCoords = screenToImageCoords(e.clientX, e.clientY);
-    if (!imageCoords) return;
+      const imageCoords = screenToImageCoords(e.clientX, e.clientY);
+      if (!imageCoords) return;
 
-    // Store this as the last zoom-in point
-    setLastZoomInPoint({ x: imageCoords.x, y: imageCoords.y });
+      // Store this as the last zoom-in point
+      setLastZoomInPoint({ x: imageCoords.x, y: imageCoords.y });
 
-    // Calculate new zoom level - use next zoom step
-    const newZoom = getNextZoomStep(zoom);
+      // Calculate new zoom level - use next zoom step
+      const newZoom = getNextZoomStep(zoom);
 
-    // Calculate pan to center on clicked point
-    const newPan = calculatePanToCenter(imageCoords.x, imageCoords.y, newZoom);
+      // Calculate pan to center on clicked point
+      const newPan = calculatePanToCenter(
+        imageCoords.x,
+        imageCoords.y,
+        newZoom,
+      );
 
-    setZoom(newZoom);
-    setPanOffset(constrainPanForZoom(newPan, newZoom));
-  }, [viewMode, loadedImage, zoom, lastZoomInPoint, screenToImageCoords, calculatePanToCenter, actualDimensions, containerDimensions, calculateFitScale, getNextZoomStep, getPrevZoomStep]);
+      setZoom(newZoom);
+      setPanOffset(constrainPanForZoom(newPan, newZoom));
+    },
+    [
+      viewMode,
+      loadedImage,
+      zoom,
+      lastZoomInPoint,
+      screenToImageCoords,
+      calculatePanToCenter,
+      actualDimensions,
+      containerDimensions,
+      calculateFitScale,
+      getNextZoomStep,
+      getPrevZoomStep,
+    ],
+  );
 
   // Track Ctrl key state for marquee zoom and handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't trigger shortcuts when typing in an input field
       const activeElement = document.activeElement;
-      const isTyping = activeElement instanceof HTMLInputElement ||
-                       activeElement instanceof HTMLTextAreaElement ||
-                       (activeElement instanceof HTMLElement && activeElement.isContentEditable);
+      const isTyping =
+        activeElement instanceof HTMLInputElement ||
+        activeElement instanceof HTMLTextAreaElement ||
+        (activeElement instanceof HTMLElement &&
+          activeElement.isContentEditable);
 
-      if (e.key === 'Control' && viewMode === 'single' && loadedImage) {
+      if (e.key === "Control" && viewMode === "single" && loadedImage) {
         setIsCtrlHeld(true);
       }
       // Escape key cancels marquee mode and deactivates annotation tools
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         if (isMarqueeModeActive) {
           setIsMarqueeModeActive(false);
           setIsMarqueeDrawing(false);
@@ -1431,21 +1793,21 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       // Undo/Redo keyboard shortcuts (only when not typing in text input)
       if (!isTyping && loadedImage) {
         // Ctrl+Z = Undo (both transforms and annotations via store)
-        if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'z') {
+        if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "z") {
           e.preventDefault();
           // Use store undo which handles annotation history
           storeUndo();
           handleUndo();
         }
         // Ctrl+Shift+Z = Redo (both transforms and annotations via store)
-        if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'z') {
+        if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "z") {
           e.preventDefault();
           // Use store redo which handles annotation history
           storeRedo();
           handleRedo();
         }
         // Ctrl+Y = Redo (alternative, common in Windows)
-        if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'y') {
+        if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "y") {
           e.preventDefault();
           storeRedo();
           handleRedo();
@@ -1454,23 +1816,32 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Control') {
+      if (e.key === "Control") {
         setIsCtrlHeld(false);
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
 
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [viewMode, loadedImage, isMarqueeModeActive, activeTool, handleUndo, handleRedo, storeUndo, storeRedo]);
+  }, [
+    viewMode,
+    loadedImage,
+    isMarqueeModeActive,
+    activeTool,
+    handleUndo,
+    handleRedo,
+    storeUndo,
+    storeRedo,
+  ]);
 
   // Toggle marquee zoom mode (toolbar icon click)
   const toggleMarqueeMode = useCallback(() => {
-    setIsMarqueeModeActive(prev => !prev);
+    setIsMarqueeModeActive((prev) => !prev);
     setIsMarqueeDrawing(false);
     setMarqueeStart(null);
     setMarqueeEnd(null);
@@ -1490,108 +1861,144 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
   // Apply marquee zoom - zoom to fit selected area in viewport
   // Accepts optional start/end coordinates to avoid race conditions with async state updates
-  const applyMarqueeZoom = useCallback((
-    startCoord?: { x: number; y: number } | null,
-    endCoord?: { x: number; y: number } | null
-  ) => {
-    // Use provided coordinates or fall back to state
-    const start = startCoord ?? marqueeStart;
-    const end = endCoord ?? marqueeEnd;
+  const applyMarqueeZoom = useCallback(
+    (
+      startCoord?: { x: number; y: number } | null,
+      endCoord?: { x: number; y: number } | null,
+    ) => {
+      // Use provided coordinates or fall back to state
+      const start = startCoord ?? marqueeStart;
+      const end = endCoord ?? marqueeEnd;
 
-    if (!start || !end || !containerDimensions || !actualDimensions) {
-      return;
-    }
+      if (!start || !end || !containerDimensions || !actualDimensions) {
+        return;
+      }
 
-    const containerRect = canvasContainerRef.current?.getBoundingClientRect();
-    if (!containerRect) return;
+      const containerRect = canvasContainerRef.current?.getBoundingClientRect();
+      if (!containerRect) return;
 
-    // Convert screen marquee coordinates to image coordinates
-    const imageSize = getImageDisplaySize();
-    const imageLeft = (containerDimensions.width - imageSize.width) / 2 + panOffset.x;
-    const imageTop = (containerDimensions.height - imageSize.height) / 2 + panOffset.y;
+      // Convert screen marquee coordinates to image coordinates
+      const imageSize = getImageDisplaySize();
+      const imageLeft =
+        (containerDimensions.width - imageSize.width) / 2 + panOffset.x;
+      const imageTop =
+        (containerDimensions.height - imageSize.height) / 2 + panOffset.y;
 
-    // Marquee corners in image-relative coordinates
-    const marqueeImageLeft = Math.min(start.x, end.x) - containerRect.left - imageLeft;
-    const marqueeImageTop = Math.min(start.y, end.y) - containerRect.top - imageTop;
-    const marqueeImageRight = Math.max(start.x, end.x) - containerRect.left - imageLeft;
-    const marqueeImageBottom = Math.max(start.y, end.y) - containerRect.top - imageTop;
+      // Marquee corners in image-relative coordinates
+      const marqueeImageLeft =
+        Math.min(start.x, end.x) - containerRect.left - imageLeft;
+      const marqueeImageTop =
+        Math.min(start.y, end.y) - containerRect.top - imageTop;
+      const marqueeImageRight =
+        Math.max(start.x, end.x) - containerRect.left - imageLeft;
+      const marqueeImageBottom =
+        Math.max(start.y, end.y) - containerRect.top - imageTop;
 
-    // Convert to normalized image coordinates (0-1)
-    const normalizedLeft = Math.max(0, marqueeImageLeft / imageSize.width);
-    const normalizedTop = Math.max(0, marqueeImageTop / imageSize.height);
-    const normalizedRight = Math.min(1, marqueeImageRight / imageSize.width);
-    const normalizedBottom = Math.min(1, marqueeImageBottom / imageSize.height);
+      // Convert to normalized image coordinates (0-1)
+      const normalizedLeft = Math.max(0, marqueeImageLeft / imageSize.width);
+      const normalizedTop = Math.max(0, marqueeImageTop / imageSize.height);
+      const normalizedRight = Math.min(1, marqueeImageRight / imageSize.width);
+      const normalizedBottom = Math.min(
+        1,
+        marqueeImageBottom / imageSize.height,
+      );
 
-    // Calculate selection dimensions in image pixels
-    const selectionWidth = (normalizedRight - normalizedLeft) * actualDimensions.width;
-    const selectionHeight = (normalizedBottom - normalizedTop) * actualDimensions.height;
+      // Calculate selection dimensions in image pixels
+      const selectionWidth =
+        (normalizedRight - normalizedLeft) * actualDimensions.width;
+      const selectionHeight =
+        (normalizedBottom - normalizedTop) * actualDimensions.height;
 
-    // Minimum selection size check
-    if (selectionWidth < 10 || selectionHeight < 10) {
-      return;
-    }
+      // Minimum selection size check
+      if (selectionWidth < 10 || selectionHeight < 10) {
+        return;
+      }
 
-    // Center of selection in image pixels
-    const centerX = ((normalizedLeft + normalizedRight) / 2) * actualDimensions.width;
-    const centerY = ((normalizedTop + normalizedBottom) / 2) * actualDimensions.height;
+      // Center of selection in image pixels
+      const centerX =
+        ((normalizedLeft + normalizedRight) / 2) * actualDimensions.width;
+      const centerY =
+        ((normalizedTop + normalizedBottom) / 2) * actualDimensions.height;
 
-    // Store as last zoom-in point
-    setLastZoomInPoint({ x: centerX, y: centerY });
+      // Store as last zoom-in point
+      setLastZoomInPoint({ x: centerX, y: centerY });
 
-    // Calculate zoom level to fit selection in viewport
-    // First, calculate what zoom would fit the selection width/height
-    const fitScale = calculateFitScale();
-    const zoomForWidth = (containerDimensions.width / selectionWidth) / fitScale * 100;
-    const zoomForHeight = (containerDimensions.height / selectionHeight) / fitScale * 100;
+      // Calculate zoom level to fit selection in viewport
+      // First, calculate what zoom would fit the selection width/height
+      const fitScale = calculateFitScale();
+      const zoomForWidth =
+        (containerDimensions.width / selectionWidth / fitScale) * 100;
+      const zoomForHeight =
+        (containerDimensions.height / selectionHeight / fitScale) * 100;
 
-    // Use the smaller zoom to ensure both dimensions fit, capped at max
-    const newZoom = Math.min(Math.min(zoomForWidth, zoomForHeight), ZOOM_MAX);
+      // Use the smaller zoom to ensure both dimensions fit, capped at max
+      const newZoom = Math.min(Math.min(zoomForWidth, zoomForHeight), ZOOM_MAX);
 
-    // Don't zoom if result would be less than minimum
-    if (newZoom < ZOOM_MIN) {
-      return;
-    }
+      // Don't zoom if result would be less than minimum
+      if (newZoom < ZOOM_MIN) {
+        return;
+      }
 
-    // Calculate pan to center on selection center
-    const newPan = calculatePanToCenter(centerX, centerY, newZoom);
+      // Calculate pan to center on selection center
+      const newPan = calculatePanToCenter(centerX, centerY, newZoom);
 
-    // Calculate pan constraints based on NEW zoom level (not current zoom)
-    // This is critical - we need to constrain using the new image size
-    const newActualScale = fitScale * (newZoom / 100);
-    const newImageWidth = actualDimensions.width * newActualScale;
-    const newImageHeight = actualDimensions.height * newActualScale;
-    const excessWidth = Math.max(0, newImageWidth - containerDimensions.width);
-    const excessHeight = Math.max(0, newImageHeight - containerDimensions.height);
-    const constrainedPan = {
-      x: Math.max(-excessWidth / 2, Math.min(excessWidth / 2, newPan.x)),
-      y: Math.max(-excessHeight / 2, Math.min(excessHeight / 2, newPan.y)),
-    };
+      // Calculate pan constraints based on NEW zoom level (not current zoom)
+      // This is critical - we need to constrain using the new image size
+      const newActualScale = fitScale * (newZoom / 100);
+      const newImageWidth = actualDimensions.width * newActualScale;
+      const newImageHeight = actualDimensions.height * newActualScale;
+      const excessWidth = Math.max(
+        0,
+        newImageWidth - containerDimensions.width,
+      );
+      const excessHeight = Math.max(
+        0,
+        newImageHeight - containerDimensions.height,
+      );
+      const constrainedPan = {
+        x: Math.max(-excessWidth / 2, Math.min(excessWidth / 2, newPan.x)),
+        y: Math.max(-excessHeight / 2, Math.min(excessHeight / 2, newPan.y)),
+      };
 
-    setZoom(newZoom);
-    setPanOffset(constrainedPan);
+      setZoom(newZoom);
+      setPanOffset(constrainedPan);
 
-    // Deactivate marquee mode after zoom
-    setIsMarqueeModeActive(false);
-  }, [marqueeStart, marqueeEnd, containerDimensions, actualDimensions, getImageDisplaySize, panOffset, calculateFitScale, calculatePanToCenter]);
+      // Deactivate marquee mode after zoom
+      setIsMarqueeModeActive(false);
+    },
+    [
+      marqueeStart,
+      marqueeEnd,
+      containerDimensions,
+      actualDimensions,
+      getImageDisplaySize,
+      panOffset,
+      calculateFitScale,
+      calculatePanToCenter,
+    ],
+  );
 
   // Handle marquee drawing start (mousedown when Ctrl held or marquee mode active)
   // Uses refs for instant response during drawing
-  const handleMarqueeStart = useCallback((e: React.MouseEvent) => {
-    if (viewMode !== 'single' || !loadedImage) return;
-    if (!isMarqueeModeActive && !isCtrlHeld) return;
+  const handleMarqueeStart = useCallback(
+    (e: React.MouseEvent) => {
+      if (viewMode !== "single" || !loadedImage) return;
+      if (!isMarqueeModeActive && !isCtrlHeld) return;
 
-    // Prevent triggering pan
-    e.preventDefault();
-    e.stopPropagation();
+      // Prevent triggering pan
+      e.preventDefault();
+      e.stopPropagation();
 
-    // Initialize live ref for instant response
-    const startPoint = { x: e.clientX, y: e.clientY };
-    marqueeLiveRef.current = { start: startPoint, end: startPoint };
+      // Initialize live ref for instant response
+      const startPoint = { x: e.clientX, y: e.clientY };
+      marqueeLiveRef.current = { start: startPoint, end: startPoint };
 
-    setIsMarqueeDrawing(true);
-    setMarqueeStart(startPoint);
-    setMarqueeEnd(startPoint);
-  }, [viewMode, loadedImage, isMarqueeModeActive, isCtrlHeld]);
+      setIsMarqueeDrawing(true);
+      setMarqueeStart(startPoint);
+      setMarqueeEnd(startPoint);
+    },
+    [viewMode, loadedImage, isMarqueeModeActive, isCtrlHeld],
+  );
 
   // Handle marquee drawing (document level)
   // Uses refs and direct DOM manipulation for instant visual feedback
@@ -1644,59 +2051,82 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       marqueeLiveRef.current = { start: null, end: null };
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
 
     return () => {
       if (rafId !== null) {
         cancelAnimationFrame(rafId);
       }
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
     };
   }, [isMarqueeDrawing, applyMarqueeZoom]);
 
   // Handle pan start (mouse down on image)
   // Uses refs for instant response - no React state updates during drag
-  const handlePanStart = useCallback((e: React.MouseEvent) => {
-    // Check for annotation tool first - these take priority (only in single view)
-    if (activeTool && viewMode === 'single' && loadedImage) {
-      const coords = screenToImageCoords(e.clientX, e.clientY);
-      if (coords) {
-        e.preventDefault();
-        setIsDrawingAnnotation(true);
-        setDrawingStartPoint({ x: coords.normalizedX, y: coords.normalizedY });
-        setCurrentDrawingEnd({ x: coords.normalizedX, y: coords.normalizedY });
+  const handlePanStart = useCallback(
+    (e: React.MouseEvent) => {
+      // Check for annotation tool first - these take priority (only in single view)
+      if (activeTool && viewMode === "single" && loadedImage) {
+        const coords = screenToImageCoords(e.clientX, e.clientY);
+        if (coords) {
+          e.preventDefault();
+          setIsDrawingAnnotation(true);
+          setDrawingStartPoint({
+            x: coords.normalizedX,
+            y: coords.normalizedY,
+          });
+          setCurrentDrawingEnd({
+            x: coords.normalizedX,
+            y: coords.normalizedY,
+          });
+        }
+        return;
       }
-      return;
-    }
 
-    // Check for marquee mode or Ctrl key first - these take priority (only in single view)
-    if ((isMarqueeModeActive || isCtrlHeld) && viewMode === 'single' && loadedImage) {
-      handleMarqueeStart(e);
-      return;
-    }
+      // Check for marquee mode or Ctrl key first - these take priority (only in single view)
+      if (
+        (isMarqueeModeActive || isCtrlHeld) &&
+        viewMode === "single" &&
+        loadedImage
+      ) {
+        handleMarqueeStart(e);
+        return;
+      }
 
-    // Enable pan for single and split view, not side-by-side
-    if (!canPan() || viewMode === 'side-by-side') return;
+      // Enable pan for single and split view, not side-by-side
+      if (!canPan() || viewMode === "side-by-side") return;
 
-    e.preventDefault();
+      e.preventDefault();
 
-    // Initialize live ref with current pan offset
-    panLiveRef.current = { x: panOffset.x, y: panOffset.y };
+      // Initialize live ref with current pan offset
+      panLiveRef.current = { x: panOffset.x, y: panOffset.y };
 
-    setIsPanning(true);
-    panStartRef.current = {
-      x: e.clientX,
-      y: e.clientY,
-      panX: panOffset.x,
-      panY: panOffset.y,
-    };
+      setIsPanning(true);
+      panStartRef.current = {
+        x: e.clientX,
+        y: e.clientY,
+        panX: panOffset.x,
+        panY: panOffset.y,
+      };
 
-    // Change cursor for entire document during drag
-    document.body.style.cursor = 'grabbing';
-    document.body.style.userSelect = 'none';
-  }, [canPan, viewMode, panOffset, isMarqueeModeActive, isCtrlHeld, loadedImage, handleMarqueeStart, activeTool, screenToImageCoords]);
+      // Change cursor for entire document during drag
+      document.body.style.cursor = "grabbing";
+      document.body.style.userSelect = "none";
+    },
+    [
+      canPan,
+      viewMode,
+      panOffset,
+      isMarqueeModeActive,
+      isCtrlHeld,
+      loadedImage,
+      handleMarqueeStart,
+      activeTool,
+      screenToImageCoords,
+    ],
+  );
 
   // Handle pan move (document level to catch mouse leaving image)
   // Uses refs and direct DOM manipulation for 60fps responsiveness
@@ -1713,7 +2143,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
       const newPan = constrainPan(
         panStartRef.current.panX + deltaX,
-        panStartRef.current.panY + deltaY
+        panStartRef.current.panY + deltaY,
       );
 
       // Update live ref immediately (no React re-render)
@@ -1753,19 +2183,19 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
       setIsPanning(false);
       panStartRef.current = null;
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
 
     return () => {
       if (rafId !== null) {
         cancelAnimationFrame(rafId);
       }
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
     };
   }, [isPanning, constrainPan]);
 
@@ -1789,12 +2219,14 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         const endX = Math.max(drawingStartPoint.x, coords.normalizedX);
         const endY = Math.max(drawingStartPoint.y, coords.normalizedY);
 
-        const width = activeTool === 'arrow'
-          ? coords.normalizedX - drawingStartPoint.x
-          : endX - startX;
-        const height = activeTool === 'arrow'
-          ? coords.normalizedY - drawingStartPoint.y
-          : endY - startY;
+        const width =
+          activeTool === "arrow"
+            ? coords.normalizedX - drawingStartPoint.x
+            : endX - startX;
+        const height =
+          activeTool === "arrow"
+            ? coords.normalizedY - drawingStartPoint.y
+            : endY - startY;
 
         // Only add if it has some size
         if (Math.abs(width) > 0.01 || Math.abs(height) > 0.01) {
@@ -1802,9 +2234,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
           const randomUser = getRandomUser();
 
           // Create annotation data for the store
-          if (activeTool === 'rectangle') {
+          if (activeTool === "rectangle") {
             addAnnotation({
-              type: 'rectangle',
+              type: "rectangle",
               x: startX,
               y: startY,
               width: endX - startX,
@@ -1815,20 +2247,20 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               fillOpacity: 0,
               userId: randomUser.userId,
               userDisplayName: randomUser.userDisplayName,
-              color: '#19abb5',
+              color: "#19abb5",
               strokeWidth: 2,
               opacity: 1,
               visible: true,
               locked: false,
             });
-          } else if (activeTool === 'circle') {
+          } else if (activeTool === "circle") {
             // Circle uses centerX/centerY and radiusX/radiusY
             const centerX = startX + (endX - startX) / 2;
             const centerY = startY + (endY - startY) / 2;
             const radiusX = (endX - startX) / 2;
             const radiusY = (endY - startY) / 2;
             addAnnotation({
-              type: 'circle',
+              type: "circle",
               centerX,
               centerY,
               radiusX,
@@ -1837,15 +2269,15 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               fillOpacity: 0,
               userId: randomUser.userId,
               userDisplayName: randomUser.userDisplayName,
-              color: '#19abb5',
+              color: "#19abb5",
               strokeWidth: 2,
               opacity: 1,
               visible: true,
               locked: false,
             });
-          } else if (activeTool === 'arrow') {
+          } else if (activeTool === "arrow") {
             addAnnotation({
-              type: 'arrow',
+              type: "arrow",
               startX: drawingStartPoint.x,
               startY: drawingStartPoint.y,
               endX: coords.normalizedX,
@@ -1854,7 +2286,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               doubleHeaded: false,
               userId: randomUser.userId,
               userDisplayName: randomUser.userDisplayName,
-              color: '#19abb5',
+              color: "#19abb5",
               strokeWidth: 2,
               opacity: 1,
               visible: true,
@@ -1873,14 +2305,20 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       setCurrentDrawingEnd(null);
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
 
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isDrawingAnnotation, activeTool, drawingStartPoint, screenToImageCoords, addAnnotation]);
+  }, [
+    isDrawingAnnotation,
+    activeTool,
+    drawingStartPoint,
+    screenToImageCoords,
+    addAnnotation,
+  ]);
 
   // Re-constrain pan when zoom changes
   useEffect(() => {
@@ -1892,87 +2330,97 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
   // Handle A/B toggle
   const handleABToggle = useCallback(() => {
-    setShowOriginal(prev => !prev);
+    setShowOriginal((prev) => !prev);
   }, []);
 
   // Handle split divider drag start
   // Uses refs and direct DOM manipulation for instant response (no React re-renders during drag)
-  const handleSplitDragStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent selection
-    e.stopPropagation();
+  const handleSplitDragStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault(); // Prevent selection
+      e.stopPropagation();
 
-    // Capture initial values immediately
-    const startX = e.clientX;
-    const startPos = splitPosition;
+      // Capture initial values immediately
+      const startX = e.clientX;
+      const startPos = splitPosition;
 
-    // Initialize live ref
-    splitPositionLiveRef.current = splitPosition;
+      // Initialize live ref
+      splitPositionLiveRef.current = splitPosition;
 
-    // Get container rect once at the start for performance
-    const container = splitContainerRef.current;
-    if (!container) return;
-    const containerRect = container.getBoundingClientRect();
+      // Get container rect once at the start for performance
+      const container = splitContainerRef.current;
+      if (!container) return;
+      const containerRect = container.getBoundingClientRect();
 
-    // Set visual state for cursor styling
-    setIsDraggingSplit(true);
+      // Set visual state for cursor styling
+      setIsDraggingSplit(true);
 
-    // Prevent text selection during drag
-    document.body.style.userSelect = 'none';
-    document.body.style.cursor = 'grabbing';
+      // Prevent text selection during drag
+      document.body.style.userSelect = "none";
+      document.body.style.cursor = "grabbing";
 
-    let rafId: number | null = null;
+      let rafId: number | null = null;
 
-    const handleMouseMove = (moveE: MouseEvent) => {
-      moveE.preventDefault(); // Prevent selection during drag
-      // Use cached rect for immediate response (no DOM query)
-      const newPos = Math.max(3, Math.min(97, startPos + ((moveE.clientX - startX) / containerRect.width) * 100));
+      const handleMouseMove = (moveE: MouseEvent) => {
+        moveE.preventDefault(); // Prevent selection during drag
+        // Use cached rect for immediate response (no DOM query)
+        const newPos = Math.max(
+          3,
+          Math.min(
+            97,
+            startPos + ((moveE.clientX - startX) / containerRect.width) * 100,
+          ),
+        );
 
-      // Update live ref immediately (no React re-render)
-      splitPositionLiveRef.current = newPos;
+        // Update live ref immediately (no React re-render)
+        splitPositionLiveRef.current = newPos;
 
-      // Apply position directly to DOM elements for instant visual feedback
-      if (rafId === null) {
-        rafId = requestAnimationFrame(() => {
-          rafId = null;
-          const pos = splitPositionLiveRef.current;
+        // Apply position directly to DOM elements for instant visual feedback
+        if (rafId === null) {
+          rafId = requestAnimationFrame(() => {
+            rafId = null;
+            const pos = splitPositionLiveRef.current;
 
-          // Update the divider position
-          if (splitDividerRef.current) {
-            splitDividerRef.current.style.left = `${pos}%`;
-          }
-
-          // Update the original image wrapper clip
-          if (splitOriginalWrapperRef.current) {
-            splitOriginalWrapperRef.current.style.width = `${pos}%`;
-            // Also update the inner container width
-            const innerContainer = splitOriginalWrapperRef.current.firstElementChild as HTMLElement;
-            if (innerContainer) {
-              innerContainer.style.width = `${100 / pos * 100}%`;
+            // Update the divider position
+            if (splitDividerRef.current) {
+              splitDividerRef.current.style.left = `${pos}%`;
             }
-          }
-        });
-      }
-    };
 
-    const handleMouseUp = () => {
-      // Cancel any pending RAF
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-      }
+            // Update the original image wrapper clip
+            if (splitOriginalWrapperRef.current) {
+              splitOriginalWrapperRef.current.style.width = `${pos}%`;
+              // Also update the inner container width
+              const innerContainer = splitOriginalWrapperRef.current
+                .firstElementChild as HTMLElement;
+              if (innerContainer) {
+                innerContainer.style.width = `${(100 / pos) * 100}%`;
+              }
+            }
+          });
+        }
+      };
 
-      // Commit final position to React state (single update at end)
-      setSplitPosition(splitPositionLiveRef.current);
+      const handleMouseUp = () => {
+        // Cancel any pending RAF
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+        }
 
-      setIsDraggingSplit(false);
-      document.body.style.userSelect = '';
-      document.body.style.cursor = '';
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
+        // Commit final position to React state (single update at end)
+        setSplitPosition(splitPositionLiveRef.current);
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  }, [splitPosition]);
+        setIsDraggingSplit(false);
+        document.body.style.userSelect = "";
+        document.body.style.cursor = "";
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+      };
+
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    },
+    [splitPosition],
+  );
 
   // Render placeholder or image
   const renderCanvas = () => {
@@ -1986,14 +2434,20 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
           onDrop={handleFileDrop}
           onClick={handleDropZoneClick}
         >
-          <ImageIcon sx={{ fontSize: 64, mb: 2, opacity: isFileDragOver ? 0.8 : 0.3 }} />
-          <Typography sx={{ fontSize: 14, color: isFileDragOver ? '#19abb5' : '#555' }}>
-            {isFileDragOver ? 'Drop image file here' : 'No image loaded'}
+          <ImageIcon
+            sx={{ fontSize: 64, mb: 2, opacity: isFileDragOver ? 0.8 : 0.3 }}
+          />
+          <Typography
+            sx={{ fontSize: 14, color: isFileDragOver ? "#19abb5" : "#555" }}
+          >
+            {isFileDragOver ? "Drop image file here" : "No image loaded"}
           </Typography>
-          <Typography sx={{ fontSize: 12, color: '#444', mt: 0.5 }}>
-            {isFileDragOver ? 'Release to import' : 'Drag & drop or click to import image files'}
+          <Typography sx={{ fontSize: 12, color: "#444", mt: 0.5 }}>
+            {isFileDragOver
+              ? "Release to import"
+              : "Drag & drop or click to import image files"}
           </Typography>
-          <Typography sx={{ fontSize: 10, color: '#333', mt: 1 }}>
+          <Typography sx={{ fontSize: 10, color: "#333", mt: 1 }}>
             .jpg, .jpeg, .png, .gif, .webp, .tiff, .bmp
           </Typography>
         </FileDropZone>
@@ -2010,33 +2464,37 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     // This allows the image to overflow the container when zoomed in
 
     // ========== SIDE-BY-SIDE VIEW ==========
-    if (viewMode === 'side-by-side') {
+    if (viewMode === "side-by-side") {
       return (
-        <Box sx={{
-          display: 'flex',
-          width: '100%',
-          height: '100%',
-          gap: 2,
-          p: 2,
-        }}>
+        <Box
+          sx={{
+            display: "flex",
+            width: "100%",
+            height: "100%",
+            gap: 2,
+            p: 2,
+          }}
+        >
           {/* Original side */}
-          <Box sx={{
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden',
-            position: 'relative',
-          }}>
+          <Box
+            sx={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              overflow: "hidden",
+              position: "relative",
+            }}
+          >
             <img
               src={imageUrl}
               alt={loadedImage.fileName}
               style={{
-                maxWidth: '100%',
-                maxHeight: '100%',
-                objectFit: 'contain',
+                maxWidth: "100%",
+                maxHeight: "100%",
+                objectFit: "contain",
                 borderRadius: 2,
-                userSelect: 'none',
+                userSelect: "none",
               }}
               onLoad={handleImageLoad}
               draggable={false}
@@ -2044,24 +2502,27 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             <ViewLabel position="left">Original</ViewLabel>
           </Box>
           {/* Edited side - shows transforms */}
-          <Box sx={{
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden',
-            position: 'relative',
-          }}>
+          <Box
+            sx={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              overflow: "hidden",
+              position: "relative",
+            }}
+          >
             <img
               src={imageUrl}
               alt={loadedImage.fileName}
               style={{
-                maxWidth: '100%',
-                maxHeight: '100%',
-                objectFit: 'contain',
+                maxWidth: "100%",
+                maxHeight: "100%",
+                objectFit: "contain",
                 borderRadius: 2,
-                userSelect: 'none',
+                userSelect: "none",
                 transform: getImageTransform(false),
+                filter: getImageFilter(),
               }}
               draggable={false}
             />
@@ -2074,26 +2535,26 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     // ========== SPLIT VIEW ==========
     // Supports zoom and pan - both layers use identical positioning so they stay aligned
     // The split slider clips the original image at the splitPosition percentage
-    if (viewMode === 'split') {
+    if (viewMode === "split") {
       // Check if panning is possible (zoomed past 100%)
       const isPannable = canPan();
 
       // Determine cursor based on state
       const getSplitCursor = () => {
-        if (isPanning) return 'grabbing';
-        if (isPannable) return 'grab';
-        return 'default';
+        if (isPanning) return "grabbing";
+        if (isPannable) return "grab";
+        return "default";
       };
 
       return (
         <Box
           ref={splitContainerRef}
           sx={{
-            width: '100%',
-            height: '100%',
-            position: 'relative',
-            userSelect: isDraggingSplit ? 'none' : 'auto',
-            overflow: 'hidden',
+            width: "100%",
+            height: "100%",
+            position: "relative",
+            userSelect: isDraggingSplit ? "none" : "auto",
+            overflow: "hidden",
             cursor: getSplitCursor(),
           }}
           onMouseDown={handlePanStart}
@@ -2101,15 +2562,15 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
           {/* Image container - both layers share this transform for synchronized zoom/pan */}
           <Box
             sx={{
-              position: 'absolute',
+              position: "absolute",
               top: 0,
               left: 0,
               right: 0,
               bottom: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              pointerEvents: 'none', // Let container handle mouse events
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              pointerEvents: "none", // Let container handle mouse events
             }}
           >
             {/* EDITED image - base layer (bottom) - ref for direct DOM manipulation during pan */}
@@ -2119,14 +2580,15 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               src={imageUrl}
               alt={loadedImage.fileName}
               style={{
-                width: actualDimensions ? imageSize.width : '100%',
-                height: actualDimensions ? imageSize.height : '100%',
-                maxWidth: actualDimensions ? 'none' : '100%',
-                maxHeight: actualDimensions ? 'none' : '100%',
-                objectFit: actualDimensions ? 'fill' : 'contain',
+                width: actualDimensions ? imageSize.width : "100%",
+                height: actualDimensions ? imageSize.height : "100%",
+                maxWidth: actualDimensions ? "none" : "100%",
+                maxHeight: actualDimensions ? "none" : "100%",
+                objectFit: actualDimensions ? "fill" : "contain",
                 borderRadius: 2,
-                userSelect: 'none',
+                userSelect: "none",
                 transform: getImageTransform(true, panOffset.x, panOffset.y),
+                filter: getImageFilter(),
               }}
               onLoad={handleImageLoad}
               draggable={false}
@@ -2137,28 +2599,28 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
           <Box
             ref={splitOriginalWrapperRef}
             sx={{
-              position: 'absolute',
+              position: "absolute",
               top: 0,
               left: 0,
               width: `${splitPosition}%`,
-              height: '100%',
-              overflow: 'hidden',
-              pointerEvents: 'none',
+              height: "100%",
+              overflow: "hidden",
+              pointerEvents: "none",
             }}
           >
             {/* Inner container maintains same centering as edited image container */}
             <Box
               sx={{
-                position: 'absolute',
+                position: "absolute",
                 top: 0,
                 left: 0,
                 // Width is scaled to match the original container width
                 // e.g., if wrapper is 50% of container, image container needs to be 200% of wrapper
-                width: `${100 / splitPosition * 100}%`,
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                width: `${(100 / splitPosition) * 100}%`,
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
               {/* ORIGINAL image - same size, position, and transform as edited for perfect alignment */}
@@ -2169,13 +2631,13 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                 src={imageUrl}
                 alt={loadedImage.fileName}
                 style={{
-                  width: actualDimensions ? imageSize.width : '100%',
-                  height: actualDimensions ? imageSize.height : '100%',
-                  maxWidth: actualDimensions ? 'none' : '100%',
-                  maxHeight: actualDimensions ? 'none' : '100%',
-                  objectFit: actualDimensions ? 'fill' : 'contain',
+                  width: actualDimensions ? imageSize.width : "100%",
+                  height: actualDimensions ? imageSize.height : "100%",
+                  maxWidth: actualDimensions ? "none" : "100%",
+                  maxHeight: actualDimensions ? "none" : "100%",
+                  objectFit: actualDimensions ? "fill" : "contain",
                   borderRadius: 2,
-                  userSelect: 'none',
+                  userSelect: "none",
                   transform: getImageTransform(true, panOffset.x, panOffset.y),
                 }}
                 draggable={false}
@@ -2192,7 +2654,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             isDragging={isDraggingSplit}
             sx={{
               left: `${splitPosition}%`,
-              transform: 'translateX(-50%)',
+              transform: "translateX(-50%)",
             }}
             onMouseDown={handleSplitDragStart}
           />
@@ -2207,29 +2669,29 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     // Determine cursor based on state
     const getCursor = () => {
       // Annotation tool active - crosshair
-      if (activeTool) return 'crosshair';
+      if (activeTool) return "crosshair";
       // Marquee drawing - crosshair
-      if (isMarqueeDrawing) return 'crosshair';
+      if (isMarqueeDrawing) return "crosshair";
       // Panning - grabbing hand
-      if (isPanning) return 'grabbing';
+      if (isPanning) return "grabbing";
       // Marquee mode active or Ctrl held - crosshair
-      if (isMarqueeModeActive || isCtrlHeld) return 'crosshair';
+      if (isMarqueeModeActive || isCtrlHeld) return "crosshair";
       // Can pan (zoomed in) - grab hand
-      if (isPannable) return 'grab';
+      if (isPannable) return "grab";
       // At fit (100%) - default
-      return 'default';
+      return "default";
     };
 
     return (
       <Box
         sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: '100%',
-          height: '100%',
-          position: 'relative',
-          overflow: 'hidden', // Clip zoomed image at container edges
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "100%",
+          height: "100%",
+          position: "relative",
+          overflow: "hidden", // Clip zoomed image at container edges
           cursor: getCursor(),
         }}
         onMouseDown={handlePanStart}
@@ -2241,148 +2703,163 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
           src={imageUrl}
           alt={loadedImage.fileName}
           style={{
-            width: actualDimensions ? imageSize.width : '100%',
-            height: actualDimensions ? imageSize.height : '100%',
-            maxWidth: actualDimensions ? 'none' : '100%',
-            maxHeight: actualDimensions ? 'none' : '100%',
-            objectFit: actualDimensions ? 'fill' : 'contain',
+            width: actualDimensions ? imageSize.width : "100%",
+            height: actualDimensions ? imageSize.height : "100%",
+            maxWidth: actualDimensions ? "none" : "100%",
+            maxHeight: actualDimensions ? "none" : "100%",
+            objectFit: actualDimensions ? "fill" : "contain",
             borderRadius: 2,
-            userSelect: 'none',
+            userSelect: "none",
             // When showing original (A/B toggle), no transforms. When showing edited, apply transforms.
             transform: showOriginal
               ? `translate(${panOffset.x}px, ${panOffset.y}px)`
               : getImageTransform(true, panOffset.x, panOffset.y),
-            pointerEvents: 'none', // Let container handle mouse events
+            // Only apply filters when showing edited view (not original in A/B comparison)
+            filter: showOriginal ? "none" : getImageFilter(),
+            pointerEvents: "none", // Let container handle mouse events
           }}
           onLoad={handleImageLoad}
           draggable={false}
         />
         {/* Show ORIGINAL label only when A/B toggle is on */}
-        {showOriginal && (
-          <ViewLabel position="left">Original</ViewLabel>
-        )}
+        {showOriginal && <ViewLabel position="left">Original</ViewLabel>}
         {/* Annotation overlay - renders all store annotations and current drawing */}
         {actualDimensions && (
           <svg
             style={{
-              position: 'absolute',
+              position: "absolute",
               width: imageSize.width,
               height: imageSize.height,
               transform: showOriginal
                 ? `translate(${panOffset.x}px, ${panOffset.y}px)`
                 : getImageTransform(true, panOffset.x, panOffset.y),
-              pointerEvents: 'none',
-              overflow: 'visible',
+              pointerEvents: "none",
+              overflow: "visible",
             }}
           >
             {/* Completed annotations from store */}
-            {storeAnnotations.filter(ann => ann.visible).map(ann => {
-              if (ann.type === 'rectangle') {
-                const x = ann.x * imageSize.width;
-                const y = ann.y * imageSize.height;
-                const width = ann.width * imageSize.width;
-                const height = ann.height * imageSize.height;
-                return (
-                  <rect
-                    key={ann.id}
-                    x={x}
-                    y={y}
-                    width={width}
-                    height={height}
-                    fill="none"
-                    stroke={ann.color || '#19abb5'}
-                    strokeWidth={ann.strokeWidth || 2}
-                    opacity={ann.opacity || 1}
-                  />
-                );
-              }
-              if (ann.type === 'circle') {
-                // Store format uses centerX/centerY and radiusX/radiusY
-                const cx = ann.centerX * imageSize.width;
-                const cy = ann.centerY * imageSize.height;
-                const rx = Math.abs(ann.radiusX * imageSize.width);
-                const ry = Math.abs(ann.radiusY * imageSize.height);
-                return (
-                  <ellipse
-                    key={ann.id}
-                    cx={cx}
-                    cy={cy}
-                    rx={rx}
-                    ry={ry}
-                    fill="none"
-                    stroke={ann.color || '#19abb5'}
-                    strokeWidth={ann.strokeWidth || 2}
-                    opacity={ann.opacity || 1}
-                  />
-                );
-              }
-              if (ann.type === 'arrow') {
-                // Store format uses startX/startY and endX/endY
-                const x1 = ann.startX * imageSize.width;
-                const y1 = ann.startY * imageSize.height;
-                const x2 = ann.endX * imageSize.width;
-                const y2 = ann.endY * imageSize.height;
-                // Calculate arrow head
-                const dx = x2 - x1;
-                const dy = y2 - y1;
-                const angle = Math.atan2(dy, dx);
-                const headLength = ann.headSize || 12;
-                const headAngle = Math.PI / 6; // 30 degrees
-                const headX1 = x2 - headLength * Math.cos(angle - headAngle);
-                const headY1 = y2 - headLength * Math.sin(angle - headAngle);
-                const headX2 = x2 - headLength * Math.cos(angle + headAngle);
-                const headY2 = y2 - headLength * Math.sin(angle + headAngle);
-                return (
-                  <g key={ann.id}>
-                    <line
-                      x1={x1}
-                      y1={y1}
-                      x2={x2}
-                      y2={y2}
-                      stroke={ann.color || '#19abb5'}
+            {storeAnnotations
+              .filter((ann) => ann.visible)
+              .map((ann) => {
+                if (ann.type === "rectangle") {
+                  const x = ann.x * imageSize.width;
+                  const y = ann.y * imageSize.height;
+                  const width = ann.width * imageSize.width;
+                  const height = ann.height * imageSize.height;
+                  return (
+                    <rect
+                      key={ann.id}
+                      x={x}
+                      y={y}
+                      width={width}
+                      height={height}
+                      fill="none"
+                      stroke={ann.color || "#19abb5"}
                       strokeWidth={ann.strokeWidth || 2}
                       opacity={ann.opacity || 1}
                     />
-                    <line
-                      x1={x2}
-                      y1={y2}
-                      x2={headX1}
-                      y2={headY1}
-                      stroke={ann.color || '#19abb5'}
+                  );
+                }
+                if (ann.type === "circle") {
+                  // Store format uses centerX/centerY and radiusX/radiusY
+                  const cx = ann.centerX * imageSize.width;
+                  const cy = ann.centerY * imageSize.height;
+                  const rx = Math.abs(ann.radiusX * imageSize.width);
+                  const ry = Math.abs(ann.radiusY * imageSize.height);
+                  return (
+                    <ellipse
+                      key={ann.id}
+                      cx={cx}
+                      cy={cy}
+                      rx={rx}
+                      ry={ry}
+                      fill="none"
+                      stroke={ann.color || "#19abb5"}
                       strokeWidth={ann.strokeWidth || 2}
                       opacity={ann.opacity || 1}
                     />
-                    <line
-                      x1={x2}
-                      y1={y2}
-                      x2={headX2}
-                      y2={headY2}
-                      stroke={ann.color || '#19abb5'}
-                      strokeWidth={ann.strokeWidth || 2}
-                      opacity={ann.opacity || 1}
-                    />
-                  </g>
-                );
-              }
-              return null;
-            })}
+                  );
+                }
+                if (ann.type === "arrow") {
+                  // Store format uses startX/startY and endX/endY
+                  const x1 = ann.startX * imageSize.width;
+                  const y1 = ann.startY * imageSize.height;
+                  const x2 = ann.endX * imageSize.width;
+                  const y2 = ann.endY * imageSize.height;
+                  // Calculate arrow head
+                  const dx = x2 - x1;
+                  const dy = y2 - y1;
+                  const angle = Math.atan2(dy, dx);
+                  const headLength = ann.headSize || 12;
+                  const headAngle = Math.PI / 6; // 30 degrees
+                  const headX1 = x2 - headLength * Math.cos(angle - headAngle);
+                  const headY1 = y2 - headLength * Math.sin(angle - headAngle);
+                  const headX2 = x2 - headLength * Math.cos(angle + headAngle);
+                  const headY2 = y2 - headLength * Math.sin(angle + headAngle);
+                  return (
+                    <g key={ann.id}>
+                      <line
+                        x1={x1}
+                        y1={y1}
+                        x2={x2}
+                        y2={y2}
+                        stroke={ann.color || "#19abb5"}
+                        strokeWidth={ann.strokeWidth || 2}
+                        opacity={ann.opacity || 1}
+                      />
+                      <line
+                        x1={x2}
+                        y1={y2}
+                        x2={headX1}
+                        y2={headY1}
+                        stroke={ann.color || "#19abb5"}
+                        strokeWidth={ann.strokeWidth || 2}
+                        opacity={ann.opacity || 1}
+                      />
+                      <line
+                        x1={x2}
+                        y1={y2}
+                        x2={headX2}
+                        y2={headY2}
+                        stroke={ann.color || "#19abb5"}
+                        strokeWidth={ann.strokeWidth || 2}
+                        opacity={ann.opacity || 1}
+                      />
+                    </g>
+                  );
+                }
+                return null;
+              })}
             {/* Current drawing in progress */}
-            {isDrawingAnnotation && drawingStartPoint && currentDrawingEnd && activeTool && (
+            {isDrawingAnnotation &&
+              drawingStartPoint &&
+              currentDrawingEnd &&
+              activeTool &&
               (() => {
-                const startX = activeTool === 'arrow'
-                  ? drawingStartPoint.x * imageSize.width
-                  : Math.min(drawingStartPoint.x, currentDrawingEnd.x) * imageSize.width;
-                const startY = activeTool === 'arrow'
-                  ? drawingStartPoint.y * imageSize.height
-                  : Math.min(drawingStartPoint.y, currentDrawingEnd.y) * imageSize.height;
-                const width = activeTool === 'arrow'
-                  ? (currentDrawingEnd.x - drawingStartPoint.x) * imageSize.width
-                  : Math.abs(currentDrawingEnd.x - drawingStartPoint.x) * imageSize.width;
-                const height = activeTool === 'arrow'
-                  ? (currentDrawingEnd.y - drawingStartPoint.y) * imageSize.height
-                  : Math.abs(currentDrawingEnd.y - drawingStartPoint.y) * imageSize.height;
+                const startX =
+                  activeTool === "arrow"
+                    ? drawingStartPoint.x * imageSize.width
+                    : Math.min(drawingStartPoint.x, currentDrawingEnd.x) *
+                      imageSize.width;
+                const startY =
+                  activeTool === "arrow"
+                    ? drawingStartPoint.y * imageSize.height
+                    : Math.min(drawingStartPoint.y, currentDrawingEnd.y) *
+                      imageSize.height;
+                const width =
+                  activeTool === "arrow"
+                    ? (currentDrawingEnd.x - drawingStartPoint.x) *
+                      imageSize.width
+                    : Math.abs(currentDrawingEnd.x - drawingStartPoint.x) *
+                      imageSize.width;
+                const height =
+                  activeTool === "arrow"
+                    ? (currentDrawingEnd.y - drawingStartPoint.y) *
+                      imageSize.height
+                    : Math.abs(currentDrawingEnd.y - drawingStartPoint.y) *
+                      imageSize.height;
 
-                if (activeTool === 'rectangle') {
+                if (activeTool === "rectangle") {
                   return (
                     <rect
                       x={startX}
@@ -2396,7 +2873,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                     />
                   );
                 }
-                if (activeTool === 'circle') {
+                if (activeTool === "circle") {
                   const cx = startX + width / 2;
                   const cy = startY + height / 2;
                   return (
@@ -2412,16 +2889,20 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                     />
                   );
                 }
-                if (activeTool === 'arrow') {
+                if (activeTool === "arrow") {
                   const endX = startX + width;
                   const endY = startY + height;
                   const angle = Math.atan2(height, width);
                   const headLength = 12;
                   const headAngle = Math.PI / 6;
-                  const headX1 = endX - headLength * Math.cos(angle - headAngle);
-                  const headY1 = endY - headLength * Math.sin(angle - headAngle);
-                  const headX2 = endX - headLength * Math.cos(angle + headAngle);
-                  const headY2 = endY - headLength * Math.sin(angle + headAngle);
+                  const headX1 =
+                    endX - headLength * Math.cos(angle - headAngle);
+                  const headY1 =
+                    endY - headLength * Math.sin(angle - headAngle);
+                  const headX2 =
+                    endX - headLength * Math.cos(angle + headAngle);
+                  const headY2 =
+                    endY - headLength * Math.sin(angle + headAngle);
                   return (
                     <g>
                       <line
@@ -2455,8 +2936,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                   );
                 }
                 return null;
-              })()
-            )}
+              })()}
           </svg>
         )}
         {/* Marquee selection overlay - uses ref for instant updates during drawing */}
@@ -2464,14 +2944,14 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
           <Box
             ref={marqueeOverlayRef}
             sx={{
-              position: 'fixed',
+              position: "fixed",
               left: marqueeStart?.x ?? 0,
               top: marqueeStart?.y ?? 0,
               width: 0,
               height: 0,
-              border: '2px dashed #19abb5',
-              backgroundColor: 'rgba(25, 171, 181, 0.1)',
-              pointerEvents: 'none',
+              border: "2px dashed #19abb5",
+              backgroundColor: "rgba(25, 171, 181, 0.1)",
+              pointerEvents: "none",
               zIndex: 100,
             }}
           />
@@ -2486,8 +2966,12 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       {/* Toolbar */}
       <Toolbar>
         {/* View Mode Toggle */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography sx={{ fontSize: 10, color: '#666', textTransform: 'uppercase' }}>View:</Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Typography
+            sx={{ fontSize: 10, color: "#666", textTransform: "uppercase" }}
+          >
+            View:
+          </Typography>
           <ToggleButtonGroup
             value={viewMode}
             exclusive
@@ -2511,22 +2995,24 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             </StyledToggleButton>
           </ToggleButtonGroup>
           {/* A/B Toggle - always visible, but only enabled in single view */}
-          <Tooltip title={
-            viewMode !== 'single'
-              ? 'A/B Compare (only available in single view)'
-              : showOriginal
-                ? 'Viewing Original (click to see Edited)'
-                : 'A/B Compare (click to see Original)'
-          }>
+          <Tooltip
+            title={
+              viewMode !== "single"
+                ? "A/B Compare (only available in single view)"
+                : showOriginal
+                  ? "Viewing Original (click to see Edited)"
+                  : "A/B Compare (click to see Original)"
+            }
+          >
             <span>
               <ToolButton
                 size="small"
-                active={showOriginal && viewMode === 'single'}
+                active={showOriginal && viewMode === "single"}
                 onClick={handleABToggle}
-                disabled={!loadedImage || viewMode !== 'single'}
+                disabled={!loadedImage || viewMode !== "single"}
                 sx={{
-                  opacity: viewMode !== 'single' ? 0.4 : 1,
-                  cursor: viewMode !== 'single' ? 'not-allowed' : 'pointer',
+                  opacity: viewMode !== "single" ? 0.4 : 1,
+                  cursor: viewMode !== "single" ? "not-allowed" : "pointer",
                 }}
               >
                 <CompareArrowsIcon sx={{ fontSize: 16 }} />
@@ -2538,14 +3024,16 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         <ToolbarDivider />
 
         {/* Zoom Controls */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Tooltip title={
-            viewMode === 'side-by-side'
-              ? 'Zoom Out (not available in side-by-side view)'
-              : zoom <= ZOOM_MIN
-                ? 'At minimum zoom (100% = fit)'
-                : 'Zoom Out (hold for continuous)'
-          }>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+          <Tooltip
+            title={
+              viewMode === "side-by-side"
+                ? "Zoom Out (not available in side-by-side view)"
+                : zoom <= ZOOM_MIN
+                  ? "At minimum zoom (100% = fit)"
+                  : "Zoom Out (hold for continuous)"
+            }
+          >
             <span>
               <IconButton
                 size="small"
@@ -2555,27 +3043,35 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                 }}
                 onMouseUp={stopContinuousZoom}
                 onMouseLeave={stopContinuousZoom}
-                disabled={!loadedImage || viewMode === 'side-by-side' || zoom <= ZOOM_MIN}
+                disabled={
+                  !loadedImage ||
+                  viewMode === "side-by-side" ||
+                  zoom <= ZOOM_MIN
+                }
                 sx={{
-                  color: zoom <= ZOOM_MIN ? '#444' : '#888',
+                  color: zoom <= ZOOM_MIN ? "#444" : "#888",
                   p: 0.5,
-                  opacity: viewMode === 'side-by-side' ? 0.4 : 1,
+                  opacity: viewMode === "side-by-side" ? 0.4 : 1,
                 }}
               >
                 <ZoomOutIcon sx={{ fontSize: 18 }} />
               </IconButton>
             </span>
           </Tooltip>
-          <ZoomDisplay sx={{ opacity: viewMode === 'side-by-side' ? 0.4 : 1 }}>
-            {!loadedImage || viewMode === 'side-by-side' ? '--' : `${Math.round(getDisplayZoom())}%`}
+          <ZoomDisplay sx={{ opacity: viewMode === "side-by-side" ? 0.4 : 1 }}>
+            {!loadedImage || viewMode === "side-by-side"
+              ? "--"
+              : `${Math.round(getDisplayZoom())}%`}
           </ZoomDisplay>
-          <Tooltip title={
-            viewMode === 'side-by-side'
-              ? 'Zoom In (not available in side-by-side view)'
-              : zoom >= ZOOM_MAX
-                ? 'At maximum zoom (400%)'
-                : 'Zoom In (hold for continuous)'
-          }>
+          <Tooltip
+            title={
+              viewMode === "side-by-side"
+                ? "Zoom In (not available in side-by-side view)"
+                : zoom >= ZOOM_MAX
+                  ? "At maximum zoom (400%)"
+                  : "Zoom In (hold for continuous)"
+            }
+          >
             <span>
               <IconButton
                 size="small"
@@ -2585,46 +3081,58 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                 }}
                 onMouseUp={stopContinuousZoom}
                 onMouseLeave={stopContinuousZoom}
-                disabled={!loadedImage || viewMode === 'side-by-side' || zoom >= ZOOM_MAX}
+                disabled={
+                  !loadedImage ||
+                  viewMode === "side-by-side" ||
+                  zoom >= ZOOM_MAX
+                }
                 sx={{
-                  color: zoom >= ZOOM_MAX ? '#444' : '#888',
+                  color: zoom >= ZOOM_MAX ? "#444" : "#888",
                   p: 0.5,
-                  opacity: viewMode === 'side-by-side' ? 0.4 : 1,
+                  opacity: viewMode === "side-by-side" ? 0.4 : 1,
                 }}
               >
                 <ZoomInIcon sx={{ fontSize: 18 }} />
               </IconButton>
             </span>
           </Tooltip>
-          <Tooltip title={viewMode === 'side-by-side' ? 'Fit to View (not available in side-by-side view)' : 'Fit to View (100%)'}>
+          <Tooltip
+            title={
+              viewMode === "side-by-side"
+                ? "Fit to View (not available in side-by-side view)"
+                : "Fit to View (100%)"
+            }
+          >
             <span>
               <IconButton
                 size="small"
                 onClick={handleFitToView}
-                disabled={!loadedImage || viewMode === 'side-by-side'}
+                disabled={!loadedImage || viewMode === "side-by-side"}
                 sx={{
-                  color: '#888',
+                  color: "#888",
                   p: 0.5,
-                  opacity: viewMode === 'side-by-side' ? 0.4 : 1,
+                  opacity: viewMode === "side-by-side" ? 0.4 : 1,
                 }}
               >
                 <FitScreenIcon sx={{ fontSize: 18 }} />
               </IconButton>
             </span>
           </Tooltip>
-          <Tooltip title={
-            viewMode !== 'single'
-              ? 'Zoom to Selection (only available in single view)'
-              : 'Zoom to Selection (Ctrl+drag)'
-          }>
+          <Tooltip
+            title={
+              viewMode !== "single"
+                ? "Zoom to Selection (only available in single view)"
+                : "Zoom to Selection (Ctrl+drag)"
+            }
+          >
             <span>
               <ToolButton
                 size="small"
                 active={isMarqueeModeActive}
                 onClick={toggleMarqueeMode}
-                disabled={!loadedImage || viewMode !== 'single'}
+                disabled={!loadedImage || viewMode !== "single"}
                 sx={{
-                  opacity: viewMode !== 'single' ? 0.4 : 1,
+                  opacity: viewMode !== "single" ? 0.4 : 1,
                 }}
               >
                 <CropFreeIcon sx={{ fontSize: 18 }} />
@@ -2636,7 +3144,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         <ToolbarDivider />
 
         {/* Transform Tools - Rotate/Flip (non-destructive) */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           <Tooltip title="Rotate 90° Counter-Clockwise">
             <ToolButton
               size="small"
@@ -2672,7 +3180,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               onClick={handleFlipV}
               active={flipV}
             >
-              <FlipIcon sx={{ fontSize: 18, transform: 'rotate(90deg)' }} />
+              <FlipIcon sx={{ fontSize: 18, transform: "rotate(90deg)" }} />
             </ToolButton>
           </Tooltip>
         </Box>
@@ -2680,13 +3188,17 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         <ToolbarDivider />
 
         {/* Annotation Tools */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Typography sx={{ fontSize: 10, color: '#666', mr: 0.5 }}>Annotate:</Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+          <Typography sx={{ fontSize: 10, color: "#666", mr: 0.5 }}>
+            Annotate:
+          </Typography>
           <Tooltip title="Rectangle">
             <ToolButton
               size="small"
-              active={activeTool === 'rectangle'}
-              onClick={() => setActiveTool(activeTool === 'rectangle' ? null : 'rectangle')}
+              active={activeTool === "rectangle"}
+              onClick={() =>
+                setActiveTool(activeTool === "rectangle" ? null : "rectangle")
+              }
               disabled={!loadedImage}
             >
               <RectangleOutlinedIcon sx={{ fontSize: 18 }} />
@@ -2695,8 +3207,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
           <Tooltip title="Circle">
             <ToolButton
               size="small"
-              active={activeTool === 'circle'}
-              onClick={() => setActiveTool(activeTool === 'circle' ? null : 'circle')}
+              active={activeTool === "circle"}
+              onClick={() =>
+                setActiveTool(activeTool === "circle" ? null : "circle")
+              }
               disabled={!loadedImage}
             >
               <CircleOutlinedIcon sx={{ fontSize: 18 }} />
@@ -2705,8 +3219,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
           <Tooltip title="Arrow">
             <ToolButton
               size="small"
-              active={activeTool === 'arrow'}
-              onClick={() => setActiveTool(activeTool === 'arrow' ? null : 'arrow')}
+              active={activeTool === "arrow"}
+              onClick={() =>
+                setActiveTool(activeTool === "arrow" ? null : "arrow")
+              }
               disabled={!loadedImage}
             >
               <ArrowForwardIcon sx={{ fontSize: 18 }} />
@@ -2718,7 +3234,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         <Box sx={{ flex: 1 }} />
 
         {/* Undo/Redo Controls */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           <Tooltip title="Undo (Ctrl+Z)">
             <span>
               <ToolButton
@@ -2726,7 +3242,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                 disabled={!loadedImage || !canUndo}
                 onClick={handleUndo}
                 sx={{
-                  color: !loadedImage || !canUndo ? '#444' : '#888',
+                  color: !loadedImage || !canUndo ? "#444" : "#888",
                 }}
               >
                 <UndoIcon sx={{ fontSize: 18 }} />
@@ -2740,7 +3256,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                 disabled={!loadedImage || !canRedo}
                 onClick={handleRedo}
                 sx={{
-                  color: !loadedImage || !canRedo ? '#444' : '#888',
+                  color: !loadedImage || !canRedo ? "#444" : "#888",
                 }}
               >
                 <RedoIcon sx={{ fontSize: 18 }} />
@@ -2751,28 +3267,27 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       </Toolbar>
 
       {/* Canvas Area */}
-      <CanvasArea ref={canvasContainerRef}>
-        {renderCanvas()}
-      </CanvasArea>
+      <CanvasArea ref={canvasContainerRef}>{renderCanvas()}</CanvasArea>
 
       {/* Bottom Bar (minimal - no transport controls for images) */}
       <BottomBar>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ display: "flex", gap: 2 }}>
           {loadedImage && (
             <>
-              <Typography sx={{ fontSize: 10, color: '#666' }}>
+              <Typography sx={{ fontSize: 10, color: "#666" }}>
                 {loadedImage.dimensions}
               </Typography>
-              <Typography sx={{ fontSize: 10, color: '#666' }}>
+              <Typography sx={{ fontSize: 10, color: "#666" }}>
                 {loadedImage.format}
               </Typography>
             </>
           )}
         </Box>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ display: "flex", gap: 2 }}>
           {loadedImage && storeAnnotations.length > 0 && (
-            <Typography sx={{ fontSize: 10, color: '#666' }}>
-              {storeAnnotations.filter(a => a.visible).length} / {storeAnnotations.length} annotations visible
+            <Typography sx={{ fontSize: 10, color: "#666" }}>
+              {storeAnnotations.filter((a) => a.visible).length} /{" "}
+              {storeAnnotations.length} annotations visible
             </Typography>
           )}
         </Box>
@@ -2782,12 +3297,25 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
   // Inspector Panel (Right Panel)
   const inspectorContent = (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        overflow: "hidden",
+      }}
+    >
       {/* Navigator Section */}
       <InspectorSection>
-        <SectionHeader onClick={() => setNavigatorCollapsed(!navigatorCollapsed)}>
+        <SectionHeader
+          onClick={() => setNavigatorCollapsed(!navigatorCollapsed)}
+        >
           <SectionTitle>Navigator</SectionTitle>
-          {navigatorCollapsed ? <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} /> : <ExpandLessIcon sx={{ fontSize: 16, color: '#666' }} />}
+          {navigatorCollapsed ? (
+            <ExpandMoreIcon sx={{ fontSize: 16, color: "#666" }} />
+          ) : (
+            <ExpandLessIcon sx={{ fontSize: 16, color: "#666" }} />
+          )}
         </SectionHeader>
         {!navigatorCollapsed && (
           <SectionContent>
@@ -2805,45 +3333,148 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       </InspectorSection>
 
       {/* Filters Section */}
-      <InspectorSection sx={{ flex: 1, overflow: 'auto' }}>
+      <InspectorSection sx={{ flex: 1, overflow: "auto" }}>
         <SectionHeader onClick={() => setFiltersCollapsed(!filtersCollapsed)}>
           <SectionTitle>Filters</SectionTitle>
-          {filtersCollapsed ? <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} /> : <ExpandLessIcon sx={{ fontSize: 16, color: '#666' }} />}
+          {filtersCollapsed ? (
+            <ExpandMoreIcon sx={{ fontSize: 16, color: "#666" }} />
+          ) : (
+            <ExpandLessIcon sx={{ fontSize: 16, color: "#666" }} />
+          )}
         </SectionHeader>
         {!filtersCollapsed && (
           <SectionContent sx={{ pb: 2 }}>
             {/* Basic */}
             <FilterGroup>
               <FilterGroupTitle>Basic</FilterGroupTitle>
-              <PrecisionSlider label="Exposure" value={filters.exposure} min={-5} max={5} step={0.1} onChange={handleFilterChange('exposure')} disabled={!loadedImage} />
-              <PrecisionSlider label="Contrast" value={filters.contrast} min={-100} max={100} onChange={handleFilterChange('contrast')} disabled={!loadedImage} />
-              <PrecisionSlider label="Highlights" value={filters.highlights} min={-100} max={100} onChange={handleFilterChange('highlights')} disabled={!loadedImage} />
-              <PrecisionSlider label="Shadows" value={filters.shadows} min={-100} max={100} onChange={handleFilterChange('shadows')} disabled={!loadedImage} />
-              <PrecisionSlider label="Whites" value={filters.whites} min={-100} max={100} onChange={handleFilterChange('whites')} disabled={!loadedImage} />
-              <PrecisionSlider label="Blacks" value={filters.blacks} min={-100} max={100} onChange={handleFilterChange('blacks')} disabled={!loadedImage} />
+              <PrecisionSlider
+                label="Exposure"
+                value={filters.exposure}
+                min={-5}
+                max={5}
+                step={0.1}
+                onChange={handleFilterChange("exposure")}
+                disabled={!loadedImage}
+              />
+              <PrecisionSlider
+                label="Contrast"
+                value={filters.contrast}
+                min={-100}
+                max={100}
+                onChange={handleFilterChange("contrast")}
+                disabled={!loadedImage}
+              />
+              <PrecisionSlider
+                label="Highlights"
+                value={filters.highlights}
+                min={-100}
+                max={100}
+                onChange={handleFilterChange("highlights")}
+                disabled={!loadedImage}
+              />
+              <PrecisionSlider
+                label="Shadows"
+                value={filters.shadows}
+                min={-100}
+                max={100}
+                onChange={handleFilterChange("shadows")}
+                disabled={!loadedImage}
+              />
+              <PrecisionSlider
+                label="Whites"
+                value={filters.whites}
+                min={-100}
+                max={100}
+                onChange={handleFilterChange("whites")}
+                disabled={!loadedImage}
+              />
+              <PrecisionSlider
+                label="Blacks"
+                value={filters.blacks}
+                min={-100}
+                max={100}
+                onChange={handleFilterChange("blacks")}
+                disabled={!loadedImage}
+              />
             </FilterGroup>
 
             {/* Color */}
             <FilterGroup>
               <FilterGroupTitle>Color</FilterGroupTitle>
-              <PrecisionSlider label="Temperature" value={filters.temperature} min={-100} max={100} onChange={handleFilterChange('temperature')} disabled={!loadedImage} />
-              <PrecisionSlider label="Tint" value={filters.tint} min={-100} max={100} onChange={handleFilterChange('tint')} disabled={!loadedImage} />
-              <PrecisionSlider label="Vibrance" value={filters.vibrance} min={-100} max={100} onChange={handleFilterChange('vibrance')} disabled={!loadedImage} />
-              <PrecisionSlider label="Saturation" value={filters.saturation} min={-100} max={100} onChange={handleFilterChange('saturation')} disabled={!loadedImage} />
+              <PrecisionSlider
+                label="Temperature"
+                value={filters.temperature}
+                min={-100}
+                max={100}
+                onChange={handleFilterChange("temperature")}
+                disabled={!loadedImage}
+              />
+              <PrecisionSlider
+                label="Tint"
+                value={filters.tint}
+                min={-100}
+                max={100}
+                onChange={handleFilterChange("tint")}
+                disabled={!loadedImage}
+              />
+              <PrecisionSlider
+                label="Vibrance"
+                value={filters.vibrance}
+                min={-100}
+                max={100}
+                onChange={handleFilterChange("vibrance")}
+                disabled={!loadedImage}
+              />
+              <PrecisionSlider
+                label="Saturation"
+                value={filters.saturation}
+                min={-100}
+                max={100}
+                onChange={handleFilterChange("saturation")}
+                disabled={!loadedImage}
+              />
             </FilterGroup>
 
             {/* Detail */}
             <FilterGroup>
               <FilterGroupTitle>Detail</FilterGroupTitle>
-              <PrecisionSlider label="Clarity" value={filters.clarity} min={-100} max={100} onChange={handleFilterChange('clarity')} disabled={!loadedImage} />
-              <PrecisionSlider label="Sharpness" value={filters.sharpness} min={0} max={100} onChange={handleFilterChange('sharpness')} disabled={!loadedImage} />
-              <PrecisionSlider label="Noise Red." value={filters.noiseReduction} min={0} max={100} onChange={handleFilterChange('noiseReduction')} disabled={!loadedImage} />
+              <PrecisionSlider
+                label="Clarity"
+                value={filters.clarity}
+                min={-100}
+                max={100}
+                onChange={handleFilterChange("clarity")}
+                disabled={!loadedImage}
+              />
+              <PrecisionSlider
+                label="Sharpness"
+                value={filters.sharpness}
+                min={0}
+                max={100}
+                onChange={handleFilterChange("sharpness")}
+                disabled={!loadedImage}
+              />
+              <PrecisionSlider
+                label="Noise Red."
+                value={filters.noiseReduction}
+                min={0}
+                max={100}
+                onChange={handleFilterChange("noiseReduction")}
+                disabled={!loadedImage}
+              />
             </FilterGroup>
 
             {/* Vignette */}
             <FilterGroup>
               <FilterGroupTitle>Effects</FilterGroupTitle>
-              <PrecisionSlider label="Vignette" value={filters.vignette} min={-100} max={100} onChange={handleFilterChange('vignette')} disabled={!loadedImage} />
+              <PrecisionSlider
+                label="Vignette"
+                value={filters.vignette}
+                min={-100}
+                max={100}
+                onChange={handleFilterChange("vignette")}
+                disabled={!loadedImage}
+              />
             </FilterGroup>
 
             {/* Reset Button */}
@@ -2856,10 +3487,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               sx={{
                 mt: 1,
                 fontSize: 10,
-                color: '#666',
-                borderColor: '#333',
+                color: "#666",
+                borderColor: "#333",
                 py: 0.5,
-                '&:hover': { borderColor: '#19abb5', color: '#19abb5' },
+                "&:hover": { borderColor: "#19abb5", color: "#19abb5" },
               }}
             >
               Reset All
@@ -2869,35 +3500,84 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       </InspectorSection>
 
       {/* Annotations Section */}
-      <InspectorSection sx={{ flexShrink: 0, maxHeight: 280, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        <SectionHeader onClick={() => setAnnotationsCollapsed(!annotationsCollapsed)}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <InspectorSection
+        sx={{
+          flexShrink: 0,
+          maxHeight: 280,
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <SectionHeader
+          onClick={() => setAnnotationsCollapsed(!annotationsCollapsed)}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <SectionTitle>Annotations</SectionTitle>
-            <Typography sx={{ fontSize: 10, color: '#555' }}>({storeAnnotations.length})</Typography>
+            <Typography sx={{ fontSize: 10, color: "#555" }}>
+              ({storeAnnotations.length})
+            </Typography>
           </Box>
-          {annotationsCollapsed ? <ExpandMoreIcon sx={{ fontSize: 16, color: '#666' }} /> : <ExpandLessIcon sx={{ fontSize: 16, color: '#666' }} />}
+          {annotationsCollapsed ? (
+            <ExpandMoreIcon sx={{ fontSize: 16, color: "#666" }} />
+          ) : (
+            <ExpandLessIcon sx={{ fontSize: 16, color: "#666" }} />
+          )}
         </SectionHeader>
         {!annotationsCollapsed && (
-          <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <Box
+            sx={{
+              flex: 1,
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
             {/* User visibility toggles */}
-            <Box sx={{ padding: '8px 12px', borderBottom: '1px solid #1f1f1f' }}>
-              <Typography sx={{ fontSize: 9, color: '#555', mb: 0.5, textTransform: 'uppercase' }}>Show by user</Typography>
-              <Box sx={{ display: 'flex', gap: 0.5 }}>
-                {getUniqueUsers().map(user => (
+            <Box
+              sx={{ padding: "8px 12px", borderBottom: "1px solid #1f1f1f" }}
+            >
+              <Typography
+                sx={{
+                  fontSize: 9,
+                  color: "#555",
+                  mb: 0.5,
+                  textTransform: "uppercase",
+                }}
+              >
+                Show by user
+              </Typography>
+              <Box sx={{ display: "flex", gap: 0.5 }}>
+                {getUniqueUsers().map((user) => (
                   <Tooltip key={user} title={`Toggle ${user}'s annotations`}>
                     <IconButton
                       size="small"
                       onClick={() => toggleUserVisibility(user)}
                       sx={{
-                        padding: '2px 6px',
+                        padding: "2px 6px",
                         borderRadius: 2,
-                        backgroundColor: userVisibility[user] ? 'rgba(25, 171, 181, 0.15)' : '#252525',
-                        border: '1px solid',
-                        borderColor: userVisibility[user] ? '#19abb5' : '#333',
+                        backgroundColor: userVisibility[user]
+                          ? "rgba(25, 171, 181, 0.15)"
+                          : "#252525",
+                        border: "1px solid",
+                        borderColor: userVisibility[user] ? "#19abb5" : "#333",
                       }}
                     >
-                      <PersonIcon sx={{ fontSize: 12, color: userVisibility[user] ? '#19abb5' : '#555', mr: 0.5 }} />
-                      <Typography sx={{ fontSize: 9, color: userVisibility[user] ? '#19abb5' : '#555' }}>{user}</Typography>
+                      <PersonIcon
+                        sx={{
+                          fontSize: 12,
+                          color: userVisibility[user] ? "#19abb5" : "#555",
+                          mr: 0.5,
+                        }}
+                      />
+                      <Typography
+                        sx={{
+                          fontSize: 9,
+                          color: userVisibility[user] ? "#19abb5" : "#555",
+                        }}
+                      >
+                        {user}
+                      </Typography>
                     </IconButton>
                   </Tooltip>
                 ))}
@@ -2905,51 +3585,86 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             </Box>
 
             {/* Annotation list */}
-            <Box sx={{ flex: 1, overflow: 'auto', padding: '4px 8px' }}>
-              {storeAnnotations.filter(a => userVisibility[a.userDisplayName]).length === 0 ? (
-                <Box sx={{ textAlign: 'center', py: 2 }}>
-                  <Typography sx={{ fontSize: 10, color: '#444' }}>No annotations to display</Typography>
+            <Box sx={{ flex: 1, overflow: "auto", padding: "4px 8px" }}>
+              {storeAnnotations.filter((a) => userVisibility[a.userDisplayName])
+                .length === 0 ? (
+                <Box sx={{ textAlign: "center", py: 2 }}>
+                  <Typography sx={{ fontSize: 10, color: "#444" }}>
+                    No annotations to display
+                  </Typography>
                 </Box>
               ) : (
-                storeAnnotations.filter(a => userVisibility[a.userDisplayName]).map(annotation => (
-                  <AnnotationItem
-                    key={annotation.id}
-                    onClick={() => selectAnnotation(annotation.id)}
-                    sx={{
-                      backgroundColor: selectedAnnotationId === annotation.id ? 'rgba(25, 171, 181, 0.1)' : 'transparent',
-                      border: selectedAnnotationId === annotation.id ? '1px solid rgba(25, 171, 181, 0.3)' : '1px solid transparent',
-                    }}
-                  >
-                    <AnnotationIcon type={annotation.type}>
-                      {annotation.type === 'rectangle' && <RectangleOutlinedIcon sx={{ fontSize: 12 }} />}
-                      {annotation.type === 'circle' && <CircleOutlinedIcon sx={{ fontSize: 12 }} />}
-                      {annotation.type === 'arrow' && <ArrowForwardIcon sx={{ fontSize: 12 }} />}
-                    </AnnotationIcon>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography sx={{ fontSize: 11, color: '#ccc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {annotation.label || `${annotation.type.charAt(0).toUpperCase() + annotation.type.slice(1)}`}
-                      </Typography>
-                      <Typography sx={{ fontSize: 9, color: '#555' }}>{annotation.userDisplayName}</Typography>
-                    </Box>
-                    <Tooltip title={annotation.visible ? 'Hide' : 'Show'}>
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleAnnotationVisibility(annotation.id);
-                        }}
-                        sx={{ padding: 2, color: annotation.visible ? '#19abb5' : '#444' }}
-                      >
-                        {annotation.visible ? <VisibilityIcon sx={{ fontSize: 14 }} /> : <VisibilityOffIcon sx={{ fontSize: 14 }} />}
-                      </IconButton>
-                    </Tooltip>
-                  </AnnotationItem>
-                ))
+                storeAnnotations
+                  .filter((a) => userVisibility[a.userDisplayName])
+                  .map((annotation) => (
+                    <AnnotationItem
+                      key={annotation.id}
+                      onClick={() => selectAnnotation(annotation.id)}
+                      sx={{
+                        backgroundColor:
+                          selectedAnnotationId === annotation.id
+                            ? "rgba(25, 171, 181, 0.1)"
+                            : "transparent",
+                        border:
+                          selectedAnnotationId === annotation.id
+                            ? "1px solid rgba(25, 171, 181, 0.3)"
+                            : "1px solid transparent",
+                      }}
+                    >
+                      <AnnotationIcon type={annotation.type}>
+                        {annotation.type === "rectangle" && (
+                          <RectangleOutlinedIcon sx={{ fontSize: 12 }} />
+                        )}
+                        {annotation.type === "circle" && (
+                          <CircleOutlinedIcon sx={{ fontSize: 12 }} />
+                        )}
+                        {annotation.type === "arrow" && (
+                          <ArrowForwardIcon sx={{ fontSize: 12 }} />
+                        )}
+                      </AnnotationIcon>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography
+                          sx={{
+                            fontSize: 11,
+                            color: "#ccc",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {annotation.label ||
+                            `${annotation.type.charAt(0).toUpperCase() + annotation.type.slice(1)}`}
+                        </Typography>
+                        <Typography sx={{ fontSize: 9, color: "#555" }}>
+                          {annotation.userDisplayName}
+                        </Typography>
+                      </Box>
+                      <Tooltip title={annotation.visible ? "Hide" : "Show"}>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleAnnotationVisibility(annotation.id);
+                          }}
+                          sx={{
+                            padding: 2,
+                            color: annotation.visible ? "#19abb5" : "#444",
+                          }}
+                        >
+                          {annotation.visible ? (
+                            <VisibilityIcon sx={{ fontSize: 14 }} />
+                          ) : (
+                            <VisibilityOffIcon sx={{ fontSize: 14 }} />
+                          )}
+                        </IconButton>
+                      </Tooltip>
+                    </AnnotationItem>
+                  ))
               )}
             </Box>
 
             {/* Add Annotation Button */}
-            <Box sx={{ padding: '8px 12px', borderTop: '1px solid #252525' }}>
+            <Box sx={{ padding: "8px 12px", borderTop: "1px solid #252525" }}>
               <Button
                 fullWidth
                 size="small"
@@ -2958,10 +3673,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                 disabled={!loadedImage}
                 sx={{
                   fontSize: 10,
-                  color: '#666',
-                  borderColor: '#333',
+                  color: "#666",
+                  borderColor: "#333",
                   py: 0.5,
-                  '&:hover': { borderColor: '#19abb5', color: '#19abb5' },
+                  "&:hover": { borderColor: "#19abb5", color: "#19abb5" },
                 }}
               >
                 Add Annotation
@@ -2979,21 +3694,25 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       <input
         ref={fileInputRef}
         type="file"
-        accept={getAcceptString('image')}
-        style={{ display: 'none' }}
+        accept={getAcceptString("image")}
+        style={{ display: "none" }}
         onChange={handleFileInputChange}
       />
 
       <WorkspaceLayout
         filesPanel={
-          <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <Box
+            sx={{ display: "flex", flexDirection: "column", height: "100%" }}
+          >
             {/* Import button header - full width */}
-            <Box sx={{
-              display: 'flex',
-              padding: '6px',
-              borderBottom: '1px solid #252525',
-              backgroundColor: '#1a1a1a',
-            }}>
+            <Box
+              sx={{
+                display: "flex",
+                padding: "6px",
+                borderBottom: "1px solid #252525",
+                backgroundColor: "#1a1a1a",
+              }}
+            >
               <ImportButton
                 startIcon={<FileUploadIcon sx={{ fontSize: 12 }} />}
                 onClick={handleImportClick}
@@ -3005,8 +3724,12 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               <FileLibrary
                 items={imageFiles}
                 selectedId={loadedImage?.id}
-                onSelect={(item) => setSelectedFile(item as typeof imageFiles[0])}
-                onDoubleClick={(item) => handleDoubleClick(item as typeof imageFiles[0])}
+                onSelect={(item) =>
+                  setSelectedFile(item as (typeof imageFiles)[0])
+                }
+                onDoubleClick={(item) =>
+                  handleDoubleClick(item as (typeof imageFiles)[0])
+                }
                 filterByType="image"
               />
             </Box>
@@ -3014,18 +3737,24 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         }
         metadataPanel={
           <MetadataPanel
-            data={loadedImage ? {
-              fileName: loadedImage.fileName,
-              capturedAt: loadedImage.capturedAt,
-              resolution: actualDimensions
-                ? `${actualDimensions.width} x ${actualDimensions.height}`
-                : loadedImage.dimensions,
-              user: loadedImage.user,
-              device: loadedImage.deviceInfo,
-              format: loadedImage.fileName.split('.').pop()?.toUpperCase() || 'Unknown',
-              gps: loadedImage.gps || undefined,
-              flagCount: loadedImage.flagCount,
-            } : null}
+            data={
+              loadedImage
+                ? {
+                    fileName: loadedImage.fileName,
+                    capturedAt: loadedImage.capturedAt,
+                    resolution: actualDimensions
+                      ? `${actualDimensions.width} x ${actualDimensions.height}`
+                      : loadedImage.dimensions,
+                    user: loadedImage.user,
+                    device: loadedImage.deviceInfo,
+                    format:
+                      loadedImage.fileName.split(".").pop()?.toUpperCase() ||
+                      "Unknown",
+                    gps: loadedImage.gps || undefined,
+                    flagCount: loadedImage.flagCount,
+                  }
+                : null
+            }
             type="image"
           />
         }
@@ -3041,19 +3770,26 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         open={toast.open}
         autoHideDuration={4000}
         onClose={handleCloseToast}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
         <Alert
           onClose={handleCloseToast}
           severity={toast.severity}
           sx={{
-            width: '100%',
-            backgroundColor: toast.severity === 'success' ? '#1e3d1e' :
-                           toast.severity === 'error' ? '#3d1e1e' : '#1e2d3d',
-            color: '#e1e1e1',
+            width: "100%",
+            backgroundColor:
+              toast.severity === "success"
+                ? "#1e3d1e"
+                : toast.severity === "error"
+                  ? "#3d1e1e"
+                  : "#1e2d3d",
+            color: "#e1e1e1",
             border: `1px solid ${
-              toast.severity === 'success' ? '#5a9a6b' :
-              toast.severity === 'error' ? '#c45c5c' : '#19abb5'
+              toast.severity === "success"
+                ? "#5a9a6b"
+                : toast.severity === "error"
+                  ? "#c45c5c"
+                  : "#19abb5"
             }`,
           }}
         >
