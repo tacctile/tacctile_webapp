@@ -335,10 +335,11 @@ const NavigatorThumbnail = styled("img")({
   display: "block",
 });
 
-// Dark overlay for areas outside the viewport (replaces teal rectangle)
-const NavigatorDarkOverlay = styled(Box)({
+// Red border for viewport indicator
+const NavigatorViewportBorder = styled(Box)({
   position: "absolute",
-  backgroundColor: "rgba(0, 0, 0, 0.5)",
+  border: "3px solid #FF0000",
+  boxSizing: "border-box",
   pointerEvents: "none",
 });
 
@@ -1277,56 +1278,16 @@ const Navigator: React.FC<NavigatorProps> = ({
                 : {}),
             }}
           />
-          {/* Darkening overlays - 4 regions outside the viewport */}
-          {isZoomedIn && thumbnailRect && (
-            <>
-              {/* Top overlay */}
-              <NavigatorDarkOverlay
-                sx={{
-                  left: thumbnailRect.left,
-                  top: thumbnailRect.top,
-                  width: thumbnailRect.width,
-                  height: Math.max(0, viewportRect.top - thumbnailRect.top),
-                }}
-              />
-              {/* Bottom overlay */}
-              <NavigatorDarkOverlay
-                sx={{
-                  left: thumbnailRect.left,
-                  top: viewportRect.top + viewportRect.height,
-                  width: thumbnailRect.width,
-                  height: Math.max(
-                    0,
-                    thumbnailRect.top +
-                      thumbnailRect.height -
-                      (viewportRect.top + viewportRect.height),
-                  ),
-                }}
-              />
-              {/* Left overlay */}
-              <NavigatorDarkOverlay
-                sx={{
-                  left: thumbnailRect.left,
-                  top: viewportRect.top,
-                  width: Math.max(0, viewportRect.left - thumbnailRect.left),
-                  height: viewportRect.height,
-                }}
-              />
-              {/* Right overlay */}
-              <NavigatorDarkOverlay
-                sx={{
-                  left: viewportRect.left + viewportRect.width,
-                  top: viewportRect.top,
-                  width: Math.max(
-                    0,
-                    thumbnailRect.left +
-                      thumbnailRect.width -
-                      (viewportRect.left + viewportRect.width),
-                  ),
-                  height: viewportRect.height,
-                }}
-              />
-            </>
+          {/* Red border viewport indicator */}
+          {isZoomedIn && (
+            <NavigatorViewportBorder
+              sx={{
+                left: viewportRect.left,
+                top: viewportRect.top,
+                width: viewportRect.width,
+                height: viewportRect.height,
+              }}
+            />
           )}
           <NavigatorZoomDisplay>{Math.round(zoom)}%</NavigatorZoomDisplay>
         </>
