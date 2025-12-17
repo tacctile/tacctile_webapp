@@ -5,8 +5,6 @@ import {
   IconButton,
   Tooltip,
   Button,
-  TextField,
-  InputAdornment,
   Popover,
   Checkbox,
 } from "@mui/material";
@@ -15,7 +13,6 @@ import FlagIcon from "@mui/icons-material/Flag";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import UndoIcon from "@mui/icons-material/Undo";
-import SearchIcon from "@mui/icons-material/Search";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
@@ -244,7 +241,6 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
 }) => {
   const [deletedFlag, setDeletedFlag] = useState<Flag | null>(null);
   const [undoTimeout, setUndoTimeout] = useState<NodeJS.Timeout | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
 
   // Edit popover state
   const [editPopoverAnchorEl, setEditPopoverAnchorEl] =
@@ -476,26 +472,16 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
     setColorPickerAnchorEl(null);
   };
 
-  // Filter flags based on search query and user filter
-  const userFilteredFlags = flags.filter((flag) => {
+  // Filter flags based on user filter
+  const filteredFlags = flags.filter((flag) => {
     if (!onFilterChange) return true;
     const flagUserId = flag.createdBy?.toLowerCase() || "";
     return effectiveEnabledUserIds.includes(flagUserId);
   });
 
-  const filteredFlags = userFilteredFlags.filter((flag) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      flag.label.toLowerCase().includes(q) ||
-      flag.note?.toLowerCase().includes(q) ||
-      flag.createdBy?.toLowerCase().includes(q)
-    );
-  });
-
   // Total count and filtered count for display
   const totalFlagCount = flags.length;
-  const visibleFlagCount = userFilteredFlags.length;
+  const visibleFlagCount = filteredFlags.length;
 
   return (
     <Container>
@@ -662,34 +648,6 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
         </Box>
       </Popover>
 
-      {/* Search - only show if there are flags */}
-      {flags.length > 0 && (
-        <Box sx={{ padding: "8px 12px", borderBottom: "1px solid #252525" }}>
-          <TextField
-            fullWidth
-            size="small"
-            placeholder="Search flags..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon sx={{ fontSize: 16, color: "#555" }} />
-                </InputAdornment>
-              ),
-              sx: {
-                fontSize: 11,
-                height: 28,
-                backgroundColor: "#252525",
-                "& fieldset": { border: "none" },
-                "& input": { padding: "4px 8px" },
-                "& input::placeholder": { color: "#555", opacity: 1 },
-              },
-            }}
-          />
-        </Box>
-      )}
-
       <FlagsList ref={actualFlagsListRef as React.RefObject<HTMLDivElement>}>
         {flags.length === 0 ? (
           <EmptyState>
@@ -710,12 +668,8 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
           </EmptyState>
         ) : filteredFlags.length === 0 ? (
           <EmptyState>
-            <SearchIcon sx={{ fontSize: 32, mb: 1, opacity: 0.3 }} />
-            <Typography sx={{ fontSize: 11 }}>
-              {searchQuery.trim()
-                ? `No flags match "${searchQuery}"`
-                : "No flags match filter"}
-            </Typography>
+            <FilterListIcon sx={{ fontSize: 32, mb: 1, opacity: 0.3 }} />
+            <Typography sx={{ fontSize: 11 }}>No flags match filter</Typography>
           </EmptyState>
         ) : (
           filteredFlags.map((flag) => {
@@ -773,25 +727,21 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
                     {formatTimestamp(flag.timestamp)}
                   </Timestamp>
 
-                  {/* User name */}
-                  {flag.createdBy && (
-                    <Typography
-                      sx={{
-                        fontSize: 9,
-                        color: "#666",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        maxWidth: 50,
-                        flexShrink: 0,
-                      }}
-                    >
-                      {flag.createdBy}
-                    </Typography>
-                  )}
-
-                  {/* Title/Label */}
+                  {/* Content: user name and title (stacked like ImageTool annotations) */}
                   <Box sx={{ flex: 1, minWidth: 0 }}>
+                    {flag.createdBy && (
+                      <Typography
+                        sx={{
+                          fontSize: 9,
+                          color: "#666",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {flag.createdBy}
+                      </Typography>
+                    )}
                     <Typography
                       sx={{
                         fontSize: 11,
