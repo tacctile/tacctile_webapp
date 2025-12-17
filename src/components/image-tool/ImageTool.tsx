@@ -33,6 +33,7 @@ import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import AddIcon from "@mui/icons-material/Add";
 import PersonIcon from "@mui/icons-material/Person";
 import FileUploadIcon from "@mui/icons-material/FileUpload";
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import CropFreeIcon from "@mui/icons-material/CropFree";
 
 import { WorkspaceLayout } from "@/components/layout";
@@ -202,7 +203,7 @@ const FileDropZone = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
   cursor: "pointer",
 }));
 
-// Import button for left panel - full width
+// Import/Export buttons for left panel - side by side
 const ImportButton = styled(Button)({
   fontSize: 9,
   color: "#888",
@@ -210,7 +211,8 @@ const ImportButton = styled(Button)({
   border: "1px solid #333",
   padding: "6px 8px",
   textTransform: "none",
-  width: "100%",
+  flex: 1,
+  minWidth: 0,
   justifyContent: "center",
   "&:hover": {
     backgroundColor: "#333",
@@ -219,6 +221,31 @@ const ImportButton = styled(Button)({
   },
   "& .MuiButton-startIcon": {
     marginRight: 4,
+  },
+});
+
+const ExportButton = styled(Button)({
+  fontSize: 9,
+  color: "#888",
+  backgroundColor: "#252525",
+  border: "1px solid #333",
+  padding: "6px 8px",
+  textTransform: "none",
+  flex: 1,
+  minWidth: 0,
+  justifyContent: "center",
+  "&:hover": {
+    backgroundColor: "#333",
+    borderColor: "#19abb5",
+    color: "#19abb5",
+  },
+  "& .MuiButton-startIcon": {
+    marginRight: 4,
+  },
+  "&.Mui-disabled": {
+    color: "#444",
+    backgroundColor: "#1a1a1a",
+    borderColor: "#252525",
   },
 });
 
@@ -987,6 +1014,11 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const splitContainerRef = useRef<HTMLDivElement>(null);
 
+  // Imported file state for export functionality
+  // Stores the original image URL (from createObjectURL) and filename
+  const [importedImageUrl, setImportedImageUrl] = useState<string | null>(null);
+  const [importedFileName, setImportedFileName] = useState<string | null>(null);
+
   // Toast notification state
   const [toast, setToast] = useState<{
     open: boolean;
@@ -1565,6 +1597,14 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         return;
       }
 
+      // Revoke previous object URL if it exists to prevent memory leaks
+      if (importedImageUrl) {
+        URL.revokeObjectURL(importedImageUrl);
+      }
+
+      // Create object URL from the file for display
+      const objectUrl = URL.createObjectURL(file);
+
       // Try to generate test metadata in development mode
       const testMetadata = generateTestMetadataIfDev(file);
 
@@ -1574,6 +1614,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         id: testMetadata?.id || `import-${Date.now()}`,
         type: "image" as const,
         fileName: file.name,
+        thumbnailUrl: objectUrl, // Set the object URL for display
         capturedAt: testMetadata?.timestamp.getTime() || Date.now(),
         user: testMetadata?.user || "Imported",
         deviceInfo: testMetadata?.deviceId || "Imported File",
@@ -1584,6 +1625,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
           ? formatGPSCoordinates(testMetadata.gpsCoordinates)
           : null,
       };
+
+      // Store the original image URL and filename for export
+      setImportedImageUrl(objectUrl);
+      setImportedFileName(file.name);
 
       setLoadedImage(mockItem);
       setSelectedFile(mockItem);
@@ -1601,9 +1646,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       // Reset zoom and pan
       setZoom(100);
       setPanOffset({ x: 0, y: 0 });
-      showToast(`Loaded: ${file.name}`, "success");
+      // Image appearing in the viewer IS the success feedback - no toast needed
     },
-    [showToast, clearAnnotations],
+    [showToast, clearAnnotations, importedImageUrl],
   );
 
   // Handle file drag enter
@@ -1650,6 +1695,167 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const handleImportClick = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
+
+  // Handle Export button click - bakes filters and transforms into the image
+  const handleExportClick = useCallback(() => {
+    if (!loadedImage || !actualDimensions) return;
+
+    // Get the image URL to export
+    const imageUrl = loadedImage.thumbnailUrl || "";
+    if (!imageUrl) return;
+
+    // Create an offscreen image to draw from
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+
+    img.onload = () => {
+      // Determine output dimensions based on rotation
+      const isRotated90or270 = rotation === 90 || rotation === 270;
+      const outputWidth = isRotated90or270 ? img.naturalHeight : img.naturalWidth;
+      const outputHeight = isRotated90or270 ? img.naturalWidth : img.naturalHeight;
+
+      // Create offscreen canvas
+      const canvas = document.createElement("canvas");
+      canvas.width = outputWidth;
+      canvas.height = outputHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      // Build CSS filter string (same logic as getImageFilter)
+      const cssFilters: string[] = [];
+
+      if (filters.exposure !== 0) {
+        const brightness = 1 + filters.exposure / 10;
+        cssFilters.push(`brightness(${brightness})`);
+      }
+      if (filters.contrast !== 0) {
+        const contrast = 1 + filters.contrast / 200;
+        cssFilters.push(`contrast(${contrast})`);
+      }
+      if (filters.saturation !== 0) {
+        const saturate = 1 + filters.saturation / 100;
+        cssFilters.push(`saturate(${saturate})`);
+      }
+      if (filters.vibrance !== 0) {
+        const vibranceSaturate = 1 + filters.vibrance / 200;
+        cssFilters.push(`saturate(${vibranceSaturate})`);
+      }
+      if (filters.temperature !== 0) {
+        if (filters.temperature > 0) {
+          const sepia = (filters.temperature / 100) * 0.3;
+          const hueShift = (filters.temperature / 100) * -10;
+          cssFilters.push(`sepia(${sepia})`);
+          cssFilters.push(`hue-rotate(${hueShift}deg)`);
+        } else {
+          const hueShift = (filters.temperature / 100) * -30;
+          cssFilters.push(`hue-rotate(${hueShift}deg)`);
+        }
+      }
+      if (filters.tint !== 0) {
+        const tintHueRotate = (filters.tint / 100) * 30;
+        cssFilters.push(`hue-rotate(${tintHueRotate}deg)`);
+      }
+      if (filters.highlights !== 0) {
+        const highlightsBrightness = 1 + (filters.highlights / 100) * 0.2;
+        const highlightsContrast = 1 - (filters.highlights / 100) * 0.15;
+        cssFilters.push(`brightness(${highlightsBrightness})`);
+        cssFilters.push(`contrast(${highlightsContrast})`);
+      }
+      if (filters.shadows !== 0) {
+        const shadowsBrightness = 1 + (filters.shadows / 100) * 0.3;
+        const shadowsContrast = 1 + (filters.shadows / 100) * 0.1;
+        cssFilters.push(`brightness(${shadowsBrightness})`);
+        cssFilters.push(`contrast(${shadowsContrast})`);
+      }
+      if (filters.whites !== 0) {
+        const whitesBrightness = 1 + (filters.whites / 100) * 0.1;
+        cssFilters.push(`brightness(${whitesBrightness})`);
+      }
+      if (filters.blacks !== 0) {
+        const blacksBrightness = 1 + (filters.blacks / 100) * 0.15;
+        const blacksContrast = 1 - (filters.blacks / 100) * 0.1;
+        cssFilters.push(`brightness(${blacksBrightness})`);
+        cssFilters.push(`contrast(${blacksContrast})`);
+      }
+      if (filters.clarity !== 0) {
+        const clarityContrast = 1 + (filters.clarity / 100) * 0.15;
+        cssFilters.push(`contrast(${clarityContrast})`);
+      }
+      // Note: Sharpness uses SVG filter which can't be applied via canvas filter
+      // We skip sharpness for export as canvas doesn't support SVG filters
+      if (filters.noiseReduction !== 0) {
+        const blur = (filters.noiseReduction / 100) * 1;
+        cssFilters.push(`blur(${blur}px)`);
+      }
+
+      // Apply CSS filters to canvas context
+      ctx.filter = cssFilters.length > 0 ? cssFilters.join(" ") : "none";
+
+      // Apply transforms: translate to center, rotate, scale for flip, translate back
+      ctx.save();
+      ctx.translate(outputWidth / 2, outputHeight / 2);
+
+      // Apply rotation
+      if (rotation !== 0) {
+        ctx.rotate((rotation * Math.PI) / 180);
+      }
+
+      // Apply flips
+      const scaleX = flipH ? -1 : 1;
+      const scaleY = flipV ? -1 : 1;
+      ctx.scale(scaleX, scaleY);
+
+      // Draw the image centered
+      ctx.drawImage(
+        img,
+        -img.naturalWidth / 2,
+        -img.naturalHeight / 2,
+        img.naturalWidth,
+        img.naturalHeight
+      );
+
+      ctx.restore();
+
+      // Generate filename: EXP_[original_filename]_[username]_[YYYYMMDD]_[HHMMSS].[ext]
+      const originalName = importedFileName || loadedImage.fileName || "image";
+      const nameWithoutExt = originalName.replace(/\.[^/.]+$/, "");
+      const extension = originalName.split(".").pop()?.toLowerCase() || "jpg";
+      const username = "user"; // Placeholder username
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
+      const timeStr = now.toISOString().slice(11, 19).replace(/:/g, "");
+      const exportFilename = `EXP_${nameWithoutExt}_${username}_${dateStr}_${timeStr}.${extension}`;
+
+      // Determine MIME type based on extension
+      let mimeType = "image/jpeg";
+      if (extension === "png") mimeType = "image/png";
+      else if (extension === "webp") mimeType = "image/webp";
+      else if (extension === "gif") mimeType = "image/gif";
+
+      // Export canvas to blob and trigger download
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return;
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = exportFilename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        },
+        mimeType,
+        0.95 // Quality for JPEG/WebP
+      );
+    };
+
+    img.onerror = () => {
+      showToast("Failed to export image", "error");
+    };
+
+    img.src = imageUrl;
+  }, [loadedImage, actualDimensions, filters, rotation, flipH, flipV, importedFileName, showToast]);
 
   // Handle file input change
   const handleFileInputChange = useCallback(
@@ -3921,11 +4127,12 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
           <Box
             sx={{ display: "flex", flexDirection: "column", height: "100%" }}
           >
-            {/* Import button header - full width */}
+            {/* Import/Export buttons header - side by side */}
             <Box
               sx={{
                 display: "flex",
                 padding: "6px",
+                gap: "6px",
                 borderBottom: "1px solid #252525",
                 backgroundColor: "#1a1a1a",
               }}
@@ -3936,6 +4143,13 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               >
                 Import
               </ImportButton>
+              <ExportButton
+                startIcon={<FileDownloadIcon sx={{ fontSize: 12 }} />}
+                onClick={handleExportClick}
+                disabled={!loadedImage}
+              >
+                Export
+              </ExportButton>
             </Box>
             <Box sx={{ flex: 1, minHeight: 0 }}>
               <FileLibrary
