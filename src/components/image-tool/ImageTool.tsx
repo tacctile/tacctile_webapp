@@ -667,15 +667,99 @@ type AnnotationTool = "rectangle" | "circle" | "arrow" | null;
 
 // Type-based history entries for undo/redo - each action type tracked separately
 type HistoryEntry =
-  | { type: 'rotate'; before: 0 | 90 | 180 | 270; after: 0 | 90 | 180 | 270 }
-  | { type: 'flip_horizontal'; before: boolean; after: boolean }
-  | { type: 'flip_vertical'; before: boolean; after: boolean }
-  | { type: 'filter_change'; beforeFilters: ImageFilters; afterFilters: ImageFilters }
-  | { type: 'annotation_draw'; annotation: ImageAnnotation & { color?: string; strokeWidth?: number; userId?: string; userDisplayName?: string; label?: string; visible?: boolean; locked?: boolean; createdAt?: Date; updatedAt?: Date } }
-  | { type: 'annotation_move'; id: string; before: { x: number; y: number; centerX?: number; centerY?: number; startX?: number; startY?: number; endX?: number; endY?: number }; after: { x: number; y: number; centerX?: number; centerY?: number; startX?: number; startY?: number; endX?: number; endY?: number } }
-  | { type: 'annotation_resize'; id: string; before: { x?: number; y?: number; width?: number; height?: number; centerX?: number; centerY?: number; radiusX?: number; radiusY?: number; startX?: number; startY?: number; endX?: number; endY?: number }; after: { x?: number; y?: number; width?: number; height?: number; centerX?: number; centerY?: number; radiusX?: number; radiusY?: number; startX?: number; startY?: number; endX?: number; endY?: number } }
-  | { type: 'annotation_delete'; annotation: ImageAnnotation & { color?: string; strokeWidth?: number; userId?: string; userDisplayName?: string; label?: string; visible?: boolean; locked?: boolean; createdAt?: Date; updatedAt?: Date } }
-  | { type: 'annotation_color'; id: string; before: string; after: string };
+  | { type: "rotate"; before: 0 | 90 | 180 | 270; after: 0 | 90 | 180 | 270 }
+  | { type: "flip_horizontal"; before: boolean; after: boolean }
+  | { type: "flip_vertical"; before: boolean; after: boolean }
+  | {
+      type: "filter_change";
+      beforeFilters: ImageFilters;
+      afterFilters: ImageFilters;
+    }
+  | {
+      type: "annotation_draw";
+      annotation: ImageAnnotation & {
+        color?: string;
+        strokeWidth?: number;
+        userId?: string;
+        userDisplayName?: string;
+        label?: string;
+        visible?: boolean;
+        locked?: boolean;
+        createdAt?: Date;
+        updatedAt?: Date;
+      };
+    }
+  | {
+      type: "annotation_move";
+      id: string;
+      before: {
+        x: number;
+        y: number;
+        centerX?: number;
+        centerY?: number;
+        startX?: number;
+        startY?: number;
+        endX?: number;
+        endY?: number;
+      };
+      after: {
+        x: number;
+        y: number;
+        centerX?: number;
+        centerY?: number;
+        startX?: number;
+        startY?: number;
+        endX?: number;
+        endY?: number;
+      };
+    }
+  | {
+      type: "annotation_resize";
+      id: string;
+      before: {
+        x?: number;
+        y?: number;
+        width?: number;
+        height?: number;
+        centerX?: number;
+        centerY?: number;
+        radiusX?: number;
+        radiusY?: number;
+        startX?: number;
+        startY?: number;
+        endX?: number;
+        endY?: number;
+      };
+      after: {
+        x?: number;
+        y?: number;
+        width?: number;
+        height?: number;
+        centerX?: number;
+        centerY?: number;
+        radiusX?: number;
+        radiusY?: number;
+        startX?: number;
+        startY?: number;
+        endX?: number;
+        endY?: number;
+      };
+    }
+  | {
+      type: "annotation_delete";
+      annotation: ImageAnnotation & {
+        color?: string;
+        strokeWidth?: number;
+        userId?: string;
+        userDisplayName?: string;
+        label?: string;
+        visible?: boolean;
+        locked?: boolean;
+        createdAt?: Date;
+        updatedAt?: Date;
+      };
+    }
+  | { type: "annotation_color"; id: string; before: string; after: string };
 
 const MAX_HISTORY_DEPTH = 20;
 
@@ -1276,7 +1360,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       // Add the item with version information
       // Use real annotation count from state (falls back to static flagCount for unvisited images)
       const realFlagCount =
-        annotationCountsPerImage.get(item.id) ?? (item as ImageFileType).flagCount ?? 0;
+        annotationCountsPerImage.get(item.id) ??
+        (item as ImageFileType).flagCount ??
+        0;
 
       const itemWithVersions: GalleryItemWithVersions = {
         ...(item as ImageFileType),
@@ -1430,7 +1516,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   // User's saved custom color (persists across annotations)
   const [userCustomColor, setUserCustomColor] = useState<string | null>(null);
   // Track which color slider is being dragged for live updates
-  const [draggingColorSlider, setDraggingColorSlider] = useState<'hue' | 'saturation' | 'lightness' | null>(null);
+  const [draggingColorSlider, setDraggingColorSlider] = useState<
+    "hue" | "saturation" | "lightness" | null
+  >(null);
   const colorSliderRef = useRef<HTMLDivElement | null>(null);
 
   const [splitPosition, setSplitPosition] = useState(50);
@@ -2103,24 +2191,24 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const handleRotateCW = useCallback(() => {
     const before = rotation;
     const after = ((rotation + 90) % 360) as 0 | 90 | 180 | 270;
-    pushHistoryEntry({ type: 'rotate', before, after });
+    pushHistoryEntry({ type: "rotate", before, after });
     setRotation(after);
   }, [pushHistoryEntry, rotation]);
 
   const handleRotateCCW = useCallback(() => {
     const before = rotation;
     const after = ((rotation - 90 + 360) % 360) as 0 | 90 | 180 | 270;
-    pushHistoryEntry({ type: 'rotate', before, after });
+    pushHistoryEntry({ type: "rotate", before, after });
     setRotation(after);
   }, [pushHistoryEntry, rotation]);
 
   const handleFlipH = useCallback(() => {
-    pushHistoryEntry({ type: 'flip_horizontal', before: flipH, after: !flipH });
+    pushHistoryEntry({ type: "flip_horizontal", before: flipH, after: !flipH });
     setFlipH((prev) => !prev);
   }, [pushHistoryEntry, flipH]);
 
   const handleFlipV = useCallback(() => {
-    pushHistoryEntry({ type: 'flip_vertical', before: flipV, after: !flipV });
+    pushHistoryEntry({ type: "flip_vertical", before: flipV, after: !flipV });
     setFlipV((prev) => !prev);
   }, [pushHistoryEntry, flipV]);
 
@@ -2135,40 +2223,49 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
     // Apply reverse action based on type
     switch (entry.type) {
-      case 'rotate':
+      case "rotate":
         setRotation(entry.before);
         break;
-      case 'flip_horizontal':
+      case "flip_horizontal":
         setFlipH(entry.before);
         break;
-      case 'flip_vertical':
+      case "flip_vertical":
         setFlipV(entry.before);
         break;
-      case 'filter_change':
+      case "filter_change":
         setFilters(entry.beforeFilters);
         break;
-      case 'annotation_draw':
+      case "annotation_draw":
         // Remove the drawn annotation
         deleteAnnotation(entry.annotation.id);
         break;
-      case 'annotation_move':
+      case "annotation_move":
         // Restore annotation to its previous position
         updateAnnotation(entry.id, entry.before);
         break;
-      case 'annotation_resize':
+      case "annotation_resize":
         // Restore annotation to its previous dimensions
         updateAnnotation(entry.id, entry.before);
         break;
-      case 'annotation_delete':
+      case "annotation_delete":
         // Re-add the deleted annotation
-        setAnnotations([...storeAnnotations, entry.annotation as StoreImageAnnotation]);
+        setAnnotations([
+          ...storeAnnotations,
+          entry.annotation as StoreImageAnnotation,
+        ]);
         break;
-      case 'annotation_color':
+      case "annotation_color":
         // Restore previous color
         updateAnnotation(entry.id, { color: entry.before });
         break;
     }
-  }, [undoStack, deleteAnnotation, updateAnnotation, setAnnotations, storeAnnotations]);
+  }, [
+    undoStack,
+    deleteAnnotation,
+    updateAnnotation,
+    setAnnotations,
+    storeAnnotations,
+  ]);
 
   // Unified redo handler - re-applies the specific action type
   const handleRedo = useCallback(() => {
@@ -2181,40 +2278,49 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
     // Re-apply action based on type
     switch (entry.type) {
-      case 'rotate':
+      case "rotate":
         setRotation(entry.after);
         break;
-      case 'flip_horizontal':
+      case "flip_horizontal":
         setFlipH(entry.after);
         break;
-      case 'flip_vertical':
+      case "flip_vertical":
         setFlipV(entry.after);
         break;
-      case 'filter_change':
+      case "filter_change":
         setFilters(entry.afterFilters);
         break;
-      case 'annotation_draw':
+      case "annotation_draw":
         // Re-add the annotation
-        setAnnotations([...storeAnnotations, entry.annotation as StoreImageAnnotation]);
+        setAnnotations([
+          ...storeAnnotations,
+          entry.annotation as StoreImageAnnotation,
+        ]);
         break;
-      case 'annotation_move':
+      case "annotation_move":
         // Move annotation to its new position
         updateAnnotation(entry.id, entry.after);
         break;
-      case 'annotation_resize':
+      case "annotation_resize":
         // Resize annotation to its new dimensions
         updateAnnotation(entry.id, entry.after);
         break;
-      case 'annotation_delete':
+      case "annotation_delete":
         // Re-delete the annotation
         deleteAnnotation(entry.annotation.id);
         break;
-      case 'annotation_color':
+      case "annotation_color":
         // Apply new color
         updateAnnotation(entry.id, { color: entry.after });
         break;
     }
-  }, [redoStack, deleteAnnotation, updateAnnotation, setAnnotations, storeAnnotations]);
+  }, [
+    redoStack,
+    deleteAnnotation,
+    updateAnnotation,
+    setAnnotations,
+    storeAnnotations,
+  ]);
 
   // Check if undo/redo are available (unified stack only)
   const canUndo = undoStack.length > 0;
@@ -2244,7 +2350,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       if (filtersChanged) {
         // Push filter change entry with before and after state
         pushHistoryEntry({
-          type: 'filter_change',
+          type: "filter_change",
           beforeFilters: { ...startFilters },
           afterFilters: { ...filters },
         });
@@ -2355,56 +2461,57 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   }, []);
 
   // Convert HSL to hex color
-  const hslToHex = useCallback(
-    (h: number, s: number, l: number): string => {
-      s /= 100;
-      l /= 100;
-      const c = (1 - Math.abs(2 * l - 1)) * s;
-      const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-      const m = l - c / 2;
-      let r = 0,
-        g = 0,
-        b = 0;
+  const hslToHex = useCallback((h: number, s: number, l: number): string => {
+    s /= 100;
+    l /= 100;
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+    const m = l - c / 2;
+    let r = 0,
+      g = 0,
+      b = 0;
 
-      if (0 <= h && h < 60) {
-        r = c;
-        g = x;
-        b = 0;
-      } else if (60 <= h && h < 120) {
-        r = x;
-        g = c;
-        b = 0;
-      } else if (120 <= h && h < 180) {
-        r = 0;
-        g = c;
-        b = x;
-      } else if (180 <= h && h < 240) {
-        r = 0;
-        g = x;
-        b = c;
-      } else if (240 <= h && h < 300) {
-        r = x;
-        g = 0;
-        b = c;
-      } else if (300 <= h && h < 360) {
-        r = c;
-        g = 0;
-        b = x;
-      }
+    if (0 <= h && h < 60) {
+      r = c;
+      g = x;
+      b = 0;
+    } else if (60 <= h && h < 120) {
+      r = x;
+      g = c;
+      b = 0;
+    } else if (120 <= h && h < 180) {
+      r = 0;
+      g = c;
+      b = x;
+    } else if (180 <= h && h < 240) {
+      r = 0;
+      g = x;
+      b = c;
+    } else if (240 <= h && h < 300) {
+      r = x;
+      g = 0;
+      b = c;
+    } else if (300 <= h && h < 360) {
+      r = c;
+      g = 0;
+      b = x;
+    }
 
-      const toHex = (n: number) => {
-        const hex = Math.round((n + m) * 255).toString(16);
-        return hex.length === 1 ? "0" + hex : hex;
-      };
+    const toHex = (n: number) => {
+      const hex = Math.round((n + m) * 255).toString(16);
+      return hex.length === 1 ? "0" + hex : hex;
+    };
 
-      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-    },
-    [],
-  );
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  }, []);
 
   // Get preview color from HSL values
   const getCustomColorPreview = useCallback(() => {
-    return hslToHex(customColorHue, customColorSaturation, customColorLightness);
+    return hslToHex(
+      customColorHue,
+      customColorSaturation,
+      customColorLightness,
+    );
   }, [customColorHue, customColorSaturation, customColorLightness, hslToHex]);
 
   // Open color picker
@@ -2430,11 +2537,11 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       const x = e.clientX - rect.left;
       const ratio = Math.max(0, Math.min(1, x / rect.width));
 
-      if (draggingColorSlider === 'hue') {
+      if (draggingColorSlider === "hue") {
         setCustomColorHue(Math.round(ratio * 360));
-      } else if (draggingColorSlider === 'saturation') {
+      } else if (draggingColorSlider === "saturation") {
         setCustomColorSaturation(Math.round(ratio * 100));
-      } else if (draggingColorSlider === 'lightness') {
+      } else if (draggingColorSlider === "lightness") {
         setCustomColorLightness(Math.round(ratio * 100));
       }
     };
@@ -2444,12 +2551,12 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       colorSliderRef.current = null;
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
 
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
     };
   }, [draggingColorSlider]);
 
@@ -2497,7 +2604,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
         // Push to local history for undo
         pushHistoryEntry({
-          type: 'annotation_delete',
+          type: "annotation_delete",
           annotation: annotationToDelete,
         });
       }
@@ -2505,7 +2612,13 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         setEditingAnnotationId(null);
       }
     },
-    [storeAnnotations, setAnnotations, selectAnnotation, pushHistoryEntry, editingAnnotationId],
+    [
+      storeAnnotations,
+      setAnnotations,
+      selectAnnotation,
+      pushHistoryEntry,
+      editingAnnotationId,
+    ],
   );
 
   // Toggle lock state for annotation
@@ -2903,266 +3016,271 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       img.crossOrigin = "anonymous";
 
       img.onload = () => {
-      // Determine output dimensions based on rotation
-      const isRotated90or270 = rotation === 90 || rotation === 270;
-      const outputWidth = isRotated90or270
-        ? img.naturalHeight
-        : img.naturalWidth;
-      const outputHeight = isRotated90or270
-        ? img.naturalWidth
-        : img.naturalHeight;
+        // Determine output dimensions based on rotation
+        const isRotated90or270 = rotation === 90 || rotation === 270;
+        const outputWidth = isRotated90or270
+          ? img.naturalHeight
+          : img.naturalWidth;
+        const outputHeight = isRotated90or270
+          ? img.naturalWidth
+          : img.naturalHeight;
 
-      // Create offscreen canvas
-      const canvas = document.createElement("canvas");
-      canvas.width = outputWidth;
-      canvas.height = outputHeight;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
+        // Create offscreen canvas
+        const canvas = document.createElement("canvas");
+        canvas.width = outputWidth;
+        canvas.height = outputHeight;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
 
-      // Build CSS filter string (same logic as getImageFilter)
-      const cssFilters: string[] = [];
+        // Build CSS filter string (same logic as getImageFilter)
+        const cssFilters: string[] = [];
 
-      if (filters.exposure !== 0) {
-        const brightness = 1 + filters.exposure / 10;
-        cssFilters.push(`brightness(${brightness})`);
-      }
-      if (filters.contrast !== 0) {
-        const contrast = 1 + filters.contrast / 200;
-        cssFilters.push(`contrast(${contrast})`);
-      }
-      if (filters.saturation !== 0) {
-        const saturate = 1 + filters.saturation / 100;
-        cssFilters.push(`saturate(${saturate})`);
-      }
-      if (filters.vibrance !== 0) {
-        const vibranceSaturate = 1 + filters.vibrance / 200;
-        cssFilters.push(`saturate(${vibranceSaturate})`);
-      }
-      if (filters.temperature !== 0) {
-        if (filters.temperature > 0) {
-          const sepia = (filters.temperature / 100) * 0.3;
-          const hueShift = (filters.temperature / 100) * -10;
-          cssFilters.push(`sepia(${sepia})`);
-          cssFilters.push(`hue-rotate(${hueShift}deg)`);
-        } else {
-          const hueShift = (filters.temperature / 100) * -30;
-          cssFilters.push(`hue-rotate(${hueShift}deg)`);
+        if (filters.exposure !== 0) {
+          const brightness = 1 + filters.exposure / 10;
+          cssFilters.push(`brightness(${brightness})`);
         }
-      }
-      if (filters.tint !== 0) {
-        const tintHueRotate = (filters.tint / 100) * 30;
-        cssFilters.push(`hue-rotate(${tintHueRotate}deg)`);
-      }
-      if (filters.highlights !== 0) {
-        const highlightsBrightness = 1 + (filters.highlights / 100) * 0.2;
-        const highlightsContrast = 1 - (filters.highlights / 100) * 0.15;
-        cssFilters.push(`brightness(${highlightsBrightness})`);
-        cssFilters.push(`contrast(${highlightsContrast})`);
-      }
-      if (filters.shadows !== 0) {
-        const shadowsBrightness = 1 + (filters.shadows / 100) * 0.3;
-        const shadowsContrast = 1 + (filters.shadows / 100) * 0.1;
-        cssFilters.push(`brightness(${shadowsBrightness})`);
-        cssFilters.push(`contrast(${shadowsContrast})`);
-      }
-      if (filters.whites !== 0) {
-        const whitesBrightness = 1 + (filters.whites / 100) * 0.1;
-        cssFilters.push(`brightness(${whitesBrightness})`);
-      }
-      if (filters.blacks !== 0) {
-        const blacksBrightness = 1 + (filters.blacks / 100) * 0.15;
-        const blacksContrast = 1 - (filters.blacks / 100) * 0.1;
-        cssFilters.push(`brightness(${blacksBrightness})`);
-        cssFilters.push(`contrast(${blacksContrast})`);
-      }
-      if (filters.clarity !== 0) {
-        const clarityContrast = 1 + (filters.clarity / 100) * 0.15;
-        cssFilters.push(`contrast(${clarityContrast})`);
-      }
-      // Note: Sharpness uses SVG filter which can't be applied via canvas filter
-      // We skip sharpness for export as canvas doesn't support SVG filters
-      if (filters.noiseReduction !== 0) {
-        const blur = (filters.noiseReduction / 100) * 1;
-        cssFilters.push(`blur(${blur}px)`);
-      }
-
-      // Apply CSS filters to canvas context
-      ctx.filter = cssFilters.length > 0 ? cssFilters.join(" ") : "none";
-
-      // Apply transforms: translate to center, rotate, scale for flip, translate back
-      ctx.save();
-      ctx.translate(outputWidth / 2, outputHeight / 2);
-
-      // Apply rotation
-      if (rotation !== 0) {
-        ctx.rotate((rotation * Math.PI) / 180);
-      }
-
-      // Apply flips
-      const scaleX = flipH ? -1 : 1;
-      const scaleY = flipV ? -1 : 1;
-      ctx.scale(scaleX, scaleY);
-
-      // Draw the image centered
-      ctx.drawImage(
-        img,
-        -img.naturalWidth / 2,
-        -img.naturalHeight / 2,
-        img.naturalWidth,
-        img.naturalHeight,
-      );
-
-      ctx.restore();
-
-      // Draw annotations onto canvas if requested
-      if (includeAnnotations) {
-        const visibleAnnotations = storeAnnotations.filter((ann) => ann.visible);
-        visibleAnnotations.forEach((ann) => {
-          ctx.save();
-
-          // Set up annotation styling
-          ctx.strokeStyle = ann.color || "#19abb5";
-          ctx.lineWidth = ann.strokeWidth || 2;
-          ctx.globalAlpha = ann.opacity || 1;
-
-          if (ann.type === "rectangle") {
-            const x = ann.x * outputWidth;
-            const y = ann.y * outputHeight;
-            const width = ann.width * outputWidth;
-            const height = ann.height * outputHeight;
-            ctx.strokeRect(x, y, width, height);
-          } else if (ann.type === "circle") {
-            const cx = ann.centerX * outputWidth;
-            const cy = ann.centerY * outputHeight;
-            const rx = Math.abs(ann.radiusX * outputWidth);
-            const ry = Math.abs(ann.radiusY * outputHeight);
-            ctx.beginPath();
-            ctx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
-            ctx.stroke();
-          } else if (ann.type === "arrow") {
-            const x1 = ann.startX * outputWidth;
-            const y1 = ann.startY * outputHeight;
-            const x2 = ann.endX * outputWidth;
-            const y2 = ann.endY * outputHeight;
-
-            // Draw the line
-            ctx.beginPath();
-            ctx.moveTo(x1, y1);
-            ctx.lineTo(x2, y2);
-            ctx.stroke();
-
-            // Draw arrowhead
-            const dx = x2 - x1;
-            const dy = y2 - y1;
-            const angle = Math.atan2(dy, dx);
-            const headLength = ann.headSize || 24;
-            const headAngle = Math.PI / 6;
-
-            const headX1 = x2 - headLength * Math.cos(angle - headAngle);
-            const headY1 = y2 - headLength * Math.sin(angle - headAngle);
-            const headX2 = x2 - headLength * Math.cos(angle + headAngle);
-            const headY2 = y2 - headLength * Math.sin(angle + headAngle);
-
-            ctx.fillStyle = ann.color || "#19abb5";
-            ctx.beginPath();
-            ctx.moveTo(x2, y2);
-            ctx.lineTo(headX1, headY1);
-            ctx.lineTo(headX2, headY2);
-            ctx.closePath();
-            ctx.fill();
+        if (filters.contrast !== 0) {
+          const contrast = 1 + filters.contrast / 200;
+          cssFilters.push(`contrast(${contrast})`);
+        }
+        if (filters.saturation !== 0) {
+          const saturate = 1 + filters.saturation / 100;
+          cssFilters.push(`saturate(${saturate})`);
+        }
+        if (filters.vibrance !== 0) {
+          const vibranceSaturate = 1 + filters.vibrance / 200;
+          cssFilters.push(`saturate(${vibranceSaturate})`);
+        }
+        if (filters.temperature !== 0) {
+          if (filters.temperature > 0) {
+            const sepia = (filters.temperature / 100) * 0.3;
+            const hueShift = (filters.temperature / 100) * -10;
+            cssFilters.push(`sepia(${sepia})`);
+            cssFilters.push(`hue-rotate(${hueShift}deg)`);
+          } else {
+            const hueShift = (filters.temperature / 100) * -30;
+            cssFilters.push(`hue-rotate(${hueShift}deg)`);
           }
+        }
+        if (filters.tint !== 0) {
+          const tintHueRotate = (filters.tint / 100) * 30;
+          cssFilters.push(`hue-rotate(${tintHueRotate}deg)`);
+        }
+        if (filters.highlights !== 0) {
+          const highlightsBrightness = 1 + (filters.highlights / 100) * 0.2;
+          const highlightsContrast = 1 - (filters.highlights / 100) * 0.15;
+          cssFilters.push(`brightness(${highlightsBrightness})`);
+          cssFilters.push(`contrast(${highlightsContrast})`);
+        }
+        if (filters.shadows !== 0) {
+          const shadowsBrightness = 1 + (filters.shadows / 100) * 0.3;
+          const shadowsContrast = 1 + (filters.shadows / 100) * 0.1;
+          cssFilters.push(`brightness(${shadowsBrightness})`);
+          cssFilters.push(`contrast(${shadowsContrast})`);
+        }
+        if (filters.whites !== 0) {
+          const whitesBrightness = 1 + (filters.whites / 100) * 0.1;
+          cssFilters.push(`brightness(${whitesBrightness})`);
+        }
+        if (filters.blacks !== 0) {
+          const blacksBrightness = 1 + (filters.blacks / 100) * 0.15;
+          const blacksContrast = 1 - (filters.blacks / 100) * 0.1;
+          cssFilters.push(`brightness(${blacksBrightness})`);
+          cssFilters.push(`contrast(${blacksContrast})`);
+        }
+        if (filters.clarity !== 0) {
+          const clarityContrast = 1 + (filters.clarity / 100) * 0.15;
+          cssFilters.push(`contrast(${clarityContrast})`);
+        }
+        // Note: Sharpness uses SVG filter which can't be applied via canvas filter
+        // We skip sharpness for export as canvas doesn't support SVG filters
+        if (filters.noiseReduction !== 0) {
+          const blur = (filters.noiseReduction / 100) * 1;
+          cssFilters.push(`blur(${blur}px)`);
+        }
 
-          ctx.restore();
-        });
-      }
+        // Apply CSS filters to canvas context
+        ctx.filter = cssFilters.length > 0 ? cssFilters.join(" ") : "none";
 
-      // Generate filename: EXP_[original_filename]_[username]_[YYYYMMDD]_[HHMMSS].[ext]
-      const originalName = importedFileName || loadedImage.fileName || "image";
-      let nameWithoutExt = originalName.replace(/\.[^/.]+$/, "");
-      // Strip existing EXP_ prefix to prevent chaining (EXP_EXP_EXP_...)
-      if (nameWithoutExt.startsWith("EXP_")) {
-        nameWithoutExt = nameWithoutExt.substring(4);
-      }
-      const extension = originalName.split(".").pop()?.toLowerCase() || "jpg";
-      const username = "user"; // Placeholder username
-      const now = new Date();
-      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
-      const timeStr = now.toISOString().slice(11, 19).replace(/:/g, "");
-      const exportFilename = `EXP_${nameWithoutExt}_${username}_${dateStr}_${timeStr}.${extension}`;
+        // Apply transforms: translate to center, rotate, scale for flip, translate back
+        ctx.save();
+        ctx.translate(outputWidth / 2, outputHeight / 2);
 
-      // Determine MIME type based on extension
-      let mimeType = "image/jpeg";
-      if (extension === "png") mimeType = "image/png";
-      else if (extension === "webp") mimeType = "image/webp";
-      else if (extension === "gif") mimeType = "image/gif";
+        // Apply rotation
+        if (rotation !== 0) {
+          ctx.rotate((rotation * Math.PI) / 180);
+        }
 
-      // Export canvas to blob and trigger download
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) return;
+        // Apply flips
+        const scaleX = flipH ? -1 : 1;
+        const scaleY = flipV ? -1 : 1;
+        ctx.scale(scaleX, scaleY);
 
-          // Create URL for download
-          const downloadUrl = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = downloadUrl;
-          link.download = exportFilename;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(downloadUrl);
+        // Draw the image centered
+        ctx.drawImage(
+          img,
+          -img.naturalWidth / 2,
+          -img.naturalHeight / 2,
+          img.naturalWidth,
+          img.naturalHeight,
+        );
 
-          // Create a separate blob URL for the gallery (don't revoke this one)
-          const galleryUrl = URL.createObjectURL(blob);
+        ctx.restore();
 
-          // Find the root original ID by tracing the parentId chain
-          // This ensures all generations of exports link to the same root original
-          const allItems = [...imageFiles, ...importedImages];
-          let rootId = loadedImage.id;
-          if (loadedImage.source === "export" && loadedImage.parentId) {
-            // Trace back to the root original
-            let currentId = loadedImage.parentId;
-            let maxDepth = 100; // Safety limit to prevent infinite loops
-            while (maxDepth > 0) {
-              const parentItem = allItems.find((item) => item.id === currentId);
-              if (!parentItem) {
-                // Parent not found, use what we have
-                rootId = currentId;
-                break;
-              }
-              if (parentItem.source !== "export" || !parentItem.parentId) {
-                // Found the root original (not an export)
-                rootId = parentItem.id;
-                break;
-              }
-              // Continue tracing up the chain
-              currentId = parentItem.parentId;
-              maxDepth--;
+        // Draw annotations onto canvas if requested
+        if (includeAnnotations) {
+          const visibleAnnotations = storeAnnotations.filter(
+            (ann) => ann.visible,
+          );
+          visibleAnnotations.forEach((ann) => {
+            ctx.save();
+
+            // Set up annotation styling
+            ctx.strokeStyle = ann.color || "#19abb5";
+            ctx.lineWidth = ann.strokeWidth || 2;
+            ctx.globalAlpha = ann.opacity || 1;
+
+            if (ann.type === "rectangle") {
+              const x = ann.x * outputWidth;
+              const y = ann.y * outputHeight;
+              const width = ann.width * outputWidth;
+              const height = ann.height * outputHeight;
+              ctx.strokeRect(x, y, width, height);
+            } else if (ann.type === "circle") {
+              const cx = ann.centerX * outputWidth;
+              const cy = ann.centerY * outputHeight;
+              const rx = Math.abs(ann.radiusX * outputWidth);
+              const ry = Math.abs(ann.radiusY * outputHeight);
+              ctx.beginPath();
+              ctx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
+              ctx.stroke();
+            } else if (ann.type === "arrow") {
+              const x1 = ann.startX * outputWidth;
+              const y1 = ann.startY * outputHeight;
+              const x2 = ann.endX * outputWidth;
+              const y2 = ann.endY * outputHeight;
+
+              // Draw the line
+              ctx.beginPath();
+              ctx.moveTo(x1, y1);
+              ctx.lineTo(x2, y2);
+              ctx.stroke();
+
+              // Draw arrowhead
+              const dx = x2 - x1;
+              const dy = y2 - y1;
+              const angle = Math.atan2(dy, dx);
+              const headLength = ann.headSize || 24;
+              const headAngle = Math.PI / 6;
+
+              const headX1 = x2 - headLength * Math.cos(angle - headAngle);
+              const headY1 = y2 - headLength * Math.sin(angle - headAngle);
+              const headX2 = x2 - headLength * Math.cos(angle + headAngle);
+              const headY2 = y2 - headLength * Math.sin(angle + headAngle);
+
+              ctx.fillStyle = ann.color || "#19abb5";
+              ctx.beginPath();
+              ctx.moveTo(x2, y2);
+              ctx.lineTo(headX1, headY1);
+              ctx.lineTo(headX2, headY2);
+              ctx.closePath();
+              ctx.fill();
             }
-          }
 
-          // Add exported image to gallery
-          const exportedItem = {
-            id: `export-${Date.now()}`,
-            type: "image" as const,
-            fileName: exportFilename,
-            thumbnailUrl: galleryUrl,
-            capturedAt: Date.now(),
-            user: username,
-            deviceInfo: loadedImage.deviceInfo || "Exported",
-            format: mimeType,
-            dimensions: `${outputWidth} x ${outputHeight}`,
-            flagCount: 0,
-            hasFindings: false,
-            gps: loadedImage.gps || null,
-            source: "export" as const,
-            parentId: rootId, // Link to root original (traced through chain)
-          };
+            ctx.restore();
+          });
+        }
 
-          setImportedImages((prev) => [...prev, exportedItem]);
-        },
-        mimeType,
-        0.95, // Quality for JPEG/WebP
-      );
+        // Generate filename: EXP_[original_filename]_[username]_[YYYYMMDD]_[HHMMSS].[ext]
+        const originalName =
+          importedFileName || loadedImage.fileName || "image";
+        let nameWithoutExt = originalName.replace(/\.[^/.]+$/, "");
+        // Strip existing EXP_ prefix to prevent chaining (EXP_EXP_EXP_...)
+        if (nameWithoutExt.startsWith("EXP_")) {
+          nameWithoutExt = nameWithoutExt.substring(4);
+        }
+        const extension = originalName.split(".").pop()?.toLowerCase() || "jpg";
+        const username = "user"; // Placeholder username
+        const now = new Date();
+        const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
+        const timeStr = now.toISOString().slice(11, 19).replace(/:/g, "");
+        const exportFilename = `EXP_${nameWithoutExt}_${username}_${dateStr}_${timeStr}.${extension}`;
+
+        // Determine MIME type based on extension
+        let mimeType = "image/jpeg";
+        if (extension === "png") mimeType = "image/png";
+        else if (extension === "webp") mimeType = "image/webp";
+        else if (extension === "gif") mimeType = "image/gif";
+
+        // Export canvas to blob and trigger download
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) return;
+
+            // Create URL for download
+            const downloadUrl = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = downloadUrl;
+            link.download = exportFilename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(downloadUrl);
+
+            // Create a separate blob URL for the gallery (don't revoke this one)
+            const galleryUrl = URL.createObjectURL(blob);
+
+            // Find the root original ID by tracing the parentId chain
+            // This ensures all generations of exports link to the same root original
+            const allItems = [...imageFiles, ...importedImages];
+            let rootId = loadedImage.id;
+            if (loadedImage.source === "export" && loadedImage.parentId) {
+              // Trace back to the root original
+              let currentId = loadedImage.parentId;
+              let maxDepth = 100; // Safety limit to prevent infinite loops
+              while (maxDepth > 0) {
+                const parentItem = allItems.find(
+                  (item) => item.id === currentId,
+                );
+                if (!parentItem) {
+                  // Parent not found, use what we have
+                  rootId = currentId;
+                  break;
+                }
+                if (parentItem.source !== "export" || !parentItem.parentId) {
+                  // Found the root original (not an export)
+                  rootId = parentItem.id;
+                  break;
+                }
+                // Continue tracing up the chain
+                currentId = parentItem.parentId;
+                maxDepth--;
+              }
+            }
+
+            // Add exported image to gallery
+            const exportedItem = {
+              id: `export-${Date.now()}`,
+              type: "image" as const,
+              fileName: exportFilename,
+              thumbnailUrl: galleryUrl,
+              capturedAt: Date.now(),
+              user: username,
+              deviceInfo: loadedImage.deviceInfo || "Exported",
+              format: mimeType,
+              dimensions: `${outputWidth} x ${outputHeight}`,
+              flagCount: 0,
+              hasFindings: false,
+              gps: loadedImage.gps || null,
+              source: "export" as const,
+              parentId: rootId, // Link to root original (traced through chain)
+            };
+
+            setImportedImages((prev) => [...prev, exportedItem]);
+          },
+          mimeType,
+          0.95, // Quality for JPEG/WebP
+        );
       };
 
       img.onerror = () => {
@@ -3197,7 +3315,12 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       // No annotations, export directly
       handlePerformExport(false);
     }
-  }, [loadedImage, actualDimensions, hasVisibleAnnotations, handlePerformExport]);
+  }, [
+    loadedImage,
+    actualDimensions,
+    hasVisibleAnnotations,
+    handlePerformExport,
+  ]);
 
   // Handle export dialog confirm
   const handleExportDialogConfirm = useCallback(() => {
@@ -3374,6 +3497,47 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       };
     },
     [actualDimensions, containerDimensions, getImageDisplaySize, panOffset],
+  );
+
+  // Transform display coordinates (where user clicked/drew on screen) to image coordinates
+  // This reverses the rotation and flip transforms applied to the image display
+  const transformDisplayToImageCoords = useCallback(
+    (displayX: number, displayY: number): { x: number; y: number } => {
+      let x = displayX;
+      let y = displayY;
+
+      // The image transform order is: translate -> rotate -> flipH -> flipV
+      // CSS applies right-to-left, so actual order is: flipV -> flipH -> rotate -> translate
+      // To inverse: undo rotation first, then undo flips
+
+      // First, apply inverse rotation
+      if (rotation === 90) {
+        // 90° CW: imageX = displayY, imageY = 1 - displayX
+        const temp = x;
+        x = y;
+        y = 1 - temp;
+      } else if (rotation === 180) {
+        // 180°: imageX = 1 - displayX, imageY = 1 - displayY
+        x = 1 - x;
+        y = 1 - y;
+      } else if (rotation === 270) {
+        // 270° CW: imageX = 1 - displayY, imageY = displayX
+        const temp = x;
+        x = 1 - y;
+        y = temp;
+      }
+
+      // Then, apply inverse flip (flip is self-inverse)
+      if (flipH) {
+        x = 1 - x;
+      }
+      if (flipV) {
+        y = 1 - y;
+      }
+
+      return { x, y };
+    },
+    [rotation, flipH, flipV],
   );
 
   // Calculate pan offset to center a specific image point in the viewport
@@ -3841,14 +4005,19 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         const coords = screenToImageCoords(e.clientX, e.clientY);
         if (coords) {
           e.preventDefault();
+          // Transform display coordinates to image space (accounts for rotation/flip)
+          const imageCoords = transformDisplayToImageCoords(
+            coords.normalizedX,
+            coords.normalizedY,
+          );
           setIsDrawingAnnotation(true);
           setDrawingStartPoint({
-            x: coords.normalizedX,
-            y: coords.normalizedY,
+            x: imageCoords.x,
+            y: imageCoords.y,
           });
           setCurrentDrawingEnd({
-            x: coords.normalizedX,
-            y: coords.normalizedY,
+            x: imageCoords.x,
+            y: imageCoords.y,
           });
         }
         return;
@@ -3894,6 +4063,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       handleMarqueeStart,
       activeTool,
       screenToImageCoords,
+      transformDisplayToImageCoords,
     ],
   );
 
@@ -3984,26 +4154,36 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     const handleMouseMove = (e: MouseEvent) => {
       const coords = screenToImageCoords(e.clientX, e.clientY);
       if (coords) {
-        setCurrentDrawingEnd({ x: coords.normalizedX, y: coords.normalizedY });
+        // Transform display coordinates to image space (accounts for rotation/flip)
+        const imageCoords = transformDisplayToImageCoords(
+          coords.normalizedX,
+          coords.normalizedY,
+        );
+        setCurrentDrawingEnd({ x: imageCoords.x, y: imageCoords.y });
       }
     };
 
     const handleMouseUp = (e: MouseEvent) => {
       const coords = screenToImageCoords(e.clientX, e.clientY);
       if (coords && drawingStartPoint) {
-        // Create the annotation
-        const startX = Math.min(drawingStartPoint.x, coords.normalizedX);
-        const startY = Math.min(drawingStartPoint.y, coords.normalizedY);
-        const endX = Math.max(drawingStartPoint.x, coords.normalizedX);
-        const endY = Math.max(drawingStartPoint.y, coords.normalizedY);
+        // Transform display coordinates to image space (accounts for rotation/flip)
+        const imageCoords = transformDisplayToImageCoords(
+          coords.normalizedX,
+          coords.normalizedY,
+        );
+        // Create the annotation using image space coordinates
+        const startX = Math.min(drawingStartPoint.x, imageCoords.x);
+        const startY = Math.min(drawingStartPoint.y, imageCoords.y);
+        const endX = Math.max(drawingStartPoint.x, imageCoords.x);
+        const endY = Math.max(drawingStartPoint.y, imageCoords.y);
 
         const width =
           activeTool === "arrow"
-            ? coords.normalizedX - drawingStartPoint.x
+            ? imageCoords.x - drawingStartPoint.x
             : endX - startX;
         const height =
           activeTool === "arrow"
-            ? coords.normalizedY - drawingStartPoint.y
+            ? imageCoords.y - drawingStartPoint.y
             : endY - startY;
 
         // Only add if it has some size
@@ -4069,8 +4249,8 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               type: "arrow",
               startX: drawingStartPoint.x,
               startY: drawingStartPoint.y,
-              endX: coords.normalizedX,
-              endY: coords.normalizedY,
+              endX: imageCoords.x,
+              endY: imageCoords.y,
               headSize: 12,
               doubleHeaded: false,
               userId: randomUser.userId,
@@ -4092,7 +4272,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
             // Push to local history for undo/redo
             pushHistoryEntry({
-              type: 'annotation_draw',
+              type: "annotation_draw",
               annotation: newAnnotation,
             });
           }
@@ -4120,6 +4300,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     activeTool,
     drawingStartPoint,
     screenToImageCoords,
+    transformDisplayToImageCoords,
     storeAnnotations,
     setAnnotations,
     selectAnnotation,
@@ -4308,7 +4489,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             // Push move history with before/after positions
             if (annotation.type === "rectangle") {
               pushHistoryEntry({
-                type: 'annotation_move',
+                type: "annotation_move",
                 id: selectedAnnotationId,
                 before: {
                   x: annotationDragStart.annotationX,
@@ -4321,7 +4502,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               });
             } else if (annotation.type === "circle") {
               pushHistoryEntry({
-                type: 'annotation_move',
+                type: "annotation_move",
                 id: selectedAnnotationId,
                 before: {
                   x: annotationDragStart.annotationX,
@@ -4338,7 +4519,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               });
             } else if (annotation.type === "arrow") {
               pushHistoryEntry({
-                type: 'annotation_move',
+                type: "annotation_move",
                 id: selectedAnnotationId,
                 before: {
                   x: annotationDragStart.annotationX,
@@ -4362,7 +4543,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             // Push resize history with before/after dimensions
             if (annotation.type === "rectangle") {
               pushHistoryEntry({
-                type: 'annotation_resize',
+                type: "annotation_resize",
                 id: selectedAnnotationId,
                 before: {
                   x: annotationDragStart.annotationX,
@@ -4379,7 +4560,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               });
             } else if (annotation.type === "circle") {
               pushHistoryEntry({
-                type: 'annotation_resize',
+                type: "annotation_resize",
                 id: selectedAnnotationId,
                 before: {
                   centerX: annotationDragStart.centerX,
@@ -4396,7 +4577,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               });
             } else if (annotation.type === "arrow") {
               pushHistoryEntry({
-                type: 'annotation_resize',
+                type: "annotation_resize",
                 id: selectedAnnotationId,
                 before: {
                   startX: annotationDragStart.startX,
@@ -6177,9 +6358,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                             <EditIcon sx={{ fontSize: 14 }} />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip
-                          title={annotation.locked ? "Unlock" : "Lock"}
-                        >
+                        <Tooltip title={annotation.locked ? "Unlock" : "Lock"}>
                           <IconButton
                             size="small"
                             onClick={(e) => {
@@ -6220,9 +6399,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                                 padding: "4px",
                                 color: annotation.locked ? "#444" : "#666",
                                 "&:hover": {
-                                  color: annotation.locked
-                                    ? "#444"
-                                    : "#c45c5c",
+                                  color: annotation.locked ? "#444" : "#c45c5c",
                                 },
                               }}
                             >
@@ -6312,7 +6489,14 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                 <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
                   Color
                 </Typography>
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, alignItems: "center" }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 0.5,
+                    alignItems: "center",
+                  }}
+                >
                   {ANNOTATION_COLORS.map((colorOption) => (
                     <Tooltip
                       key={colorOption.value}
@@ -6418,7 +6602,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                     onMouseDown={(e) => {
                       e.preventDefault();
                       colorSliderRef.current = e.currentTarget;
-                      setDraggingColorSlider('hue');
+                      setDraggingColorSlider("hue");
                       // Update immediately on click
                       const rect = e.currentTarget.getBoundingClientRect();
                       const x = e.clientX - rect.left;
@@ -6459,7 +6643,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                     onMouseDown={(e) => {
                       e.preventDefault();
                       colorSliderRef.current = e.currentTarget;
-                      setDraggingColorSlider('saturation');
+                      setDraggingColorSlider("saturation");
                       // Update immediately on click
                       const rect = e.currentTarget.getBoundingClientRect();
                       const x = e.clientX - rect.left;
@@ -6500,12 +6684,14 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                     onMouseDown={(e) => {
                       e.preventDefault();
                       colorSliderRef.current = e.currentTarget;
-                      setDraggingColorSlider('lightness');
+                      setDraggingColorSlider("lightness");
                       // Update immediately on click
                       const rect = e.currentTarget.getBoundingClientRect();
                       const x = e.clientX - rect.left;
                       const light = Math.round((x / rect.width) * 100);
-                      setCustomColorLightness(Math.max(0, Math.min(100, light)));
+                      setCustomColorLightness(
+                        Math.max(0, Math.min(100, light)),
+                      );
                     }}
                   >
                     <Box
@@ -6564,9 +6750,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                   Apply Color
                 </Button>
               </Popover>
-              <Box
-                sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}
-              >
+              <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
                 <Button
                   size="small"
                   onClick={handleCancelAnnotationEdit}
@@ -7197,8 +7381,8 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             }}
           >
             <Typography sx={{ fontSize: 11, color: "#ffb400" }}>
-              Annotations will be permanently baked into the exported image
-              and cannot be removed.
+              Annotations will be permanently baked into the exported image and
+              cannot be removed.
             </Typography>
           </Box>
           <Typography
