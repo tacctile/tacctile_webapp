@@ -14,9 +14,6 @@ import { styled } from "@mui/material/styles";
 import MicIcon from "@mui/icons-material/Mic";
 import VideocamIcon from "@mui/icons-material/Videocam";
 import FileUploadIcon from "@mui/icons-material/FileUpload";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import ExpandLessIcon from "@mui/icons-material/ExpandLess";
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ZoomInIcon from "@mui/icons-material/ZoomIn";
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
@@ -1370,7 +1367,6 @@ interface AudioToolProps {
 
 export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [selectedFile, setSelectedFile] = useState<MediaFileItem | null>(null);
-  const [videoRefCollapsed, setVideoRefCollapsed] = useState(true); // collapsed by default, expands when video exists
   const [flags, setFlags] = useState<Flag[]>([]);
 
   // Draggable divider state for Filters/Flags sections (percentage for filters section)
@@ -1549,14 +1545,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     }
   }, [loadedAudio, selectedFile]);
 
-  // Auto-expand video reference when video exists
-  useEffect(() => {
-    if (loadedAudio?.hasVideo) {
-      setVideoRefCollapsed(false);
-    } else {
-      setVideoRefCollapsed(true);
-    }
-  }, [loadedAudio?.hasVideo]);
 
   // Generate test flags when test_drums.mp3 is loaded
   useEffect(() => {
@@ -1602,7 +1590,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const { isVideoLoading, isVideoReady } = useVideoSync({
     videoRef,
     videoUrl: loadedVideoUrl,
-    isActive: !expandVideoModalOpen && !videoRefCollapsed && !!loadedVideoUrl,
+    isActive: !expandVideoModalOpen && !!loadedVideoUrl,
     duration: loadedAudio?.duration || 0,
     isScrubbing: isVideoScrubbing,
   });
@@ -1825,9 +1813,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         if (loaded) setStoreLoadedAudioFile(loaded);
         setSelectedFile(loadedFile);
 
-        // Expand video reference panel since we have video
-        setVideoRefCollapsed(false);
-
         setIsLoadingAudio(false);
       } catch (error) {
         console.error("Error loading video audio:", error);
@@ -1841,7 +1826,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         const loaded = toLoadedAudioFile(loadedFile);
         if (loaded) setStoreLoadedAudioFile(loaded);
         setSelectedFile(loadedFile);
-        setVideoRefCollapsed(false);
         setIsLoadingAudio(false);
       }
     },
@@ -2819,10 +2803,13 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
         overflow: "hidden",
       }}
     >
-      {/* Video Reference - collapsible section (always show header) */}
+      {/* Video Reference - Always visible, no collapse */}
       <InspectorSection sx={{ flexShrink: 0 }}>
         <InspectorSectionHeader
-          onClick={() => setVideoRefCollapsed(!videoRefCollapsed)}
+          sx={{
+            cursor: "default",
+            "&:hover": { backgroundColor: "#1a1a1a" },
+          }}
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
             <InspectorSectionTitle>Video Reference</InspectorSectionTitle>
@@ -2830,14 +2817,8 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
               <VideocamIcon sx={{ fontSize: 12, color: "#19abb5" }} />
             )}
           </Box>
-          {videoRefCollapsed ? (
-            <ChevronRightIcon sx={{ fontSize: 16, color: "#666" }} />
-          ) : (
-            <ExpandMoreIcon sx={{ fontSize: 16, color: "#666" }} />
-          )}
         </InspectorSectionHeader>
-        {!videoRefCollapsed && (
-          <InspectorSectionContent sx={{ p: 0 }}>
+        <InspectorSectionContent sx={{ p: 0 }}>
             {loadedAudio?.hasVideo && loadedVideoUrl ? (
               <>
                 <Box
@@ -2964,7 +2945,6 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
               </Box>
             )}
           </InspectorSectionContent>
-        )}
       </InspectorSection>
 
       {/* Container for Filters and Flags with draggable divider */}
