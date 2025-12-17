@@ -510,13 +510,22 @@ const GalleryThumbnail = styled(Box)({
   backgroundColor: "#252525",
 });
 
-// Flag badge for gallery
+// Flag badge for gallery (upper right) - matches source badge styling
 const GalleryFlagBadge = styled(Box)({
+  position: "absolute",
+  top: 4,
+  right: 4,
   display: "flex",
   alignItems: "center",
+  justifyContent: "center",
   gap: 2,
-  fontSize: "10px",
+  backgroundColor: "rgba(0, 0, 0, 0.7)",
+  borderRadius: 4,
+  padding: "2px 6px",
+  fontSize: 10,
+  fontWeight: 600,
   color: "#19abb5",
+  zIndex: 2,
 });
 
 // Versions modal styles
@@ -2271,7 +2280,11 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
       // Generate filename: EXP_[original_filename]_[username]_[YYYYMMDD]_[HHMMSS].[ext]
       const originalName = importedFileName || loadedImage.fileName || "image";
-      const nameWithoutExt = originalName.replace(/\.[^/.]+$/, "");
+      let nameWithoutExt = originalName.replace(/\.[^/.]+$/, "");
+      // Strip existing EXP_ prefix to prevent chaining (EXP_EXP_EXP_...)
+      if (nameWithoutExt.startsWith("EXP_")) {
+        nameWithoutExt = nameWithoutExt.substring(4);
+      }
       const extension = originalName.split(".").pop()?.toLowerCase() || "jpg";
       const username = "user"; // Placeholder username
       const now = new Date();
@@ -2303,6 +2316,32 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
           // Create a separate blob URL for the gallery (don't revoke this one)
           const galleryUrl = URL.createObjectURL(blob);
 
+          // Find the root original ID by tracing the parentId chain
+          // This ensures all generations of exports link to the same root original
+          const allItems = [...imageFiles, ...importedImages];
+          let rootId = loadedImage.id;
+          if (loadedImage.source === "export" && loadedImage.parentId) {
+            // Trace back to the root original
+            let currentId = loadedImage.parentId;
+            let maxDepth = 100; // Safety limit to prevent infinite loops
+            while (maxDepth > 0) {
+              const parentItem = allItems.find((item) => item.id === currentId);
+              if (!parentItem) {
+                // Parent not found, use what we have
+                rootId = currentId;
+                break;
+              }
+              if (parentItem.source !== "export" || !parentItem.parentId) {
+                // Found the root original (not an export)
+                rootId = parentItem.id;
+                break;
+              }
+              // Continue tracing up the chain
+              currentId = parentItem.parentId;
+              maxDepth--;
+            }
+          }
+
           // Add exported image to gallery
           const exportedItem = {
             id: `export-${Date.now()}`,
@@ -2318,7 +2357,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             hasFindings: false,
             gps: loadedImage.gps || null,
             source: "export" as const,
-            parentId: loadedImage.id, // Link to original image
+            parentId: rootId, // Link to root original (traced through chain)
           };
 
           setImportedImages((prev) => [...prev, exportedItem]);
@@ -2341,6 +2380,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     flipH,
     flipV,
     importedFileName,
+    importedImages,
     showToast,
   ]);
 
@@ -4652,109 +4692,88 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                   const hasVersions = (item.versionCount ?? 1) > 1;
                   const sourceInfo = getSourceBadgeInfo(item.source);
                   return (
-                    <Tooltip
+                    <StackedGridItem
                       key={item.id}
-                      title={hasVersions ? "Versions available" : ""}
-                      arrow
-                      placement="top"
-                      enterDelay={300}
+                      selected={item.id === loadedImage?.id}
+                      hasFindings={item.hasFindings}
+                      hasVersions={hasVersions}
+                      onClick={() => handleGalleryItemClick(item)}
+                      onDoubleClick={() => handleGalleryItemDoubleClick(item)}
                     >
-                      <StackedGridItem
-                        selected={item.id === loadedImage?.id}
-                        hasFindings={item.hasFindings}
-                        hasVersions={hasVersions}
-                        onClick={() => handleGalleryItemClick(item)}
-                        onDoubleClick={() => handleGalleryItemDoubleClick(item)}
-                      >
-                        <GridItemInner>
-                          <GalleryThumbnail>
-                            {item.thumbnailUrl ? (
-                              <img
-                                src={item.thumbnailUrl}
-                                alt={item.fileName}
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "cover",
-                                }}
-                              />
-                            ) : (
-                              <ImageIcon sx={{ fontSize: 24, color: "#999" }} />
-                            )}
-                          </GalleryThumbnail>
+                      <GridItemInner>
+                        <GalleryThumbnail>
+                          {item.thumbnailUrl ? (
+                            <img
+                              src={item.thumbnailUrl}
+                              alt={item.fileName}
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                              }}
+                            />
+                          ) : (
+                            <ImageIcon sx={{ fontSize: 24, color: "#999" }} />
+                          )}
+                        </GalleryThumbnail>
 
-                          {/* Source badge (upper left) */}
+                        {/* Source badge (upper left) - tooltip on badge only */}
+                        <Tooltip
+                          title={sourceInfo.tooltip}
+                          arrow
+                          placement="top"
+                        >
+                          <GallerySourceBadge>
+                            {sourceInfo.icon}
+                          </GallerySourceBadge>
+                        </Tooltip>
+
+                        {/* Version badge (lower right) - tooltip on badge only */}
+                        {hasVersions && (
                           <Tooltip
-                            title={sourceInfo.tooltip}
+                            title="Versions available"
                             arrow
                             placement="top"
                           >
-                            <GallerySourceBadge>
-                              {sourceInfo.icon}
-                            </GallerySourceBadge>
-                          </Tooltip>
-
-                          {/* Version badge (lower right) - only shown if has versions */}
-                          {hasVersions && (
                             <VersionBadge>
                               <LayersIcon sx={{ fontSize: 12 }} />
                               {item.versionCount}
                             </VersionBadge>
-                          )}
+                          </Tooltip>
+                        )}
 
-                          {/* Flag badge (upper right) */}
-                          {item.flagCount > 0 && (
-                            <Box
-                              sx={{
-                                position: "absolute",
-                                top: 4,
-                                right: 4,
-                                zIndex: 2,
-                              }}
+                        {/* Flag badge (upper right) */}
+                        {item.flagCount > 0 && (
+                          <GalleryFlagBadge>
+                            <svg
+                              width="10"
+                              height="10"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
                             >
-                              <GalleryFlagBadge
-                                sx={{
-                                  backgroundColor: "rgba(0,0,0,0.6)",
-                                  padding: "2px 4px",
-                                  borderRadius: 1,
-                                }}
-                              >
-                                <Box
-                                  component="span"
-                                  sx={{ display: "flex", alignItems: "center" }}
-                                >
-                                  <svg
-                                    width="10"
-                                    height="10"
-                                    viewBox="0 0 24 24"
-                                    fill="currentColor"
-                                  >
-                                    <path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z" />
-                                  </svg>
-                                </Box>
-                                {item.flagCount}
-                              </GalleryFlagBadge>
-                            </Box>
-                          )}
+                              <path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z" />
+                            </svg>
+                            {item.flagCount}
+                          </GalleryFlagBadge>
+                        )}
 
-                          {/* Filename overlay at bottom */}
-                          <GalleryOverlay>
-                            <Typography
-                              sx={{
-                                fontSize: "10px",
-                                color: "#fff",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                                width: "100%",
-                              }}
-                            >
-                              {item.fileName}
-                            </Typography>
-                          </GalleryOverlay>
-                        </GridItemInner>
-                      </StackedGridItem>
-                    </Tooltip>
+                        {/* Filename overlay at bottom */}
+                        <GalleryOverlay>
+                          <Typography
+                            sx={{
+                              fontSize: "10px",
+                              color: "#fff",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              width: "100%",
+                            }}
+                          >
+                            {item.fileName}
+                          </Typography>
+                        </GalleryOverlay>
+                      </GridItemInner>
+                    </StackedGridItem>
                   );
                 })}
               </ImageGalleryGrid>
