@@ -1383,6 +1383,36 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       cssFilters.push(`contrast(${shadowsContrast})`);
     }
 
+    // Whites slider: -100 to +100
+    // Controls the brightest point of the image (subtler than Highlights)
+    // Approximation: brightness adjustment with smaller multiplier
+    // At 0: no effect
+    // Positive: push brightest areas brighter (clip to white)
+    // Negative: pull brightest areas down (recover blown highlights)
+    if (filters.whites !== 0) {
+      // Brightness: 0.9 (at -100) to 1.1 (at +100)
+      // Subtler than Highlights which uses 0.2 multiplier
+      const whitesBrightness = 1 + (filters.whites / 100) * 0.1;
+      cssFilters.push(`brightness(${whitesBrightness})`);
+    }
+
+    // Blacks slider: -100 to +100
+    // Controls the darkest point of the image (subtler than Shadows)
+    // Approximation: brightness + contrast biased toward dark end
+    // At 0: no effect
+    // Positive: lift black point (darks become gray, reduces contrast floor)
+    // Negative: crush blacks deeper (near-blacks become true black)
+    if (filters.blacks !== 0) {
+      // Brightness: 0.85 (at -100) to 1.15 (at +100)
+      // Subtler than Shadows which uses 0.3 multiplier
+      const blacksBrightness = 1 + (filters.blacks / 100) * 0.15;
+      // Contrast: 1.1 (at -100) to 0.9 (at +100)
+      // Crushing blacks increases contrast at dark end, lifting reduces it
+      const blacksContrast = 1 - (filters.blacks / 100) * 0.1;
+      cssFilters.push(`brightness(${blacksBrightness})`);
+      cssFilters.push(`contrast(${blacksContrast})`);
+    }
+
     return cssFilters.length > 0 ? cssFilters.join(" ") : "none";
   }, [
     filters.exposure,
@@ -1393,6 +1423,8 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     filters.tint,
     filters.highlights,
     filters.shadows,
+    filters.whites,
+    filters.blacks,
   ]);
 
   // Toggle annotation visibility using store
