@@ -2149,11 +2149,11 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     setOverviewScrollOffset(newOffset);
   }, []);
 
-  // Zoom in/out button handlers - snap to 0.5 increments
+  // Zoom in/out button handlers - snap to 0.1 increments
   const handleZoomIn = useCallback(() => {
-    // Snap to next 0.5 increment
-    const newZoom = Math.min(10, Math.ceil(overviewZoom * 2) / 2 + 0.5);
-    const snappedZoom = Math.round(newZoom * 2) / 2; // Ensure clean 0.5 snap
+    // Snap to next 0.1 increment
+    const newZoom = Math.min(10, Math.round((overviewZoom + 0.1) * 10) / 10);
+    const snappedZoom = Math.round(newZoom * 10) / 10; // Ensure clean 0.1 snap
     const playheadTime = timestamp / 1000;
     const duration = loadedAudio?.duration || 0;
     const newVisibleDuration = duration / snappedZoom;
@@ -2170,9 +2170,9 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   }, [overviewZoom, timestamp, loadedAudio?.duration]);
 
   const handleZoomOut = useCallback(() => {
-    // Snap to previous 0.5 increment
-    const newZoom = Math.max(1, Math.floor(overviewZoom * 2) / 2 - 0.5);
-    const snappedZoom = Math.max(1, Math.round(newZoom * 2) / 2); // Ensure clean 0.5 snap and min of 1
+    // Snap to previous 0.1 increment
+    const newZoom = Math.max(1, Math.round((overviewZoom - 0.1) * 10) / 10);
+    const snappedZoom = Math.max(1, Math.round(newZoom * 10) / 10); // Ensure clean 0.1 snap and min of 1
     const playheadTime = timestamp / 1000;
     const duration = loadedAudio?.duration || 0;
     const newVisibleDuration = duration / snappedZoom;
@@ -3545,15 +3545,17 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
           sx={{
             display: "flex",
             alignItems: "center",
-            gap: 2,
+            gap: 1.5,
             px: 1.5,
             py: 0.75,
             backgroundColor: "#111",
             borderBottom: "1px solid #252525",
           }}
         >
-          {/* Zoom controls */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flex: 1 }}>
+          {/* Zoom controls - 2/3 width */}
+          <Box
+            sx={{ display: "flex", alignItems: "center", gap: 0.5, flex: 2 }}
+          >
             <Tooltip title="Zoom to selection">
               <IconButton
                 size="small"
@@ -3586,14 +3588,14 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
               value={overviewZoom}
               min={1}
               max={10}
-              step={0.5}
+              step={0.1}
               onChange={(_, value) => handleZoomSliderChange(value as number)}
               disabled={!loadedAudio}
               sx={{
                 flex: 1,
                 minWidth: 60,
                 color: "#19abb5",
-                "& .MuiSlider-thumb": { width: 10, height: 10 },
+                "& .MuiSlider-thumb": { width: 18, height: 18 },
                 "& .MuiSlider-track": { height: 2 },
                 "& .MuiSlider-rail": { height: 2, backgroundColor: "#333" },
               }}
@@ -3623,14 +3625,11 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             </Typography>
           </Box>
 
-          {/* Divider */}
-          <Box sx={{ width: 1, height: 16, backgroundColor: "#333" }} />
-
-          {/* Height control */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, minWidth: 140 }}>
-            <Typography sx={{ fontSize: 10, color: "#666" }}>
-              Height
-            </Typography>
+          {/* Height control - 1/3 width */}
+          <Box
+            sx={{ display: "flex", alignItems: "center", gap: 0.5, flex: 1 }}
+          >
+            <Typography sx={{ fontSize: 10, color: "#666" }}>Height</Typography>
             <Slider
               value={waveformHeight}
               min={0.5}
@@ -3642,7 +3641,7 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
                 flex: 1,
                 minWidth: 50,
                 color: "#19abb5",
-                "& .MuiSlider-thumb": { width: 10, height: 10 },
+                "& .MuiSlider-thumb": { width: 18, height: 18 },
                 "& .MuiSlider-track": { height: 2 },
                 "& .MuiSlider-rail": { height: 2, backgroundColor: "#333" },
               }}
