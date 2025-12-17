@@ -3,9 +3,9 @@
  * Zustand store for managing image tool state (Adobe Lightroom-inspired)
  */
 
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { immer } from 'zustand/middleware/immer';
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import { immer } from "zustand/middleware/immer";
 import type {
   ImageToolState,
   ImageViewMode,
@@ -17,14 +17,14 @@ import type {
   ImageHistoryEntry,
   ImageToolType,
   AnnotationDefaults,
-} from '../types/image';
+} from "../types/image";
 import {
   DEFAULT_ADJUSTMENTS,
   DEFAULT_CROP_SETTINGS,
   DEFAULT_ANNOTATION_DEFAULTS,
   PRESET_FILTERS,
   USER_COLORS,
-} from '../types/image';
+} from "../types/image";
 
 // ============================================================================
 // STORE ACTIONS INTERFACE
@@ -32,7 +32,11 @@ import {
 
 interface ImageToolActions {
   // Image loading
-  loadImage: (fileId: string, investigationId: string, imageUrl: string) => void;
+  loadImage: (
+    fileId: string,
+    investigationId: string,
+    imageUrl: string,
+  ) => void;
   setImageElement: (element: HTMLImageElement) => void;
   clearImage: () => void;
 
@@ -53,7 +57,10 @@ interface ImageToolActions {
   setActiveTool: (tool: ImageToolType) => void;
 
   // Adjustments (non-destructive)
-  setAdjustment: <K extends keyof ImageAdjustments>(key: K, value: ImageAdjustments[K]) => void;
+  setAdjustment: <K extends keyof ImageAdjustments>(
+    key: K,
+    value: ImageAdjustments[K],
+  ) => void;
   setAdjustments: (adjustments: Partial<ImageAdjustments>) => void;
   resetAdjustments: () => void;
   resetAdjustment: (key: keyof ImageAdjustments) => void;
@@ -69,12 +76,16 @@ interface ImageToolActions {
   clearFilter: () => void;
 
   // Annotations
-  addAnnotation: (annotation: Omit<ImageAnnotation, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  addAnnotation: (
+    annotation: Omit<ImageAnnotation, "id" | "createdAt" | "updatedAt">,
+  ) => void;
   updateAnnotation: (id: string, updates: Partial<ImageAnnotation>) => void;
   deleteAnnotation: (id: string) => void;
   selectAnnotation: (id: string | null) => void;
   setAnnotationVisibility: (id: string, visible: boolean) => void;
+  setAllAnnotationsVisibility: (visible: boolean) => void;
   setAnnotationDefaults: (defaults: Partial<AnnotationDefaults>) => void;
+  setAnnotations: (annotations: ImageAnnotation[]) => void;
   clearAnnotations: () => void;
   bringAnnotationToFront: (id: string) => void;
   sendAnnotationToBack: (id: string) => void;
@@ -102,7 +113,9 @@ interface ImageToolActions {
   setLoading: (loading: boolean) => void;
   setProcessing: (processing: boolean) => void;
   setError: (error: string | null) => void;
-  togglePanel: (panel: 'adjustments' | 'annotations' | 'recipes' | 'histogram') => void;
+  togglePanel: (
+    panel: "adjustments" | "annotations" | "recipes" | "histogram",
+  ) => void;
 
   // Reset
   reset: () => void;
@@ -112,7 +125,8 @@ interface ImageToolActions {
 // HELPER FUNCTIONS
 // ============================================================================
 
-const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+const generateId = () =>
+  `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 // ============================================================================
 // INITIAL STATE
@@ -127,8 +141,8 @@ const initialState: ImageToolState = {
   originalDimensions: null,
 
   // View state
-  viewMode: 'single',
-  compareMode: 'side-by-side',
+  viewMode: "single",
+  compareMode: "side-by-side",
   compareEditIds: [null, null],
   zoom: 100,
   panX: 0,
@@ -136,7 +150,7 @@ const initialState: ImageToolState = {
   fitToView: true,
 
   // Active tool
-  activeTool: 'pan',
+  activeTool: "pan",
 
   // Current adjustments (non-destructive)
   adjustments: { ...DEFAULT_ADJUSTMENTS },
@@ -158,8 +172,8 @@ const initialState: ImageToolState = {
     id: generateId(),
     name: filter.name,
     description: `Preset filter: ${filter.name}`,
-    userId: 'system',
-    userDisplayName: 'System',
+    userId: "system",
+    userDisplayName: "System",
     adjustments: { ...DEFAULT_ADJUSTMENTS, ...filter.adjustments },
     crop: { ...DEFAULT_CROP_SETTINGS },
     filterId: undefined,
@@ -313,7 +327,7 @@ export const useImageToolStore = create<ImageToolState & ImageToolActions>()(
         set((state) => {
           state.activeTool = tool;
           // Deselect annotation when switching to non-annotation tool
-          if (['pan', 'zoom', 'crop', 'eyedropper'].includes(tool)) {
+          if (["pan", "zoom", "crop", "eyedropper"].includes(tool)) {
             state.selectedAnnotationId = null;
           }
         });
@@ -334,7 +348,7 @@ export const useImageToolStore = create<ImageToolState & ImageToolActions>()(
 
       resetAdjustments: () => {
         const { pushHistory } = get();
-        pushHistory('Reset all adjustments');
+        pushHistory("Reset all adjustments");
         set((state) => {
           state.adjustments = { ...DEFAULT_ADJUSTMENTS };
           state.activeFilterId = null;
@@ -353,7 +367,10 @@ export const useImageToolStore = create<ImageToolState & ImageToolActions>()(
       setCrop: (crop) => {
         set((state) => {
           Object.assign(state.crop, crop);
-          if (!state.crop.enabled && (crop.x !== undefined || crop.y !== undefined)) {
+          if (
+            !state.crop.enabled &&
+            (crop.x !== undefined || crop.y !== undefined)
+          ) {
             state.crop.enabled = true;
           }
         });
@@ -361,7 +378,7 @@ export const useImageToolStore = create<ImageToolState & ImageToolActions>()(
 
       applyCrop: () => {
         const { pushHistory } = get();
-        pushHistory('Apply crop');
+        pushHistory("Apply crop");
         set((state) => {
           state.crop.enabled = false;
         });
@@ -375,7 +392,7 @@ export const useImageToolStore = create<ImageToolState & ImageToolActions>()(
 
       resetCrop: () => {
         const { pushHistory } = get();
-        pushHistory('Reset crop');
+        pushHistory("Reset crop");
         set((state) => {
           state.crop = { ...DEFAULT_CROP_SETTINGS };
         });
@@ -428,7 +445,7 @@ export const useImageToolStore = create<ImageToolState & ImageToolActions>()(
 
       deleteAnnotation: (id) => {
         const { pushHistory } = get();
-        pushHistory('Delete annotation');
+        pushHistory("Delete annotation");
         set((state) => {
           state.annotations = state.annotations.filter((a) => a.id !== id);
           if (state.selectedAnnotationId === id) {
@@ -452,16 +469,31 @@ export const useImageToolStore = create<ImageToolState & ImageToolActions>()(
         });
       },
 
+      setAllAnnotationsVisibility: (visible) => {
+        set((state) => {
+          state.annotations.forEach((annotation) => {
+            annotation.visible = visible;
+          });
+        });
+      },
+
       setAnnotationDefaults: (defaults) => {
         set((state) => {
           Object.assign(state.annotationDefaults, defaults);
         });
       },
 
+      setAnnotations: (annotations) => {
+        set((state) => {
+          state.annotations = annotations;
+          state.selectedAnnotationId = null;
+        });
+      },
+
       clearAnnotations: () => {
         const { pushHistory, annotations } = get();
         if (annotations.length > 0) {
-          pushHistory('Clear all annotations');
+          pushHistory("Clear all annotations");
           set((state) => {
             state.annotations = [];
             state.selectedAnnotationId = null;
@@ -497,7 +529,15 @@ export const useImageToolStore = create<ImageToolState & ImageToolActions>()(
 
       // History
       pushHistory: (action) => {
-        const { adjustments, crop, annotations, activeFilterId, maxHistoryLength, historyIndex, history } = get();
+        const {
+          adjustments,
+          crop,
+          annotations,
+          activeFilterId,
+          maxHistoryLength,
+          historyIndex,
+          history,
+        } = get();
         const entry: ImageHistoryEntry = {
           id: generateId(),
           timestamp: new Date(),
@@ -530,9 +570,13 @@ export const useImageToolStore = create<ImageToolState & ImageToolActions>()(
           if (!prevEntry) return;
           set((state) => {
             state.historyIndex = historyIndex - 1;
-            state.adjustments = JSON.parse(JSON.stringify(prevEntry.adjustments));
+            state.adjustments = JSON.parse(
+              JSON.stringify(prevEntry.adjustments),
+            );
             state.crop = JSON.parse(JSON.stringify(prevEntry.crop));
-            state.annotations = JSON.parse(JSON.stringify(prevEntry.annotations));
+            state.annotations = JSON.parse(
+              JSON.stringify(prevEntry.annotations),
+            );
             state.activeFilterId = prevEntry.activeFilterId;
           });
         }
@@ -545,9 +589,13 @@ export const useImageToolStore = create<ImageToolState & ImageToolActions>()(
           if (!nextEntry) return;
           set((state) => {
             state.historyIndex = historyIndex + 1;
-            state.adjustments = JSON.parse(JSON.stringify(nextEntry.adjustments));
+            state.adjustments = JSON.parse(
+              JSON.stringify(nextEntry.adjustments),
+            );
             state.crop = JSON.parse(JSON.stringify(nextEntry.crop));
-            state.annotations = JSON.parse(JSON.stringify(nextEntry.annotations));
+            state.annotations = JSON.parse(
+              JSON.stringify(nextEntry.annotations),
+            );
             state.activeFilterId = nextEntry.activeFilterId;
           });
         }
@@ -566,14 +614,14 @@ export const useImageToolStore = create<ImageToolState & ImageToolActions>()(
       // Recipes
       saveRecipe: (name, description, tags = []) => {
         const { adjustments, crop, activeFilterId, annotations } = get();
-        const userId = 'current-user'; // Will be replaced with actual user ID
+        const userId = "current-user"; // Will be replaced with actual user ID
         set((state) => {
           state.recipes.push({
             id: generateId(),
             name,
             description,
             userId,
-            userDisplayName: 'Current User',
+            userDisplayName: "Current User",
             adjustments: JSON.parse(JSON.stringify(adjustments)),
             crop: JSON.parse(JSON.stringify(crop)),
             filterId: activeFilterId ?? undefined,
@@ -620,21 +668,24 @@ export const useImageToolStore = create<ImageToolState & ImageToolActions>()(
 
       // User edits
       saveUserEdit: (name) => {
-        const { adjustments, crop, activeFilterId, annotations, userEdits } = get();
-        const userId = 'current-user'; // Will be replaced with actual user ID
-        const colorIndex = userEdits.filter((e) => e.userId === userId).length % USER_COLORS.length;
+        const { adjustments, crop, activeFilterId, annotations, userEdits } =
+          get();
+        const userId = "current-user"; // Will be replaced with actual user ID
+        const colorIndex =
+          userEdits.filter((e) => e.userId === userId).length %
+          USER_COLORS.length;
 
         set((state) => {
           state.userEdits.push({
             id: generateId(),
             userId,
-            userDisplayName: 'Current User',
+            userDisplayName: "Current User",
             recipeName: name,
             adjustments: JSON.parse(JSON.stringify(adjustments)),
             crop: JSON.parse(JSON.stringify(crop)),
             filterId: activeFilterId ?? undefined,
             annotations: JSON.parse(JSON.stringify(annotations)),
-            color: USER_COLORS[colorIndex] ?? '#19abb5',
+            color: USER_COLORS[colorIndex] ?? "#19abb5",
             createdAt: new Date(),
             updatedAt: new Date(),
           });
@@ -645,7 +696,9 @@ export const useImageToolStore = create<ImageToolState & ImageToolActions>()(
         const { userEdits, pushHistory } = get();
         const edit = userEdits.find((e) => e.id === editId);
         if (edit) {
-          pushHistory(`Load edit: ${edit.recipeName} by ${edit.userDisplayName}`);
+          pushHistory(
+            `Load edit: ${edit.recipeName} by ${edit.userDisplayName}`,
+          );
           set((state) => {
             state.adjustments = JSON.parse(JSON.stringify(edit.adjustments));
             state.crop = JSON.parse(JSON.stringify(edit.crop));
@@ -702,16 +755,16 @@ export const useImageToolStore = create<ImageToolState & ImageToolActions>()(
       togglePanel: (panel) => {
         set((state) => {
           switch (panel) {
-            case 'adjustments':
+            case "adjustments":
               state.showAdjustmentsPanel = !state.showAdjustmentsPanel;
               break;
-            case 'annotations':
+            case "annotations":
               state.showAnnotationsPanel = !state.showAnnotationsPanel;
               break;
-            case 'recipes':
+            case "recipes":
               state.showRecipesPanel = !state.showRecipesPanel;
               break;
-            case 'histogram':
+            case "histogram":
               state.showHistogramPanel = !state.showHistogramPanel;
               break;
           }
@@ -729,7 +782,7 @@ export const useImageToolStore = create<ImageToolState & ImageToolActions>()(
       },
     })),
     {
-      name: 'tacctile-image-tool',
+      name: "tacctile-image-tool",
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         // Only persist user preferences and custom recipes - never persist dynamic data
@@ -748,11 +801,16 @@ export const useImageToolStore = create<ImageToolState & ImageToolActions>()(
         return {
           ...currentState,
           // Only restore preferences, not data
-          annotationDefaults: persisted.annotationDefaults ?? currentState.annotationDefaults,
-          showAdjustmentsPanel: persisted.showAdjustmentsPanel ?? currentState.showAdjustmentsPanel,
-          showAnnotationsPanel: persisted.showAnnotationsPanel ?? currentState.showAnnotationsPanel,
-          showRecipesPanel: persisted.showRecipesPanel ?? currentState.showRecipesPanel,
-          showHistogramPanel: persisted.showHistogramPanel ?? currentState.showHistogramPanel,
+          annotationDefaults:
+            persisted.annotationDefaults ?? currentState.annotationDefaults,
+          showAdjustmentsPanel:
+            persisted.showAdjustmentsPanel ?? currentState.showAdjustmentsPanel,
+          showAnnotationsPanel:
+            persisted.showAnnotationsPanel ?? currentState.showAnnotationsPanel,
+          showRecipesPanel:
+            persisted.showRecipesPanel ?? currentState.showRecipesPanel,
+          showHistogramPanel:
+            persisted.showHistogramPanel ?? currentState.showHistogramPanel,
           // Merge user recipes with preset recipes
           recipes: [
             ...currentState.recipes.filter((r) => r.isPreset),
@@ -760,8 +818,8 @@ export const useImageToolStore = create<ImageToolState & ImageToolActions>()(
           ],
         };
       },
-    }
-  )
+    },
+  ),
 );
 
 // ============================================================================
@@ -770,17 +828,23 @@ export const useImageToolStore = create<ImageToolState & ImageToolActions>()(
 
 export const selectImageUrl = (state: ImageToolState) => state.imageUrl;
 export const selectImageViewMode = (state: ImageToolState) => state.viewMode;
-export const selectImageAdjustments = (state: ImageToolState) => state.adjustments;
+export const selectImageAdjustments = (state: ImageToolState) =>
+  state.adjustments;
 export const selectImageCrop = (state: ImageToolState) => state.crop;
-export const selectImageAnnotations = (state: ImageToolState) => state.annotations;
+export const selectImageAnnotations = (state: ImageToolState) =>
+  state.annotations;
 export const selectImageRecipes = (state: ImageToolState) => state.recipes;
 export const selectUserEdits = (state: ImageToolState) => state.userEdits;
-export const selectActiveUserEdit = (state: ImageToolState) => state.activeUserEditId;
+export const selectActiveUserEdit = (state: ImageToolState) =>
+  state.activeUserEditId;
 export const selectImageZoom = (state: ImageToolState) => state.zoom;
-export const selectImageActiveTool = (state: ImageToolState) => state.activeTool;
-export const selectSelectedAnnotation = (state: ImageToolState) => state.selectedAnnotationId;
+export const selectImageActiveTool = (state: ImageToolState) =>
+  state.activeTool;
+export const selectSelectedAnnotation = (state: ImageToolState) =>
+  state.selectedAnnotationId;
 export const selectImageIsLoading = (state: ImageToolState) => state.isLoading;
-export const selectImageIsProcessing = (state: ImageToolState) => state.isProcessing;
+export const selectImageIsProcessing = (state: ImageToolState) =>
+  state.isProcessing;
 export const selectImageError = (state: ImageToolState) => state.error;
 
 export default useImageToolStore;

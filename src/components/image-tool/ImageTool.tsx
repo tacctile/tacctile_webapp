@@ -1351,6 +1351,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const deleteAnnotation = useImageToolStore((state) => state.deleteAnnotation);
   const updateAnnotation = useImageToolStore((state) => state.updateAnnotation);
   const pushHistory = useImageToolStore((state) => state.pushHistory);
+  const setAnnotations = useImageToolStore((state) => state.setAnnotations);
+  const setAllAnnotationsVisibility = useImageToolStore(
+    (state) => state.setAllAnnotationsVisibility,
+  );
 
   // Drawing state for annotation in progress
   const [isDrawingAnnotation, setIsDrawingAnnotation] = useState(false);
@@ -1505,10 +1509,13 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     return ZOOM_MIN;
   }, []);
 
-  // Section collapse states
+  // Section collapse states - only navigator is collapsible now
   const [navigatorCollapsed, setNavigatorCollapsed] = useState(false);
-  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
-  const [annotationsCollapsed, setAnnotationsCollapsed] = useState(false);
+
+  // Per-image annotation persistence
+  const annotationsPerImageRef = useRef<Map<string, StoreImageAnnotation[]>>(
+    new Map(),
+  );
 
   // Divider state for filters/annotations split (percentage for filters section)
   const [sectionDividerPosition, setSectionDividerPosition] = useState(60); // 60% for filters
@@ -1567,8 +1574,42 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     }
   }, [loadedFileId]);
 
+  // Helper to save current annotations for the loaded image
+  const saveCurrentImageAnnotations = useCallback(() => {
+    if (loadedImage?.id && storeAnnotations.length > 0) {
+      annotationsPerImageRef.current.set(
+        loadedImage.id,
+        JSON.parse(JSON.stringify(storeAnnotations)),
+      );
+    }
+  }, [loadedImage?.id, storeAnnotations]);
+
+  // Helper to restore annotations for an image
+  const restoreImageAnnotations = useCallback(
+    (imageId: string) => {
+      const savedAnnotations = annotationsPerImageRef.current.get(imageId);
+      if (savedAnnotations && savedAnnotations.length > 0) {
+        setAnnotations(savedAnnotations);
+      }
+    },
+    [setAnnotations],
+  );
+
+  // Keep the annotations map in sync whenever annotations change for the current image
+  useEffect(() => {
+    if (loadedImage?.id && storeAnnotations.length > 0) {
+      annotationsPerImageRef.current.set(
+        loadedImage.id,
+        JSON.parse(JSON.stringify(storeAnnotations)),
+      );
+    }
+  }, [loadedImage?.id, storeAnnotations]);
+
   const handleDoubleClick = useCallback(
     (item: (typeof imageFiles)[0]) => {
+      // Save current image's annotations before switching
+      saveCurrentImageAnnotations();
+
       setLoadedImage(item);
       setSelectedFile(item);
       setFilters(defaultFilters);
@@ -1589,18 +1630,27 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       // Clear history stacks for new image
       setUndoStack([]);
       setRedoStack([]);
-      // Clear annotations from store for new image
+      // Clear current annotations, then restore saved ones for this image
       clearAnnotations();
+      restoreImageAnnotations(item.id);
       setActiveTool(null);
       // Persist loaded file ID in navigation store
       setLoadedFile("images", item.id);
     },
-    [setLoadedFile, clearAnnotations],
+    [
+      setLoadedFile,
+      clearAnnotations,
+      saveCurrentImageAnnotations,
+      restoreImageAnnotations,
+    ],
   );
 
   // Reusable function to load an image into the viewer (used by multiple handlers)
   const loadImageIntoViewer = useCallback(
     (item: ImageFileType) => {
+      // Save current image's annotations before switching
+      saveCurrentImageAnnotations();
+
       setLoadedImage(item as (typeof imageFiles)[0]);
       setSelectedFile(item as (typeof imageFiles)[0]);
       setFilters(defaultFilters);
@@ -1617,11 +1667,18 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       setFlipV(false);
       setUndoStack([]);
       setRedoStack([]);
+      // Clear current annotations, then restore saved ones for this image
       clearAnnotations();
+      restoreImageAnnotations(item.id);
       setActiveTool(null);
       setLoadedFile("images", item.id);
     },
-    [setLoadedFile, clearAnnotations],
+    [
+      setLoadedFile,
+      clearAnnotations,
+      saveCurrentImageAnnotations,
+      restoreImageAnnotations,
+    ],
   );
 
   // Handle single click on gallery item - opens modal if has versions
@@ -2128,12 +2185,17 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       const containerHeight = containerRect.height;
       const relativeY = e.clientY - containerRect.top;
 
-      // Calculate percentage (with min heights of 100px for each section)
-      const minPercent = (100 / containerHeight) * 100;
-      const maxPercent = 100 - minPercent;
+      // Calculate percentage with minimum heights:
+      // Filters section: 180px minimum (enough for header + several sliders)
+      // Annotations section: 300px minimum (enough for edit modal without scrollbar)
+      const filtersMinPx = 180;
+      const annotationsMinPx = 300;
+      const filtersMinPercent = (filtersMinPx / containerHeight) * 100;
+      const annotationsMaxPercent =
+        100 - (annotationsMinPx / containerHeight) * 100;
       const newPosition = Math.max(
-        minPercent,
-        Math.min(maxPercent, (relativeY / containerHeight) * 100),
+        filtersMinPercent,
+        Math.min(annotationsMaxPercent, (relativeY / containerHeight) * 100),
       );
 
       setSectionDividerPosition(newPosition);
@@ -2429,6 +2491,21 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     },
     [storeAnnotations, setAnnotationVisibility],
   );
+
+  // Toggle all annotations visibility (master eyeball)
+  const toggleAllAnnotationsVisibility = useCallback(() => {
+    if (storeAnnotations.length === 0) return;
+    // If any are hidden, show all; if all visible, hide all
+    const anyHidden = storeAnnotations.some((a) => !a.visible);
+    setAllAnnotationsVisibility(anyHidden);
+  }, [storeAnnotations, setAllAnnotationsVisibility]);
+
+  // Check if all annotations are visible (for master eyeball icon state)
+  const allAnnotationsVisible = useMemo(() => {
+    return (
+      storeAnnotations.length > 0 && storeAnnotations.every((a) => a.visible)
+    );
+  }, [storeAnnotations]);
 
   const toggleUserVisibility = (user: string) => {
     setUserVisibility((prev) => ({ ...prev, [user]: !prev[user] }));
@@ -5249,194 +5326,188 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
           minHeight: 0,
         }}
       >
-        {/* Filters Section */}
+        {/* Filters Section - Always visible, no collapse */}
         <InspectorSection
           sx={{
-            flex: filtersCollapsed
-              ? "0 0 auto"
-              : `0 0 ${sectionDividerPosition}%`,
-            minHeight: filtersCollapsed ? "auto" : 100,
-            overflow: "hidden",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          <SectionHeader onClick={() => setFiltersCollapsed(!filtersCollapsed)}>
-            <SectionTitle>Filters</SectionTitle>
-            {filtersCollapsed ? (
-              <ExpandMoreIcon sx={{ fontSize: 16, color: "#666" }} />
-            ) : (
-              <ExpandLessIcon sx={{ fontSize: 16, color: "#666" }} />
-            )}
-          </SectionHeader>
-          {!filtersCollapsed && (
-            <SectionContent
-              sx={{ pb: 2, flex: 1, overflow: "auto" }}
-              onMouseDown={handleFilterDragStart}
-              onMouseUp={handleFilterDragEnd}
-            >
-              {/* Basic */}
-              <FilterGroup>
-                <FilterGroupTitle>Basic</FilterGroupTitle>
-                <PrecisionSlider
-                  label="Exposure"
-                  value={filters.exposure}
-                  min={-5}
-                  max={5}
-                  step={0.1}
-                  onChange={handleFilterChange("exposure")}
-                  disabled={!loadedImage}
-                />
-                <PrecisionSlider
-                  label="Contrast"
-                  value={filters.contrast}
-                  min={-100}
-                  max={100}
-                  onChange={handleFilterChange("contrast")}
-                  disabled={!loadedImage}
-                />
-                <PrecisionSlider
-                  label="Highlights"
-                  value={filters.highlights}
-                  min={-100}
-                  max={100}
-                  onChange={handleFilterChange("highlights")}
-                  disabled={!loadedImage}
-                />
-                <PrecisionSlider
-                  label="Shadows"
-                  value={filters.shadows}
-                  min={-100}
-                  max={100}
-                  onChange={handleFilterChange("shadows")}
-                  disabled={!loadedImage}
-                />
-                <PrecisionSlider
-                  label="Whites"
-                  value={filters.whites}
-                  min={-100}
-                  max={100}
-                  onChange={handleFilterChange("whites")}
-                  disabled={!loadedImage}
-                />
-                <PrecisionSlider
-                  label="Blacks"
-                  value={filters.blacks}
-                  min={-100}
-                  max={100}
-                  onChange={handleFilterChange("blacks")}
-                  disabled={!loadedImage}
-                />
-              </FilterGroup>
-
-              {/* Color */}
-              <FilterGroup>
-                <FilterGroupTitle>Color</FilterGroupTitle>
-                <PrecisionSlider
-                  label="Temperature"
-                  value={filters.temperature}
-                  min={-100}
-                  max={100}
-                  onChange={handleFilterChange("temperature")}
-                  disabled={!loadedImage}
-                />
-                <PrecisionSlider
-                  label="Tint"
-                  value={filters.tint}
-                  min={-100}
-                  max={100}
-                  onChange={handleFilterChange("tint")}
-                  disabled={!loadedImage}
-                />
-                <PrecisionSlider
-                  label="Vibrance"
-                  value={filters.vibrance}
-                  min={-100}
-                  max={100}
-                  onChange={handleFilterChange("vibrance")}
-                  disabled={!loadedImage}
-                />
-                <PrecisionSlider
-                  label="Saturation"
-                  value={filters.saturation}
-                  min={-100}
-                  max={100}
-                  onChange={handleFilterChange("saturation")}
-                  disabled={!loadedImage}
-                />
-              </FilterGroup>
-
-              {/* Detail */}
-              <FilterGroup>
-                <FilterGroupTitle>Detail</FilterGroupTitle>
-                <PrecisionSlider
-                  label="Clarity"
-                  value={filters.clarity}
-                  min={-100}
-                  max={100}
-                  onChange={handleFilterChange("clarity")}
-                  disabled={!loadedImage}
-                />
-                <PrecisionSlider
-                  label="Sharpness"
-                  value={filters.sharpness}
-                  min={0}
-                  max={100}
-                  onChange={handleFilterChange("sharpness")}
-                  disabled={!loadedImage}
-                />
-                <PrecisionSlider
-                  label="Noise Red."
-                  value={filters.noiseReduction}
-                  min={0}
-                  max={100}
-                  onChange={handleFilterChange("noiseReduction")}
-                  disabled={!loadedImage}
-                />
-              </FilterGroup>
-
-              {/* Reset Button */}
-              <Button
-                fullWidth
-                size="small"
-                variant="outlined"
-                onClick={handleResetFilters}
-                disabled={!loadedImage}
-                sx={{
-                  mt: 1,
-                  fontSize: 10,
-                  color: "#666",
-                  borderColor: "#333",
-                  py: 0.5,
-                  "&:hover": { borderColor: "#19abb5", color: "#19abb5" },
-                }}
-              >
-                Reset All
-              </Button>
-            </SectionContent>
-          )}
-        </InspectorSection>
-
-        {/* Draggable Divider - only show when both sections are expanded */}
-        {!filtersCollapsed && !annotationsCollapsed && (
-          <HorizontalDivider
-            isDragging={isDraggingDivider}
-            onMouseDown={handleDividerMouseDown}
-          />
-        )}
-
-        {/* Annotations Section */}
-        <InspectorSection
-          sx={{
-            flex: annotationsCollapsed ? "0 0 auto" : 1,
-            minHeight: annotationsCollapsed ? "auto" : 100,
+            flex: `0 0 ${sectionDividerPosition}%`,
+            minHeight: 180,
             overflow: "hidden",
             display: "flex",
             flexDirection: "column",
           }}
         >
           <SectionHeader
-            onClick={() => setAnnotationsCollapsed(!annotationsCollapsed)}
+            sx={{
+              cursor: "default",
+              "&:hover": { backgroundColor: "#1a1a1a" },
+            }}
+          >
+            <SectionTitle>Filters</SectionTitle>
+            <Button
+              size="small"
+              onClick={handleResetFilters}
+              disabled={!loadedImage}
+              sx={{
+                fontSize: 9,
+                color: "#666",
+                py: 0.25,
+                px: 1,
+                minWidth: "auto",
+                textTransform: "none",
+                "&:hover": { color: "#19abb5", backgroundColor: "transparent" },
+              }}
+            >
+              Reset All
+            </Button>
+          </SectionHeader>
+          <SectionContent
+            sx={{ pb: 2, flex: 1, overflow: "auto" }}
+            onMouseDown={handleFilterDragStart}
+            onMouseUp={handleFilterDragEnd}
+          >
+            {/* Basic */}
+            <FilterGroup>
+              <FilterGroupTitle>Basic</FilterGroupTitle>
+              <PrecisionSlider
+                label="Exposure"
+                value={filters.exposure}
+                min={-5}
+                max={5}
+                step={0.1}
+                onChange={handleFilterChange("exposure")}
+                disabled={!loadedImage}
+              />
+              <PrecisionSlider
+                label="Contrast"
+                value={filters.contrast}
+                min={-100}
+                max={100}
+                onChange={handleFilterChange("contrast")}
+                disabled={!loadedImage}
+              />
+              <PrecisionSlider
+                label="Highlights"
+                value={filters.highlights}
+                min={-100}
+                max={100}
+                onChange={handleFilterChange("highlights")}
+                disabled={!loadedImage}
+              />
+              <PrecisionSlider
+                label="Shadows"
+                value={filters.shadows}
+                min={-100}
+                max={100}
+                onChange={handleFilterChange("shadows")}
+                disabled={!loadedImage}
+              />
+              <PrecisionSlider
+                label="Whites"
+                value={filters.whites}
+                min={-100}
+                max={100}
+                onChange={handleFilterChange("whites")}
+                disabled={!loadedImage}
+              />
+              <PrecisionSlider
+                label="Blacks"
+                value={filters.blacks}
+                min={-100}
+                max={100}
+                onChange={handleFilterChange("blacks")}
+                disabled={!loadedImage}
+              />
+            </FilterGroup>
+
+            {/* Color */}
+            <FilterGroup>
+              <FilterGroupTitle>Color</FilterGroupTitle>
+              <PrecisionSlider
+                label="Temperature"
+                value={filters.temperature}
+                min={-100}
+                max={100}
+                onChange={handleFilterChange("temperature")}
+                disabled={!loadedImage}
+              />
+              <PrecisionSlider
+                label="Tint"
+                value={filters.tint}
+                min={-100}
+                max={100}
+                onChange={handleFilterChange("tint")}
+                disabled={!loadedImage}
+              />
+              <PrecisionSlider
+                label="Vibrance"
+                value={filters.vibrance}
+                min={-100}
+                max={100}
+                onChange={handleFilterChange("vibrance")}
+                disabled={!loadedImage}
+              />
+              <PrecisionSlider
+                label="Saturation"
+                value={filters.saturation}
+                min={-100}
+                max={100}
+                onChange={handleFilterChange("saturation")}
+                disabled={!loadedImage}
+              />
+            </FilterGroup>
+
+            {/* Detail */}
+            <FilterGroup>
+              <FilterGroupTitle>Detail</FilterGroupTitle>
+              <PrecisionSlider
+                label="Clarity"
+                value={filters.clarity}
+                min={-100}
+                max={100}
+                onChange={handleFilterChange("clarity")}
+                disabled={!loadedImage}
+              />
+              <PrecisionSlider
+                label="Sharpness"
+                value={filters.sharpness}
+                min={0}
+                max={100}
+                onChange={handleFilterChange("sharpness")}
+                disabled={!loadedImage}
+              />
+              <PrecisionSlider
+                label="Noise Red."
+                value={filters.noiseReduction}
+                min={0}
+                max={100}
+                onChange={handleFilterChange("noiseReduction")}
+                disabled={!loadedImage}
+              />
+            </FilterGroup>
+          </SectionContent>
+        </InspectorSection>
+
+        {/* Draggable Divider - always visible now */}
+        <HorizontalDivider
+          isDragging={isDraggingDivider}
+          onMouseDown={handleDividerMouseDown}
+        />
+
+        {/* Annotations Section - Always visible, no collapse */}
+        <InspectorSection
+          sx={{
+            flex: 1,
+            minHeight: 300,
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <SectionHeader
+            sx={{
+              cursor: "default",
+              "&:hover": { backgroundColor: "#1a1a1a" },
+            }}
           >
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <SectionTitle>Annotations</SectionTitle>
@@ -5444,375 +5515,380 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                 ({storeAnnotations.length})
               </Typography>
             </Box>
-            {annotationsCollapsed ? (
-              <ExpandMoreIcon sx={{ fontSize: 16, color: "#666" }} />
-            ) : (
-              <ExpandLessIcon sx={{ fontSize: 16, color: "#666" }} />
-            )}
-          </SectionHeader>
-          {!annotationsCollapsed && (
-            <Box
-              sx={{
-                flex: 1,
-                overflow: "hidden",
-                display: "flex",
-                flexDirection: "column",
-              }}
-            >
-              {/* Annotation list */}
-              <Box sx={{ flex: 1, overflow: "auto", padding: "4px 8px" }}>
-                {storeAnnotations.length === 0 ? (
-                  <Box sx={{ textAlign: "center", py: 2 }}>
-                    <Typography sx={{ fontSize: 10, color: "#444" }}>
-                      No annotations to display
-                    </Typography>
-                  </Box>
+            {/* Master eyeball toggle */}
+            <Tooltip title={allAnnotationsVisible ? "Hide all" : "Show all"}>
+              <IconButton
+                size="small"
+                onClick={toggleAllAnnotationsVisibility}
+                disabled={storeAnnotations.length === 0}
+                sx={{
+                  padding: "4px",
+                  color: allAnnotationsVisible ? "#19abb5" : "#444",
+                }}
+              >
+                {allAnnotationsVisible ? (
+                  <VisibilityIcon sx={{ fontSize: 16 }} />
                 ) : (
-                  storeAnnotations.map((annotation) =>
-                    editingAnnotationId === annotation.id ? (
-                      // Inline edit mode
-                      <Box
-                        key={annotation.id}
-                        sx={{
-                          padding: "8px",
-                          borderRadius: 4,
-                          backgroundColor: "rgba(25, 171, 181, 0.1)",
-                          border: "1px solid rgba(25, 171, 181, 0.3)",
-                          mb: 1,
-                        }}
-                      >
-                        <Box sx={{ mb: 1 }}>
-                          <Typography
-                            sx={{ fontSize: 9, color: "#666", mb: 0.5 }}
-                          >
-                            Title
-                          </Typography>
-                          <input
-                            type="text"
-                            value={editingAnnotationLabel}
-                            onChange={(e) =>
-                              setEditingAnnotationLabel(e.target.value)
-                            }
-                            placeholder="Annotation title"
-                            style={{
-                              width: "100%",
-                              padding: "4px 8px",
-                              fontSize: 11,
-                              backgroundColor: "#1a1a1a",
-                              border: "1px solid #333",
-                              borderRadius: 4,
-                              color: "#ccc",
-                              outline: "none",
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </Box>
-                        <Box sx={{ mb: 1 }}>
-                          <Typography
-                            sx={{ fontSize: 9, color: "#666", mb: 0.5 }}
-                          >
-                            Notes
-                          </Typography>
-                          <textarea
-                            value={editingAnnotationNotes}
-                            onChange={(e) =>
-                              setEditingAnnotationNotes(e.target.value)
-                            }
-                            placeholder="Add notes..."
-                            rows={2}
-                            style={{
-                              width: "100%",
-                              padding: "4px 8px",
-                              fontSize: 11,
-                              backgroundColor: "#1a1a1a",
-                              border: "1px solid #333",
-                              borderRadius: 4,
-                              color: "#ccc",
-                              outline: "none",
-                              resize: "vertical",
-                              fontFamily: "inherit",
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </Box>
-                        {/* Color picker */}
-                        <Box sx={{ mb: 1 }}>
-                          <Typography
-                            sx={{ fontSize: 9, color: "#666", mb: 0.5 }}
-                          >
-                            Color
-                          </Typography>
-                          <Box
-                            sx={{
-                              display: "flex",
-                              flexWrap: "wrap",
-                              gap: 0.5,
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {ANNOTATION_COLORS.map((colorOption) => (
-                              <Tooltip
-                                key={colorOption.value}
-                                title={colorOption.name}
-                                placement="top"
-                              >
-                                <Box
-                                  onClick={() =>
-                                    setEditingAnnotationColor(colorOption.value)
-                                  }
-                                  sx={{
-                                    width: 20,
-                                    height: 20,
-                                    borderRadius: "50%",
-                                    backgroundColor: colorOption.value,
-                                    cursor: "pointer",
-                                    border:
-                                      editingAnnotationColor ===
-                                      colorOption.value
-                                        ? "2px solid #fff"
-                                        : "2px solid transparent",
-                                    boxShadow:
-                                      editingAnnotationColor ===
-                                      colorOption.value
-                                        ? "0 0 0 1px #19abb5"
-                                        : "none",
-                                    transition: "all 0.15s ease",
-                                    "&:hover": {
-                                      transform: "scale(1.1)",
-                                    },
-                                  }}
-                                />
-                              </Tooltip>
-                            ))}
-                          </Box>
-                        </Box>
+                  <VisibilityOffIcon sx={{ fontSize: 16 }} />
+                )}
+              </IconButton>
+            </Tooltip>
+          </SectionHeader>
+          <Box
+            sx={{
+              flex: 1,
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {/* Annotation list */}
+            <Box sx={{ flex: 1, overflow: "auto", padding: "4px 8px" }}>
+              {storeAnnotations.length === 0 ? (
+                <Box sx={{ textAlign: "center", py: 2 }}>
+                  <Typography sx={{ fontSize: 10, color: "#444" }}>
+                    No annotations to display
+                  </Typography>
+                </Box>
+              ) : (
+                storeAnnotations.map((annotation) =>
+                  editingAnnotationId === annotation.id ? (
+                    // Inline edit mode
+                    <Box
+                      key={annotation.id}
+                      sx={{
+                        padding: "8px",
+                        borderRadius: 4,
+                        backgroundColor: "rgba(25, 171, 181, 0.1)",
+                        border: "1px solid rgba(25, 171, 181, 0.3)",
+                        mb: 1,
+                      }}
+                    >
+                      <Box sx={{ mb: 1 }}>
+                        <Typography
+                          sx={{ fontSize: 9, color: "#666", mb: 0.5 }}
+                        >
+                          Title
+                        </Typography>
+                        <input
+                          type="text"
+                          value={editingAnnotationLabel}
+                          onChange={(e) =>
+                            setEditingAnnotationLabel(e.target.value)
+                          }
+                          placeholder="Annotation title"
+                          style={{
+                            width: "100%",
+                            padding: "4px 8px",
+                            fontSize: 11,
+                            backgroundColor: "#1a1a1a",
+                            border: "1px solid #333",
+                            borderRadius: 4,
+                            color: "#ccc",
+                            outline: "none",
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </Box>
+                      <Box sx={{ mb: 1 }}>
+                        <Typography
+                          sx={{ fontSize: 9, color: "#666", mb: 0.5 }}
+                        >
+                          Notes
+                        </Typography>
+                        <textarea
+                          value={editingAnnotationNotes}
+                          onChange={(e) =>
+                            setEditingAnnotationNotes(e.target.value)
+                          }
+                          placeholder="Add notes..."
+                          rows={2}
+                          style={{
+                            width: "100%",
+                            padding: "4px 8px",
+                            fontSize: 11,
+                            backgroundColor: "#1a1a1a",
+                            border: "1px solid #333",
+                            borderRadius: 4,
+                            color: "#ccc",
+                            outline: "none",
+                            resize: "vertical",
+                            fontFamily: "inherit",
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </Box>
+                      {/* Color picker */}
+                      <Box sx={{ mb: 1 }}>
+                        <Typography
+                          sx={{ fontSize: 9, color: "#666", mb: 0.5 }}
+                        >
+                          Color
+                        </Typography>
                         <Box
                           sx={{
                             display: "flex",
-                            gap: 1,
-                            justifyContent: "flex-end",
+                            flexWrap: "wrap",
+                            gap: 0.5,
                           }}
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          <Button
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleCancelAnnotationEdit();
-                            }}
-                            sx={{
-                              fontSize: 10,
-                              color: "#666",
-                              py: 0.25,
-                              px: 1,
-                              minWidth: "auto",
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            size="small"
-                            variant="contained"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSaveAnnotationEdit();
-                            }}
-                            sx={{
-                              fontSize: 10,
-                              backgroundColor: "#19abb5",
-                              py: 0.25,
-                              px: 1,
-                              minWidth: "auto",
-                              "&:hover": { backgroundColor: "#15959e" },
-                            }}
-                          >
-                            Save
-                          </Button>
+                          {ANNOTATION_COLORS.map((colorOption) => (
+                            <Tooltip
+                              key={colorOption.value}
+                              title={colorOption.name}
+                              placement="top"
+                            >
+                              <Box
+                                onClick={() =>
+                                  setEditingAnnotationColor(colorOption.value)
+                                }
+                                sx={{
+                                  width: 20,
+                                  height: 20,
+                                  borderRadius: "50%",
+                                  backgroundColor: colorOption.value,
+                                  cursor: "pointer",
+                                  border:
+                                    editingAnnotationColor === colorOption.value
+                                      ? "2px solid #fff"
+                                      : "2px solid transparent",
+                                  boxShadow:
+                                    editingAnnotationColor === colorOption.value
+                                      ? "0 0 0 1px #19abb5"
+                                      : "none",
+                                  transition: "all 0.15s ease",
+                                  "&:hover": {
+                                    transform: "scale(1.1)",
+                                  },
+                                }}
+                              />
+                            </Tooltip>
+                          ))}
                         </Box>
                       </Box>
-                    ) : (
-                      // Normal display mode - wrapped in tooltip if notes exist
-                      <Tooltip
-                        key={annotation.id}
-                        title={annotation.notes || ""}
-                        placement="left"
-                        arrow
-                        disableHoverListener={!annotation.notes}
-                        enterDelay={300}
-                        slotProps={{
-                          tooltip: {
-                            sx: {
-                              backgroundColor: "#1a1a1a",
-                              color: "#ccc",
-                              fontSize: 11,
-                              maxWidth: 250,
-                              border: "1px solid #333",
-                              whiteSpace: "pre-wrap",
-                            },
-                          },
+                      <Box
+                        sx={{
+                          display: "flex",
+                          gap: 1,
+                          justifyContent: "flex-end",
                         }}
                       >
-                        <AnnotationItem
-                          onClick={() => selectAnnotation(annotation.id)}
+                        <Button
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCancelAnnotationEdit();
+                          }}
                           sx={{
-                            backgroundColor:
-                              selectedAnnotationId === annotation.id
-                                ? "rgba(25, 171, 181, 0.1)"
-                                : "transparent",
-                            border:
-                              selectedAnnotationId === annotation.id
-                                ? "1px solid rgba(25, 171, 181, 0.3)"
-                                : "1px solid transparent",
+                            fontSize: 10,
+                            color: "#666",
+                            py: 0.25,
+                            px: 1,
+                            minWidth: "auto",
                           }}
                         >
-                          {/* Color dot */}
-                          <AnnotationColorDot color={annotation.color} />
-                          {/* Content: user name and title */}
-                          <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography
-                              sx={{
-                                fontSize: 9,
-                                color: "#666",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                              }}
-                            >
-                              {annotation.userDisplayName}
-                            </Typography>
-                            <Typography
-                              sx={{
-                                fontSize: 11,
-                                color: "#ccc",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                              }}
-                            >
-                              {annotation.label ||
-                                `${annotation.type.charAt(0).toUpperCase() + annotation.type.slice(1)}`}
-                            </Typography>
-                          </Box>
-                          {/* Action icons */}
-                          <Box
+                          Cancel
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSaveAnnotationEdit();
+                          }}
+                          sx={{
+                            fontSize: 10,
+                            backgroundColor: "#19abb5",
+                            py: 0.25,
+                            px: 1,
+                            minWidth: "auto",
+                            "&:hover": { backgroundColor: "#15959e" },
+                          }}
+                        >
+                          Save
+                        </Button>
+                      </Box>
+                    </Box>
+                  ) : (
+                    // Normal display mode - wrapped in tooltip if notes exist
+                    <Tooltip
+                      key={annotation.id}
+                      title={annotation.notes || ""}
+                      placement="left"
+                      arrow
+                      disableHoverListener={!annotation.notes}
+                      enterDelay={300}
+                      slotProps={{
+                        tooltip: {
+                          sx: {
+                            backgroundColor: "#1a1a1a",
+                            color: "#ccc",
+                            fontSize: 11,
+                            maxWidth: 250,
+                            border: "1px solid #333",
+                            whiteSpace: "pre-wrap",
+                          },
+                        },
+                      }}
+                    >
+                      <AnnotationItem
+                        onClick={() => selectAnnotation(annotation.id)}
+                        sx={{
+                          backgroundColor:
+                            selectedAnnotationId === annotation.id
+                              ? "rgba(25, 171, 181, 0.1)"
+                              : "transparent",
+                          border:
+                            selectedAnnotationId === annotation.id
+                              ? "1px solid rgba(25, 171, 181, 0.3)"
+                              : "1px solid transparent",
+                        }}
+                      >
+                        {/* Color dot */}
+                        <AnnotationColorDot color={annotation.color} />
+                        {/* Content: user name and title */}
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography
                             sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 0.25,
+                              fontSize: 9,
+                              color: "#666",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
                             }}
                           >
-                            {/* Notes indicator icon - only shown if notes exist */}
-                            {annotation.notes && (
-                              <Tooltip title="Has notes">
-                                <DescriptionOutlinedIcon
-                                  sx={{
-                                    fontSize: 14,
-                                    color: "#888",
-                                    flexShrink: 0,
-                                  }}
-                                />
-                              </Tooltip>
-                            )}
-                            <Tooltip
-                              title={annotation.visible ? "Hide" : "Show"}
+                            {annotation.userDisplayName}
+                          </Typography>
+                          <Typography
+                            sx={{
+                              fontSize: 11,
+                              color: "#ccc",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {annotation.label ||
+                              `${annotation.type.charAt(0).toUpperCase() + annotation.type.slice(1)}`}
+                          </Typography>
+                        </Box>
+                        {/* Action icons */}
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 0.25,
+                          }}
+                        >
+                          {/* Notes indicator icon - only shown if notes exist */}
+                          {annotation.notes && (
+                            <Tooltip title="Has notes">
+                              <DescriptionOutlinedIcon
+                                sx={{
+                                  fontSize: 14,
+                                  color: "#888",
+                                  flexShrink: 0,
+                                }}
+                              />
+                            </Tooltip>
+                          )}
+                          <Tooltip title={annotation.visible ? "Hide" : "Show"}>
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleAnnotationVisibility(annotation.id);
+                              }}
+                              sx={{
+                                padding: "4px",
+                                color: annotation.visible ? "#19abb5" : "#444",
+                              }}
                             >
+                              {annotation.visible ? (
+                                <VisibilityIcon sx={{ fontSize: 14 }} />
+                              ) : (
+                                <VisibilityOffIcon sx={{ fontSize: 14 }} />
+                              )}
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Edit">
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStartEditAnnotation(annotation);
+                              }}
+                              sx={{
+                                padding: "4px",
+                                color: "#666",
+                                "&:hover": { color: "#19abb5" },
+                              }}
+                            >
+                              <EditIcon sx={{ fontSize: 14 }} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip
+                            title={annotation.locked ? "Unlock" : "Lock"}
+                          >
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleLockAnnotation(annotation.id);
+                              }}
+                              sx={{
+                                padding: "4px",
+                                color: annotation.locked ? "#19abb5" : "#666",
+                                "&:hover": { color: "#19abb5" },
+                              }}
+                            >
+                              {annotation.locked ? (
+                                <LockIcon sx={{ fontSize: 14 }} />
+                              ) : (
+                                <LockOpenIcon sx={{ fontSize: 14 }} />
+                              )}
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip
+                            title={
+                              annotation.locked
+                                ? "Locked - unlock to delete"
+                                : "Delete"
+                            }
+                          >
+                            <span>
                               <IconButton
                                 size="small"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  toggleAnnotationVisibility(annotation.id);
+                                  if (!annotation.locked) {
+                                    handleDeleteAnnotation(annotation.id);
+                                  }
                                 }}
+                                disabled={annotation.locked}
                                 sx={{
                                   padding: "4px",
-                                  color: annotation.visible
-                                    ? "#19abb5"
-                                    : "#444",
+                                  color: annotation.locked ? "#444" : "#666",
+                                  "&:hover": {
+                                    color: annotation.locked
+                                      ? "#444"
+                                      : "#c45c5c",
+                                  },
                                 }}
                               >
-                                {annotation.visible ? (
-                                  <VisibilityIcon sx={{ fontSize: 14 }} />
-                                ) : (
-                                  <VisibilityOffIcon sx={{ fontSize: 14 }} />
-                                )}
+                                <DeleteIcon sx={{ fontSize: 14 }} />
                               </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Edit">
-                              <IconButton
-                                size="small"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleStartEditAnnotation(annotation);
-                                }}
-                                sx={{
-                                  padding: "4px",
-                                  color: "#666",
-                                  "&:hover": { color: "#19abb5" },
-                                }}
-                              >
-                                <EditIcon sx={{ fontSize: 14 }} />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip
-                              title={annotation.locked ? "Unlock" : "Lock"}
-                            >
-                              <IconButton
-                                size="small"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleToggleLockAnnotation(annotation.id);
-                                }}
-                                sx={{
-                                  padding: "4px",
-                                  color: annotation.locked ? "#19abb5" : "#666",
-                                  "&:hover": { color: "#19abb5" },
-                                }}
-                              >
-                                {annotation.locked ? (
-                                  <LockIcon sx={{ fontSize: 14 }} />
-                                ) : (
-                                  <LockOpenIcon sx={{ fontSize: 14 }} />
-                                )}
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip
-                              title={
-                                annotation.locked
-                                  ? "Locked - unlock to delete"
-                                  : "Delete"
-                              }
-                            >
-                              <span>
-                                <IconButton
-                                  size="small"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (!annotation.locked) {
-                                      handleDeleteAnnotation(annotation.id);
-                                    }
-                                  }}
-                                  disabled={annotation.locked}
-                                  sx={{
-                                    padding: "4px",
-                                    color: annotation.locked ? "#444" : "#666",
-                                    "&:hover": {
-                                      color: annotation.locked
-                                        ? "#444"
-                                        : "#c45c5c",
-                                    },
-                                  }}
-                                >
-                                  <DeleteIcon sx={{ fontSize: 14 }} />
-                                </IconButton>
-                              </span>
-                            </Tooltip>
-                          </Box>
-                        </AnnotationItem>
-                      </Tooltip>
-                    ),
-                  )
-                )}
-              </Box>
+                            </span>
+                          </Tooltip>
+                        </Box>
+                      </AnnotationItem>
+                    </Tooltip>
+                  ),
+                )
+              )}
             </Box>
-          )}
+          </Box>
         </InspectorSection>
       </Box>
     </Box>
