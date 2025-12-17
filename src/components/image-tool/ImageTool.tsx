@@ -491,7 +491,7 @@ const VersionBadge = styled(Box)<{ faded?: boolean }>(({ faded }) => ({
   transition: "opacity 150ms ease",
 }));
 
-// Source badge for gallery thumbnails (upper left)
+// Source badge for gallery thumbnails (upper left) - matches flag and version badge styling
 const GallerySourceBadge = styled(Box)<{ faded?: boolean }>(({ faded }) => ({
   position: "absolute",
   top: 4,
@@ -499,12 +499,13 @@ const GallerySourceBadge = styled(Box)<{ faded?: boolean }>(({ faded }) => ({
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  backgroundColor: "rgba(0, 0, 0, 0.7)",
+  gap: 2,
+  backgroundColor: "rgba(0, 0, 0, 0.8)",
   borderRadius: 4,
-  padding: 3,
-  width: 22,
-  height: 22,
-  zIndex: 2,
+  padding: "2px 6px",
+  minWidth: 22,
+  minHeight: 22,
+  zIndex: 4, // Above overlay (z-index: 3) so badge stays visible on hover
   opacity: faded ? 0 : 1,
   transition: "opacity 150ms ease",
 }));
@@ -548,7 +549,7 @@ const GalleryFlagBadge = styled(Box)<{ faded?: boolean }>(({ faded }) => ({
   fontSize: 10,
   fontWeight: 600,
   color: "#fff",
-  zIndex: 2,
+  zIndex: 4, // Above overlay (z-index: 3) so badge stays visible on hover
   opacity: faded ? 0 : 1,
   transition: "opacity 150ms ease",
 }));
@@ -4759,19 +4760,20 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                               fontSize: 14,
                               fontWeight: 500,
                               textAlign: "center",
+                              whiteSpace: "nowrap",
                             }}
                           >
-                            {item.versionCount} versions available
+                            {item.versionCount} Versions Available
                           </Typography>
                         </VersionHoverOverlay>
 
-                        {/* Source badge (upper left) - tooltip on badge only */}
+                        {/* Source badge (upper left) - stays visible above overlay */}
                         <Tooltip
                           title={sourceInfo.tooltip}
                           arrow
                           placement="top"
                         >
-                          <GallerySourceBadge faded={isHoveredWithVersions}>
+                          <GallerySourceBadge>
                             {sourceInfo.icon}
                           </GallerySourceBadge>
                         </Tooltip>
@@ -4790,19 +4792,25 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                           </Tooltip>
                         )}
 
-                        {/* Flag badge (upper right) */}
+                        {/* Flag badge (upper right) - stays visible above overlay */}
                         {item.flagCount > 0 && (
-                          <GalleryFlagBadge faded={isHoveredWithVersions}>
-                            <svg
-                              width="12"
-                              height="12"
-                              viewBox="0 0 24 24"
-                              fill="currentColor"
-                            >
-                              <path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z" />
-                            </svg>
-                            {item.flagCount}
-                          </GalleryFlagBadge>
+                          <Tooltip
+                            title={`${item.flagCount} annotation${item.flagCount === 1 ? "" : "s"}`}
+                            arrow
+                            placement="top"
+                          >
+                            <GalleryFlagBadge>
+                              <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                              >
+                                <path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z" />
+                              </svg>
+                              {item.flagCount}
+                            </GalleryFlagBadge>
+                          </Tooltip>
                         )}
 
                         {/* Filename overlay at bottom */}
