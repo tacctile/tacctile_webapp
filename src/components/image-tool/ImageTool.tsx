@@ -341,14 +341,15 @@ const AnnotationIcon = styled(Box)<{ type: string }>(({ type }) => {
 type ViewMode = "single" | "side-by-side" | "split";
 type AnnotationTool = "rectangle" | "circle" | "arrow" | null;
 
-// Transform state for undo/redo history
-interface TransformState {
+// History entry for undo/redo - captures both filters and transforms
+interface EditHistoryEntry {
+  filters: ImageFilters;
   rotation: 0 | 90 | 180 | 270;
   flipH: boolean;
   flipV: boolean;
 }
 
-const MAX_HISTORY_DEPTH = 50;
+const MAX_HISTORY_DEPTH = 20;
 
 // Annotation interface with coordinates relative to image dimensions (0-1 normalized)
 interface ImageAnnotation {
@@ -864,9 +865,14 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [flipH, setFlipH] = useState(false);
   const [flipV, setFlipV] = useState(false);
 
-  // Undo/redo history for transforms
-  const [undoStack, setUndoStack] = useState<TransformState[]>([]);
-  const [redoStack, setRedoStack] = useState<TransformState[]>([]);
+  // Undo/redo stacks for filters and transforms (20-step limit)
+  // undoStack: states we can undo TO (the "before" states)
+  // redoStack: states we can redo TO (states that were undone)
+  const [undoStack, setUndoStack] = useState<EditHistoryEntry[]>([]);
+  const [redoStack, setRedoStack] = useState<EditHistoryEntry[]>([]);
+
+  // Ref to track filter state when slider drag starts (for capturing history on release)
+  const filterDragStartRef = useRef<ImageFilters | null>(null);
 
   // State for actual image dimensions (read from loaded image)
   const [actualDimensions, setActualDimensions] = useState<{
@@ -1191,85 +1197,126 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     setFilters(defaultFilters);
   };
 
-  // Helper to push current state to undo stack before making changes
-  const pushToUndoStack = useCallback(() => {
-    const currentState: TransformState = { rotation, flipH, flipV };
+  // Helper to push current state to undo stack (called BEFORE making changes)
+  // This captures the "before" state so undo can restore it
+  const pushToUndoStack = useCallback((beforeFilters: ImageFilters, beforeRotation: 0 | 90 | 180 | 270, beforeFlipH: boolean, beforeFlipV: boolean) => {
+    const entry: EditHistoryEntry = {
+      filters: { ...beforeFilters },
+      rotation: beforeRotation,
+      flipH: beforeFlipH,
+      flipV: beforeFlipV,
+    };
+
     setUndoStack((prev) => {
-      const newStack = [...prev, currentState];
-      // Limit to MAX_HISTORY_DEPTH
+      const newStack = [...prev, entry];
+      // Limit to MAX_HISTORY_DEPTH (20 entries)
       if (newStack.length > MAX_HISTORY_DEPTH) {
         return newStack.slice(-MAX_HISTORY_DEPTH);
       }
       return newStack;
     });
-    // Clear redo stack when making a new edit
+
+    // Clear redo stack when making a new edit (standard undo behavior)
     setRedoStack([]);
-  }, [rotation, flipH, flipV]);
+  }, []);
 
   // Transform handlers - instant, CSS-based transforms
+  // Each captures current state BEFORE the change
   const handleRotateCW = useCallback(() => {
-    pushToUndoStack();
+    pushToUndoStack(filters, rotation, flipH, flipV);
     setRotation((prev) => ((prev + 90) % 360) as 0 | 90 | 180 | 270);
-  }, [pushToUndoStack]);
+  }, [pushToUndoStack, filters, rotation, flipH, flipV]);
 
   const handleRotateCCW = useCallback(() => {
-    pushToUndoStack();
+    pushToUndoStack(filters, rotation, flipH, flipV);
     setRotation((prev) => ((prev - 90 + 360) % 360) as 0 | 90 | 180 | 270);
-  }, [pushToUndoStack]);
+  }, [pushToUndoStack, filters, rotation, flipH, flipV]);
 
   const handleFlipH = useCallback(() => {
-    pushToUndoStack();
+    pushToUndoStack(filters, rotation, flipH, flipV);
     setFlipH((prev) => !prev);
-  }, [pushToUndoStack]);
+  }, [pushToUndoStack, filters, rotation, flipH, flipV]);
 
   const handleFlipV = useCallback(() => {
-    pushToUndoStack();
+    pushToUndoStack(filters, rotation, flipH, flipV);
     setFlipV((prev) => !prev);
-  }, [pushToUndoStack]);
+  }, [pushToUndoStack, filters, rotation, flipH, flipV]);
 
-  // Undo handler - pops from undo stack, pushes current state to redo stack
+  // Undo handler - restores previous state from undo stack
   const handleUndo = useCallback(() => {
     if (undoStack.length === 0) return;
 
-    // Push current state to redo stack
-    const currentState: TransformState = { rotation, flipH, flipV };
+    // Save current state to redo stack BEFORE applying undo
+    const currentState: EditHistoryEntry = {
+      filters: { ...filters },
+      rotation,
+      flipH,
+      flipV,
+    };
     setRedoStack((prev) => [...prev, currentState]);
 
-    // Pop from undo stack and apply
+    // Pop and apply the previous state from undo stack
     const newUndoStack = [...undoStack];
-    const previousState = newUndoStack.pop();
+    const previousState = newUndoStack.pop()!;
     setUndoStack(newUndoStack);
 
-    if (previousState) {
-      setRotation(previousState.rotation);
-      setFlipH(previousState.flipH);
-      setFlipV(previousState.flipV);
-    }
-  }, [undoStack, rotation, flipH, flipV]);
+    setFilters(previousState.filters);
+    setRotation(previousState.rotation);
+    setFlipH(previousState.flipH);
+    setFlipV(previousState.flipV);
+  }, [undoStack, filters, rotation, flipH, flipV]);
 
-  // Redo handler - pops from redo stack, pushes current state to undo stack
+  // Redo handler - restores next state from redo stack
   const handleRedo = useCallback(() => {
     if (redoStack.length === 0) return;
 
-    // Push current state to undo stack
-    const currentState: TransformState = { rotation, flipH, flipV };
+    // Save current state to undo stack BEFORE applying redo
+    const currentState: EditHistoryEntry = {
+      filters: { ...filters },
+      rotation,
+      flipH,
+      flipV,
+    };
     setUndoStack((prev) => [...prev, currentState]);
 
-    // Pop from redo stack and apply
+    // Pop and apply the next state from redo stack
     const newRedoStack = [...redoStack];
-    const nextState = newRedoStack.pop();
+    const nextState = newRedoStack.pop()!;
     setRedoStack(newRedoStack);
 
-    if (nextState) {
-      setRotation(nextState.rotation);
-      setFlipH(nextState.flipH);
-      setFlipV(nextState.flipV);
-    }
-  }, [redoStack, rotation, flipH, flipV]);
+    setFilters(nextState.filters);
+    setRotation(nextState.rotation);
+    setFlipH(nextState.flipH);
+    setFlipV(nextState.flipV);
+  }, [redoStack, filters, rotation, flipH, flipV]);
 
   // Check if undo/redo are available
   const canUndo = undoStack.length > 0;
   const canRedo = redoStack.length > 0;
+
+  // Handler for when filter slider drag starts (mousedown on filter section)
+  const handleFilterDragStart = useCallback(() => {
+    // Capture current filter state when drag begins
+    filterDragStartRef.current = { ...filters };
+  }, [filters]);
+
+  // Handler for when filter slider drag ends (mouseup on filter section)
+  const handleFilterDragEnd = useCallback(() => {
+    // If we captured a start state and filters have changed, push to history
+    if (filterDragStartRef.current) {
+      const startFilters = filterDragStartRef.current;
+      const filtersChanged = Object.keys(startFilters).some(
+        (key) => startFilters[key as keyof ImageFilters] !== filters[key as keyof ImageFilters]
+      );
+
+      if (filtersChanged) {
+        // Push the "before" state to undo stack
+        pushToUndoStack(startFilters, rotation, flipH, flipV);
+      }
+
+      filterDragStartRef.current = null;
+    }
+  }, [filters, rotation, flipH, flipV, pushToUndoStack]);
 
   // Build CSS transform string for image transforms
   const getImageTransform = useCallback(
@@ -3489,7 +3536,11 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
           )}
         </SectionHeader>
         {!filtersCollapsed && (
-          <SectionContent sx={{ pb: 2 }}>
+          <SectionContent
+            sx={{ pb: 2 }}
+            onMouseDown={handleFilterDragStart}
+            onMouseUp={handleFilterDragEnd}
+          >
             {/* Basic */}
             <FilterGroup>
               <FilterGroupTitle>Basic</FilterGroupTitle>
