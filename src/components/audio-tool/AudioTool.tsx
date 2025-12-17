@@ -268,6 +268,114 @@ const ExportButton = styled(Button)({
   },
 });
 
+// Export panel styled components
+const ExportPanelContainer = styled(Box)<{ open: boolean }>(({ open }) => ({
+  position: "absolute",
+  top: 0,
+  left: 0,
+  right: 0,
+  backgroundColor: "#1a1a1a",
+  borderBottom: "1px solid #252525",
+  zIndex: 10,
+  transform: open ? "translateY(0)" : "translateY(-100%)",
+  transition: "transform 250ms ease-in-out",
+  padding: "16px",
+  display: "flex",
+  flexDirection: "column",
+  gap: "12px",
+}));
+
+const ExportPanelTitle = styled(Typography)({
+  fontSize: 12,
+  fontWeight: 600,
+  color: "#e1e1e1",
+});
+
+const ExportPanelText = styled(Typography)({
+  fontSize: 11,
+  color: "#888",
+});
+
+const ExportPanelRadioGroup = styled(Box)({
+  display: "flex",
+  flexDirection: "column",
+  gap: "8px",
+});
+
+const ExportPanelRadioOption = styled(Box)<{ selected: boolean }>(
+  ({ selected }) => ({
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    cursor: "pointer",
+    padding: "4px 0",
+    "& .radio-circle": {
+      width: 14,
+      height: 14,
+      borderRadius: "50%",
+      border: `2px solid ${selected ? "#19abb5" : "#555"}`,
+      backgroundColor: selected ? "#19abb5" : "transparent",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      transition: "all 150ms ease",
+      "&::after": {
+        content: '""',
+        width: 6,
+        height: 6,
+        borderRadius: "50%",
+        backgroundColor: selected ? "#1a1a1a" : "transparent",
+      },
+    },
+    "& .radio-label": {
+      fontSize: 11,
+      color: selected ? "#e1e1e1" : "#888",
+    },
+    "&:hover .radio-circle": {
+      borderColor: "#19abb5",
+    },
+    "&:hover .radio-label": {
+      color: "#e1e1e1",
+    },
+  }),
+);
+
+const ExportPanelButtonRow = styled(Box)({
+  display: "flex",
+  gap: "8px",
+  marginTop: "4px",
+});
+
+const ExportPanelCancelButton = styled(Button)({
+  fontSize: 10,
+  color: "#888",
+  backgroundColor: "transparent",
+  border: "1px solid #333",
+  padding: "6px 16px",
+  textTransform: "none",
+  flex: 1,
+  "&:hover": {
+    backgroundColor: "#252525",
+    borderColor: "#555",
+    color: "#e1e1e1",
+  },
+});
+
+const ExportPanelExportButton = styled(Button)({
+  fontSize: 10,
+  color: "#1a1a1a",
+  backgroundColor: "#19abb5",
+  border: "1px solid #19abb5",
+  padding: "6px 16px",
+  textTransform: "none",
+  flex: 1,
+  fontWeight: 600,
+  "&:hover": {
+    backgroundColor: "#14909a",
+    borderColor: "#14909a",
+  },
+});
+
 // ============================================================================
 // EQ COMPONENT
 // ============================================================================
@@ -1490,6 +1598,10 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [selectionStart, setSelectionStart] = useState<number | null>(null);
   const [selectionEnd, setSelectionEnd] = useState<number | null>(null);
 
+  // Export panel state
+  const [showExportPanel, setShowExportPanel] = useState(false);
+  const [exportOption, setExportOption] = useState<"full" | "selection">("full");
+
   // Enhanced interaction state for proper waveform behaviors
   const [mouseDownPos, setMouseDownPos] = useState<{
     x: number;
@@ -2089,7 +2201,39 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
 
   // Handle Export button click
   const handleExportClick = useCallback(() => {
-    console.log("Export clicked - will open export panel");
+    setShowExportPanel(true);
+    // Reset to default option
+    setExportOption("full");
+  }, []);
+
+  // Handle Export panel cancel
+  const handleExportCancel = useCallback(() => {
+    setShowExportPanel(false);
+  }, []);
+
+  // Handle Export panel export action
+  const handleExportConfirm = useCallback(() => {
+    // Trigger export logic here
+    const isExportingSelection =
+      exportOption === "selection" &&
+      selectionStart !== null &&
+      selectionEnd !== null;
+    if (isExportingSelection) {
+      const startTime = Math.min(selectionStart!, selectionEnd!);
+      const endTime = Math.max(selectionStart!, selectionEnd!);
+      console.log(`Exporting selected region: ${startTime}s - ${endTime}s`);
+    } else {
+      console.log("Exporting full audio");
+    }
+    // Close panel after export
+    setShowExportPanel(false);
+  }, [exportOption, selectionStart, selectionEnd]);
+
+  // Format time helper for export panel timestamps (M:SS format)
+  const formatExportTime = useCallback((seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   }, []);
 
   // Handle file input change
@@ -3723,7 +3867,13 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
       <WorkspaceLayout
         filesPanel={
           <Box
-            sx={{ display: "flex", flexDirection: "column", height: "100%" }}
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              height: "100%",
+              position: "relative",
+              overflow: "hidden",
+            }}
           >
             {/* Import/Export buttons header - side by side */}
             <Box
@@ -3733,6 +3883,8 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
                 gap: "6px",
                 borderBottom: "1px solid #252525",
                 backgroundColor: "#1a1a1a",
+                position: "relative",
+                zIndex: 5,
               }}
             >
               <ImportButton
@@ -3749,7 +3901,9 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
                 Export
               </ExportButton>
             </Box>
-            <Box sx={{ flex: 1, minHeight: 0 }}>
+
+            {/* File list area with export panel overlay */}
+            <Box sx={{ flex: 1, minHeight: 0, position: "relative" }}>
               <FileLibrary
                 items={allMediaFiles}
                 selectedId={selectedFile?.id}
@@ -3758,6 +3912,61 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
                   handleDoubleClick(item as MediaFileItem)
                 }
               />
+
+              {/* Export panel - slides down over file list */}
+              <ExportPanelContainer open={showExportPanel}>
+                <ExportPanelTitle>Export Audio</ExportPanelTitle>
+
+                {/* Show radio options only if a selection exists */}
+                {selectionStart !== null && selectionEnd !== null ? (
+                  <>
+                    <ExportPanelRadioGroup>
+                      <ExportPanelRadioOption
+                        selected={exportOption === "full"}
+                        onClick={() => setExportOption("full")}
+                      >
+                        <Box className="radio-circle" />
+                        <Typography className="radio-label">
+                          Full audio
+                        </Typography>
+                      </ExportPanelRadioOption>
+                      <ExportPanelRadioOption
+                        selected={exportOption === "selection"}
+                        onClick={() => setExportOption("selection")}
+                      >
+                        <Box className="radio-circle" />
+                        <Typography className="radio-label">
+                          Selected region (
+                          {formatExportTime(
+                            Math.min(selectionStart, selectionEnd),
+                          )}{" "}
+                          -{" "}
+                          {formatExportTime(
+                            Math.max(selectionStart, selectionEnd),
+                          )}
+                          )
+                        </Typography>
+                      </ExportPanelRadioOption>
+                    </ExportPanelRadioGroup>
+                    <ExportPanelText>
+                      Audio will be exported with all filters applied.
+                    </ExportPanelText>
+                  </>
+                ) : (
+                  <ExportPanelText>
+                    Audio will be exported with all filters applied.
+                  </ExportPanelText>
+                )}
+
+                <ExportPanelButtonRow>
+                  <ExportPanelCancelButton onClick={handleExportCancel}>
+                    Cancel
+                  </ExportPanelCancelButton>
+                  <ExportPanelExportButton onClick={handleExportConfirm}>
+                    Export
+                  </ExportPanelExportButton>
+                </ExportPanelButtonRow>
+              </ExportPanelContainer>
             </Box>
           </Box>
         }
