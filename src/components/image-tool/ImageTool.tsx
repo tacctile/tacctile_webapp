@@ -1413,6 +1413,40 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       cssFilters.push(`contrast(${blacksContrast})`);
     }
 
+    // Clarity slider: -100 to +100
+    // Midtone contrast — makes textures and edges pop without blowing highlights
+    // Approximation: moderate contrast adjustment
+    // At 0: no effect
+    // Positive: increase local contrast (punchier, more defined textures)
+    // Negative: reduce local contrast (softer, dreamier look)
+    if (filters.clarity !== 0) {
+      // Contrast: 0.85 (at -100) to 1.15 (at +100)
+      // More moderate than main contrast slider (which uses 0.5 multiplier)
+      const clarityContrast = 1 + (filters.clarity / 100) * 0.15;
+      cssFilters.push(`contrast(${clarityContrast})`);
+    }
+
+    // Sharpness slider: 0 to 100
+    // Edge enhancement using SVG convolution filter
+    // At 0: no effect
+    // Positive: sharper/crisper edges via feConvolveMatrix kernel
+    // Uses an inline SVG filter referenced by URL
+    if (filters.sharpness !== 0) {
+      cssFilters.push(`url(#tacctile-sharpen-filter)`);
+    }
+
+    // Noise Reduction slider: 0 to 100
+    // Smooths grain/noise using subtle blur
+    // TRADE-OFF: Blur reduces noise but also softens detail
+    // At 0: no effect
+    // Positive: more smoothing (subtle blur up to 1px max)
+    if (filters.noiseReduction !== 0) {
+      // Blur: 0px (at 0) to 1px (at 100)
+      // Very subtle range to minimize detail loss
+      const blur = (filters.noiseReduction / 100) * 1;
+      cssFilters.push(`blur(${blur}px)`);
+    }
+
     return cssFilters.length > 0 ? cssFilters.join(" ") : "none";
   }, [
     filters.exposure,
@@ -1425,6 +1459,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     filters.shadows,
     filters.whites,
     filters.blacks,
+    filters.clarity,
+    filters.sharpness,
+    filters.noiseReduction,
   ]);
 
   // Toggle annotation visibility using store
@@ -3784,8 +3821,41 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     </Box>
   );
 
+  // Calculate sharpening kernel values based on slider
+  // k controls intensity: 0 = no effect, 0.5 = strong sharpening
+  const sharpenK = (filters.sharpness / 100) * 0.5;
+  const sharpenCenter = 4 * sharpenK + 1;
+  const sharpenKernelMatrix = `0 ${-sharpenK} 0 ${-sharpenK} ${sharpenCenter} ${-sharpenK} 0 ${-sharpenK} 0`;
+
   return (
     <>
+      {/* SVG filter definitions for image processing */}
+      <svg
+        style={{
+          position: "absolute",
+          width: 0,
+          height: 0,
+          overflow: "hidden",
+        }}
+        aria-hidden="true"
+      >
+        <defs>
+          {/* Sharpening filter using convolution matrix */}
+          <filter id="tacctile-sharpen-filter" colorInterpolationFilters="sRGB">
+            <feConvolveMatrix
+              order="3"
+              kernelMatrix={sharpenKernelMatrix}
+              divisor="1"
+              bias="0"
+              targetX="1"
+              targetY="1"
+              edgeMode="duplicate"
+              preserveAlpha="true"
+            />
+          </filter>
+        </defs>
+      </svg>
+
       {/* Hidden file input for imports */}
       <input
         ref={fileInputRef}
