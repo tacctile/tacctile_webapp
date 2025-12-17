@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import {
   Box,
   Typography,
@@ -439,6 +445,7 @@ const imageFiles: (FileItem & {
   format?: string;
   gps?: string | null;
   dimensions?: string;
+  parentId?: string; // For exports: links to the original image's ID
 })[] = [
   {
     id: "i1",
@@ -483,7 +490,7 @@ const imageFiles: (FileItem & {
     format: "JPEG / sRGB",
     gps: "51.50°N, 0.12°W",
     dimensions: "6000 x 4000",
-    source: "drive",
+    source: "local", // Local import for testing badges
   },
   {
     id: "i4",
@@ -503,7 +510,7 @@ const imageFiles: (FileItem & {
   {
     id: "i5",
     type: "image",
-    fileName: "pexels-pixabay-158063.jpg",
+    fileName: "EXP_pexels-philippedonn-1133957_user_20250115_143022.jpg",
     thumbnailUrl: "/images/pexels-pixabay-158063.jpg",
     capturedAt: Date.now() - 5600000,
     user: "Sarah",
@@ -513,7 +520,8 @@ const imageFiles: (FileItem & {
     format: "JPEG / sRGB",
     gps: "35.68°N, 139.76°E",
     dimensions: "5184 x 3456",
-    source: "drive",
+    source: "export", // Exported file for testing badges
+    parentId: "i4", // Links to the original image
   },
   {
     id: "i6",
@@ -528,7 +536,7 @@ const imageFiles: (FileItem & {
     format: "JPEG / sRGB",
     gps: null,
     dimensions: "4896 x 3264",
-    source: "drive",
+    source: "local", // Local import for testing badges
   },
   {
     id: "i7",
@@ -548,7 +556,7 @@ const imageFiles: (FileItem & {
   {
     id: "i8",
     type: "image",
-    fileName: "pexels-pixabay-68507.jpg",
+    fileName: "EXP_pexels-pixabay-459335_user_20250116_092145.jpg",
     thumbnailUrl: "/images/pexels-pixabay-68507.jpg",
     capturedAt: Date.now() - 4400000,
     user: "Sarah",
@@ -558,7 +566,8 @@ const imageFiles: (FileItem & {
     format: "JPEG / sRGB",
     gps: "41.90°N, 12.49°E",
     dimensions: "4288 x 2848",
-    source: "drive",
+    source: "export", // Exported file for testing badges
+    parentId: "i7", // Links to the original image
   },
   {
     id: "i9",
@@ -863,7 +872,58 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     null,
   );
   // State for locally imported images (added to gallery with 'local' source badge)
-  const [importedImages, setImportedImages] = useState<(typeof imageFiles)>([]);
+  const [importedImages, setImportedImages] = useState<typeof imageFiles>([]);
+
+  // Combine and sort gallery items: exports appear right after their parent image
+  const sortedGalleryItems = useMemo(() => {
+    const allItems = [...imageFiles, ...importedImages];
+    const result: typeof imageFiles = [];
+    const exportsByParent = new Map<string, typeof imageFiles>();
+
+    // Group exports by their parentId
+    allItems.forEach((item) => {
+      if (item.source === "export" && item.parentId) {
+        const existing = exportsByParent.get(item.parentId) || [];
+        existing.push(item);
+        exportsByParent.set(item.parentId, existing);
+      }
+    });
+
+    // Sort exports by capturedAt (chronological order)
+    exportsByParent.forEach((exports) => {
+      exports.sort((a, b) => a.capturedAt - b.capturedAt);
+    });
+
+    // Build final list: non-export items followed by their exports
+    allItems.forEach((item) => {
+      // Skip exports (they'll be inserted after their parent)
+      if (item.source === "export" && item.parentId) {
+        return;
+      }
+
+      // Add the non-export item
+      result.push(item);
+
+      // Add any exports that belong to this item
+      const childExports = exportsByParent.get(item.id);
+      if (childExports) {
+        result.push(...childExports);
+      }
+    });
+
+    // Add any orphaned exports (exports whose parent doesn't exist) at the end
+    exportsByParent.forEach((exports, parentId) => {
+      const parentExists = allItems.some(
+        (item) => item.id === parentId && item.source !== "export",
+      );
+      if (!parentExists) {
+        result.push(...exports);
+      }
+    });
+
+    return result;
+  }, [importedImages]);
+
   const [viewMode, setViewMode] = useState<ViewMode>("single");
   const [activeTool, setActiveTool] = useState<AnnotationTool>(null);
   const [filters, setFilters] = useState<ImageFilters>(defaultFilters);
@@ -1242,26 +1302,34 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
   // Helper to push current state to undo stack (called BEFORE making changes)
   // This captures the "before" state so undo can restore it
-  const pushToUndoStack = useCallback((beforeFilters: ImageFilters, beforeRotation: 0 | 90 | 180 | 270, beforeFlipH: boolean, beforeFlipV: boolean) => {
-    const entry: EditHistoryEntry = {
-      filters: { ...beforeFilters },
-      rotation: beforeRotation,
-      flipH: beforeFlipH,
-      flipV: beforeFlipV,
-    };
+  const pushToUndoStack = useCallback(
+    (
+      beforeFilters: ImageFilters,
+      beforeRotation: 0 | 90 | 180 | 270,
+      beforeFlipH: boolean,
+      beforeFlipV: boolean,
+    ) => {
+      const entry: EditHistoryEntry = {
+        filters: { ...beforeFilters },
+        rotation: beforeRotation,
+        flipH: beforeFlipH,
+        flipV: beforeFlipV,
+      };
 
-    setUndoStack((prev) => {
-      const newStack = [...prev, entry];
-      // Limit to MAX_HISTORY_DEPTH (20 entries)
-      if (newStack.length > MAX_HISTORY_DEPTH) {
-        return newStack.slice(-MAX_HISTORY_DEPTH);
-      }
-      return newStack;
-    });
+      setUndoStack((prev) => {
+        const newStack = [...prev, entry];
+        // Limit to MAX_HISTORY_DEPTH (20 entries)
+        if (newStack.length > MAX_HISTORY_DEPTH) {
+          return newStack.slice(-MAX_HISTORY_DEPTH);
+        }
+        return newStack;
+      });
 
-    // Clear redo stack when making a new edit (standard undo behavior)
-    setRedoStack([]);
-  }, []);
+      // Clear redo stack when making a new edit (standard undo behavior)
+      setRedoStack([]);
+    },
+    [],
+  );
 
   // Transform handlers - instant, CSS-based transforms
   // Each captures current state BEFORE the change
@@ -1349,7 +1417,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     if (filterDragStartRef.current) {
       const startFilters = filterDragStartRef.current;
       const filtersChanged = Object.keys(startFilters).some(
-        (key) => startFilters[key as keyof ImageFilters] !== filters[key as keyof ImageFilters]
+        (key) =>
+          startFilters[key as keyof ImageFilters] !==
+          filters[key as keyof ImageFilters],
       );
 
       if (filtersChanged) {
@@ -1726,8 +1796,12 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     img.onload = () => {
       // Determine output dimensions based on rotation
       const isRotated90or270 = rotation === 90 || rotation === 270;
-      const outputWidth = isRotated90or270 ? img.naturalHeight : img.naturalWidth;
-      const outputHeight = isRotated90or270 ? img.naturalWidth : img.naturalHeight;
+      const outputWidth = isRotated90or270
+        ? img.naturalHeight
+        : img.naturalWidth;
+      const outputHeight = isRotated90or270
+        ? img.naturalWidth
+        : img.naturalHeight;
 
       // Create offscreen canvas
       const canvas = document.createElement("canvas");
@@ -1826,7 +1900,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         -img.naturalWidth / 2,
         -img.naturalHeight / 2,
         img.naturalWidth,
-        img.naturalHeight
+        img.naturalHeight,
       );
 
       ctx.restore();
@@ -1851,17 +1925,42 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       canvas.toBlob(
         (blob) => {
           if (!blob) return;
-          const url = URL.createObjectURL(blob);
+
+          // Create URL for download
+          const downloadUrl = URL.createObjectURL(blob);
           const link = document.createElement("a");
-          link.href = url;
+          link.href = downloadUrl;
           link.download = exportFilename;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
-          URL.revokeObjectURL(url);
+          URL.revokeObjectURL(downloadUrl);
+
+          // Create a separate blob URL for the gallery (don't revoke this one)
+          const galleryUrl = URL.createObjectURL(blob);
+
+          // Add exported image to gallery
+          const exportedItem = {
+            id: `export-${Date.now()}`,
+            type: "image" as const,
+            fileName: exportFilename,
+            thumbnailUrl: galleryUrl,
+            capturedAt: Date.now(),
+            user: username,
+            deviceInfo: loadedImage.deviceInfo || "Exported",
+            format: mimeType,
+            dimensions: `${outputWidth} x ${outputHeight}`,
+            flagCount: 0,
+            hasFindings: false,
+            gps: loadedImage.gps || null,
+            source: "export" as const,
+            parentId: loadedImage.id, // Link to original image
+          };
+
+          setImportedImages((prev) => [...prev, exportedItem]);
         },
         mimeType,
-        0.95 // Quality for JPEG/WebP
+        0.95, // Quality for JPEG/WebP
       );
     };
 
@@ -1870,7 +1969,16 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     };
 
     img.src = imageUrl;
-  }, [loadedImage, actualDimensions, filters, rotation, flipH, flipV, importedFileName, showToast]);
+  }, [
+    loadedImage,
+    actualDimensions,
+    filters,
+    rotation,
+    flipH,
+    flipV,
+    importedFileName,
+    showToast,
+  ]);
 
   // Handle file input change
   const handleFileInputChange = useCallback(
@@ -4168,7 +4276,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
             </Box>
             <Box sx={{ flex: 1, minHeight: 0 }}>
               <FileLibrary
-                items={[...imageFiles, ...importedImages]}
+                items={sortedGalleryItems}
                 selectedId={loadedImage?.id}
                 onSelect={(item) =>
                   setSelectedFile(item as (typeof imageFiles)[0])
