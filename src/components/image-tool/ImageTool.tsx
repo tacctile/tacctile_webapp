@@ -469,6 +469,8 @@ const VersionHoverOverlay = styled(Box)<{ visible?: boolean }>(
     transition: "opacity 150ms ease",
     zIndex: 3,
     pointerEvents: "none",
+    overflow: "hidden",
+    padding: "4px",
   }),
 );
 
@@ -503,8 +505,9 @@ const GallerySourceBadge = styled(Box)<{ faded?: boolean }>(({ faded }) => ({
   backgroundColor: "rgba(0, 0, 0, 0.8)",
   borderRadius: 4,
   padding: "2px 6px",
-  minWidth: 22,
-  minHeight: 22,
+  fontSize: 10,
+  fontWeight: 600,
+  color: "#fff",
   zIndex: 4, // Above overlay (z-index: 3) so badge stays visible on hover
   opacity: faded ? 0 : 1,
   transition: "opacity 150ms ease",
@@ -4479,70 +4482,16 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               flexDirection: "column",
             }}
           >
-            {/* User visibility toggles */}
-            <Box
-              sx={{ padding: "8px 12px", borderBottom: "1px solid #1f1f1f" }}
-            >
-              <Typography
-                sx={{
-                  fontSize: 9,
-                  color: "#555",
-                  mb: 0.5,
-                  textTransform: "uppercase",
-                }}
-              >
-                Show by user
-              </Typography>
-              <Box sx={{ display: "flex", gap: 0.5 }}>
-                {getUniqueUsers().map((user) => (
-                  <Tooltip key={user} title={`Toggle ${user}'s annotations`}>
-                    <IconButton
-                      size="small"
-                      onClick={() => toggleUserVisibility(user)}
-                      sx={{
-                        padding: "2px 6px",
-                        borderRadius: 2,
-                        backgroundColor: userVisibility[user]
-                          ? "rgba(25, 171, 181, 0.15)"
-                          : "#252525",
-                        border: "1px solid",
-                        borderColor: userVisibility[user] ? "#19abb5" : "#333",
-                      }}
-                    >
-                      <PersonIcon
-                        sx={{
-                          fontSize: 12,
-                          color: userVisibility[user] ? "#19abb5" : "#555",
-                          mr: 0.5,
-                        }}
-                      />
-                      <Typography
-                        sx={{
-                          fontSize: 9,
-                          color: userVisibility[user] ? "#19abb5" : "#555",
-                        }}
-                      >
-                        {user}
-                      </Typography>
-                    </IconButton>
-                  </Tooltip>
-                ))}
-              </Box>
-            </Box>
-
             {/* Annotation list */}
             <Box sx={{ flex: 1, overflow: "auto", padding: "4px 8px" }}>
-              {storeAnnotations.filter((a) => userVisibility[a.userDisplayName])
-                .length === 0 ? (
+              {storeAnnotations.length === 0 ? (
                 <Box sx={{ textAlign: "center", py: 2 }}>
                   <Typography sx={{ fontSize: 10, color: "#444" }}>
                     No annotations to display
                   </Typography>
                 </Box>
               ) : (
-                storeAnnotations
-                  .filter((a) => userVisibility[a.userDisplayName])
-                  .map((annotation) => (
+                storeAnnotations.map((annotation) => (
                     <AnnotationItem
                       key={annotation.id}
                       onClick={() => selectAnnotation(annotation.id)}
@@ -4609,25 +4558,6 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               )}
             </Box>
 
-            {/* Add Annotation Button */}
-            <Box sx={{ padding: "8px 12px", borderTop: "1px solid #252525" }}>
-              <Button
-                fullWidth
-                size="small"
-                variant="outlined"
-                startIcon={<AddIcon sx={{ fontSize: 14 }} />}
-                disabled={!loadedImage}
-                sx={{
-                  fontSize: 10,
-                  color: "#666",
-                  borderColor: "#333",
-                  py: 0.5,
-                  "&:hover": { borderColor: "#19abb5", color: "#19abb5" },
-                }}
-              >
-                Add Annotation
-              </Button>
-            </Box>
           </Box>
         )}
       </InspectorSection>
@@ -4757,10 +4687,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                           <Typography
                             sx={{
                               color: "#fff",
-                              fontSize: 14,
+                              fontSize: 12,
                               fontWeight: 500,
                               textAlign: "center",
-                              whiteSpace: "nowrap",
                             }}
                           >
                             {item.versionCount} Versions Available
@@ -4813,21 +4742,6 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                           </Tooltip>
                         )}
 
-                        {/* Filename overlay at bottom */}
-                        <GalleryOverlay>
-                          <Typography
-                            sx={{
-                              fontSize: "10px",
-                              color: "#fff",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                              width: "100%",
-                            }}
-                          >
-                            {item.fileName}
-                          </Typography>
-                        </GalleryOverlay>
                       </GridItemInner>
                     </StackedGridItem>
                   );
