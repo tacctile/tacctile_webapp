@@ -698,7 +698,17 @@ const ANNOTATION_COLORS = [
 ];
 
 // Resize handle positions
-type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w" | "start" | "end";
+type ResizeHandle =
+  | "nw"
+  | "n"
+  | "ne"
+  | "e"
+  | "se"
+  | "s"
+  | "sw"
+  | "w"
+  | "start"
+  | "end";
 
 interface ImageFilters {
   // Basic
@@ -910,6 +920,9 @@ interface NavigatorProps {
   actualDimensions: { width: number; height: number } | null;
   onPanChange: (x: number, y: number) => void;
   calculateFitScale: () => number;
+  rotation?: 0 | 90 | 180 | 270;
+  flipH?: boolean;
+  flipV?: boolean;
 }
 
 const Navigator: React.FC<NavigatorProps> = ({
@@ -920,6 +933,9 @@ const Navigator: React.FC<NavigatorProps> = ({
   actualDimensions,
   onPanChange,
   calculateFitScale,
+  rotation = 0,
+  flipH = false,
+  flipV = false,
 }) => {
   const navigatorRef = useRef<HTMLDivElement>(null);
   const thumbnailRef = useRef<HTMLImageElement>(null);
@@ -1150,6 +1166,20 @@ const Navigator: React.FC<NavigatorProps> = ({
             src={imageUrl}
             alt="Navigator thumbnail"
             draggable={false}
+            style={{
+              transform:
+                [
+                  rotation !== 0 ? `rotate(${rotation}deg)` : "",
+                  flipH ? "scaleX(-1)" : "",
+                  flipV ? "scaleY(-1)" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ") || "none",
+              // For 90° or 270° rotation, scale down to fit within the container
+              ...(rotation === 90 || rotation === 270
+                ? { maxWidth: "100px", maxHeight: "100%" }
+                : {}),
+            }}
           />
           {isZoomedIn && (
             <NavigatorViewportRect
@@ -1334,10 +1364,13 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   } | null>(null);
 
   // Annotation interaction state
-  const [hoveredAnnotationId, setHoveredAnnotationId] = useState<string | null>(null);
+  const [hoveredAnnotationId, setHoveredAnnotationId] = useState<string | null>(
+    null,
+  );
   const [isDraggingAnnotation, setIsDraggingAnnotation] = useState(false);
   const [isResizingAnnotation, setIsResizingAnnotation] = useState(false);
-  const [activeResizeHandle, setActiveResizeHandle] = useState<ResizeHandle | null>(null);
+  const [activeResizeHandle, setActiveResizeHandle] =
+    useState<ResizeHandle | null>(null);
   const [annotationDragStart, setAnnotationDragStart] = useState<{
     mouseX: number;
     mouseY: number;
@@ -1357,7 +1390,8 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     radiusY?: number;
   } | null>(null);
   // Track editing color in annotation edit mode
-  const [editingAnnotationColor, setEditingAnnotationColor] = useState<string>("");
+  const [editingAnnotationColor, setEditingAnnotationColor] =
+    useState<string>("");
 
   const [splitPosition, setSplitPosition] = useState(50);
   const [isDraggingSplit, setIsDraggingSplit] = useState(false);
@@ -1775,13 +1809,16 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       const panY = imageHeight * (0.5 - normalizedY);
       // Constrain to valid pan range at the new zoom level
       const excessWidth = Math.max(0, imageWidth - containerDimensions.width);
-      const excessHeight = Math.max(0, imageHeight - containerDimensions.height);
+      const excessHeight = Math.max(
+        0,
+        imageHeight - containerDimensions.height,
+      );
       return {
         x: Math.max(-excessWidth / 2, Math.min(excessWidth / 2, panX)),
         y: Math.max(-excessHeight / 2, Math.min(excessHeight / 2, panY)),
       };
     },
-    [actualDimensions, containerDimensions, calculateFitScale]
+    [actualDimensions, containerDimensions, calculateFitScale],
   );
 
   // Get center point of selected annotation (normalized 0-1 coords)
@@ -1807,12 +1844,21 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     // If an annotation is selected, zoom centered on it; otherwise zoom to center
     const annCenter = getSelectedAnnotationCenter();
     if (annCenter) {
-      const newPan = calculatePanToCenterNormalized(annCenter.x, annCenter.y, newZoom);
+      const newPan = calculatePanToCenterNormalized(
+        annCenter.x,
+        annCenter.y,
+        newZoom,
+      );
       setPanOffset(newPan);
     } else {
       setPanOffset({ x: 0, y: 0 });
     }
-  }, [zoom, getNextZoomStep, getSelectedAnnotationCenter, calculatePanToCenterNormalized]);
+  }, [
+    zoom,
+    getNextZoomStep,
+    getSelectedAnnotationCenter,
+    calculatePanToCenterNormalized,
+  ]);
 
   // Zoom out to previous step (stops at 100% = fit-to-window)
   const handleZoomOut = useCallback(() => {
@@ -1822,12 +1868,21 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     // If an annotation is selected, zoom centered on it; otherwise zoom to center
     const annCenter = getSelectedAnnotationCenter();
     if (annCenter) {
-      const newPan = calculatePanToCenterNormalized(annCenter.x, annCenter.y, newZoom);
+      const newPan = calculatePanToCenterNormalized(
+        annCenter.x,
+        annCenter.y,
+        newZoom,
+      );
       setPanOffset(newPan);
     } else {
       setPanOffset({ x: 0, y: 0 });
     }
-  }, [zoom, getPrevZoomStep, getSelectedAnnotationCenter, calculatePanToCenterNormalized]);
+  }, [
+    zoom,
+    getPrevZoomStep,
+    getSelectedAnnotationCenter,
+    calculatePanToCenterNormalized,
+  ]);
 
   // Set zoom to fit image in container (100%)
   const handleFitToView = useCallback(() => {
@@ -2115,8 +2170,11 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
   const handleSaveAnnotationEdit = useCallback(() => {
     if (editingAnnotationId) {
-      const annotation = storeAnnotations.find((a) => a.id === editingAnnotationId);
-      const colorChanged = annotation && annotation.color !== editingAnnotationColor;
+      const annotation = storeAnnotations.find(
+        (a) => a.id === editingAnnotationId,
+      );
+      const colorChanged =
+        annotation && annotation.color !== editingAnnotationColor;
       if (colorChanged) {
         pushHistory("Change annotation color");
       }
@@ -3085,10 +3143,16 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       }
 
       // Delete/Backspace key deletes selected annotation (only when not typing)
-      if (!isTyping && (e.key === "Delete" || e.key === "Backspace") && selectedAnnotationId) {
+      if (
+        !isTyping &&
+        (e.key === "Delete" || e.key === "Backspace") &&
+        selectedAnnotationId
+      ) {
         e.preventDefault();
         // Check if annotation is locked before deleting
-        const selectedAnn = storeAnnotations.find((a) => a.id === selectedAnnotationId);
+        const selectedAnn = storeAnnotations.find(
+          (a) => a.id === selectedAnnotationId,
+        );
         if (selectedAnn && !selectedAnn.locked) {
           deleteAnnotation(selectedAnnotationId);
         }
@@ -3462,19 +3526,28 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       if (rafId === null) {
         rafId = requestAnimationFrame(() => {
           rafId = null;
-          const transform = `translate(${panLiveRef.current.x}px, ${panLiveRef.current.y}px)`;
+          // Build transform string including translate, rotation, and flip
+          const translatePart = `translate(${panLiveRef.current.x}px, ${panLiveRef.current.y}px)`;
+          const rotatePart = rotation !== 0 ? ` rotate(${rotation}deg)` : "";
+          const flipHPart = flipH ? " scaleX(-1)" : "";
+          const flipVPart = flipV ? " scaleY(-1)" : "";
+          const fullTransform =
+            translatePart + rotatePart + flipHPart + flipVPart;
+          // For original image (A/B comparison), only translate
+          const originalTransform = translatePart;
 
           // Update single view image
           if (imageRef.current) {
-            imageRef.current.style.transform = transform;
+            imageRef.current.style.transform = fullTransform;
           }
 
           // Update split view images (both layers need same transform for alignment)
           if (splitImageRef.current) {
-            splitImageRef.current.style.transform = transform;
+            splitImageRef.current.style.transform = fullTransform;
           }
           if (splitOriginalImageRef.current) {
-            splitOriginalImageRef.current.style.transform = transform;
+            // Original image only gets translate, no rotation/flip
+            splitOriginalImageRef.current.style.transform = originalTransform;
           }
         });
       }
@@ -3505,7 +3578,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isPanning, constrainPan]);
+  }, [isPanning, constrainPan, rotation, flipH, flipV]);
 
   // Handle annotation drawing (mouse move and mouse up)
   useEffect(() => {
@@ -3637,11 +3710,13 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       const coords = screenToImageCoords(e.clientX, e.clientY);
       if (!coords) return;
 
-      const annotation = storeAnnotations.find((a) => a.id === selectedAnnotationId);
+      const annotation = storeAnnotations.find(
+        (a) => a.id === selectedAnnotationId,
+      );
       if (!annotation || annotation.locked) return;
 
-      const deltaX = coords.normalizedX - (annotationDragStart.mouseX);
-      const deltaY = coords.normalizedY - (annotationDragStart.mouseY);
+      const deltaX = coords.normalizedX - annotationDragStart.mouseX;
+      const deltaY = coords.normalizedY - annotationDragStart.mouseY;
 
       if (isDraggingAnnotation) {
         // Moving the annotation
@@ -3690,11 +3765,17 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
           // Prevent negative dimensions
           if (newWidth < 0.01) {
             newWidth = 0.01;
-            newX = annotationDragStart.annotationX + annotationDragStart.annotationWidth - 0.01;
+            newX =
+              annotationDragStart.annotationX +
+              annotationDragStart.annotationWidth -
+              0.01;
           }
           if (newHeight < 0.01) {
             newHeight = 0.01;
-            newY = annotationDragStart.annotationY + annotationDragStart.annotationHeight - 0.01;
+            newY =
+              annotationDragStart.annotationY +
+              annotationDragStart.annotationHeight -
+              0.01;
           }
 
           updateAnnotation(selectedAnnotationId, {
@@ -3710,19 +3791,31 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
           let newRadiusY = annotationDragStart.radiusY ?? 0;
 
           if (activeResizeHandle.includes("w")) {
-            newRadiusX = Math.max(0.01, (annotationDragStart.radiusX ?? 0) - deltaX / 2);
+            newRadiusX = Math.max(
+              0.01,
+              (annotationDragStart.radiusX ?? 0) - deltaX / 2,
+            );
             newCenterX = (annotationDragStart.centerX ?? 0) + deltaX / 2;
           }
           if (activeResizeHandle.includes("e")) {
-            newRadiusX = Math.max(0.01, (annotationDragStart.radiusX ?? 0) + deltaX / 2);
+            newRadiusX = Math.max(
+              0.01,
+              (annotationDragStart.radiusX ?? 0) + deltaX / 2,
+            );
             newCenterX = (annotationDragStart.centerX ?? 0) + deltaX / 2;
           }
           if (activeResizeHandle.includes("n")) {
-            newRadiusY = Math.max(0.01, (annotationDragStart.radiusY ?? 0) - deltaY / 2);
+            newRadiusY = Math.max(
+              0.01,
+              (annotationDragStart.radiusY ?? 0) - deltaY / 2,
+            );
             newCenterY = (annotationDragStart.centerY ?? 0) + deltaY / 2;
           }
           if (activeResizeHandle.includes("s")) {
-            newRadiusY = Math.max(0.01, (annotationDragStart.radiusY ?? 0) + deltaY / 2);
+            newRadiusY = Math.max(
+              0.01,
+              (annotationDragStart.radiusY ?? 0) + deltaY / 2,
+            );
             newCenterY = (annotationDragStart.centerY ?? 0) + deltaY / 2;
           }
 
@@ -4171,13 +4264,19 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     };
 
     // Handle annotation click to select
-    const handleAnnotationClick = (e: React.MouseEvent, annotationId: string) => {
+    const handleAnnotationClick = (
+      e: React.MouseEvent,
+      annotationId: string,
+    ) => {
       e.stopPropagation();
       selectAnnotation(annotationId);
     };
 
     // Handle annotation mouse down to start dragging
-    const handleAnnotationMouseDown = (e: React.MouseEvent, ann: StoreImageAnnotation) => {
+    const handleAnnotationMouseDown = (
+      e: React.MouseEvent,
+      ann: StoreImageAnnotation,
+    ) => {
       e.stopPropagation();
       e.preventDefault();
 
@@ -4238,7 +4337,11 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     };
 
     // Handle resize handle mouse down
-    const handleResizeHandleMouseDown = (e: React.MouseEvent, ann: StoreImageAnnotation, handle: ResizeHandle) => {
+    const handleResizeHandleMouseDown = (
+      e: React.MouseEvent,
+      ann: StoreImageAnnotation,
+      handle: ResizeHandle,
+    ) => {
       e.stopPropagation();
       e.preventDefault();
 
@@ -4430,9 +4533,15 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                 const isSelected = ann.id === selectedAnnotationId;
                 const isHovered = ann.id === hoveredAnnotationId;
                 const showGlow = (isHovered || isSelected) && !ann.locked;
-                const strokeColor = ann.color || "#19abb5";
+                // Use editing color for live preview if this annotation is being edited
+                const strokeColor =
+                  editingAnnotationId === ann.id && editingAnnotationColor
+                    ? editingAnnotationColor
+                    : ann.color || "#19abb5";
                 const baseStrokeWidth = ann.strokeWidth || 2;
-                const strokeWidth = showGlow ? baseStrokeWidth + 1.5 : baseStrokeWidth;
+                const strokeWidth = showGlow
+                  ? baseStrokeWidth + 1.5
+                  : baseStrokeWidth;
                 const annotationCursor = ann.locked ? "default" : "grab";
 
                 if (ann.type === "rectangle") {
@@ -4451,8 +4560,13 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                         fill="transparent"
                         stroke="transparent"
                         strokeWidth={12}
-                        style={{ cursor: annotationCursor, pointerEvents: "auto" }}
-                        onMouseEnter={() => !ann.locked && setHoveredAnnotationId(ann.id)}
+                        style={{
+                          cursor: annotationCursor,
+                          pointerEvents: "auto",
+                        }}
+                        onMouseEnter={() =>
+                          !ann.locked && setHoveredAnnotationId(ann.id)
+                        }
                         onMouseLeave={() => setHoveredAnnotationId(null)}
                         onMouseDown={(e) => handleAnnotationMouseDown(e, ann)}
                         onClick={(e) => handleAnnotationClick(e, ann.id)}
@@ -4505,8 +4619,13 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                         fill="transparent"
                         stroke="transparent"
                         strokeWidth={12}
-                        style={{ cursor: annotationCursor, pointerEvents: "auto" }}
-                        onMouseEnter={() => !ann.locked && setHoveredAnnotationId(ann.id)}
+                        style={{
+                          cursor: annotationCursor,
+                          pointerEvents: "auto",
+                        }}
+                        onMouseEnter={() =>
+                          !ann.locked && setHoveredAnnotationId(ann.id)
+                        }
                         onMouseLeave={() => setHoveredAnnotationId(null)}
                         onMouseDown={(e) => handleAnnotationMouseDown(e, ann)}
                         onClick={(e) => handleAnnotationClick(e, ann.id)}
@@ -4570,8 +4689,13 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                         y2={y2}
                         stroke="transparent"
                         strokeWidth={16}
-                        style={{ cursor: annotationCursor, pointerEvents: "auto" }}
-                        onMouseEnter={() => !ann.locked && setHoveredAnnotationId(ann.id)}
+                        style={{
+                          cursor: annotationCursor,
+                          pointerEvents: "auto",
+                        }}
+                        onMouseEnter={() =>
+                          !ann.locked && setHoveredAnnotationId(ann.id)
+                        }
                         onMouseLeave={() => setHoveredAnnotationId(null)}
                         onMouseDown={(e) => handleAnnotationMouseDown(e, ann)}
                         onClick={(e) => handleAnnotationClick(e, ann.id)}
@@ -5106,6 +5230,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               actualDimensions={actualDimensions}
               onPanChange={(x, y) => setPanOffset({ x, y })}
               calculateFitScale={calculateFitScale}
+              rotation={rotation}
+              flipH={flipH}
+              flipV={flipV}
             />
           </SectionContent>
         )}
@@ -5424,21 +5551,31 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                             onClick={(e) => e.stopPropagation()}
                           >
                             {ANNOTATION_COLORS.map((colorOption) => (
-                              <Tooltip key={colorOption.value} title={colorOption.name}>
+                              <Tooltip
+                                key={colorOption.value}
+                                title={colorOption.name}
+                                placement="top"
+                              >
                                 <Box
-                                  onClick={() => setEditingAnnotationColor(colorOption.value)}
+                                  onClick={() =>
+                                    setEditingAnnotationColor(colorOption.value)
+                                  }
                                   sx={{
                                     width: 20,
                                     height: 20,
                                     borderRadius: "50%",
                                     backgroundColor: colorOption.value,
                                     cursor: "pointer",
-                                    border: editingAnnotationColor === colorOption.value
-                                      ? "2px solid #fff"
-                                      : "2px solid transparent",
-                                    boxShadow: editingAnnotationColor === colorOption.value
-                                      ? "0 0 0 1px #19abb5"
-                                      : "none",
+                                    border:
+                                      editingAnnotationColor ===
+                                      colorOption.value
+                                        ? "2px solid #fff"
+                                        : "2px solid transparent",
+                                    boxShadow:
+                                      editingAnnotationColor ===
+                                      colorOption.value
+                                        ? "0 0 0 1px #19abb5"
+                                        : "none",
                                     transition: "all 0.15s ease",
                                     "&:hover": {
                                       transform: "scale(1.1)",
@@ -5614,7 +5751,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                                 <EditIcon sx={{ fontSize: 14 }} />
                               </IconButton>
                             </Tooltip>
-                            <Tooltip title={annotation.locked ? "Unlock" : "Lock"}>
+                            <Tooltip
+                              title={annotation.locked ? "Unlock" : "Lock"}
+                            >
                               <IconButton
                                 size="small"
                                 onClick={(e) => {
@@ -5634,7 +5773,13 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                                 )}
                               </IconButton>
                             </Tooltip>
-                            <Tooltip title={annotation.locked ? "Locked - unlock to delete" : "Delete"}>
+                            <Tooltip
+                              title={
+                                annotation.locked
+                                  ? "Locked - unlock to delete"
+                                  : "Delete"
+                              }
+                            >
                               <span>
                                 <IconButton
                                   size="small"
@@ -5648,7 +5793,11 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                                   sx={{
                                     padding: "4px",
                                     color: annotation.locked ? "#444" : "#666",
-                                    "&:hover": { color: annotation.locked ? "#444" : "#c45c5c" },
+                                    "&:hover": {
+                                      color: annotation.locked
+                                        ? "#444"
+                                        : "#c45c5c",
+                                    },
                                   }}
                                 >
                                   <DeleteIcon sx={{ fontSize: 14 }} />
