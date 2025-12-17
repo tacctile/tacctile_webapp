@@ -442,7 +442,7 @@ const StackedGridItem = styled(Box)<{
   cursor: "pointer",
   overflow: "visible",
   // Only selected image has a border - no glow for flagged images
-  border: selected ? "2px solid #19abb5" : "2px solid transparent",
+  border: selected ? "4px solid #19abb5" : "4px solid transparent",
   transition: "all 0.2s ease",
   // Stack effect pseudo-elements for items with versions
   ...(hasVersions && {
@@ -634,7 +634,7 @@ const VersionsModalItem = styled(Box)<{ selected?: boolean }>(
     borderRadius: 4,
     cursor: "pointer",
     overflow: "hidden",
-    border: selected ? "2px solid #19abb5" : "2px solid transparent",
+    border: selected ? "4px solid #19abb5" : "4px solid transparent",
     transition: "all 0.15s ease",
     "&:hover": {
       borderColor: "#19abb5",
@@ -1174,9 +1174,13 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     const result: GalleryItemWithVersions[] = [];
     const exportsByParent = new Map<string, ImageFileType[]>();
 
-    // Group exports by their parentId
+    // Group exports by their parentId (excluding deleted exports)
     allItems.forEach((item) => {
       if (item.source === "export" && item.parentId) {
+        // Skip deleted exports
+        if (deletedExportIds.has(item.id)) {
+          return;
+        }
         const existing = exportsByParent.get(item.parentId) || [];
         existing.push(item as ImageFileType);
         exportsByParent.set(item.parentId, existing);
@@ -1195,7 +1199,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         return;
       }
 
-      // Get any exports for this item
+      // Get any exports for this item (already filtered for deleted)
       const childExports = exportsByParent.get(item.id) || [];
 
       // Add the item with version information
@@ -1212,7 +1216,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     // This is intentional - exports should always have a parent
 
     return result;
-  }, [importedImages]);
+  }, [importedImages, deletedExportIds]);
 
   // Keep sortedGalleryItems for backward compatibility (FileLibrary still uses flat list)
   const sortedGalleryItems = useMemo(() => {
@@ -1269,6 +1273,11 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [deleteExportConfirmOpen, setDeleteExportConfirmOpen] = useState(false);
   const [exportToDelete, setExportToDelete] = useState<ImageFileType | null>(
     null,
+  );
+
+  // Track deleted export IDs (to filter them from gallery, including mock data)
+  const [deletedExportIds, setDeletedExportIds] = useState<Set<string>>(
+    new Set(),
   );
 
   // Hover state for gallery items with versions (to show overlay)
@@ -1594,7 +1603,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const handleConfirmDeleteExport = useCallback(() => {
     if (!exportToDelete) return;
 
-    // Remove the export from importedImages state
+    // Add to deleted exports set (this filters it from galleryItemsWithVersions)
+    setDeletedExportIds((prev) => new Set([...prev, exportToDelete.id]));
+
+    // Also remove from importedImages state (for runtime-created exports)
     setImportedImages((prev) =>
       prev.filter((img) => img.id !== exportToDelete.id),
     );
@@ -4888,16 +4900,6 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                                 {annotation.label ||
                                   `${annotation.type.charAt(0).toUpperCase() + annotation.type.slice(1)}`}
                               </Typography>
-                              {/* Notes indicator icon - only shown if notes exist */}
-                              {annotation.notes && (
-                                <DescriptionOutlinedIcon
-                                  sx={{
-                                    fontSize: 14,
-                                    color: "#888",
-                                    flexShrink: 0,
-                                  }}
-                                />
-                              )}
                             </Box>
                           </Box>
                           {/* Action icons */}
@@ -4908,6 +4910,18 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                               gap: 0.25,
                             }}
                           >
+                            {/* Notes indicator icon - only shown if notes exist */}
+                            {annotation.notes && (
+                              <Tooltip title="Has notes">
+                                <DescriptionOutlinedIcon
+                                  sx={{
+                                    fontSize: 14,
+                                    color: "#888",
+                                    flexShrink: 0,
+                                  }}
+                                />
+                              </Tooltip>
+                            )}
                             <Tooltip
                               title={annotation.visible ? "Hide" : "Show"}
                             >
