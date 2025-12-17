@@ -50,6 +50,8 @@ import CloudIcon from "@mui/icons-material/Cloud";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+import LockIcon from "@mui/icons-material/Lock";
+import LockOpenIcon from "@mui/icons-material/LockOpen";
 
 import { WorkspaceLayout } from "@/components/layout";
 import { type FileItem } from "@/components/file-library";
@@ -682,6 +684,22 @@ const PLACEHOLDER_USERS = [
   { userId: "user-jen", userDisplayName: "Jen" },
 ];
 
+// Annotation color options for the color picker
+const ANNOTATION_COLORS = [
+  { name: "Red", value: "#ef4444" },
+  { name: "Orange", value: "#f97316" },
+  { name: "Yellow", value: "#eab308" },
+  { name: "Green", value: "#22c55e" },
+  { name: "Cyan", value: "#19abb5" },
+  { name: "Blue", value: "#3b82f6" },
+  { name: "Purple", value: "#a855f7" },
+  { name: "Pink", value: "#ec4899" },
+  { name: "White", value: "#ffffff" },
+];
+
+// Resize handle positions
+type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w" | "start" | "end";
+
 interface ImageFilters {
   // Basic
   exposure: number;
@@ -1302,6 +1320,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const clearAnnotations = useImageToolStore((state) => state.clearAnnotations);
   const deleteAnnotation = useImageToolStore((state) => state.deleteAnnotation);
   const updateAnnotation = useImageToolStore((state) => state.updateAnnotation);
+  const pushHistory = useImageToolStore((state) => state.pushHistory);
 
   // Drawing state for annotation in progress
   const [isDrawingAnnotation, setIsDrawingAnnotation] = useState(false);
@@ -1313,6 +1332,33 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     x: number;
     y: number;
   } | null>(null);
+
+  // Annotation interaction state
+  const [hoveredAnnotationId, setHoveredAnnotationId] = useState<string | null>(null);
+  const [isDraggingAnnotation, setIsDraggingAnnotation] = useState(false);
+  const [isResizingAnnotation, setIsResizingAnnotation] = useState(false);
+  const [activeResizeHandle, setActiveResizeHandle] = useState<ResizeHandle | null>(null);
+  const [annotationDragStart, setAnnotationDragStart] = useState<{
+    mouseX: number;
+    mouseY: number;
+    annotationX: number;
+    annotationY: number;
+    annotationWidth: number;
+    annotationHeight: number;
+    // For arrows
+    startX?: number;
+    startY?: number;
+    endX?: number;
+    endY?: number;
+    // For circles
+    centerX?: number;
+    centerY?: number;
+    radiusX?: number;
+    radiusY?: number;
+  } | null>(null);
+  // Track editing color in annotation edit mode
+  const [editingAnnotationColor, setEditingAnnotationColor] = useState<string>("");
+
   const [splitPosition, setSplitPosition] = useState(50);
   const [isDraggingSplit, setIsDraggingSplit] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false); // A/B toggle state
@@ -2000,31 +2046,43 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       setEditingAnnotationId(annotation.id);
       setEditingAnnotationLabel(annotation.label || "");
       setEditingAnnotationNotes(annotation.notes || "");
+      setEditingAnnotationColor(annotation.color || "#19abb5");
     },
     [],
   );
 
   const handleSaveAnnotationEdit = useCallback(() => {
     if (editingAnnotationId) {
+      const annotation = storeAnnotations.find((a) => a.id === editingAnnotationId);
+      const colorChanged = annotation && annotation.color !== editingAnnotationColor;
+      if (colorChanged) {
+        pushHistory("Change annotation color");
+      }
       updateAnnotation(editingAnnotationId, {
         label: editingAnnotationLabel,
         notes: editingAnnotationNotes,
+        color: editingAnnotationColor,
       });
       setEditingAnnotationId(null);
       setEditingAnnotationLabel("");
       setEditingAnnotationNotes("");
+      setEditingAnnotationColor("");
     }
   }, [
     editingAnnotationId,
     editingAnnotationLabel,
     editingAnnotationNotes,
+    editingAnnotationColor,
     updateAnnotation,
+    storeAnnotations,
+    pushHistory,
   ]);
 
   const handleCancelAnnotationEdit = useCallback(() => {
     setEditingAnnotationId(null);
     setEditingAnnotationLabel("");
     setEditingAnnotationNotes("");
+    setEditingAnnotationColor("");
   }, []);
 
   const handleDeleteAnnotation = useCallback(
@@ -2035,6 +2093,17 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       }
     },
     [deleteAnnotation, editingAnnotationId],
+  );
+
+  // Toggle lock state for annotation
+  const handleToggleLockAnnotation = useCallback(
+    (id: string) => {
+      const annotation = storeAnnotations.find((a) => a.id === id);
+      if (annotation) {
+        updateAnnotation(id, { locked: !annotation.locked });
+      }
+    },
+    [storeAnnotations, updateAnnotation],
   );
 
   // Build CSS transform string for image transforms
@@ -2947,6 +3016,20 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
           setDrawingStartPoint(null);
           setCurrentDrawingEnd(null);
         }
+        // Deselect annotation
+        if (selectedAnnotationId) {
+          selectAnnotation(null);
+        }
+      }
+
+      // Delete/Backspace key deletes selected annotation (only when not typing)
+      if (!isTyping && (e.key === "Delete" || e.key === "Backspace") && selectedAnnotationId) {
+        e.preventDefault();
+        // Check if annotation is locked before deleting
+        const selectedAnn = storeAnnotations.find((a) => a.id === selectedAnnotationId);
+        if (selectedAnn && !selectedAnn.locked) {
+          deleteAnnotation(selectedAnnotationId);
+        }
       }
 
       // Undo/Redo keyboard shortcuts (only when not typing in text input)
@@ -2996,6 +3079,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     handleRedo,
     storeUndo,
     storeRedo,
+    selectedAnnotationId,
+    selectAnnotation,
+    storeAnnotations,
+    deleteAnnotation,
   ]);
 
   // Toggle marquee zoom mode (toolbar icon click)
@@ -3479,6 +3566,159 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     addAnnotation,
   ]);
 
+  // Handle annotation drag/resize (mouse move and mouse up)
+  useEffect(() => {
+    if (!isDraggingAnnotation && !isResizingAnnotation) return;
+    if (!annotationDragStart || !selectedAnnotationId) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const coords = screenToImageCoords(e.clientX, e.clientY);
+      if (!coords) return;
+
+      const annotation = storeAnnotations.find((a) => a.id === selectedAnnotationId);
+      if (!annotation || annotation.locked) return;
+
+      const deltaX = coords.normalizedX - (annotationDragStart.mouseX);
+      const deltaY = coords.normalizedY - (annotationDragStart.mouseY);
+
+      if (isDraggingAnnotation) {
+        // Moving the annotation
+        if (annotation.type === "rectangle") {
+          updateAnnotation(selectedAnnotationId, {
+            x: annotationDragStart.annotationX + deltaX,
+            y: annotationDragStart.annotationY + deltaY,
+          });
+        } else if (annotation.type === "circle") {
+          updateAnnotation(selectedAnnotationId, {
+            centerX: (annotationDragStart.centerX ?? 0) + deltaX,
+            centerY: (annotationDragStart.centerY ?? 0) + deltaY,
+          });
+        } else if (annotation.type === "arrow") {
+          updateAnnotation(selectedAnnotationId, {
+            startX: (annotationDragStart.startX ?? 0) + deltaX,
+            startY: (annotationDragStart.startY ?? 0) + deltaY,
+            endX: (annotationDragStart.endX ?? 0) + deltaX,
+            endY: (annotationDragStart.endY ?? 0) + deltaY,
+          });
+        }
+      } else if (isResizingAnnotation && activeResizeHandle) {
+        // Resizing the annotation
+        if (annotation.type === "rectangle") {
+          let newX = annotationDragStart.annotationX;
+          let newY = annotationDragStart.annotationY;
+          let newWidth = annotationDragStart.annotationWidth;
+          let newHeight = annotationDragStart.annotationHeight;
+
+          // Handle each resize handle
+          if (activeResizeHandle.includes("w")) {
+            newX = annotationDragStart.annotationX + deltaX;
+            newWidth = annotationDragStart.annotationWidth - deltaX;
+          }
+          if (activeResizeHandle.includes("e")) {
+            newWidth = annotationDragStart.annotationWidth + deltaX;
+          }
+          if (activeResizeHandle.includes("n")) {
+            newY = annotationDragStart.annotationY + deltaY;
+            newHeight = annotationDragStart.annotationHeight - deltaY;
+          }
+          if (activeResizeHandle.includes("s")) {
+            newHeight = annotationDragStart.annotationHeight + deltaY;
+          }
+
+          // Prevent negative dimensions
+          if (newWidth < 0.01) {
+            newWidth = 0.01;
+            newX = annotationDragStart.annotationX + annotationDragStart.annotationWidth - 0.01;
+          }
+          if (newHeight < 0.01) {
+            newHeight = 0.01;
+            newY = annotationDragStart.annotationY + annotationDragStart.annotationHeight - 0.01;
+          }
+
+          updateAnnotation(selectedAnnotationId, {
+            x: newX,
+            y: newY,
+            width: newWidth,
+            height: newHeight,
+          });
+        } else if (annotation.type === "circle") {
+          let newCenterX = annotationDragStart.centerX ?? 0;
+          let newCenterY = annotationDragStart.centerY ?? 0;
+          let newRadiusX = annotationDragStart.radiusX ?? 0;
+          let newRadiusY = annotationDragStart.radiusY ?? 0;
+
+          if (activeResizeHandle.includes("w")) {
+            newRadiusX = Math.max(0.01, (annotationDragStart.radiusX ?? 0) - deltaX / 2);
+            newCenterX = (annotationDragStart.centerX ?? 0) + deltaX / 2;
+          }
+          if (activeResizeHandle.includes("e")) {
+            newRadiusX = Math.max(0.01, (annotationDragStart.radiusX ?? 0) + deltaX / 2);
+            newCenterX = (annotationDragStart.centerX ?? 0) + deltaX / 2;
+          }
+          if (activeResizeHandle.includes("n")) {
+            newRadiusY = Math.max(0.01, (annotationDragStart.radiusY ?? 0) - deltaY / 2);
+            newCenterY = (annotationDragStart.centerY ?? 0) + deltaY / 2;
+          }
+          if (activeResizeHandle.includes("s")) {
+            newRadiusY = Math.max(0.01, (annotationDragStart.radiusY ?? 0) + deltaY / 2);
+            newCenterY = (annotationDragStart.centerY ?? 0) + deltaY / 2;
+          }
+
+          updateAnnotation(selectedAnnotationId, {
+            centerX: newCenterX,
+            centerY: newCenterY,
+            radiusX: newRadiusX,
+            radiusY: newRadiusY,
+          });
+        } else if (annotation.type === "arrow") {
+          if (activeResizeHandle === "start") {
+            updateAnnotation(selectedAnnotationId, {
+              startX: coords.normalizedX,
+              startY: coords.normalizedY,
+            });
+          } else if (activeResizeHandle === "end") {
+            updateAnnotation(selectedAnnotationId, {
+              endX: coords.normalizedX,
+              endY: coords.normalizedY,
+            });
+          }
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (isDraggingAnnotation) {
+        pushHistory("Move annotation");
+      } else if (isResizingAnnotation) {
+        pushHistory("Resize annotation");
+      }
+      setIsDraggingAnnotation(false);
+      setIsResizingAnnotation(false);
+      setActiveResizeHandle(null);
+      setAnnotationDragStart(null);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [
+    isDraggingAnnotation,
+    isResizingAnnotation,
+    activeResizeHandle,
+    annotationDragStart,
+    selectedAnnotationId,
+    screenToImageCoords,
+    storeAnnotations,
+    updateAnnotation,
+    pushHistory,
+  ]);
+
   // Re-constrain pan when zoom changes
   useEffect(() => {
     const constrained = constrainPan(panOffset.x, panOffset.y);
@@ -3827,6 +4067,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
     // Determine cursor based on state
     const getCursor = () => {
+      // Annotation dragging - grabbing hand
+      if (isDraggingAnnotation) return "grabbing";
+      // Annotation resizing - resize cursor
+      if (isResizingAnnotation) return "move";
       // Annotation tool active - crosshair
       if (activeTool) return "crosshair";
       // Marquee drawing - crosshair
@@ -3839,6 +4083,224 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       if (isPannable) return "grab";
       // At fit (100%) - default
       return "default";
+    };
+
+    // Get resize cursor based on handle position
+    const getResizeCursor = (handle: ResizeHandle): string => {
+      switch (handle) {
+        case "nw":
+        case "se":
+          return "nwse-resize";
+        case "ne":
+        case "sw":
+          return "nesw-resize";
+        case "n":
+        case "s":
+          return "ns-resize";
+        case "e":
+        case "w":
+          return "ew-resize";
+        case "start":
+        case "end":
+          return "move";
+        default:
+          return "default";
+      }
+    };
+
+    // Handle annotation click to select
+    const handleAnnotationClick = (e: React.MouseEvent, annotationId: string) => {
+      e.stopPropagation();
+      selectAnnotation(annotationId);
+    };
+
+    // Handle annotation mouse down to start dragging
+    const handleAnnotationMouseDown = (e: React.MouseEvent, ann: StoreImageAnnotation) => {
+      e.stopPropagation();
+      e.preventDefault();
+
+      // Don't allow dragging locked annotations
+      if (ann.locked) {
+        selectAnnotation(ann.id);
+        return;
+      }
+
+      // Select the annotation
+      selectAnnotation(ann.id);
+
+      // Get mouse coordinates in normalized image space
+      const coords = screenToImageCoords(e.clientX, e.clientY);
+      if (!coords) return;
+
+      // Set up drag state
+      if (ann.type === "rectangle") {
+        setAnnotationDragStart({
+          mouseX: coords.normalizedX,
+          mouseY: coords.normalizedY,
+          annotationX: ann.x,
+          annotationY: ann.y,
+          annotationWidth: ann.width,
+          annotationHeight: ann.height,
+        });
+      } else if (ann.type === "circle") {
+        setAnnotationDragStart({
+          mouseX: coords.normalizedX,
+          mouseY: coords.normalizedY,
+          annotationX: ann.centerX,
+          annotationY: ann.centerY,
+          annotationWidth: ann.radiusX * 2,
+          annotationHeight: ann.radiusY * 2,
+          centerX: ann.centerX,
+          centerY: ann.centerY,
+          radiusX: ann.radiusX,
+          radiusY: ann.radiusY,
+        });
+      } else if (ann.type === "arrow") {
+        setAnnotationDragStart({
+          mouseX: coords.normalizedX,
+          mouseY: coords.normalizedY,
+          annotationX: ann.startX,
+          annotationY: ann.startY,
+          annotationWidth: ann.endX - ann.startX,
+          annotationHeight: ann.endY - ann.startY,
+          startX: ann.startX,
+          startY: ann.startY,
+          endX: ann.endX,
+          endY: ann.endY,
+        });
+      }
+
+      setIsDraggingAnnotation(true);
+      document.body.style.cursor = "grabbing";
+      document.body.style.userSelect = "none";
+    };
+
+    // Handle resize handle mouse down
+    const handleResizeHandleMouseDown = (e: React.MouseEvent, ann: StoreImageAnnotation, handle: ResizeHandle) => {
+      e.stopPropagation();
+      e.preventDefault();
+
+      if (ann.locked) return;
+
+      const coords = screenToImageCoords(e.clientX, e.clientY);
+      if (!coords) return;
+
+      if (ann.type === "rectangle") {
+        setAnnotationDragStart({
+          mouseX: coords.normalizedX,
+          mouseY: coords.normalizedY,
+          annotationX: ann.x,
+          annotationY: ann.y,
+          annotationWidth: ann.width,
+          annotationHeight: ann.height,
+        });
+      } else if (ann.type === "circle") {
+        setAnnotationDragStart({
+          mouseX: coords.normalizedX,
+          mouseY: coords.normalizedY,
+          annotationX: ann.centerX,
+          annotationY: ann.centerY,
+          annotationWidth: ann.radiusX * 2,
+          annotationHeight: ann.radiusY * 2,
+          centerX: ann.centerX,
+          centerY: ann.centerY,
+          radiusX: ann.radiusX,
+          radiusY: ann.radiusY,
+        });
+      } else if (ann.type === "arrow") {
+        setAnnotationDragStart({
+          mouseX: coords.normalizedX,
+          mouseY: coords.normalizedY,
+          annotationX: ann.startX,
+          annotationY: ann.startY,
+          annotationWidth: ann.endX - ann.startX,
+          annotationHeight: ann.endY - ann.startY,
+          startX: ann.startX,
+          startY: ann.startY,
+          endX: ann.endX,
+          endY: ann.endY,
+        });
+      }
+
+      setActiveResizeHandle(handle);
+      setIsResizingAnnotation(true);
+      document.body.style.cursor = getResizeCursor(handle);
+      document.body.style.userSelect = "none";
+    };
+
+    // Render resize handles for selected annotation
+    const renderResizeHandles = (ann: StoreImageAnnotation) => {
+      if (ann.id !== selectedAnnotationId) return null;
+
+      const handleSize = 8;
+      const handles: { handle: ResizeHandle; x: number; y: number }[] = [];
+
+      if (ann.type === "rectangle") {
+        const x = ann.x * imageSize.width;
+        const y = ann.y * imageSize.height;
+        const w = ann.width * imageSize.width;
+        const h = ann.height * imageSize.height;
+
+        handles.push(
+          { handle: "nw", x: x, y: y },
+          { handle: "n", x: x + w / 2, y: y },
+          { handle: "ne", x: x + w, y: y },
+          { handle: "e", x: x + w, y: y + h / 2 },
+          { handle: "se", x: x + w, y: y + h },
+          { handle: "s", x: x + w / 2, y: y + h },
+          { handle: "sw", x: x, y: y + h },
+          { handle: "w", x: x, y: y + h / 2 },
+        );
+      } else if (ann.type === "circle") {
+        const cx = ann.centerX * imageSize.width;
+        const cy = ann.centerY * imageSize.height;
+        const rx = Math.abs(ann.radiusX * imageSize.width);
+        const ry = Math.abs(ann.radiusY * imageSize.height);
+
+        handles.push(
+          { handle: "nw", x: cx - rx, y: cy - ry },
+          { handle: "n", x: cx, y: cy - ry },
+          { handle: "ne", x: cx + rx, y: cy - ry },
+          { handle: "e", x: cx + rx, y: cy },
+          { handle: "se", x: cx + rx, y: cy + ry },
+          { handle: "s", x: cx, y: cy + ry },
+          { handle: "sw", x: cx - rx, y: cy + ry },
+          { handle: "w", x: cx - rx, y: cy },
+        );
+      } else if (ann.type === "arrow") {
+        const x1 = ann.startX * imageSize.width;
+        const y1 = ann.startY * imageSize.height;
+        const x2 = ann.endX * imageSize.width;
+        const y2 = ann.endY * imageSize.height;
+
+        handles.push(
+          { handle: "start", x: x1, y: y1 },
+          { handle: "end", x: x2, y: y2 },
+        );
+      }
+
+      return handles.map(({ handle, x, y }) => (
+        <rect
+          key={`handle-${handle}`}
+          x={x - handleSize / 2}
+          y={y - handleSize / 2}
+          width={handleSize}
+          height={handleSize}
+          fill="#fff"
+          stroke={ann.color || "#19abb5"}
+          strokeWidth={1.5}
+          style={{ cursor: getResizeCursor(handle), pointerEvents: "auto" }}
+          onMouseDown={(e) => handleResizeHandleMouseDown(e, ann, handle)}
+        />
+      ));
+    };
+
+    // Handle click on empty canvas area to deselect
+    const handleCanvasClick = (e: React.MouseEvent) => {
+      // Only deselect if clicking directly on the canvas, not on an annotation
+      if (e.target === e.currentTarget && selectedAnnotationId && !activeTool) {
+        selectAnnotation(null);
+      }
     };
 
     return (
@@ -3892,31 +4354,74 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
               transform: showOriginal
                 ? `translate(${panOffset.x}px, ${panOffset.y}px)`
                 : getImageTransform(true, panOffset.x, panOffset.y),
-              pointerEvents: "none",
+              pointerEvents: activeTool ? "none" : "auto",
               overflow: "visible",
             }}
+            onClick={handleCanvasClick}
           >
             {/* Completed annotations from store */}
             {storeAnnotations
               .filter((ann) => ann.visible)
               .map((ann) => {
+                const isSelected = ann.id === selectedAnnotationId;
+                const isHovered = ann.id === hoveredAnnotationId;
+                const showGlow = (isHovered || isSelected) && !ann.locked;
+                const strokeColor = ann.color || "#19abb5";
+                const baseStrokeWidth = ann.strokeWidth || 2;
+                const strokeWidth = showGlow ? baseStrokeWidth + 1.5 : baseStrokeWidth;
+                const annotationCursor = ann.locked ? "default" : "grab";
+
                 if (ann.type === "rectangle") {
                   const x = ann.x * imageSize.width;
                   const y = ann.y * imageSize.height;
                   const width = ann.width * imageSize.width;
                   const height = ann.height * imageSize.height;
                   return (
-                    <rect
-                      key={ann.id}
-                      x={x}
-                      y={y}
-                      width={width}
-                      height={height}
-                      fill="none"
-                      stroke={ann.color || "#19abb5"}
-                      strokeWidth={ann.strokeWidth || 2}
-                      opacity={ann.opacity || 1}
-                    />
+                    <g key={ann.id}>
+                      {/* Hit area - larger transparent rect for easier clicking */}
+                      <rect
+                        x={x - 4}
+                        y={y - 4}
+                        width={width + 8}
+                        height={height + 8}
+                        fill="transparent"
+                        stroke="transparent"
+                        strokeWidth={12}
+                        style={{ cursor: annotationCursor, pointerEvents: "auto" }}
+                        onMouseEnter={() => !ann.locked && setHoveredAnnotationId(ann.id)}
+                        onMouseLeave={() => setHoveredAnnotationId(null)}
+                        onMouseDown={(e) => handleAnnotationMouseDown(e, ann)}
+                        onClick={(e) => handleAnnotationClick(e, ann.id)}
+                      />
+                      {/* Glow effect */}
+                      {showGlow && (
+                        <rect
+                          x={x}
+                          y={y}
+                          width={width}
+                          height={height}
+                          fill="none"
+                          stroke={strokeColor}
+                          strokeWidth={baseStrokeWidth + 4}
+                          opacity={0.3}
+                          style={{ pointerEvents: "none" }}
+                        />
+                      )}
+                      {/* Main rectangle */}
+                      <rect
+                        x={x}
+                        y={y}
+                        width={width}
+                        height={height}
+                        fill="none"
+                        stroke={strokeColor}
+                        strokeWidth={strokeWidth}
+                        opacity={ann.opacity || 1}
+                        style={{ pointerEvents: "none" }}
+                      />
+                      {/* Resize handles */}
+                      {renderResizeHandles(ann)}
+                    </g>
                   );
                 }
                 if (ann.type === "circle") {
@@ -3926,17 +4431,51 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                   const rx = Math.abs(ann.radiusX * imageSize.width);
                   const ry = Math.abs(ann.radiusY * imageSize.height);
                   return (
-                    <ellipse
-                      key={ann.id}
-                      cx={cx}
-                      cy={cy}
-                      rx={rx}
-                      ry={ry}
-                      fill="none"
-                      stroke={ann.color || "#19abb5"}
-                      strokeWidth={ann.strokeWidth || 2}
-                      opacity={ann.opacity || 1}
-                    />
+                    <g key={ann.id}>
+                      {/* Hit area - larger transparent ellipse for easier clicking */}
+                      <ellipse
+                        cx={cx}
+                        cy={cy}
+                        rx={rx + 6}
+                        ry={ry + 6}
+                        fill="transparent"
+                        stroke="transparent"
+                        strokeWidth={12}
+                        style={{ cursor: annotationCursor, pointerEvents: "auto" }}
+                        onMouseEnter={() => !ann.locked && setHoveredAnnotationId(ann.id)}
+                        onMouseLeave={() => setHoveredAnnotationId(null)}
+                        onMouseDown={(e) => handleAnnotationMouseDown(e, ann)}
+                        onClick={(e) => handleAnnotationClick(e, ann.id)}
+                      />
+                      {/* Glow effect */}
+                      {showGlow && (
+                        <ellipse
+                          cx={cx}
+                          cy={cy}
+                          rx={rx}
+                          ry={ry}
+                          fill="none"
+                          stroke={strokeColor}
+                          strokeWidth={baseStrokeWidth + 4}
+                          opacity={0.3}
+                          style={{ pointerEvents: "none" }}
+                        />
+                      )}
+                      {/* Main ellipse */}
+                      <ellipse
+                        cx={cx}
+                        cy={cy}
+                        rx={rx}
+                        ry={ry}
+                        fill="none"
+                        stroke={strokeColor}
+                        strokeWidth={strokeWidth}
+                        opacity={ann.opacity || 1}
+                        style={{ pointerEvents: "none" }}
+                      />
+                      {/* Resize handles */}
+                      {renderResizeHandles(ann)}
+                    </g>
                   );
                 }
                 if (ann.type === "arrow") {
@@ -3957,33 +4496,68 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                   const headY2 = y2 - headLength * Math.sin(angle + headAngle);
                   return (
                     <g key={ann.id}>
+                      {/* Hit area - transparent thick line for easier clicking */}
                       <line
                         x1={x1}
                         y1={y1}
                         x2={x2}
                         y2={y2}
-                        stroke={ann.color || "#19abb5"}
-                        strokeWidth={ann.strokeWidth || 2}
+                        stroke="transparent"
+                        strokeWidth={16}
+                        style={{ cursor: annotationCursor, pointerEvents: "auto" }}
+                        onMouseEnter={() => !ann.locked && setHoveredAnnotationId(ann.id)}
+                        onMouseLeave={() => setHoveredAnnotationId(null)}
+                        onMouseDown={(e) => handleAnnotationMouseDown(e, ann)}
+                        onClick={(e) => handleAnnotationClick(e, ann.id)}
+                      />
+                      {/* Glow effect */}
+                      {showGlow && (
+                        <>
+                          <line
+                            x1={x1}
+                            y1={y1}
+                            x2={x2}
+                            y2={y2}
+                            stroke={strokeColor}
+                            strokeWidth={baseStrokeWidth + 4}
+                            opacity={0.3}
+                            style={{ pointerEvents: "none" }}
+                          />
+                        </>
+                      )}
+                      {/* Main arrow */}
+                      <line
+                        x1={x1}
+                        y1={y1}
+                        x2={x2}
+                        y2={y2}
+                        stroke={strokeColor}
+                        strokeWidth={strokeWidth}
                         opacity={ann.opacity || 1}
+                        style={{ pointerEvents: "none" }}
                       />
                       <line
                         x1={x2}
                         y1={y2}
                         x2={headX1}
                         y2={headY1}
-                        stroke={ann.color || "#19abb5"}
-                        strokeWidth={ann.strokeWidth || 2}
+                        stroke={strokeColor}
+                        strokeWidth={strokeWidth}
                         opacity={ann.opacity || 1}
+                        style={{ pointerEvents: "none" }}
                       />
                       <line
                         x1={x2}
                         y1={y2}
                         x2={headX2}
                         y2={headY2}
-                        stroke={ann.color || "#19abb5"}
-                        strokeWidth={ann.strokeWidth || 2}
+                        stroke={strokeColor}
+                        strokeWidth={strokeWidth}
                         opacity={ann.opacity || 1}
+                        style={{ pointerEvents: "none" }}
                       />
+                      {/* Resize handles */}
+                      {renderResizeHandles(ann)}
                     </g>
                   );
                 }
@@ -4788,6 +5362,47 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                             onClick={(e) => e.stopPropagation()}
                           />
                         </Box>
+                        {/* Color picker */}
+                        <Box sx={{ mb: 1 }}>
+                          <Typography
+                            sx={{ fontSize: 9, color: "#666", mb: 0.5 }}
+                          >
+                            Color
+                          </Typography>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: 0.5,
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {ANNOTATION_COLORS.map((colorOption) => (
+                              <Tooltip key={colorOption.value} title={colorOption.name}>
+                                <Box
+                                  onClick={() => setEditingAnnotationColor(colorOption.value)}
+                                  sx={{
+                                    width: 20,
+                                    height: 20,
+                                    borderRadius: "50%",
+                                    backgroundColor: colorOption.value,
+                                    cursor: "pointer",
+                                    border: editingAnnotationColor === colorOption.value
+                                      ? "2px solid #fff"
+                                      : "2px solid transparent",
+                                    boxShadow: editingAnnotationColor === colorOption.value
+                                      ? "0 0 0 1px #19abb5"
+                                      : "none",
+                                    transition: "all 0.15s ease",
+                                    "&:hover": {
+                                      transform: "scale(1.1)",
+                                    },
+                                  }}
+                                />
+                              </Tooltip>
+                            ))}
+                          </Box>
+                        </Box>
                         <Box
                           sx={{
                             display: "flex",
@@ -4953,21 +5568,46 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                                 <EditIcon sx={{ fontSize: 14 }} />
                               </IconButton>
                             </Tooltip>
-                            <Tooltip title="Delete">
+                            <Tooltip title={annotation.locked ? "Unlock" : "Lock"}>
                               <IconButton
                                 size="small"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleDeleteAnnotation(annotation.id);
+                                  handleToggleLockAnnotation(annotation.id);
                                 }}
                                 sx={{
                                   padding: "4px",
-                                  color: "#666",
-                                  "&:hover": { color: "#c45c5c" },
+                                  color: annotation.locked ? "#19abb5" : "#666",
+                                  "&:hover": { color: "#19abb5" },
                                 }}
                               >
-                                <DeleteIcon sx={{ fontSize: 14 }} />
+                                {annotation.locked ? (
+                                  <LockIcon sx={{ fontSize: 14 }} />
+                                ) : (
+                                  <LockOpenIcon sx={{ fontSize: 14 }} />
+                                )}
                               </IconButton>
+                            </Tooltip>
+                            <Tooltip title={annotation.locked ? "Locked - unlock to delete" : "Delete"}>
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (!annotation.locked) {
+                                      handleDeleteAnnotation(annotation.id);
+                                    }
+                                  }}
+                                  disabled={annotation.locked}
+                                  sx={{
+                                    padding: "4px",
+                                    color: annotation.locked ? "#444" : "#666",
+                                    "&:hover": { color: annotation.locked ? "#444" : "#c45c5c" },
+                                  }}
+                                >
+                                  <DeleteIcon sx={{ fontSize: 14 }} />
+                                </IconButton>
+                              </span>
                             </Tooltip>
                           </Box>
                         </AnnotationItem>
