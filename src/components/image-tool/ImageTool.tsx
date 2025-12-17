@@ -18,6 +18,15 @@ import {
   Modal,
   Backdrop,
   Fade,
+  Popover,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Radio,
+  RadioGroup,
+  FormControlLabel,
+  FormControl,
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import ImageIcon from "@mui/icons-material/Image";
@@ -1528,6 +1537,13 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   );
   const [editingAnnotationLabel, setEditingAnnotationLabel] = useState("");
   const [editingAnnotationNotes, setEditingAnnotationNotes] = useState("");
+  // Popover anchor element for annotation edit popover
+  const [editPopoverAnchorEl, setEditPopoverAnchorEl] =
+    useState<HTMLElement | null>(null);
+
+  // Export dialog state
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportWithAnnotations, setExportWithAnnotations] = useState(false);
 
   // Filter visibility by user (based on placeholder users)
   const [userVisibility, setUserVisibility] = useState<Record<string, boolean>>(
@@ -2187,9 +2203,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
       // Calculate percentage with minimum heights:
       // Filters section: 180px minimum (enough for header + several sliders)
-      // Annotations section: 300px minimum (enough for edit modal without scrollbar)
+      // Annotations section: 150px minimum (enough for header + 2-3 rows)
       const filtersMinPx = 180;
-      const annotationsMinPx = 300;
+      const annotationsMinPx = 150;
       const filtersMinPercent = (filtersMinPx / containerHeight) * 100;
       const annotationsMaxPercent =
         100 - (annotationsMinPx / containerHeight) * 100;
@@ -2221,11 +2237,12 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
   // Handlers for annotation editing
   const handleStartEditAnnotation = useCallback(
-    (annotation: StoreImageAnnotation) => {
+    (annotation: StoreImageAnnotation, anchorEl: HTMLElement) => {
       setEditingAnnotationId(annotation.id);
       setEditingAnnotationLabel(annotation.label || "");
       setEditingAnnotationNotes(annotation.notes || "");
       setEditingAnnotationColor(annotation.color || "#19abb5");
+      setEditPopoverAnchorEl(anchorEl);
     },
     [],
   );
@@ -2249,6 +2266,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       setEditingAnnotationLabel("");
       setEditingAnnotationNotes("");
       setEditingAnnotationColor("");
+      setEditPopoverAnchorEl(null);
     }
   }, [
     editingAnnotationId,
@@ -2265,6 +2283,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     setEditingAnnotationLabel("");
     setEditingAnnotationNotes("");
     setEditingAnnotationColor("");
+    setEditPopoverAnchorEl(null);
   }, []);
 
   const handleDeleteAnnotation = useCallback(
@@ -2653,19 +2672,25 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     fileInputRef.current?.click();
   }, []);
 
-  // Handle Export button click - bakes filters and transforms into the image
-  const handleExportClick = useCallback(() => {
-    if (!loadedImage || !actualDimensions) return;
+  // Check if there are visible annotations to include in export
+  const hasVisibleAnnotations = useMemo(() => {
+    return storeAnnotations.some((ann) => ann.visible);
+  }, [storeAnnotations]);
 
-    // Get the image URL to export
-    const imageUrl = loadedImage.thumbnailUrl || "";
-    if (!imageUrl) return;
+  // Perform the actual export - bakes filters and transforms (and optionally annotations) into the image
+  const handlePerformExport = useCallback(
+    (includeAnnotations: boolean) => {
+      if (!loadedImage || !actualDimensions) return;
 
-    // Create an offscreen image to draw from
-    const img = new Image();
-    img.crossOrigin = "anonymous";
+      // Get the image URL to export
+      const imageUrl = loadedImage.thumbnailUrl || "";
+      if (!imageUrl) return;
 
-    img.onload = () => {
+      // Create an offscreen image to draw from
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+
+      img.onload = () => {
       // Determine output dimensions based on rotation
       const isRotated90or270 = rotation === 90 || rotation === 270;
       const outputWidth = isRotated90or270
@@ -2777,6 +2802,68 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
       ctx.restore();
 
+      // Draw annotations onto canvas if requested
+      if (includeAnnotations) {
+        const visibleAnnotations = storeAnnotations.filter((ann) => ann.visible);
+        visibleAnnotations.forEach((ann) => {
+          ctx.save();
+
+          // Set up annotation styling
+          ctx.strokeStyle = ann.color || "#19abb5";
+          ctx.lineWidth = ann.strokeWidth || 2;
+          ctx.globalAlpha = ann.opacity || 1;
+
+          if (ann.type === "rectangle") {
+            const x = ann.x * outputWidth;
+            const y = ann.y * outputHeight;
+            const width = ann.width * outputWidth;
+            const height = ann.height * outputHeight;
+            ctx.strokeRect(x, y, width, height);
+          } else if (ann.type === "circle") {
+            const cx = ann.centerX * outputWidth;
+            const cy = ann.centerY * outputHeight;
+            const rx = Math.abs(ann.radiusX * outputWidth);
+            const ry = Math.abs(ann.radiusY * outputHeight);
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
+            ctx.stroke();
+          } else if (ann.type === "arrow") {
+            const x1 = ann.startX * outputWidth;
+            const y1 = ann.startY * outputHeight;
+            const x2 = ann.endX * outputWidth;
+            const y2 = ann.endY * outputHeight;
+
+            // Draw the line
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+
+            // Draw arrowhead
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const angle = Math.atan2(dy, dx);
+            const headLength = ann.headSize || 24;
+            const headAngle = Math.PI / 6;
+
+            const headX1 = x2 - headLength * Math.cos(angle - headAngle);
+            const headY1 = y2 - headLength * Math.sin(angle - headAngle);
+            const headX2 = x2 - headLength * Math.cos(angle + headAngle);
+            const headY2 = y2 - headLength * Math.sin(angle + headAngle);
+
+            ctx.fillStyle = ann.color || "#19abb5";
+            ctx.beginPath();
+            ctx.moveTo(x2, y2);
+            ctx.lineTo(headX1, headY1);
+            ctx.lineTo(headX2, headY2);
+            ctx.closePath();
+            ctx.fill();
+          }
+
+          ctx.restore();
+        });
+      }
+
       // Generate filename: EXP_[original_filename]_[username]_[YYYYMMDD]_[HHMMSS].[ext]
       const originalName = importedFileName || loadedImage.fileName || "image";
       let nameWithoutExt = originalName.replace(/\.[^/.]+$/, "");
@@ -2864,24 +2951,52 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         mimeType,
         0.95, // Quality for JPEG/WebP
       );
-    };
+      };
 
-    img.onerror = () => {
-      showToast("Failed to export image", "error");
-    };
+      img.onerror = () => {
+        showToast("Failed to export image", "error");
+      };
 
-    img.src = imageUrl;
-  }, [
-    loadedImage,
-    actualDimensions,
-    filters,
-    rotation,
-    flipH,
-    flipV,
-    importedFileName,
-    importedImages,
-    showToast,
-  ]);
+      img.src = imageUrl;
+    },
+    [
+      loadedImage,
+      actualDimensions,
+      filters,
+      rotation,
+      flipH,
+      flipV,
+      importedFileName,
+      importedImages,
+      showToast,
+      storeAnnotations,
+    ],
+  );
+
+  // Handle Export button click - opens dialog if annotations exist, otherwise exports directly
+  const handleExportClick = useCallback(() => {
+    if (!loadedImage || !actualDimensions) return;
+
+    if (hasVisibleAnnotations) {
+      // Show dialog with options
+      setExportWithAnnotations(false); // Default to "Image only"
+      setExportDialogOpen(true);
+    } else {
+      // No annotations, export directly
+      handlePerformExport(false);
+    }
+  }, [loadedImage, actualDimensions, hasVisibleAnnotations, handlePerformExport]);
+
+  // Handle export dialog confirm
+  const handleExportDialogConfirm = useCallback(() => {
+    setExportDialogOpen(false);
+    handlePerformExport(exportWithAnnotations);
+  }, [exportWithAnnotations, handlePerformExport]);
+
+  // Handle export dialog cancel
+  const handleExportDialogCancel = useCallback(() => {
+    setExportDialogOpen(false);
+  }, []);
 
   // Handle file input change
   const handleFileInputChange = useCallback(
@@ -3919,11 +4034,8 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     };
 
     const handleMouseUp = () => {
-      if (isDraggingAnnotation) {
-        pushHistory("Move annotation");
-      } else if (isResizingAnnotation) {
-        pushHistory("Resize annotation");
-      }
+      // History is pushed at the START of drag/resize (in mousedown handlers)
+      // so undo restores the pre-move/resize state
       setIsDraggingAnnotation(false);
       setIsResizingAnnotation(false);
       setActiveResizeHandle(null);
@@ -3948,7 +4060,6 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     screenToImageCoords,
     storeAnnotations,
     updateAnnotation,
-    pushHistory,
   ]);
 
   // Re-constrain pan when zoom changes
@@ -4370,6 +4481,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       const coords = screenToImageCoords(e.clientX, e.clientY);
       if (!coords) return;
 
+      // Push history BEFORE the move starts so undo restores pre-move state
+      pushHistory("Move annotation");
+
       // Set up drag state
       if (ann.type === "rectangle") {
         setAnnotationDragStart({
@@ -4426,6 +4540,9 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
       const coords = screenToImageCoords(e.clientX, e.clientY);
       if (!coords) return;
+
+      // Push history BEFORE the resize starts so undo restores pre-resize state
+      pushHistory("Resize annotation");
 
       if (ann.type === "rectangle") {
         setAnnotationDragStart({
@@ -5497,7 +5614,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         <InspectorSection
           sx={{
             flex: 1,
-            minHeight: 300,
+            minHeight: 150,
             overflow: "hidden",
             display: "flex",
             flexDirection: "column",
@@ -5551,343 +5668,339 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                   </Typography>
                 </Box>
               ) : (
-                storeAnnotations.map((annotation) =>
-                  editingAnnotationId === annotation.id ? (
-                    // Inline edit mode
-                    <Box
-                      key={annotation.id}
+                storeAnnotations.map((annotation) => (
+                  <Tooltip
+                    key={annotation.id}
+                    title={annotation.notes || ""}
+                    placement="left"
+                    arrow
+                    disableHoverListener={!annotation.notes}
+                    enterDelay={300}
+                    slotProps={{
+                      tooltip: {
+                        sx: {
+                          backgroundColor: "#1a1a1a",
+                          color: "#ccc",
+                          fontSize: 11,
+                          maxWidth: 250,
+                          border: "1px solid #333",
+                          whiteSpace: "pre-wrap",
+                        },
+                      },
+                    }}
+                  >
+                    <AnnotationItem
+                      onClick={() => selectAnnotation(annotation.id)}
                       sx={{
-                        padding: "8px",
-                        borderRadius: 4,
-                        backgroundColor: "rgba(25, 171, 181, 0.1)",
-                        border: "1px solid rgba(25, 171, 181, 0.3)",
-                        mb: 1,
+                        backgroundColor:
+                          selectedAnnotationId === annotation.id
+                            ? "rgba(25, 171, 181, 0.1)"
+                            : "transparent",
+                        border:
+                          selectedAnnotationId === annotation.id
+                            ? "1px solid rgba(25, 171, 181, 0.3)"
+                            : "1px solid transparent",
                       }}
                     >
-                      <Box sx={{ mb: 1 }}>
+                      {/* Color dot - shows editing color preview */}
+                      <AnnotationColorDot
+                        color={
+                          editingAnnotationId === annotation.id &&
+                          editingAnnotationColor
+                            ? editingAnnotationColor
+                            : annotation.color
+                        }
+                      />
+                      {/* Content: user name and title */}
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
                         <Typography
-                          sx={{ fontSize: 9, color: "#666", mb: 0.5 }}
-                        >
-                          Title
-                        </Typography>
-                        <input
-                          type="text"
-                          value={editingAnnotationLabel}
-                          onChange={(e) =>
-                            setEditingAnnotationLabel(e.target.value)
-                          }
-                          placeholder="Annotation title"
-                          style={{
-                            width: "100%",
-                            padding: "4px 8px",
-                            fontSize: 11,
-                            backgroundColor: "#1a1a1a",
-                            border: "1px solid #333",
-                            borderRadius: 4,
-                            color: "#ccc",
-                            outline: "none",
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </Box>
-                      <Box sx={{ mb: 1 }}>
-                        <Typography
-                          sx={{ fontSize: 9, color: "#666", mb: 0.5 }}
-                        >
-                          Notes
-                        </Typography>
-                        <textarea
-                          value={editingAnnotationNotes}
-                          onChange={(e) =>
-                            setEditingAnnotationNotes(e.target.value)
-                          }
-                          placeholder="Add notes..."
-                          rows={2}
-                          style={{
-                            width: "100%",
-                            padding: "4px 8px",
-                            fontSize: 11,
-                            backgroundColor: "#1a1a1a",
-                            border: "1px solid #333",
-                            borderRadius: 4,
-                            color: "#ccc",
-                            outline: "none",
-                            resize: "vertical",
-                            fontFamily: "inherit",
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </Box>
-                      {/* Color picker */}
-                      <Box sx={{ mb: 1 }}>
-                        <Typography
-                          sx={{ fontSize: 9, color: "#666", mb: 0.5 }}
-                        >
-                          Color
-                        </Typography>
-                        <Box
                           sx={{
-                            display: "flex",
-                            flexWrap: "wrap",
-                            gap: 0.5,
+                            fontSize: 9,
+                            color: "#666",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
                           }}
-                          onClick={(e) => e.stopPropagation()}
                         >
-                          {ANNOTATION_COLORS.map((colorOption) => (
-                            <Tooltip
-                              key={colorOption.value}
-                              title={colorOption.name}
-                              placement="top"
-                            >
-                              <Box
-                                onClick={() =>
-                                  setEditingAnnotationColor(colorOption.value)
-                                }
-                                sx={{
-                                  width: 20,
-                                  height: 20,
-                                  borderRadius: "50%",
-                                  backgroundColor: colorOption.value,
-                                  cursor: "pointer",
-                                  border:
-                                    editingAnnotationColor === colorOption.value
-                                      ? "2px solid #fff"
-                                      : "2px solid transparent",
-                                  boxShadow:
-                                    editingAnnotationColor === colorOption.value
-                                      ? "0 0 0 1px #19abb5"
-                                      : "none",
-                                  transition: "all 0.15s ease",
-                                  "&:hover": {
-                                    transform: "scale(1.1)",
-                                  },
-                                }}
-                              />
-                            </Tooltip>
-                          ))}
-                        </Box>
+                          {annotation.userDisplayName}
+                        </Typography>
+                        <Typography
+                          sx={{
+                            fontSize: 11,
+                            color: "#ccc",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {annotation.label ||
+                            `${annotation.type.charAt(0).toUpperCase() + annotation.type.slice(1)}`}
+                        </Typography>
                       </Box>
+                      {/* Action icons */}
                       <Box
                         sx={{
                           display: "flex",
-                          gap: 1,
-                          justifyContent: "flex-end",
+                          alignItems: "center",
+                          gap: 0.25,
                         }}
                       >
-                        <Button
-                          size="small"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCancelAnnotationEdit();
-                          }}
-                          sx={{
-                            fontSize: 10,
-                            color: "#666",
-                            py: 0.25,
-                            px: 1,
-                            minWidth: "auto",
-                          }}
+                        {/* Notes indicator icon - only shown if notes exist */}
+                        {annotation.notes && (
+                          <Tooltip title="Has notes">
+                            <DescriptionOutlinedIcon
+                              sx={{
+                                fontSize: 14,
+                                color: "#888",
+                                flexShrink: 0,
+                              }}
+                            />
+                          </Tooltip>
+                        )}
+                        <Tooltip title={annotation.visible ? "Hide" : "Show"}>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleAnnotationVisibility(annotation.id);
+                            }}
+                            sx={{
+                              padding: "4px",
+                              color: annotation.visible ? "#19abb5" : "#444",
+                            }}
+                          >
+                            {annotation.visible ? (
+                              <VisibilityIcon sx={{ fontSize: 14 }} />
+                            ) : (
+                              <VisibilityOffIcon sx={{ fontSize: 14 }} />
+                            )}
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Edit">
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStartEditAnnotation(
+                                annotation,
+                                e.currentTarget,
+                              );
+                            }}
+                            sx={{
+                              padding: "4px",
+                              color:
+                                editingAnnotationId === annotation.id
+                                  ? "#19abb5"
+                                  : "#666",
+                              "&:hover": { color: "#19abb5" },
+                            }}
+                          >
+                            <EditIcon sx={{ fontSize: 14 }} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip
+                          title={annotation.locked ? "Unlock" : "Lock"}
                         >
-                          Cancel
-                        </Button>
-                        <Button
-                          size="small"
-                          variant="contained"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSaveAnnotationEdit();
-                          }}
-                          sx={{
-                            fontSize: 10,
-                            backgroundColor: "#19abb5",
-                            py: 0.25,
-                            px: 1,
-                            minWidth: "auto",
-                            "&:hover": { backgroundColor: "#15959e" },
-                          }}
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleLockAnnotation(annotation.id);
+                            }}
+                            sx={{
+                              padding: "4px",
+                              color: annotation.locked ? "#19abb5" : "#666",
+                              "&:hover": { color: "#19abb5" },
+                            }}
+                          >
+                            {annotation.locked ? (
+                              <LockIcon sx={{ fontSize: 14 }} />
+                            ) : (
+                              <LockOpenIcon sx={{ fontSize: 14 }} />
+                            )}
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip
+                          title={
+                            annotation.locked
+                              ? "Locked - unlock to delete"
+                              : "Delete"
+                          }
                         >
-                          Save
-                        </Button>
+                          <span>
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!annotation.locked) {
+                                  handleDeleteAnnotation(annotation.id);
+                                }
+                              }}
+                              disabled={annotation.locked}
+                              sx={{
+                                padding: "4px",
+                                color: annotation.locked ? "#444" : "#666",
+                                "&:hover": {
+                                  color: annotation.locked
+                                    ? "#444"
+                                    : "#c45c5c",
+                                },
+                              }}
+                            >
+                              <DeleteIcon sx={{ fontSize: 14 }} />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
                       </Box>
-                    </Box>
-                  ) : (
-                    // Normal display mode - wrapped in tooltip if notes exist
-                    <Tooltip
-                      key={annotation.id}
-                      title={annotation.notes || ""}
-                      placement="left"
-                      arrow
-                      disableHoverListener={!annotation.notes}
-                      enterDelay={300}
-                      slotProps={{
-                        tooltip: {
-                          sx: {
-                            backgroundColor: "#1a1a1a",
-                            color: "#ccc",
-                            fontSize: 11,
-                            maxWidth: 250,
-                            border: "1px solid #333",
-                            whiteSpace: "pre-wrap",
-                          },
-                        },
-                      }}
-                    >
-                      <AnnotationItem
-                        onClick={() => selectAnnotation(annotation.id)}
-                        sx={{
-                          backgroundColor:
-                            selectedAnnotationId === annotation.id
-                              ? "rgba(25, 171, 181, 0.1)"
-                              : "transparent",
-                          border:
-                            selectedAnnotationId === annotation.id
-                              ? "1px solid rgba(25, 171, 181, 0.3)"
-                              : "1px solid transparent",
-                        }}
-                      >
-                        {/* Color dot */}
-                        <AnnotationColorDot color={annotation.color} />
-                        {/* Content: user name and title */}
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography
-                            sx={{
-                              fontSize: 9,
-                              color: "#666",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}
-                          >
-                            {annotation.userDisplayName}
-                          </Typography>
-                          <Typography
-                            sx={{
-                              fontSize: 11,
-                              color: "#ccc",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}
-                          >
-                            {annotation.label ||
-                              `${annotation.type.charAt(0).toUpperCase() + annotation.type.slice(1)}`}
-                          </Typography>
-                        </Box>
-                        {/* Action icons */}
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 0.25,
-                          }}
-                        >
-                          {/* Notes indicator icon - only shown if notes exist */}
-                          {annotation.notes && (
-                            <Tooltip title="Has notes">
-                              <DescriptionOutlinedIcon
-                                sx={{
-                                  fontSize: 14,
-                                  color: "#888",
-                                  flexShrink: 0,
-                                }}
-                              />
-                            </Tooltip>
-                          )}
-                          <Tooltip title={annotation.visible ? "Hide" : "Show"}>
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleAnnotationVisibility(annotation.id);
-                              }}
-                              sx={{
-                                padding: "4px",
-                                color: annotation.visible ? "#19abb5" : "#444",
-                              }}
-                            >
-                              {annotation.visible ? (
-                                <VisibilityIcon sx={{ fontSize: 14 }} />
-                              ) : (
-                                <VisibilityOffIcon sx={{ fontSize: 14 }} />
-                              )}
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Edit">
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleStartEditAnnotation(annotation);
-                              }}
-                              sx={{
-                                padding: "4px",
-                                color: "#666",
-                                "&:hover": { color: "#19abb5" },
-                              }}
-                            >
-                              <EditIcon sx={{ fontSize: 14 }} />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip
-                            title={annotation.locked ? "Unlock" : "Lock"}
-                          >
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleToggleLockAnnotation(annotation.id);
-                              }}
-                              sx={{
-                                padding: "4px",
-                                color: annotation.locked ? "#19abb5" : "#666",
-                                "&:hover": { color: "#19abb5" },
-                              }}
-                            >
-                              {annotation.locked ? (
-                                <LockIcon sx={{ fontSize: 14 }} />
-                              ) : (
-                                <LockOpenIcon sx={{ fontSize: 14 }} />
-                              )}
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip
-                            title={
-                              annotation.locked
-                                ? "Locked - unlock to delete"
-                                : "Delete"
-                            }
-                          >
-                            <span>
-                              <IconButton
-                                size="small"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (!annotation.locked) {
-                                    handleDeleteAnnotation(annotation.id);
-                                  }
-                                }}
-                                disabled={annotation.locked}
-                                sx={{
-                                  padding: "4px",
-                                  color: annotation.locked ? "#444" : "#666",
-                                  "&:hover": {
-                                    color: annotation.locked
-                                      ? "#444"
-                                      : "#c45c5c",
-                                  },
-                                }}
-                              >
-                                <DeleteIcon sx={{ fontSize: 14 }} />
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                        </Box>
-                      </AnnotationItem>
-                    </Tooltip>
-                  ),
-                )
+                    </AnnotationItem>
+                  </Tooltip>
+                ))
               )}
             </Box>
+
+            {/* Annotation Edit Popover - positioned to the LEFT of the panel */}
+            <Popover
+              open={Boolean(editPopoverAnchorEl)}
+              anchorEl={editPopoverAnchorEl}
+              onClose={handleCancelAnnotationEdit}
+              anchorOrigin={{
+                vertical: "center",
+                horizontal: "left",
+              }}
+              transformOrigin={{
+                vertical: "center",
+                horizontal: "right",
+              }}
+              slotProps={{
+                paper: {
+                  sx: {
+                    backgroundColor: "#1a1a1a",
+                    border: "1px solid #333",
+                    borderRadius: 1,
+                    p: 1.5,
+                    width: 220,
+                  },
+                },
+              }}
+            >
+              <Box sx={{ mb: 1.5 }}>
+                <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
+                  Title
+                </Typography>
+                <input
+                  type="text"
+                  value={editingAnnotationLabel}
+                  onChange={(e) => setEditingAnnotationLabel(e.target.value)}
+                  placeholder="Annotation title"
+                  style={{
+                    width: "100%",
+                    padding: "6px 8px",
+                    fontSize: 11,
+                    backgroundColor: "#252525",
+                    border: "1px solid #333",
+                    borderRadius: 4,
+                    color: "#ccc",
+                    outline: "none",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </Box>
+              <Box sx={{ mb: 1.5 }}>
+                <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
+                  Notes
+                </Typography>
+                <textarea
+                  value={editingAnnotationNotes}
+                  onChange={(e) => setEditingAnnotationNotes(e.target.value)}
+                  placeholder="Add notes..."
+                  rows={3}
+                  style={{
+                    width: "100%",
+                    padding: "6px 8px",
+                    fontSize: 11,
+                    backgroundColor: "#252525",
+                    border: "1px solid #333",
+                    borderRadius: 4,
+                    color: "#ccc",
+                    outline: "none",
+                    resize: "vertical",
+                    fontFamily: "inherit",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </Box>
+              <Box sx={{ mb: 1.5 }}>
+                <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
+                  Color
+                </Typography>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                  {ANNOTATION_COLORS.map((colorOption) => (
+                    <Tooltip
+                      key={colorOption.value}
+                      title={colorOption.name}
+                      placement="top"
+                    >
+                      <Box
+                        onClick={() =>
+                          setEditingAnnotationColor(colorOption.value)
+                        }
+                        sx={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: "50%",
+                          backgroundColor: colorOption.value,
+                          cursor: "pointer",
+                          border:
+                            editingAnnotationColor === colorOption.value
+                              ? "2px solid #fff"
+                              : "2px solid transparent",
+                          boxShadow:
+                            editingAnnotationColor === colorOption.value
+                              ? "0 0 0 1px #19abb5"
+                              : "none",
+                          transition: "all 0.15s ease",
+                          "&:hover": {
+                            transform: "scale(1.1)",
+                          },
+                        }}
+                      />
+                    </Tooltip>
+                  ))}
+                </Box>
+              </Box>
+              <Box
+                sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}
+              >
+                <Button
+                  size="small"
+                  onClick={handleCancelAnnotationEdit}
+                  sx={{
+                    fontSize: 10,
+                    color: "#666",
+                    py: 0.5,
+                    px: 1.5,
+                    minWidth: "auto",
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="small"
+                  variant="contained"
+                  onClick={handleSaveAnnotationEdit}
+                  sx={{
+                    fontSize: 10,
+                    backgroundColor: "#19abb5",
+                    py: 0.5,
+                    px: 1.5,
+                    minWidth: "auto",
+                    "&:hover": { backgroundColor: "#15959e" },
+                  }}
+                >
+                  Save
+                </Button>
+              </Box>
+            </Popover>
           </Box>
         </InspectorSection>
       </Box>
@@ -6403,6 +6516,124 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
           </Box>
         </Fade>
       </Modal>
+
+      {/* Export Options Dialog */}
+      <Dialog
+        open={exportDialogOpen}
+        onClose={handleExportDialogCancel}
+        PaperProps={{
+          sx: {
+            backgroundColor: "#1a1a1a",
+            border: "1px solid #333",
+            borderRadius: 2,
+            minWidth: 340,
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            fontSize: 16,
+            fontWeight: 600,
+            color: "#e1e1e1",
+            pb: 1,
+          }}
+        >
+          Export Image
+        </DialogTitle>
+        <DialogContent>
+          <Typography sx={{ fontSize: 12, color: "#888", mb: 2 }}>
+            This image has annotations. Choose how to export:
+          </Typography>
+          <FormControl component="fieldset">
+            <RadioGroup
+              value={exportWithAnnotations ? "with" : "without"}
+              onChange={(e) =>
+                setExportWithAnnotations(e.target.value === "with")
+              }
+            >
+              <FormControlLabel
+                value="without"
+                control={
+                  <Radio
+                    size="small"
+                    sx={{
+                      color: "#666",
+                      "&.Mui-checked": { color: "#19abb5" },
+                    }}
+                  />
+                }
+                label={
+                  <Typography sx={{ fontSize: 13, color: "#ccc" }}>
+                    Image only
+                  </Typography>
+                }
+              />
+              <FormControlLabel
+                value="with"
+                control={
+                  <Radio
+                    size="small"
+                    sx={{
+                      color: "#666",
+                      "&.Mui-checked": { color: "#19abb5" },
+                    }}
+                  />
+                }
+                label={
+                  <Typography sx={{ fontSize: 13, color: "#ccc" }}>
+                    Image with annotations
+                  </Typography>
+                }
+              />
+            </RadioGroup>
+          </FormControl>
+          {exportWithAnnotations && (
+            <Box
+              sx={{
+                mt: 2,
+                p: 1.5,
+                backgroundColor: "rgba(255, 180, 0, 0.1)",
+                border: "1px solid rgba(255, 180, 0, 0.3)",
+                borderRadius: 1,
+              }}
+            >
+              <Typography sx={{ fontSize: 11, color: "#ffb400" }}>
+                Annotations will be permanently baked into the exported image
+                and cannot be removed.
+              </Typography>
+            </Box>
+          )}
+          <Typography
+            sx={{ fontSize: 11, color: "#666", mt: 2, fontStyle: "italic" }}
+          >
+            Note: If the image has been rotated, the export will include the
+            rotation.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            onClick={handleExportDialogCancel}
+            sx={{
+              color: "#888",
+              fontSize: 12,
+              "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.05)" },
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleExportDialogConfirm}
+            sx={{
+              backgroundColor: "#19abb5",
+              fontSize: 12,
+              "&:hover": { backgroundColor: "#15959e" },
+            }}
+          >
+            Export
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 };
