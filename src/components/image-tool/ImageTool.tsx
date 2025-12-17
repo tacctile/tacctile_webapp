@@ -49,6 +49,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import CloudIcon from "@mui/icons-material/Cloud";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 
 import { WorkspaceLayout } from "@/components/layout";
 import { type FileItem } from "@/components/file-library";
@@ -433,19 +434,15 @@ const StackedGridItem = styled(Box)<{
   selected?: boolean;
   hasFindings?: boolean;
   hasVersions?: boolean;
-}>(({ selected, hasFindings, hasVersions }) => ({
+}>(({ selected, hasVersions }) => ({
   position: "relative",
   aspectRatio: "16/9",
   backgroundColor: "#1a1a1a",
   borderRadius: 4,
   cursor: "pointer",
   overflow: "visible",
-  border: selected
-    ? "2px solid #19abb5"
-    : hasFindings
-      ? "2px solid rgba(25, 171, 181, 0.4)"
-      : "2px solid transparent",
-  boxShadow: hasFindings ? "0 0 8px rgba(25, 171, 181, 0.3)" : "none",
+  // Only selected image has a border - no glow for flagged images
+  border: selected ? "2px solid #19abb5" : "2px solid transparent",
   transition: "all 0.2s ease",
   // Stack effect pseudo-elements for items with versions
   ...(hasVersions && {
@@ -1268,6 +1265,12 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   const [versionsModalItem, setVersionsModalItem] =
     useState<GalleryItemWithVersions | null>(null);
 
+  // Delete export confirmation state
+  const [deleteExportConfirmOpen, setDeleteExportConfirmOpen] = useState(false);
+  const [exportToDelete, setExportToDelete] = useState<ImageFileType | null>(
+    null,
+  );
+
   // Hover state for gallery items with versions (to show overlay)
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
 
@@ -1574,6 +1577,49 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
     setVersionsModalOpen(false);
     setVersionsModalItem(null);
   }, []);
+
+  // Open delete export confirmation dialog
+  const handleDeleteExportClick = useCallback((exportItem: ImageFileType) => {
+    setExportToDelete(exportItem);
+    setDeleteExportConfirmOpen(true);
+  }, []);
+
+  // Cancel delete export
+  const handleCancelDeleteExport = useCallback(() => {
+    setDeleteExportConfirmOpen(false);
+    setExportToDelete(null);
+  }, []);
+
+  // Confirm delete export - actually remove from state
+  const handleConfirmDeleteExport = useCallback(() => {
+    if (!exportToDelete) return;
+
+    // Remove the export from importedImages state
+    setImportedImages((prev) =>
+      prev.filter((img) => img.id !== exportToDelete.id),
+    );
+
+    // If the deleted export was loaded in the viewer, clear it
+    if (loadedImage?.id === exportToDelete.id) {
+      setLoadedImage(null);
+    }
+
+    // Update the versions modal item to reflect the removal
+    if (versionsModalItem) {
+      const updatedVersions =
+        versionsModalItem.versions?.filter((v) => v.id !== exportToDelete.id) ||
+        [];
+      setVersionsModalItem({
+        ...versionsModalItem,
+        versions: updatedVersions,
+        versionCount: 1 + updatedVersions.length,
+      });
+    }
+
+    // Close the confirmation dialog
+    setDeleteExportConfirmOpen(false);
+    setExportToDelete(null);
+  }, [exportToDelete, loadedImage?.id, versionsModalItem]);
 
   // Helper function to get source badge info (for custom gallery rendering)
   const getSourceBadgeInfo = useCallback((source?: string) => {
@@ -1892,13 +1938,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
   }, [filters, rotation, flipH, flipV, pushToUndoStack]);
 
   // Handlers for the horizontal divider between filters and annotations
-  const handleDividerMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      setIsDraggingDivider(true);
-    },
-    [],
-  );
+  const handleDividerMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingDivider(true);
+  }, []);
 
   const handleDividerMouseMove = useCallback(
     (e: MouseEvent) => {
@@ -1911,7 +1954,10 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       // Calculate percentage (with min heights of 100px for each section)
       const minPercent = (100 / containerHeight) * 100;
       const maxPercent = 100 - minPercent;
-      const newPosition = Math.max(minPercent, Math.min(maxPercent, (relativeY / containerHeight) * 100));
+      const newPosition = Math.max(
+        minPercent,
+        Math.min(maxPercent, (relativeY / containerHeight) * 100),
+      );
 
       setSectionDividerPosition(newPosition);
     },
@@ -1954,7 +2000,12 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       setEditingAnnotationLabel("");
       setEditingAnnotationNotes("");
     }
-  }, [editingAnnotationId, editingAnnotationLabel, editingAnnotationNotes, updateAnnotation]);
+  }, [
+    editingAnnotationId,
+    editingAnnotationLabel,
+    editingAnnotationNotes,
+    updateAnnotation,
+  ]);
 
   const handleCancelAnnotationEdit = useCallback(() => {
     setEditingAnnotationId(null);
@@ -4767,112 +4818,154 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                         </Box>
                       </Box>
                     ) : (
-                      // Normal display mode
-                      <AnnotationItem
+                      // Normal display mode - wrapped in tooltip if notes exist
+                      <Tooltip
                         key={annotation.id}
-                        onClick={() => selectAnnotation(annotation.id)}
-                        sx={{
-                          backgroundColor:
-                            selectedAnnotationId === annotation.id
-                              ? "rgba(25, 171, 181, 0.1)"
-                              : "transparent",
-                          border:
-                            selectedAnnotationId === annotation.id
-                              ? "1px solid rgba(25, 171, 181, 0.3)"
-                              : "1px solid transparent",
+                        title={annotation.notes || ""}
+                        placement="left"
+                        arrow
+                        disableHoverListener={!annotation.notes}
+                        enterDelay={300}
+                        slotProps={{
+                          tooltip: {
+                            sx: {
+                              backgroundColor: "#1a1a1a",
+                              color: "#ccc",
+                              fontSize: 11,
+                              maxWidth: 250,
+                              border: "1px solid #333",
+                              whiteSpace: "pre-wrap",
+                            },
+                          },
                         }}
                       >
-                        {/* Color dot */}
-                        <AnnotationColorDot color={annotation.color} />
-                        {/* Content: user name and title */}
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography
-                            sx={{
-                              fontSize: 9,
-                              color: "#666",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}
-                          >
-                            {annotation.userDisplayName}
-                          </Typography>
-                          <Typography
-                            sx={{
-                              fontSize: 11,
-                              color: "#ccc",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}
-                          >
-                            {annotation.label ||
-                              `${annotation.type.charAt(0).toUpperCase() + annotation.type.slice(1)}`}
-                          </Typography>
-                        </Box>
-                        {/* Action icons */}
-                        <Box
+                        <AnnotationItem
+                          onClick={() => selectAnnotation(annotation.id)}
                           sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 0.25,
+                            backgroundColor:
+                              selectedAnnotationId === annotation.id
+                                ? "rgba(25, 171, 181, 0.1)"
+                                : "transparent",
+                            border:
+                              selectedAnnotationId === annotation.id
+                                ? "1px solid rgba(25, 171, 181, 0.3)"
+                                : "1px solid transparent",
                           }}
                         >
-                          <Tooltip
-                            title={annotation.visible ? "Hide" : "Show"}
-                          >
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleAnnotationVisibility(annotation.id);
-                              }}
+                          {/* Color dot */}
+                          <AnnotationColorDot color={annotation.color} />
+                          {/* Content: user name and title */}
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography
                               sx={{
-                                padding: "4px",
-                                color: annotation.visible ? "#19abb5" : "#444",
+                                fontSize: 9,
+                                color: "#666",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
                               }}
                             >
-                              {annotation.visible ? (
-                                <VisibilityIcon sx={{ fontSize: 14 }} />
-                              ) : (
-                                <VisibilityOffIcon sx={{ fontSize: 14 }} />
+                              {annotation.userDisplayName}
+                            </Typography>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 0.5,
+                              }}
+                            >
+                              <Typography
+                                sx={{
+                                  fontSize: 11,
+                                  color: "#ccc",
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  flex: 1,
+                                  minWidth: 0,
+                                }}
+                              >
+                                {annotation.label ||
+                                  `${annotation.type.charAt(0).toUpperCase() + annotation.type.slice(1)}`}
+                              </Typography>
+                              {/* Notes indicator icon - only shown if notes exist */}
+                              {annotation.notes && (
+                                <DescriptionOutlinedIcon
+                                  sx={{
+                                    fontSize: 14,
+                                    color: "#888",
+                                    flexShrink: 0,
+                                  }}
+                                />
                               )}
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Edit">
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleStartEditAnnotation(annotation);
-                              }}
-                              sx={{
-                                padding: "4px",
-                                color: "#666",
-                                "&:hover": { color: "#19abb5" },
-                              }}
+                            </Box>
+                          </Box>
+                          {/* Action icons */}
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 0.25,
+                            }}
+                          >
+                            <Tooltip
+                              title={annotation.visible ? "Hide" : "Show"}
                             >
-                              <EditIcon sx={{ fontSize: 14 }} />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Delete">
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteAnnotation(annotation.id);
-                              }}
-                              sx={{
-                                padding: "4px",
-                                color: "#666",
-                                "&:hover": { color: "#c45c5c" },
-                              }}
-                            >
-                              <DeleteIcon sx={{ fontSize: 14 }} />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                      </AnnotationItem>
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleAnnotationVisibility(annotation.id);
+                                }}
+                                sx={{
+                                  padding: "4px",
+                                  color: annotation.visible
+                                    ? "#19abb5"
+                                    : "#444",
+                                }}
+                              >
+                                {annotation.visible ? (
+                                  <VisibilityIcon sx={{ fontSize: 14 }} />
+                                ) : (
+                                  <VisibilityOffIcon sx={{ fontSize: 14 }} />
+                                )}
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Edit">
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStartEditAnnotation(annotation);
+                                }}
+                                sx={{
+                                  padding: "4px",
+                                  color: "#666",
+                                  "&:hover": { color: "#19abb5" },
+                                }}
+                              >
+                                <EditIcon sx={{ fontSize: 14 }} />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Delete">
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteAnnotation(annotation.id);
+                                }}
+                                sx={{
+                                  padding: "4px",
+                                  color: "#666",
+                                  "&:hover": { color: "#c45c5c" },
+                                }}
+                              >
+                                <DeleteIcon sx={{ fontSize: 14 }} />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                        </AnnotationItem>
+                      </Tooltip>
                     ),
                   )
                 )}
@@ -5061,7 +5154,6 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                             </GalleryFlagBadge>
                           </Tooltip>
                         )}
-
                       </GridItemInner>
                     </StackedGridItem>
                   );
@@ -5286,23 +5378,112 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
                       >
                         {version.fileName}
                       </Typography>
-                      <Typography sx={{ fontSize: 10, color: "#888" }}>
-                        {new Date(version.capturedAt).toLocaleString(
-                          undefined,
-                          {
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          },
-                        )}
-                      </Typography>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <Typography sx={{ fontSize: 10, color: "#888" }}>
+                          {new Date(version.capturedAt).toLocaleString(
+                            undefined,
+                            {
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            },
+                          )}
+                        </Typography>
+                        {/* Delete button for exports only */}
+                        <Tooltip title="Delete export" arrow placement="top">
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteExportClick(version);
+                            }}
+                            sx={{
+                              padding: "2px",
+                              color: "#666",
+                              "&:hover": { color: "#c45c5c" },
+                            }}
+                          >
+                            <DeleteIcon sx={{ fontSize: 14 }} />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
                     </VersionsModalItemInfo>
                   </Box>
                 );
               })}
             </VersionsModalGrid>
           </VersionsModalContent>
+        </Fade>
+      </Modal>
+
+      {/* Delete Export Confirmation Dialog */}
+      <Modal
+        open={deleteExportConfirmOpen}
+        onClose={handleCancelDeleteExport}
+        closeAfterTransition
+        slots={{ backdrop: Backdrop }}
+        slotProps={{
+          backdrop: {
+            timeout: 200,
+            sx: { backgroundColor: "rgba(0, 0, 0, 0.8)" },
+          },
+        }}
+      >
+        <Fade in={deleteExportConfirmOpen}>
+          <Box
+            sx={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              backgroundColor: "#1a1a1a",
+              border: "1px solid #333",
+              borderRadius: 2,
+              padding: 3,
+              maxWidth: 400,
+              width: "90%",
+            }}
+          >
+            <Typography
+              sx={{ fontSize: 16, fontWeight: 600, color: "#e1e1e1", mb: 1 }}
+            >
+              Delete Export?
+            </Typography>
+            <Typography sx={{ fontSize: 13, color: "#888", mb: 3 }}>
+              Are you sure you want to delete &quot;{exportToDelete?.fileName}
+              &quot;? This action cannot be undone.
+            </Typography>
+            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
+              <Button
+                size="small"
+                onClick={handleCancelDeleteExport}
+                sx={{
+                  color: "#888",
+                  "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.05)" },
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="small"
+                variant="contained"
+                onClick={handleConfirmDeleteExport}
+                sx={{
+                  backgroundColor: "#c45c5c",
+                  "&:hover": { backgroundColor: "#a94a4a" },
+                }}
+              >
+                Delete
+              </Button>
+            </Box>
+          </Box>
         </Fade>
       </Modal>
     </>
