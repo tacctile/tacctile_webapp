@@ -1,0 +1,59 @@
+Generate a complete Technical Snapshot for handoff to a new planning session.
+
+Read the entire codebase and output plain text (no file creation) covering:
+
+1. DIRECTORY STRUCTURE
+All src/ folders with one-line purpose
+
+2. STORES (src/stores/)
+Per file: name, path, state managed, key actions, usage status (active/placeholder)
+
+3. SERVICES (src/services/)
+Per file: name, path, purpose, external APIs connected
+
+4. COMPONENTS BY TOOL
+Per tool folder: main component file + UI rendered
+
+5. TYPES (src/types/)
+Per file: key interfaces/types exported
+
+6. HOOKS (src/hooks/)
+Per hook: name, path, function
+
+7. CONTEXTS (src/contexts/)
+Per context: name, path, state provided
+
+8. ROUTING & NAVIGATION
+All routes, components rendered, protected routes, navigation flow
+
+9. KEY DEPENDENCIES
+Major packages from package.json with one-line purpose
+
+10. AUTH FLOW
+How authentication works, protected resources, session management
+
+11. DATA FLOW PATTERNS
+User action → store → service → database → UI. Include middleware, optimistic updates, error handling
+
+12. ENVIRONMENT/CONFIG
+Required env vars, API endpoints, external service configs
+
+13. COMPONENT-STORE WIRING
+Per major component: dedicated store vs useState
+
+14. DATABASE SCHEMA
+Tables from supabase/schema.sql with purpose, key relationships
+
+15. ACTIVE FEATURES vs PLANNED
+Fully implemented vs stubbed/WIP vs planned (from TODOs)
+
+16. BUILD/DEPLOYMENT
+Local dev command, build process, deployment platform, configs
+
+17. INCOMPLETE/WIP INDICATORS
+TODO/FIXME/WIP comments: file, line, text
+
+18. CURRENT SESSION WORK
+What's being modified right now in this Claude Code session (uncommitted changes)
+
+Output 300-400 lines, paste-ready for new chat session.
