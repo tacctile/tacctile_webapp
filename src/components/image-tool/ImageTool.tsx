@@ -3347,13 +3347,33 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
       const imageTop =
         (containerDimensions.height - imageSize.height) / 2 + panOffset.y;
 
-      // Calculate click position relative to image
-      const clickX = screenX - containerRect.left - imageLeft;
-      const clickY = screenY - containerRect.top - imageTop;
+      // Calculate click position relative to image (local coordinates)
+      const localX = screenX - containerRect.left - imageLeft;
+      const localY = screenY - containerRect.top - imageTop;
+
+      // Apply inverse transforms to get coordinates in original image space
+      // Step 1: Move origin to image center
+      let dx = localX - imageSize.width / 2;
+      let dy = localY - imageSize.height / 2;
+
+      // Step 2: Inverse flips (flip is self-inverse)
+      if (flipH) dx = -dx;
+      if (flipV) dy = -dy;
+
+      // Step 3: Inverse rotation (negate the angle)
+      const rad = (-rotation * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      const rx = dx * cos - dy * sin;
+      const ry = dx * sin + dy * cos;
+
+      // Step 4: Move origin back to top-left
+      const untransformedX = rx + imageSize.width / 2;
+      const untransformedY = ry + imageSize.height / 2;
 
       // Convert to image pixel coordinates (0-1 normalized)
-      const normalizedX = clickX / imageSize.width;
-      const normalizedY = clickY / imageSize.height;
+      const normalizedX = untransformedX / imageSize.width;
+      const normalizedY = untransformedY / imageSize.height;
 
       // Check if click is within image bounds
       if (
@@ -3373,7 +3393,7 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
         normalizedY,
       };
     },
-    [actualDimensions, containerDimensions, getImageDisplaySize, panOffset],
+    [actualDimensions, containerDimensions, getImageDisplaySize, panOffset, rotation, flipH, flipV],
   );
 
   // Calculate pan offset to center a specific image point in the viewport
