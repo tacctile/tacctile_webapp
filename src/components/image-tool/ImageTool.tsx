@@ -5742,51 +5742,43 @@ export const ImageTool: React.FC<ImageToolProps> = ({ investigationId }) => {
 
         <ToolbarDivider />
 
-        {/* Transform Tools - Rotate/Flip (non-destructive) - Temporarily disabled */}
+        {/* Transform Tools - Rotate/Flip (non-destructive) */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-          <Tooltip title="Rotate - Coming soon">
-            <span>
-              <ToolButton
-                size="small"
-                disabled={true}
-                sx={{ opacity: 0.5, cursor: "not-allowed" }}
-              >
-                <RotateLeftIcon sx={{ fontSize: 18 }} />
-              </ToolButton>
-            </span>
+          <Tooltip title="Rotate Counter-Clockwise">
+            <ToolButton
+              size="small"
+              onClick={handleRotateCCW}
+              disabled={!loadedImage}
+            >
+              <RotateLeftIcon sx={{ fontSize: 18 }} />
+            </ToolButton>
           </Tooltip>
-          <Tooltip title="Rotate - Coming soon">
-            <span>
-              <ToolButton
-                size="small"
-                disabled={true}
-                sx={{ opacity: 0.5, cursor: "not-allowed" }}
-              >
-                <RotateRightIcon sx={{ fontSize: 18 }} />
-              </ToolButton>
-            </span>
+          <Tooltip title="Rotate Clockwise">
+            <ToolButton
+              size="small"
+              onClick={handleRotateCW}
+              disabled={!loadedImage}
+            >
+              <RotateRightIcon sx={{ fontSize: 18 }} />
+            </ToolButton>
           </Tooltip>
-          <Tooltip title="Flip - Coming soon">
-            <span>
-              <ToolButton
-                size="small"
-                disabled={true}
-                sx={{ opacity: 0.5, cursor: "not-allowed" }}
-              >
-                <FlipIcon sx={{ fontSize: 18 }} />
-              </ToolButton>
-            </span>
+          <Tooltip title="Flip Horizontal">
+            <ToolButton
+              size="small"
+              onClick={handleFlipH}
+              disabled={!loadedImage}
+            >
+              <FlipIcon sx={{ fontSize: 18 }} />
+            </ToolButton>
           </Tooltip>
-          <Tooltip title="Flip - Coming soon">
-            <span>
-              <ToolButton
-                size="small"
-                disabled={true}
-                sx={{ opacity: 0.5, cursor: "not-allowed" }}
-              >
-                <FlipIcon sx={{ fontSize: 18, transform: "rotate(90deg)" }} />
-              </ToolButton>
-            </span>
+          <Tooltip title="Flip Vertical">
+            <ToolButton
+              size="small"
+              onClick={handleFlipV}
+              disabled={!loadedImage}
+            >
+              <FlipIcon sx={{ fontSize: 18, transform: "rotate(90deg)" }} />
+            </ToolButton>
           </Tooltip>
         </Box>
 
