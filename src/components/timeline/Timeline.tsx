@@ -2618,12 +2618,44 @@ export const Timeline: React.FC<TimelineProps> = ({
       const isDimmed = activeFileId !== null && !isActive;
       const isLocked = isItemLocked(item);
 
+      // Determine if file has timestamp metadata (system locked vs user-toggleable)
+      const hasTimestamp =
+        item.capturedAt !== undefined &&
+        item.capturedAt !== null &&
+        item.capturedAt > 0;
+
       // Lock button styling
       const lockButtonSize = clipHeight < 24 ? 14 : 18;
       const lockIconSize = clipHeight < 24 ? 10 : 12;
 
       // Lock toggle button component (rendered as tail of clip or icon)
-      const LockToggle = (
+      // Timestamped files: dimmed, non-interactive lock icon
+      // Non-timestamped files: bright, toggleable lock icon
+      const LockToggle = hasTimestamp ? (
+        // Timestamped file - system locked, non-interactive
+        <Tooltip title="Locked to capture time" placement="top" arrow>
+          <Box
+            sx={{
+              position: "absolute",
+              right: 0,
+              top: 0,
+              bottom: 0,
+              width: lockButtonSize + 4,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "rgba(0, 0, 0, 0.2)",
+              borderLeft: "1px solid rgba(255, 255, 255, 0.1)",
+              cursor: "default",
+            }}
+          >
+            <LockIcon
+              sx={{ fontSize: lockIconSize, color: "#ffa726", opacity: 0.4 }}
+            />
+          </Box>
+        </Tooltip>
+      ) : (
+        // Non-timestamped file - user can toggle lock state
         <Box
           onClick={(e) => toggleItemLock(item, e)}
           sx={{
@@ -2640,21 +2672,22 @@ export const Timeline: React.FC<TimelineProps> = ({
               : "rgba(255, 255, 255, 0.1)",
             borderLeft: "1px solid rgba(255, 255, 255, 0.15)",
             cursor: "pointer",
-            transition: "background-color 0.15s",
+            transition: "background-color 0.15s, transform 0.1s",
             "&:hover": {
               backgroundColor: isLocked
                 ? "rgba(0, 0, 0, 0.5)"
                 : "rgba(255, 255, 255, 0.25)",
+              transform: "scale(1.05)",
             },
           }}
         >
           {isLocked ? (
             <LockIcon
-              sx={{ fontSize: lockIconSize, color: "#ffa726", opacity: 0.9 }}
+              sx={{ fontSize: lockIconSize, color: "#ffa726", opacity: 1 }}
             />
           ) : (
             <LockOpenIcon
-              sx={{ fontSize: lockIconSize, color: "#81c784", opacity: 0.9 }}
+              sx={{ fontSize: lockIconSize, color: "#81c784", opacity: 1 }}
             />
           )}
         </Box>
@@ -2724,7 +2757,23 @@ export const Timeline: React.FC<TimelineProps> = ({
                   <Typography sx={{ fontSize: 8, color: "#888" }}>
                     {formatBlockTimestamp(item.capturedAt)}
                   </Typography>
-                  {isLocked && (
+                  {/* Show lock status - dimmed for timestamped files, bright for user-locked */}
+                  {hasTimestamp ? (
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        color: "#ffa726",
+                        opacity: 0.5,
+                      }}
+                    >
+                      <LockIcon sx={{ fontSize: 10 }} />
+                      <Typography sx={{ fontSize: 7 }}>
+                        Locked to time
+                      </Typography>
+                    </Box>
+                  ) : isLocked ? (
                     <Box
                       sx={{
                         display: "flex",
@@ -2735,6 +2784,18 @@ export const Timeline: React.FC<TimelineProps> = ({
                     >
                       <LockIcon sx={{ fontSize: 10 }} />
                       <Typography sx={{ fontSize: 7 }}>Locked</Typography>
+                    </Box>
+                  ) : (
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        color: "#81c784",
+                      }}
+                    >
+                      <LockOpenIcon sx={{ fontSize: 10 }} />
+                      <Typography sx={{ fontSize: 7 }}>Unlocked</Typography>
                     </Box>
                   )}
                 </Box>
@@ -2896,12 +2957,12 @@ export const Timeline: React.FC<TimelineProps> = ({
         </TimelineClip>
       );
 
-      // Wrap in tooltip only if locked
-      if (isLocked) {
+      // Wrap in tooltip only if locked (non-timestamped files only, timestamped have tooltip on lock icon)
+      if (isLocked && !hasTimestamp) {
         return (
           <Tooltip
             key={item.id}
-            title="🔒 Locked - unlock to move"
+            title="Locked - click lock to unlock"
             placement="top"
             arrow
           >
@@ -3042,7 +3103,13 @@ export const Timeline: React.FC<TimelineProps> = ({
         <TimeRuler>{renderTimeRuler()}</TimeRuler>
 
         {/* Swim Lanes */}
-        <SwimLanesContainer ref={lanesContainerRef}>
+        <SwimLanesContainer
+          ref={lanesContainerRef}
+          sx={{
+            // Add bottom padding for small lane height to prevent clip cutoff
+            paddingBottom: laneHeightSize === "small" ? "8px" : 0,
+          }}
+        >
           {/* GROUP BY TYPE MODE */}
           {groupByMode === "type" && (
             <>
