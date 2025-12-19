@@ -306,15 +306,15 @@ const generateDummyData = (): TimelineMediaItem[] => {
       hasEdits: false,
       flags: [],
     },
-    // Unassigned video (catch-all lane)
+    // Unassigned video (catch-all lane) - no timestamp metadata
     {
       id: "v5",
       fileId: "ev-v5",
       type: "video",
       fileName: "imported_security_footage.mp4",
-      capturedAt: sessionStart + 30 * 60 * 1000,
+      capturedAt: 0, // No timestamp - allows interactive lock toggle
       duration: 1800, // 30 min
-      endAt: sessionStart + 30 * 60 * 1000 + 1800 * 1000,
+      endAt: 1800 * 1000,
       user: "", // No user - goes to catch-all
       deviceInfo: "Security DVR",
       format: "H.264 / 720p",
@@ -325,7 +325,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
         {
           id: "f7",
           timestamp: 456,
-          absoluteTimestamp: sessionStart + 30 * 60 * 1000 + 456 * 1000,
+          absoluteTimestamp: 456 * 1000,
           title: "Motion detected",
           confidence: "low",
           userId: "system",
@@ -608,13 +608,13 @@ const generateDummyData = (): TimelineMediaItem[] => {
         },
       ],
     },
-    // Unassigned image
+    // Unassigned image - no timestamp metadata
     {
       id: "i7",
       fileId: "ev-i7",
       type: "photo",
       fileName: "imported_old_photo.jpg",
-      capturedAt: sessionStart + 20 * 60 * 1000,
+      capturedAt: 0, // No timestamp - allows interactive lock toggle
       user: "", // No user - goes to catch-all
       deviceInfo: "Unknown",
       format: "JPEG",
