@@ -1201,7 +1201,9 @@ export const TimelineFileDetailPanel: React.FC<
               const isFlagVisible = flag.visible !== false;
               const hasNote = flag.note && flag.note.length > 0;
               // Calculate capture time for this flag using file's capturedAt + flag.timestamp
-              const flagCaptureTime = selectedFile.capturedAt + flag.timestamp;
+              // Use 0 as fallback if selectedFile is null (shouldn't happen in practice)
+              const flagCaptureTime =
+                (selectedFile?.capturedAt ?? 0) + flag.timestamp;
 
               return (
                 <FlagItem
