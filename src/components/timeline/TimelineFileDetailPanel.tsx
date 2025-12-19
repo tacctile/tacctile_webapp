@@ -12,6 +12,7 @@ import {
   Button,
   Tooltip,
   Popover,
+  Checkbox,
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import VideocamIcon from "@mui/icons-material/Videocam";
@@ -28,6 +29,7 @@ import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+import FilterListIcon from "@mui/icons-material/FilterList";
 
 // ============================================================================
 // TYPES
@@ -98,7 +100,7 @@ interface TimelineFileDetailPanelProps {
       color?: string;
       locked?: boolean;
       visible?: boolean;
-    }
+    },
   ) => void;
   /** Callback when flag is deleted */
   onFlagDelete?: (flagId: string) => void;
@@ -143,15 +145,12 @@ const Header = styled(Box)({
   backgroundColor: "#1a1a1a",
 });
 
-// Preview Section (compact fixed height)
+// Preview Section - matches Navigator size from ImageTool (height: 100)
 const PreviewSection = styled(Box)({
   flex: "0 0 auto",
-  maxHeight: 150,
-  minHeight: 100,
   display: "flex",
   flexDirection: "column",
   backgroundColor: "#0d0d0d",
-  borderBottom: "1px solid #252525",
   overflow: "hidden",
 });
 
@@ -189,30 +188,33 @@ const AnalyzerButton = styled(Button)({
   },
 });
 
-// Drag Handle for resizing flags section
-const DragHandle = styled(Box)({
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  height: 12,
-  backgroundColor: "#1a1a1a",
-  borderTop: "1px solid #333",
-  cursor: "ns-resize",
-  "&:hover": {
-    backgroundColor: "#252525",
-    "& .drag-indicator": {
-      backgroundColor: "#19abb5",
-    },
-  },
-});
-
-const DragIndicator = styled(Box)({
-  width: 40,
-  height: 4,
-  backgroundColor: "#444",
-  borderRadius: 2,
+// Horizontal draggable divider for resizing sections - matches ImageTool/AudioTool
+const DragHandle = styled(Box)<{ isDragging?: boolean }>(({ isDragging }) => ({
+  height: 6,
+  backgroundColor: isDragging ? "#333" : "#252525",
+  cursor: "row-resize",
+  flexShrink: 0,
+  position: "relative",
   transition: "background-color 0.15s ease",
-});
+  "&:hover": {
+    backgroundColor: "#333",
+  },
+  // Grip indicator in center
+  "&::after": {
+    content: '""',
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
+    width: 32,
+    height: 2,
+    backgroundColor: isDragging ? "#555" : "#444",
+    borderRadius: 1,
+  },
+  "&:hover::after": {
+    backgroundColor: "#555",
+  },
+}));
 
 // Flags List Section (expands to fill remaining space)
 const FlagsSection = styled(Box)({
@@ -256,9 +258,13 @@ const FlagItem = styled(Box)<{ isSelected?: boolean }>(({ isSelected }) => ({
   borderRadius: 4,
   cursor: "pointer",
   backgroundColor: isSelected ? "rgba(25, 171, 181, 0.1)" : "transparent",
-  border: isSelected ? "1px solid rgba(25, 171, 181, 0.3)" : "1px solid transparent",
+  border: isSelected
+    ? "1px solid rgba(25, 171, 181, 0.3)"
+    : "1px solid transparent",
   "&:hover": {
-    backgroundColor: isSelected ? "rgba(25, 171, 181, 0.15)" : "rgba(255, 255, 255, 0.03)",
+    backgroundColor: isSelected
+      ? "rgba(25, 171, 181, 0.15)"
+      : "rgba(255, 255, 255, 0.03)",
   },
 }));
 
@@ -274,7 +280,11 @@ const Timestamp = styled(Typography)({
   fontSize: 10,
   fontFamily: '"JetBrains Mono", monospace',
   color: "#19abb5",
+  cursor: "pointer",
   flexShrink: 0,
+  "&:hover": {
+    textDecoration: "underline",
+  },
 });
 
 const EmptyState = styled(Box)({
@@ -515,7 +525,11 @@ const AudioPreview: React.FC<AudioPreviewProps> = ({ file }) => {
           },
         }}
       >
-        {isPlaying ? <PauseIcon sx={{ fontSize: 18 }} /> : <PlayArrowIcon sx={{ fontSize: 18 }} />}
+        {isPlaying ? (
+          <PauseIcon sx={{ fontSize: 18 }} />
+        ) : (
+          <PlayArrowIcon sx={{ fontSize: 18 }} />
+        )}
       </IconButton>
     </Box>
   );
@@ -573,12 +587,20 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file }) => {
             position: "absolute",
             width: "200%",
             height: "100%",
-            background: "linear-gradient(90deg, #1a1a1a 0%, #252525 25%, #1a1a1a 50%, #252525 75%, #1a1a1a 100%)",
+            background:
+              "linear-gradient(90deg, #1a1a1a 0%, #252525 25%, #1a1a1a 50%, #252525 75%, #1a1a1a 100%)",
             transform: `translateX(-${(frameIndex % 50) * 2}%)`,
             transition: "transform 0.1s linear",
           }}
         />
-        <VideocamIcon sx={{ fontSize: 48, color: "#c45c5c", position: "relative", zIndex: 1 }} />
+        <VideocamIcon
+          sx={{
+            fontSize: 48,
+            color: "#c45c5c",
+            position: "relative",
+            zIndex: 1,
+          }}
+        />
       </Box>
       {/* 5s loop indicator */}
       <Typography
@@ -653,11 +675,21 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ file }) => {
 // ============================================================================
 
 // Min/max heights for preview section (drag handle resize bounds)
-const MIN_PREVIEW_HEIGHT = 80;
-const MAX_PREVIEW_HEIGHT = 300;
-const DEFAULT_PREVIEW_HEIGHT = 150;
+// Matches Navigator size from ImageTool (100px default)
+const MIN_PREVIEW_HEIGHT = 60;
+const MAX_PREVIEW_HEIGHT = 200;
+const DEFAULT_PREVIEW_HEIGHT = 100;
 
-export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = ({
+/** User info for filter display */
+interface FlagUser {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export const TimelineFileDetailPanel: React.FC<
+  TimelineFileDetailPanelProps
+> = ({
   selectedFile,
   flags,
   selectedFlagId,
@@ -675,20 +707,66 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Edit popover state
-  const [editPopoverAnchorEl, setEditPopoverAnchorEl] = useState<HTMLElement | null>(null);
+  const [editPopoverAnchorEl, setEditPopoverAnchorEl] =
+    useState<HTMLElement | null>(null);
   const [editingFlagId, setEditingFlagId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [editNote, setEditNote] = useState("");
   const [editColor, setEditColor] = useState<string>("#19abb5");
 
   // Color picker popover state
-  const [colorPickerAnchorEl, setColorPickerAnchorEl] = useState<HTMLElement | null>(null);
+  const [colorPickerAnchorEl, setColorPickerAnchorEl] =
+    useState<HTMLElement | null>(null);
   const [customColorHue, setCustomColorHue] = useState(180);
   const [customColorSaturation, setCustomColorSaturation] = useState(70);
   const [customColorLightness, setCustomColorLightness] = useState(50);
-  const [draggingColorSlider, setDraggingColorSlider] = useState<"hue" | "saturation" | "lightness" | null>(null);
+  const [draggingColorSlider, setDraggingColorSlider] = useState<
+    "hue" | "saturation" | "lightness" | null
+  >(null);
   const colorSliderRef = useRef<HTMLDivElement | null>(null);
   const [userCustomColor, setUserCustomColor] = useState<string | null>(null);
+
+  // Filter popover state
+  const [filterAnchorEl, setFilterAnchorEl] =
+    useState<HTMLButtonElement | null>(null);
+  const filterOpen = Boolean(filterAnchorEl);
+  const [enabledUserIds, setEnabledUserIds] = useState<string[]>([]);
+
+  // Master visibility state for all flags
+  const [flagsVisibleOnWaveform, setFlagsVisibleOnWaveform] = useState(true);
+
+  // Derive unique users from flags
+  const derivedUsers: FlagUser[] = (() => {
+    const userMap = new Map<string, FlagUser>();
+    flags.forEach((flag) => {
+      if (flag.createdBy && !userMap.has(flag.createdBy)) {
+        userMap.set(flag.createdBy, {
+          id: flag.createdBy.toLowerCase(),
+          name: flag.createdBy,
+          color: flag.userColor || flag.color || "#19abb5",
+        });
+      }
+    });
+    return Array.from(userMap.values());
+  })();
+
+  // Initialize enabledUserIds when users change
+  useEffect(() => {
+    if (enabledUserIds.length === 0 && derivedUsers.length > 0) {
+      setEnabledUserIds(derivedUsers.map((u) => u.id));
+    }
+  }, [derivedUsers, enabledUserIds.length]);
+
+  // Check if filter is active (not all users are enabled)
+  const isFilterActive =
+    enabledUserIds.length > 0 && enabledUserIds.length < derivedUsers.length;
+
+  // Filter flags based on user filter
+  const filteredFlags = flags.filter((flag) => {
+    if (enabledUserIds.length === 0) return true;
+    const flagUserId = flag.createdBy?.toLowerCase() || "";
+    return enabledUserIds.includes(flagUserId);
+  });
 
   // Handle drag resize
   useEffect(() => {
@@ -697,7 +775,7 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
       const deltaY = e.clientY - dragStartY.current;
       const newHeight = Math.max(
         MIN_PREVIEW_HEIGHT,
-        Math.min(MAX_PREVIEW_HEIGHT, dragStartHeight.current + deltaY)
+        Math.min(MAX_PREVIEW_HEIGHT, dragStartHeight.current + deltaY),
       );
       setPreviewHeight(newHeight);
     };
@@ -756,15 +834,23 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
       };
     }
     return undefined;
-  }, [draggingColorSlider, customColorHue, customColorSaturation, customColorLightness]);
+  }, [
+    draggingColorSlider,
+    customColorHue,
+    customColorSaturation,
+    customColorLightness,
+  ]);
 
   // Handle drag start
-  const handleDragStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    dragStartY.current = e.clientY;
-    dragStartHeight.current = previewHeight;
-    setIsDragging(true);
-  }, [previewHeight]);
+  const handleDragStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      dragStartY.current = e.clientY;
+      dragStartHeight.current = previewHeight;
+      setIsDragging(true);
+    },
+    [previewHeight],
+  );
 
   // Handle flag row click
   const handleFlagRowClick = useCallback(
@@ -772,7 +858,7 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
       onFlagSelect(flag);
       onFlagClick(flag);
     },
-    [onFlagSelect, onFlagClick]
+    [onFlagSelect, onFlagClick],
   );
 
   // Start editing a flag (open popover)
@@ -805,7 +891,14 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
       });
     }
     handleCancelEdit();
-  }, [editingFlagId, editLabel, editNote, editColor, onFlagUpdate, handleCancelEdit]);
+  }, [
+    editingFlagId,
+    editLabel,
+    editNote,
+    editColor,
+    onFlagUpdate,
+    handleCancelEdit,
+  ]);
 
   // Toggle flag visibility
   const handleToggleVisibility = useCallback(
@@ -815,7 +908,7 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
         onFlagUpdate(flag.id, { visible: !(flag.visible ?? true) });
       }
     },
-    [onFlagUpdate]
+    [onFlagUpdate],
   );
 
   // Handle lock toggle
@@ -826,7 +919,7 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
         onFlagUpdate(flag.id, { locked: !flag.locked });
       }
     },
-    [onFlagUpdate]
+    [onFlagUpdate],
   );
 
   // Handle delete
@@ -840,8 +933,40 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
         }
       }
     },
-    [onFlagDelete, selectedFlagId, onFlagSelect]
+    [onFlagDelete, selectedFlagId, onFlagSelect],
   );
+
+  // Filter handlers
+  const handleFilterClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setFilterAnchorEl(event.currentTarget);
+  };
+
+  const handleFilterClose = () => {
+    setFilterAnchorEl(null);
+  };
+
+  // Handle user checkbox change
+  const handleUserToggle = (userId: string) => {
+    const newEnabledIds = enabledUserIds.includes(userId)
+      ? enabledUserIds.filter((id) => id !== userId)
+      : [...enabledUserIds, userId];
+    setEnabledUserIds(newEnabledIds);
+  };
+
+  // Handle Select All
+  const handleSelectAll = () => {
+    setEnabledUserIds(derivedUsers.map((u) => u.id));
+  };
+
+  // Handle Clear All
+  const handleClearAll = () => {
+    setEnabledUserIds([]);
+  };
+
+  // Toggle master visibility for all flags
+  const handleWaveformVisibilityToggle = () => {
+    setFlagsVisibleOnWaveform(!flagsVisibleOnWaveform);
+  };
 
   // Open color picker popover
   const handleOpenColorPicker = (e: React.MouseEvent) => {
@@ -862,7 +987,9 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
           <Typography sx={{ fontSize: 12, color: "#555" }}>
             No file selected
           </Typography>
-          <Typography sx={{ fontSize: 10, color: "#444", mt: 1, textAlign: "center" }}>
+          <Typography
+            sx={{ fontSize: 10, color: "#444", mt: 1, textAlign: "center" }}
+          >
             Click a file bar in the timeline to view details
           </Typography>
         </EmptyPreview>
@@ -889,8 +1016,10 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
 
   return (
     <Container ref={containerRef}>
-      {/* Preview Section with dynamic height */}
-      <PreviewSection sx={{ maxHeight: previewHeight, minHeight: MIN_PREVIEW_HEIGHT }}>
+      {/* Preview Section with dynamic height - matches Navigator from ImageTool */}
+      <PreviewSection
+        sx={{ height: previewHeight, minHeight: MIN_PREVIEW_HEIGHT }}
+      >
         {selectedFile && (
           <Header>
             {getTypeIcon(selectedFile.type)}
@@ -929,27 +1058,67 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
       )}
 
       {/* Drag Handle for resizing */}
-      <DragHandle onMouseDown={handleDragStart}>
-        <DragIndicator className="drag-indicator" />
-      </DragHandle>
+      <DragHandle isDragging={isDragging} onMouseDown={handleDragStart} />
 
       {/* Flags List Section */}
       <FlagsSection>
         <FlagsSectionHeader>
-          <FlagIcon sx={{ fontSize: 14, color: "#19abb5" }} />
-          <Typography
-            sx={{
-              fontSize: 10,
-              fontWeight: 600,
-              color: "#666",
-              textTransform: "uppercase",
-            }}
-          >
-            Flags
-          </Typography>
-          <Typography sx={{ fontSize: 10, color: "#555" }}>
-            ({flags.length})
-          </Typography>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <FlagIcon sx={{ fontSize: 14, color: "#19abb5" }} />
+            <Typography
+              sx={{
+                fontSize: 10,
+                fontWeight: 600,
+                color: "#666",
+                textTransform: "uppercase",
+              }}
+            >
+              Flags
+            </Typography>
+            <Typography sx={{ fontSize: 10, color: "#555" }}>
+              (
+              {isFilterActive
+                ? `${filteredFlags.length} of ${flags.length}`
+                : flags.length}
+              )
+            </Typography>
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            {/* Master visibility toggle */}
+            <Tooltip title={flagsVisibleOnWaveform ? "Hide all" : "Show all"}>
+              <IconButton
+                size="small"
+                onClick={handleWaveformVisibilityToggle}
+                disabled={flags.length === 0}
+                sx={{
+                  padding: "4px",
+                  color: flagsVisibleOnWaveform ? "#19abb5" : "#444",
+                }}
+              >
+                {flagsVisibleOnWaveform ? (
+                  <VisibilityIcon sx={{ fontSize: 16 }} />
+                ) : (
+                  <VisibilityOffIcon sx={{ fontSize: 16 }} />
+                )}
+              </IconButton>
+            </Tooltip>
+            {/* Filter button */}
+            {derivedUsers.length > 0 && (
+              <Tooltip title="Filter by user">
+                <IconButton
+                  size="small"
+                  onClick={handleFilterClick}
+                  sx={{
+                    padding: "4px",
+                    color: isFilterActive ? "#19abb5" : "#666",
+                    "&:hover": { color: "#19abb5" },
+                  }}
+                >
+                  <FilterListIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Box>
         </FlagsSectionHeader>
         <FlagsList>
           {!selectedFile ? (
@@ -965,11 +1134,21 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
                 No flags on this file
               </Typography>
             </EmptyState>
+          ) : filteredFlags.length === 0 ? (
+            <EmptyState>
+              <FilterListIcon sx={{ fontSize: 24, mb: 1, opacity: 0.3 }} />
+              <Typography sx={{ fontSize: 11, color: "#555" }}>
+                No flags match filter
+              </Typography>
+            </EmptyState>
           ) : (
-            flags.map((flag) => {
+            filteredFlags.map((flag) => {
               const isSelected = selectedFlagId === flag.id;
               const isEditing = editingFlagId === flag.id;
-              const flagColor = isEditing && editColor ? editColor : (flag.color || flag.userColor || "#19abb5");
+              const flagColor =
+                isEditing && editColor
+                  ? editColor
+                  : flag.color || flag.userColor || "#19abb5";
               const isFlagVisible = flag.visible !== false;
               const hasNote = flag.note && flag.note.length > 0;
               // Calculate capture time for this flag using file's capturedAt + flag.timestamp
@@ -1016,7 +1195,9 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
                   </Box>
 
                   {/* Action icons: paper (if notes), eyeball, pencil, lock, trash */}
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
+                  <Box
+                    sx={{ display: "flex", alignItems: "center", gap: 0.25 }}
+                  >
                     {/* Notes indicator icon - only if has notes */}
                     {hasNote && (
                       <Tooltip title="Has notes">
@@ -1057,7 +1238,11 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
                         disabled={flag.locked}
                         sx={{
                           padding: "4px",
-                          color: isEditing ? "#19abb5" : flag.locked ? "#444" : "#666",
+                          color: isEditing
+                            ? "#19abb5"
+                            : flag.locked
+                              ? "#444"
+                              : "#666",
                           "&:hover": {
                             color: flag.locked ? "#444" : "#19abb5",
                           },
@@ -1092,7 +1277,9 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
 
                     {/* Delete */}
                     <Tooltip
-                      title={flag.locked ? "Locked - unlock to delete" : "Delete"}
+                      title={
+                        flag.locked ? "Locked - unlock to delete" : "Delete"
+                      }
                     >
                       <span>
                         <IconButton
@@ -1466,9 +1653,110 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
               border: "2px solid #333",
             }}
           />
-          <Typography sx={{ fontSize: 10, color: "#888" }}>
-            Preview
-          </Typography>
+          <Typography sx={{ fontSize: 10, color: "#888" }}>Preview</Typography>
+        </Box>
+      </Popover>
+
+      {/* User filter popover */}
+      <Popover
+        open={filterOpen}
+        anchorEl={filterAnchorEl}
+        onClose={handleFilterClose}
+        anchorOrigin={{
+          vertical: "bottom",
+          horizontal: "right",
+        }}
+        transformOrigin={{
+          vertical: "top",
+          horizontal: "right",
+        }}
+        slotProps={{
+          paper: {
+            sx: {
+              backgroundColor: "#1e1e1e",
+              border: "1px solid #333",
+              borderRadius: 1,
+              minWidth: 180,
+              boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+            },
+          },
+        }}
+      >
+        <Box sx={{ p: 1.5 }}>
+          {/* Select All / Clear All buttons */}
+          <Box
+            sx={{
+              display: "flex",
+              gap: 1,
+              mb: 1,
+              borderBottom: "1px solid #333",
+              pb: 1,
+            }}
+          >
+            <Typography
+              onClick={handleSelectAll}
+              sx={{
+                fontSize: 10,
+                color: "#888",
+                cursor: "pointer",
+                "&:hover": { color: "#19abb5" },
+              }}
+            >
+              Select All
+            </Typography>
+            <Typography sx={{ fontSize: 10, color: "#444" }}>|</Typography>
+            <Typography
+              onClick={handleClearAll}
+              sx={{
+                fontSize: 10,
+                color: "#888",
+                cursor: "pointer",
+                "&:hover": { color: "#19abb5" },
+              }}
+            >
+              Clear All
+            </Typography>
+          </Box>
+
+          {/* User checkboxes */}
+          {derivedUsers.map((user) => (
+            <Box
+              key={user.id}
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                py: 0.5,
+                cursor: "pointer",
+                "&:hover": { backgroundColor: "rgba(255,255,255,0.02)" },
+              }}
+              onClick={() => handleUserToggle(user.id)}
+            >
+              <Checkbox
+                checked={enabledUserIds.includes(user.id)}
+                size="small"
+                sx={{
+                  padding: 0,
+                  color: "#555",
+                  "&.Mui-checked": {
+                    color: user.color,
+                  },
+                }}
+              />
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  backgroundColor: user.color,
+                  flexShrink: 0,
+                }}
+              />
+              <Typography sx={{ fontSize: 11, color: "#ccc" }}>
+                {user.name}
+              </Typography>
+            </Box>
+          ))}
         </Box>
       </Popover>
     </Container>
