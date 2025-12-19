@@ -66,6 +66,7 @@ import {
 } from "@/components/file-library";
 import { MetadataPanel, type Flag } from "@/components/common";
 import { TimelineFileDetailPanel } from "./TimelineFileDetailPanel";
+import { FlagEditModal, DeleteConfirmDialog } from "./FlagEditModal";
 
 import { usePlayheadStore } from "../../stores/usePlayheadStore";
 import { useNavigationStore } from "../../stores/useNavigationStore";
@@ -1095,6 +1096,14 @@ export const Timeline: React.FC<TimelineProps> = ({
   // Selected flag in the detail panel
   const [selectedFlagId, setSelectedFlagId] = useState<string | null>(null);
 
+  // Flag edit modal state
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingFlag, setEditingFlag] = useState<Flag | null>(null);
+
+  // Delete confirmation dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [flagToDelete, setFlagToDelete] = useState<Flag | null>(null);
+
   // Context menu state
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
@@ -1755,6 +1764,54 @@ export const Timeline: React.FC<TimelineProps> = ({
     },
     [selectedFlagId],
   );
+
+  // Handle edit flag request (opens modal)
+  const handleEditFlagRequest = useCallback((flag: Flag) => {
+    setEditingFlag(flag);
+    setEditModalOpen(true);
+  }, []);
+
+  // Handle close edit modal
+  const handleCloseEditModal = useCallback(() => {
+    setEditModalOpen(false);
+    setEditingFlag(null);
+  }, []);
+
+  // Handle save from edit modal
+  const handleSaveEditModal = useCallback(
+    (updates: { label: string; note: string; color: string }) => {
+      if (editingFlag) {
+        handleFlagUpdate(editingFlag.id, {
+          label: updates.label,
+          note: updates.note,
+          color: updates.color,
+        });
+      }
+      handleCloseEditModal();
+    },
+    [editingFlag, handleFlagUpdate, handleCloseEditModal]
+  );
+
+  // Handle delete flag request (opens confirmation dialog)
+  const handleDeleteFlagRequest = useCallback((flag: Flag) => {
+    setFlagToDelete(flag);
+    setDeleteDialogOpen(true);
+  }, []);
+
+  // Confirm delete flag
+  const handleConfirmDeleteFlag = useCallback(() => {
+    if (flagToDelete) {
+      handleFlagDelete(flagToDelete.id);
+    }
+    setDeleteDialogOpen(false);
+    setFlagToDelete(null);
+  }, [flagToDelete, handleFlagDelete]);
+
+  // Cancel delete flag
+  const handleCancelDeleteFlag = useCallback(() => {
+    setDeleteDialogOpen(false);
+    setFlagToDelete(null);
+  }, []);
 
   // Handle open in analyzer (from detail panel)
   const handleOpenInAnalyzer = useCallback(
@@ -3741,6 +3798,23 @@ export const Timeline: React.FC<TimelineProps> = ({
           )}
         </SwimLanesContainer>
       </TimelineSection>
+
+      {/* Flag Edit Modal - centered in swimlane area */}
+      {editingFlag && (
+        <FlagEditModal
+          flag={editingFlag}
+          open={editModalOpen}
+          onClose={handleCloseEditModal}
+          onSave={handleSaveEditModal}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog - centered in swimlane area */}
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onCancel={handleCancelDeleteFlag}
+        onDelete={handleConfirmDeleteFlag}
+      />
     </MainContainer>
   );
 
@@ -3755,6 +3829,8 @@ export const Timeline: React.FC<TimelineProps> = ({
       onFlagUpdate={handleFlagUpdate}
       onFlagDelete={handleFlagDelete}
       onOpenInAnalyzer={handleOpenInAnalyzer}
+      onEditFlagRequest={handleEditFlagRequest}
+      onDeleteFlagRequest={handleDeleteFlagRequest}
     />
   );
 
