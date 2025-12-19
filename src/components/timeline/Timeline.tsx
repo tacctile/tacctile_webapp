@@ -56,7 +56,6 @@ import RemoveCircleOutlineIcon from "@mui/icons-material/RemoveCircleOutline";
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
 import LockIcon from "@mui/icons-material/Lock";
-import LockOpenIcon from "@mui/icons-material/LockOpen";
 import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import FileUploadIcon from "@mui/icons-material/FileUpload";
 import FolderCopyIcon from "@mui/icons-material/FolderCopy";
@@ -122,7 +121,7 @@ interface TimelineFlag {
 // Lane height options
 type LaneHeightSize = "small" | "medium" | "large";
 const LANE_HEIGHT_MULTIPLIERS: Record<LaneHeightSize, number> = {
-  small: 0.5,
+  small: 0.7,
   medium: 1,
   large: 1.5,
 };
@@ -2616,49 +2615,6 @@ export const Timeline: React.FC<TimelineProps> = ({
           effectiveStartTime + 1000 >= globalTimestamp);
       const isActive = activeFileId === item.id;
       const isDimmed = activeFileId !== null && !isActive;
-      const isLocked = isItemLocked(item);
-
-      // Lock button styling
-      const lockButtonSize = clipHeight < 24 ? 14 : 18;
-      const lockIconSize = clipHeight < 24 ? 10 : 12;
-
-      // Lock toggle button component (rendered as tail of clip or icon)
-      const LockToggle = (
-        <Box
-          onClick={(e) => toggleItemLock(item, e)}
-          sx={{
-            position: "absolute",
-            right: 0,
-            top: 0,
-            bottom: 0,
-            width: lockButtonSize + 4,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: isLocked
-              ? "rgba(0, 0, 0, 0.3)"
-              : "rgba(255, 255, 255, 0.1)",
-            borderLeft: "1px solid rgba(255, 255, 255, 0.15)",
-            cursor: "pointer",
-            transition: "background-color 0.15s",
-            "&:hover": {
-              backgroundColor: isLocked
-                ? "rgba(0, 0, 0, 0.5)"
-                : "rgba(255, 255, 255, 0.25)",
-            },
-          }}
-        >
-          {isLocked ? (
-            <LockIcon
-              sx={{ fontSize: lockIconSize, color: "#ffa726", opacity: 0.9 }}
-            />
-          ) : (
-            <LockOpenIcon
-              sx={{ fontSize: lockIconSize, color: "#81c784", opacity: 0.9 }}
-            />
-          )}
-        </Box>
-      );
 
       if (laneType === "image") {
         const isHovered = hoveredImageId === item.id;
@@ -2669,7 +2625,7 @@ export const Timeline: React.FC<TimelineProps> = ({
             imageHeight={clipHeight}
             sx={{
               left: pos.left,
-              opacity: isDimmed ? 0.55 : isLocked ? 0.85 : 1,
+              opacity: isDimmed ? 0.55 : 1,
             }}
             onClick={(e) => {
               e.stopPropagation();
@@ -2724,19 +2680,6 @@ export const Timeline: React.FC<TimelineProps> = ({
                   <Typography sx={{ fontSize: 8, color: "#888" }}>
                     {formatBlockTimestamp(item.capturedAt)}
                   </Typography>
-                  {isLocked && (
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 0.5,
-                        color: "#ffa726",
-                      }}
-                    >
-                      <LockIcon sx={{ fontSize: 10 }} />
-                      <Typography sx={{ fontSize: 7 }}>Locked</Typography>
-                    </Box>
-                  )}
                 </Box>
               </ImageThumbnailPopup>
             )}
@@ -2780,11 +2723,10 @@ export const Timeline: React.FC<TimelineProps> = ({
             left: pos.left,
             width: pos.width,
             minWidth: clipHeight < 20 ? 60 : 80,
-            opacity: isDimmed ? 0.55 : isLocked ? 0.85 : 1,
+            opacity: isDimmed ? 0.55 : 1,
             transition: "opacity 0.15s, border-color 0.15s, box-shadow 0.15s",
             border: isActive ? "2px solid #19abb5" : "2px solid transparent",
             boxShadow: isActive ? "0 0 10px rgba(25, 171, 181, 0.6)" : "none",
-            paddingRight: lockButtonSize + 8,
           }}
           onClick={(e) => {
             e.stopPropagation();
@@ -2890,25 +2832,9 @@ export const Timeline: React.FC<TimelineProps> = ({
 
           {/* Flag markers */}
           {clipFlags}
-
-          {/* Lock toggle button at tail */}
-          {LockToggle}
         </TimelineClip>
       );
 
-      // Wrap in tooltip only if locked
-      if (isLocked) {
-        return (
-          <Tooltip
-            key={item.id}
-            title="🔒 Locked - unlock to move"
-            placement="top"
-            arrow
-          >
-            {clipContent}
-          </Tooltip>
-        );
-      }
       return <React.Fragment key={item.id}>{clipContent}</React.Fragment>;
     });
   };
