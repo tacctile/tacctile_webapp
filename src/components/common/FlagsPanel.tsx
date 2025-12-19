@@ -233,6 +233,7 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
   flagsListRef,
   onFlagClick,
   onFlagAdd,
+  onFlagEdit,
   onFlagUpdate,
   onFlagDelete,
   disabled = false,
@@ -397,15 +398,26 @@ export const FlagsPanel: React.FC<FlagsPanelProps> = ({
     }
   };
 
-  // Start editing a flag (open popover)
-  const handleStartEdit = useCallback((flag: Flag, anchorEl: HTMLElement) => {
-    if (flag.locked) return;
-    setEditingFlagId(flag.id);
-    setEditLabel(flag.label || "");
-    setEditNote(flag.note || "");
-    setEditColor(flag.color || flag.userColor || "#19abb5");
-    setEditPopoverAnchorEl(anchorEl);
-  }, []);
+  // Start editing a flag (use external modal if onFlagEdit provided, otherwise use internal popover)
+  const handleStartEdit = useCallback(
+    (flag: Flag, anchorEl: HTMLElement) => {
+      if (flag.locked) return;
+
+      // If onFlagEdit is provided, use external modal handling
+      if (onFlagEdit) {
+        onFlagEdit(flag);
+        return;
+      }
+
+      // Fallback to internal popover if no external handler
+      setEditingFlagId(flag.id);
+      setEditLabel(flag.label || "");
+      setEditNote(flag.note || "");
+      setEditColor(flag.color || flag.userColor || "#19abb5");
+      setEditPopoverAnchorEl(anchorEl);
+    },
+    [onFlagEdit],
+  );
 
   // Cancel edit (close popover)
   const handleCancelEdit = useCallback(() => {

@@ -31,6 +31,7 @@ import {
 import { ExpandVideoModal } from "./ExpandVideoModal";
 import { WaveformCanvas } from "./WaveformCanvas";
 import { TimeScaleBar } from "./TimeScaleBar";
+import { FlagEditModal } from "../timeline/FlagEditModal";
 import { usePlayheadStore } from "@/stores/usePlayheadStore";
 import { useNavigationStore } from "@/stores/useNavigationStore";
 import { useAudioToolStore } from "@/stores/useAudioToolStore";
@@ -1411,6 +1412,14 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
   const [selectedFlagId, setSelectedFlagId] = useState<string | null>(null);
   const flagsListRef = useRef<HTMLDivElement>(null);
 
+  // Flag editing modal state
+  const [editingFlag, setEditingFlag] = useState<{
+    id: string;
+    title: string;
+    note?: string;
+    color?: string;
+  } | null>(null);
+
   // Flag visibility on waveform state
   const [flagsVisibleOnWaveform, setFlagsVisibleOnWaveform] = useState(true);
 
@@ -2751,6 +2760,46 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
     [sortedFlags, timestamp, handleWaveformFlagClick],
   );
 
+  // Flag edit modal handlers
+  const handleFlagEditSave = useCallback(
+    (updates: { title: string; note: string; color: string }) => {
+      if (!editingFlag) return;
+
+      setFlags((prev) =>
+        prev.map((f) =>
+          f.id === editingFlag.id
+            ? {
+                ...f,
+                label: updates.title,
+                note: updates.note,
+                color: updates.color,
+              }
+            : f,
+        ),
+      );
+
+      setEditingFlag(null);
+    },
+    [editingFlag],
+  );
+
+  const handleFlagEditCancel = useCallback(() => {
+    setEditingFlag(null);
+  }, []);
+
+  const handleFlagEditDelete = useCallback(() => {
+    if (!editingFlag) return;
+
+    setFlags((prev) => prev.filter((f) => f.id !== editingFlag.id));
+
+    // Clear selection if the deleted flag was selected
+    if (selectedFlagId === editingFlag.id) {
+      setSelectedFlagId(null);
+    }
+
+    setEditingFlag(null);
+  }, [editingFlag, selectedFlagId]);
+
   // Keyboard handler for escape to clear selection and Tab navigation for flags
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -3164,7 +3213,15 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
               // Select the new flag
               setSelectedFlagId(newFlag.id);
             }}
-            onFlagEdit={(flag) => console.log("Edit flag:", flag.id)}
+            onFlagEdit={(flag) => {
+              // Open centered modal for editing
+              setEditingFlag({
+                id: flag.id,
+                title: flag.label || "",
+                note: flag.note || "",
+                color: flag.color || flag.userColor || "#19abb5",
+              });
+            }}
             onFlagUpdate={(flagId, updates) => {
               setFlags((prev) =>
                 prev.map((f) =>
@@ -3690,6 +3747,15 @@ export const AudioTool: React.FC<AudioToolProps> = ({ investigationId }) => {
             </Typography>
           </Box>
         )}
+
+        {/* Flag Edit Modal - centered in audio workspace area */}
+        <FlagEditModal
+          flag={editingFlag}
+          isOpen={editingFlag !== null}
+          onSave={handleFlagEditSave}
+          onCancel={handleFlagEditCancel}
+          onDelete={handleFlagEditDelete}
+        />
       </Box>
 
       {/* EQ Section */}
