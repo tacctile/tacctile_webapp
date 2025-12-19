@@ -66,6 +66,7 @@ import {
 } from "@/components/file-library";
 import { MetadataPanel, type Flag } from "@/components/common";
 import { TimelineFileDetailPanel } from "./TimelineFileDetailPanel";
+import { FlagEditModal } from "./FlagEditModal";
 
 import { usePlayheadStore } from "../../stores/usePlayheadStore";
 import { useNavigationStore } from "../../stores/useNavigationStore";
@@ -1095,6 +1096,14 @@ export const Timeline: React.FC<TimelineProps> = ({
   // Selected flag in the detail panel
   const [selectedFlagId, setSelectedFlagId] = useState<string | null>(null);
 
+  // Flag being edited in the modal
+  const [editingFlag, setEditingFlag] = useState<{
+    id: string;
+    title: string;
+    note?: string;
+    color?: string;
+  } | null>(null);
+
   // Context menu state
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
@@ -1755,6 +1764,80 @@ export const Timeline: React.FC<TimelineProps> = ({
     },
     [selectedFlagId],
   );
+
+  // Handle flag edit request (from detail panel - opens modal)
+  const handleFlagEdit = useCallback((flag: Flag) => {
+    setEditingFlag({
+      id: flag.id,
+      title: flag.label || "",
+      note: flag.note || "",
+      color: flag.color || flag.userColor || "#19abb5",
+    });
+  }, []);
+
+  // Handle flag edit save (from modal)
+  const handleFlagEditSave = useCallback(
+    (updates: { title: string; note: string; color: string }) => {
+      if (!editingFlag) return;
+
+      setItems((prevItems) =>
+        prevItems.map((item) => {
+          const flagIndex = item.flags.findIndex(
+            (f) => f.id === editingFlag.id,
+          );
+          if (flagIndex === -1) return item;
+
+          const updatedFlags = [...item.flags];
+          updatedFlags[flagIndex] = {
+            ...updatedFlags[flagIndex],
+            title: updates.title,
+            note: updates.note,
+            color: updates.color,
+          };
+
+          return {
+            ...item,
+            flags: updatedFlags,
+          };
+        }),
+      );
+
+      setEditingFlag(null);
+    },
+    [editingFlag],
+  );
+
+  // Handle flag edit cancel (from modal)
+  const handleFlagEditCancel = useCallback(() => {
+    setEditingFlag(null);
+  }, []);
+
+  // Handle flag edit delete (from modal)
+  const handleFlagEditDelete = useCallback(() => {
+    if (!editingFlag) return;
+
+    setItems((prevItems) =>
+      prevItems.map((item) => {
+        const flagIndex = item.flags.findIndex((f) => f.id === editingFlag.id);
+        if (flagIndex === -1) return item;
+
+        const updatedFlags = item.flags.filter((f) => f.id !== editingFlag.id);
+
+        return {
+          ...item,
+          flags: updatedFlags,
+          flagCount: updatedFlags.length,
+        };
+      }),
+    );
+
+    // Clear selection if the deleted flag was selected
+    if (selectedFlagId === editingFlag.id) {
+      setSelectedFlagId(null);
+    }
+
+    setEditingFlag(null);
+  }, [editingFlag, selectedFlagId]);
 
   // Handle open in analyzer (from detail panel)
   const handleOpenInAnalyzer = useCallback(
@@ -3739,6 +3822,15 @@ export const Timeline: React.FC<TimelineProps> = ({
               )}
             </>
           )}
+
+          {/* Flag Edit Modal - centered in swimlane area */}
+          <FlagEditModal
+            flag={editingFlag}
+            isOpen={editingFlag !== null}
+            onSave={handleFlagEditSave}
+            onCancel={handleFlagEditCancel}
+            onDelete={handleFlagEditDelete}
+          />
         </SwimLanesContainer>
       </TimelineSection>
     </MainContainer>
@@ -3754,6 +3846,7 @@ export const Timeline: React.FC<TimelineProps> = ({
       onFlagClick={handleFlagClick}
       onFlagUpdate={handleFlagUpdate}
       onFlagDelete={handleFlagDelete}
+      onFlagEdit={handleFlagEdit}
       onOpenInAnalyzer={handleOpenInAnalyzer}
     />
   );
