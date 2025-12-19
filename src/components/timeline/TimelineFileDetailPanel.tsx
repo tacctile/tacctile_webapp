@@ -146,12 +146,16 @@ const Header = styled(Box)({
 });
 
 // Preview Section - matches Navigator size from ImageTool (height: 100)
+// Fixed height, no resizing
 const PreviewSection = styled(Box)({
-  flex: "0 0 auto",
+  height: 100,
+  minHeight: 100,
+  maxHeight: 100,
   display: "flex",
   flexDirection: "column",
   backgroundColor: "#0d0d0d",
   overflow: "hidden",
+  flexShrink: 0,
 });
 
 const PreviewContent = styled(Box)({
@@ -188,33 +192,52 @@ const AnalyzerButton = styled(Button)({
   },
 });
 
-// Horizontal draggable divider for resizing sections - matches ImageTool/AudioTool
-const DragHandle = styled(Box)<{ isDragging?: boolean }>(({ isDragging }) => ({
-  height: 6,
-  backgroundColor: isDragging ? "#333" : "#252525",
-  cursor: "row-resize",
+// ============================================================================
+// METADATA SECTION STYLED COMPONENTS
+// (Matches the lower-left MetadataPanel exactly)
+// ============================================================================
+
+const MetadataSection = styled(Box)({
   flexShrink: 0,
-  position: "relative",
-  transition: "background-color 0.15s ease",
-  "&:hover": {
-    backgroundColor: "#333",
-  },
-  // Grip indicator in center
-  "&::after": {
-    content: '""',
-    position: "absolute",
-    top: "50%",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-    width: 32,
-    height: 2,
-    backgroundColor: isDragging ? "#555" : "#444",
-    borderRadius: 1,
-  },
-  "&:hover::after": {
-    backgroundColor: "#555",
-  },
-}));
+  borderTop: "1px solid #252525",
+  backgroundColor: "#161616",
+});
+
+const MetadataSectionHeader = styled(Box)({
+  display: "flex",
+  alignItems: "center",
+  padding: "4px 10px",
+  minHeight: 28,
+  borderBottom: "1px solid #252525",
+  backgroundColor: "#1a1a1a",
+});
+
+const MetadataContent = styled(Box)({
+  padding: "8px",
+});
+
+const MetadataRow = styled(Box)({
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  height: 20,
+  padding: "0 4px",
+});
+
+const MetadataLabel = styled(Typography)({
+  fontSize: "10px",
+  color: "#666",
+});
+
+const MetadataValue = styled(Typography)({
+  fontSize: "11px",
+  color: "#ccc",
+  textAlign: "right",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+  maxWidth: "65%",
+});
 
 // Flags List Section (expands to fill remaining space)
 const FlagsSection = styled(Box)({
@@ -674,12 +697,6 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ file }) => {
 // MAIN COMPONENT
 // ============================================================================
 
-// Min/max heights for preview section (drag handle resize bounds)
-// Matches Navigator size from ImageTool (100px default)
-const MIN_PREVIEW_HEIGHT = 60;
-const MAX_PREVIEW_HEIGHT = 200;
-const DEFAULT_PREVIEW_HEIGHT = 100;
-
 /** User info for filter display */
 interface FlagUser {
   id: string;
@@ -699,11 +716,6 @@ export const TimelineFileDetailPanel: React.FC<
   onFlagDelete,
   onOpenInAnalyzer,
 }) => {
-  // Drag handle state for resizing preview/flags sections
-  const [previewHeight, setPreviewHeight] = useState(DEFAULT_PREVIEW_HEIGHT);
-  const [isDragging, setIsDragging] = useState(false);
-  const dragStartY = useRef(0);
-  const dragStartHeight = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Edit popover state
@@ -768,37 +780,6 @@ export const TimelineFileDetailPanel: React.FC<
     return enabledUserIds.includes(flagUserId);
   });
 
-  // Handle drag resize
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging) return;
-      const deltaY = e.clientY - dragStartY.current;
-      const newHeight = Math.max(
-        MIN_PREVIEW_HEIGHT,
-        Math.min(MAX_PREVIEW_HEIGHT, dragStartHeight.current + deltaY),
-      );
-      setPreviewHeight(newHeight);
-    };
-
-    const handleMouseUp = () => {
-      setIsDragging(false);
-    };
-
-    if (isDragging) {
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-      document.body.style.cursor = "ns-resize";
-      document.body.style.userSelect = "none";
-      return () => {
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
-        document.body.style.cursor = "";
-        document.body.style.userSelect = "";
-      };
-    }
-    return undefined;
-  }, [isDragging]);
-
   // Color slider drag handlers
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -840,17 +821,6 @@ export const TimelineFileDetailPanel: React.FC<
     customColorSaturation,
     customColorLightness,
   ]);
-
-  // Handle drag start
-  const handleDragStart = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      dragStartY.current = e.clientY;
-      dragStartHeight.current = previewHeight;
-      setIsDragging(true);
-    },
-    [previewHeight],
-  );
 
   // Handle flag row click
   const handleFlagRowClick = useCallback(
@@ -1014,34 +984,45 @@ export const TimelineFileDetailPanel: React.FC<
     }
   };
 
+  // Format timestamp for metadata display
+  const formatTimestamp = (ts?: number): string => {
+    if (!ts) return "—";
+    return new Date(ts).toLocaleString([], {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  };
+
+  // Format duration for metadata display
+  const formatDuration = (seconds?: number): string => {
+    if (!seconds) return "—";
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    if (hrs > 0) {
+      return `${hrs}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    }
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  // Get row 3 label and value based on file type
+  const getRow3Data = () => {
+    if (!selectedFile) return { label: "Duration", value: "—" };
+    if (selectedFile.type === "photo") {
+      return { label: "Resolution", value: "—" };
+    }
+    return { label: "Duration", value: formatDuration(selectedFile.duration) };
+  };
+
+  const row3Data = getRow3Data();
+
   return (
     <Container ref={containerRef}>
-      {/* Preview Section with dynamic height - matches Navigator from ImageTool */}
-      <PreviewSection
-        sx={{ height: previewHeight, minHeight: MIN_PREVIEW_HEIGHT }}
-      >
-        {selectedFile && (
-          <Header>
-            {getTypeIcon(selectedFile.type)}
-            <Box sx={{ flex: 1, minWidth: 0, ml: 1 }}>
-              <Typography
-                sx={{
-                  fontSize: 11,
-                  color: "#e1e1e1",
-                  fontWeight: 500,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {selectedFile.fileName}
-              </Typography>
-              <Typography sx={{ fontSize: 9, color: "#666" }}>
-                {selectedFile.user || "Unknown"}
-              </Typography>
-            </Box>
-          </Header>
-        )}
+      {/* Preview Section - fixed height matching Navigator from ImageTool (100px) */}
+      <PreviewSection>
         <PreviewContent>{renderPreview()}</PreviewContent>
       </PreviewSection>
 
@@ -1057,8 +1038,62 @@ export const TimelineFileDetailPanel: React.FC<
         </AnalyzerButton>
       )}
 
-      {/* Drag Handle for resizing */}
-      <DragHandle isDragging={isDragging} onMouseDown={handleDragStart} />
+      {/* METADATA Section - matches lower-left MetadataPanel styling exactly */}
+      <MetadataSection>
+        <MetadataSectionHeader>
+          <Typography
+            sx={{
+              fontSize: "10px",
+              fontWeight: 600,
+              color: "#808080",
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+            }}
+          >
+            Metadata
+          </Typography>
+        </MetadataSectionHeader>
+        <MetadataContent>
+          <MetadataRow>
+            <MetadataLabel>Filename</MetadataLabel>
+            <MetadataValue>{selectedFile?.fileName || "—"}</MetadataValue>
+          </MetadataRow>
+          <MetadataRow>
+            <MetadataLabel>Captured</MetadataLabel>
+            <MetadataValue>
+              {formatTimestamp(selectedFile?.capturedAt)}
+            </MetadataValue>
+          </MetadataRow>
+          <MetadataRow>
+            <MetadataLabel>{row3Data.label}</MetadataLabel>
+            <MetadataValue>{row3Data.value}</MetadataValue>
+          </MetadataRow>
+          <MetadataRow>
+            <MetadataLabel>User</MetadataLabel>
+            <MetadataValue>{selectedFile?.user || "—"}</MetadataValue>
+          </MetadataRow>
+          <MetadataRow>
+            <MetadataLabel>Device</MetadataLabel>
+            <MetadataValue>{selectedFile?.deviceInfo || "—"}</MetadataValue>
+          </MetadataRow>
+          <MetadataRow>
+            <MetadataLabel>Format</MetadataLabel>
+            <MetadataValue>{selectedFile?.format || "—"}</MetadataValue>
+          </MetadataRow>
+          <MetadataRow>
+            <MetadataLabel>GPS</MetadataLabel>
+            <MetadataValue>{selectedFile?.gps || "—"}</MetadataValue>
+          </MetadataRow>
+          <MetadataRow>
+            <MetadataLabel>Flags</MetadataLabel>
+            <MetadataValue
+              sx={{ color: selectedFile?.flagCount ? "#19abb5" : "#666" }}
+            >
+              {selectedFile?.flagCount ?? "—"}
+            </MetadataValue>
+          </MetadataRow>
+        </MetadataContent>
+      </MetadataSection>
 
       {/* Flags List Section */}
       <FlagsSection>
