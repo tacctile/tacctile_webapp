@@ -25,9 +25,7 @@ import {
   Typography,
   CircularProgress,
   IconButton,
-  Select,
   MenuItem,
-  FormControl,
   Tooltip,
   ToggleButtonGroup,
   ToggleButton,
@@ -48,7 +46,6 @@ import MicIcon from "@mui/icons-material/Mic";
 import PhotoIcon from "@mui/icons-material/Photo";
 import ImageIcon from "@mui/icons-material/Image";
 import PersonIcon from "@mui/icons-material/Person";
-import FilterListIcon from "@mui/icons-material/FilterList";
 import FlagIcon from "@mui/icons-material/Flag";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import InfoIcon from "@mui/icons-material/Info";
@@ -67,7 +64,8 @@ import {
   type FileItem,
   type MediaFilter,
 } from "@/components/file-library";
-import { MetadataPanel, FlagsPanel, type Flag } from "@/components/common";
+import { MetadataPanel, type Flag } from "@/components/common";
+import { TimelineFileDetailPanel } from "./TimelineFileDetailPanel";
 
 import { usePlayheadStore } from "../../stores/usePlayheadStore";
 import { useNavigationStore } from "../../stores/useNavigationStore";
@@ -1074,8 +1072,8 @@ export const Timeline: React.FC<TimelineProps> = ({
     Record<string, boolean>
   >({});
 
-  // Flag user filter
-  const [flagUserFilter, setFlagUserFilter] = useState<string>("all");
+  // Selected flag in the detail panel
+  const [selectedFlagId, setSelectedFlagId] = useState<string | null>(null);
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -1589,26 +1587,8 @@ export const Timeline: React.FC<TimelineProps> = ({
       createdAt: flag.absoluteTimestamp,
     }));
 
-    // Apply user filter
-    if (flagUserFilter !== "all") {
-      return flags.filter((f) => f.createdBy === flagUserFilter);
-    }
-
     return flags;
-  }, [items, activeFileId, flagUserFilter]);
-
-  // Get unique flag creators for filter dropdown
-  const flagUsers = useMemo(() => {
-    const userSet = new Set<string>();
-    items.forEach((item) => {
-      item.flags.forEach((flag) => {
-        if (flag.userDisplayName) {
-          userSet.add(flag.userDisplayName);
-        }
-      });
-    });
-    return Array.from(userSet).sort();
-  }, [items]);
+  }, [items, activeFileId]);
 
   // Calculate clip position on timeline
   // Check if an item has a real timestamp (vs defaulting to session start)
@@ -1647,7 +1627,7 @@ export const Timeline: React.FC<TimelineProps> = ({
     [timeRange],
   );
 
-  // Handle item single click (show metadata)
+  // Handle item single click (show metadata and populate right panel)
   const handleItemClick = useCallback((item: TimelineMediaItem) => {
     const fileItem: FileItem = {
       id: item.id,
@@ -1661,39 +1641,79 @@ export const Timeline: React.FC<TimelineProps> = ({
       hasFindings: item.hasEdits || item.flagCount > 0,
     };
     setSelectedFile(fileItem);
+    // Reset selected flag when a different file is clicked
+    setSelectedFlagId(null);
   }, []);
 
-  // Handle item double click (focus file, jump playhead to start, load in preview)
-  // NO automatic navigation to other tools
+  // Handle item double click - open file in the appropriate analyzer tool
   const handleItemDoubleClick = useCallback(
     (item: TimelineMediaItem) => {
-      // Make this the active file
-      setActiveFileId(item.id);
-      // Jump playhead to the start of this file
-      setGlobalTimestamp(item.capturedAt);
-      // Also select it for metadata display
-      handleItemClick(item);
-
-      // Auto-switch File Library filter if a filter is active and the selected file
-      // is of a different type than the current filter
-      if (fileFilter !== "all") {
-        // Map TimelineMediaItem type to MediaFilter type ('photo' -> 'image')
-        const itemFilterType: MediaFilter =
-          item.type === "photo" ? "image" : item.type;
-        if (fileFilter !== itemFilterType) {
-          setFileFilter(itemFilterType);
-        }
+      // Navigate to the appropriate analyzer tool with the file loaded
+      const toolMap: Record<string, "video" | "audio" | "images"> = {
+        video: "video",
+        audio: "audio",
+        photo: "images",
+      };
+      const tool = toolMap[item.type];
+      if (tool) {
+        navigateToTool(tool, item.fileId);
       }
     },
-    [setGlobalTimestamp, handleItemClick, fileFilter],
+    [navigateToTool],
   );
 
-  // Handle flag click (jump to timestamp)
+  // Handle flag click (jump to timestamp and select flag)
   const handleFlagClick = useCallback(
     (flag: Flag) => {
       setGlobalTimestamp(flag.timestamp);
+      setSelectedFlagId(flag.id);
     },
     [setGlobalTimestamp],
+  );
+
+  // Handle flag selection (for detail panel)
+  const handleFlagSelect = useCallback(
+    (flag: Flag | null) => {
+      setSelectedFlagId(flag?.id || null);
+    },
+    [],
+  );
+
+  // Handle flag update (from detail panel)
+  const handleFlagUpdate = useCallback(
+    (flagId: string, updates: { label?: string; note?: string; color?: string; locked?: boolean }) => {
+      // TODO: Integrate with flag update system
+      console.log("Update flag:", flagId, updates);
+    },
+    [],
+  );
+
+  // Handle flag delete (from detail panel)
+  const handleFlagDelete = useCallback(
+    (flagId: string) => {
+      // TODO: Integrate with flag delete system
+      console.log("Delete flag:", flagId);
+      if (selectedFlagId === flagId) {
+        setSelectedFlagId(null);
+      }
+    },
+    [selectedFlagId],
+  );
+
+  // Handle open in analyzer (from detail panel)
+  const handleOpenInAnalyzer = useCallback(
+    (file: TimelineMediaItem) => {
+      const toolMap: Record<string, "video" | "audio" | "images"> = {
+        video: "video",
+        audio: "audio",
+        photo: "images",
+      };
+      const tool = toolMap[file.type];
+      if (tool) {
+        navigateToTool(tool, file.fileId);
+      }
+    },
+    [navigateToTool],
   );
 
   // Toggle file visibility (only one can be active at a time)
@@ -1739,6 +1759,37 @@ export const Timeline: React.FC<TimelineProps> = ({
     const remainingMins = mins % 60;
     return remainingMins > 0 ? `${hrs}h ${remainingMins}m` : `${hrs}h`;
   }, []);
+
+  // Generate tooltip content for file bars
+  const getFileBarTooltipContent = useCallback(
+    (item: TimelineMediaItem): React.ReactNode => {
+      const captureDate = new Date(item.capturedAt);
+      const dateStr = captureDate.toLocaleDateString();
+      const timeStr = captureDate.toLocaleTimeString();
+
+      return (
+        <Box sx={{ p: 0.5 }}>
+          <Typography sx={{ fontSize: 11, fontWeight: 500, color: "#e1e1e1" }}>
+            {item.user || "Unknown User"}
+          </Typography>
+          <Typography sx={{ fontSize: 10, color: "#ccc", mt: 0.25 }}>
+            {item.fileName}
+          </Typography>
+          <Typography sx={{ fontSize: 10, color: "#888", mt: 0.5 }}>
+            {item.type === "photo"
+              ? "Image"
+              : item.duration
+                ? `Duration: ${formatDuration(item.duration)}`
+                : ""}
+          </Typography>
+          <Typography sx={{ fontSize: 10, color: "#888" }}>
+            {`${dateStr} ${timeStr}`}
+          </Typography>
+        </Box>
+      );
+    },
+    [formatDuration],
+  );
 
   // Format timestamp for display on blocks (just time, shorter format)
   const formatBlockTimestamp = useCallback((timestamp: number): string => {
@@ -2651,6 +2702,16 @@ export const Timeline: React.FC<TimelineProps> = ({
                     gap: 0.5,
                   }}
                 >
+                  <Typography
+                    sx={{
+                      fontSize: 9,
+                      fontWeight: 500,
+                      color: "#19abb5",
+                      textAlign: "center",
+                    }}
+                  >
+                    {item.user || "Unknown"}
+                  </Typography>
                   <Box
                     sx={{
                       width: 60,
@@ -2835,7 +2896,36 @@ export const Timeline: React.FC<TimelineProps> = ({
         </TimelineClip>
       );
 
-      return <React.Fragment key={item.id}>{clipContent}</React.Fragment>;
+      return (
+        <Tooltip
+          key={item.id}
+          title={getFileBarTooltipContent(item)}
+          placement="top"
+          arrow
+          enterDelay={500}
+          slotProps={{
+            tooltip: {
+              sx: {
+                backgroundColor: "#1e1e1e",
+                border: "1px solid #333",
+                borderRadius: 1,
+                maxWidth: 250,
+                boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+              },
+            },
+            arrow: {
+              sx: {
+                color: "#1e1e1e",
+                "&::before": {
+                  border: "1px solid #333",
+                },
+              },
+            },
+          }}
+        >
+          <Box sx={{ display: "contents" }}>{clipContent}</Box>
+        </Tooltip>
+      );
     });
   };
 
@@ -3598,126 +3688,18 @@ export const Timeline: React.FC<TimelineProps> = ({
     </MainContainer>
   );
 
-  // Right panel content - Flags only (image preview moved to center)
+  // Right panel content - File detail panel with preview, flags, and notes
   const inspectorContent = (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-        overflow: "hidden",
-      }}
-    >
-      {/* Selected file indicator */}
-      {activeFile && (
-        <Box
-          sx={{
-            padding: "8px 12px",
-            backgroundColor: "#1a1a1a",
-            borderBottom: "1px solid #252525",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
-          {activeFile.type === "video" && (
-            <VideocamIcon sx={{ fontSize: 14, color: "#c45c5c" }} />
-          )}
-          {activeFile.type === "audio" && (
-            <MicIcon sx={{ fontSize: 14, color: "#5a9a6b" }} />
-          )}
-          {activeFile.type === "photo" && (
-            <PhotoIcon sx={{ fontSize: 14, color: "#5a7fbf" }} />
-          )}
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography
-              sx={{
-                fontSize: 11,
-                color: "#e1e1e1",
-                fontWeight: 500,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {activeFile.fileName}
-            </Typography>
-            <Typography sx={{ fontSize: 9, color: "#666" }}>
-              {activeFile.user || "Unknown"} • {activeFile.flagCount} flag
-              {activeFile.flagCount !== 1 ? "s" : ""}
-            </Typography>
-          </Box>
-        </Box>
-      )}
-
-      {/* No file selected message */}
-      {!activeFile && (
-        <Box
-          sx={{
-            padding: "12px",
-            backgroundColor: "#1a1a1a",
-            borderBottom: "1px solid #252525",
-            textAlign: "center",
-          }}
-        >
-          <Typography sx={{ fontSize: 11, color: "#555" }}>
-            Select a file to view flags
-          </Typography>
-        </Box>
-      )}
-
-      {/* User filter for flags - only show when a file is selected and has flags */}
-      {activeFile && flagUsers.length > 0 && (
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
-            padding: "6px 12px",
-            backgroundColor: "#161616",
-            borderBottom: "1px solid #252525",
-          }}
-        >
-          <FilterListIcon sx={{ fontSize: 14, color: "#666" }} />
-          <Typography sx={{ fontSize: 10, color: "#666" }}>Filter:</Typography>
-          <FormControl size="small" sx={{ minWidth: 80 }}>
-            <Select
-              value={flagUserFilter}
-              onChange={(e) => setFlagUserFilter(e.target.value)}
-              sx={{
-                fontSize: 10,
-                color: "#ccc",
-                height: 24,
-                backgroundColor: "#252525",
-                "& .MuiOutlinedInput-notchedOutline": { border: "none" },
-                "& .MuiSelect-select": { padding: "2px 8px" },
-              }}
-            >
-              <MenuItem value="all" sx={{ fontSize: 11 }}>
-                All Users
-              </MenuItem>
-              {flagUsers.map((user) => (
-                <MenuItem key={user} value={user} sx={{ fontSize: 11 }}>
-                  {user}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Box>
-      )}
-
-      {/* Flags Panel - takes full remaining space */}
-      <Box sx={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
-        <FlagsPanel
-          flags={currentFlags}
-          onFlagClick={handleFlagClick}
-          onFlagAdd={() => console.log("Add flag")}
-          onFlagEdit={(flag) => console.log("Edit flag:", flag.id)}
-          onFlagDelete={(flagId) => console.log("Delete flag:", flagId)}
-          disabled={!activeFile}
-        />
-      </Box>
-    </Box>
+    <TimelineFileDetailPanel
+      selectedFile={activeFile || null}
+      flags={currentFlags}
+      selectedFlagId={selectedFlagId}
+      onFlagSelect={handleFlagSelect}
+      onFlagClick={handleFlagClick}
+      onFlagUpdate={handleFlagUpdate}
+      onFlagDelete={handleFlagDelete}
+      onOpenInAnalyzer={handleOpenInAnalyzer}
+    />
   );
 
   return (
