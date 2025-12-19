@@ -306,15 +306,15 @@ const generateDummyData = (): TimelineMediaItem[] => {
       hasEdits: false,
       flags: [],
     },
-    // Unassigned video (catch-all lane)
+    // Unassigned video (catch-all lane) - no timestamp for testing lock behavior
     {
       id: "v5",
       fileId: "ev-v5",
       type: "video",
       fileName: "imported_security_footage.mp4",
-      capturedAt: sessionStart + 30 * 60 * 1000,
+      capturedAt: 0, // No timestamp - will default to timeline start
       duration: 1800, // 30 min
-      endAt: sessionStart + 30 * 60 * 1000 + 1800 * 1000,
+      endAt: 1800 * 1000, // Just the duration offset
       user: "", // No user - goes to catch-all
       deviceInfo: "Security DVR",
       format: "H.264 / 720p",
@@ -325,7 +325,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
         {
           id: "f7",
           timestamp: 456,
-          absoluteTimestamp: sessionStart + 30 * 60 * 1000 + 456 * 1000,
+          absoluteTimestamp: 456 * 1000, // Relative offset only
           title: "Motion detected",
           confidence: "low",
           userId: "system",
@@ -608,13 +608,13 @@ const generateDummyData = (): TimelineMediaItem[] => {
         },
       ],
     },
-    // Unassigned image
+    // Unassigned image - no timestamp for testing lock behavior
     {
       id: "i7",
       fileId: "ev-i7",
       type: "photo",
       fileName: "imported_old_photo.jpg",
-      capturedAt: sessionStart + 20 * 60 * 1000,
+      capturedAt: 0, // No timestamp - will default to timeline start
       user: "", // No user - goes to catch-all
       deviceInfo: "Unknown",
       format: "JPEG",
@@ -2617,13 +2617,39 @@ export const Timeline: React.FC<TimelineProps> = ({
       const isActive = activeFileId === item.id;
       const isDimmed = activeFileId !== null && !isActive;
       const isLocked = isItemLocked(item);
+      const hasTimestamp = hasRealTimestamp(item);
 
       // Lock button styling
       const lockButtonSize = clipHeight < 24 ? 14 : 18;
       const lockIconSize = clipHeight < 24 ? 10 : 12;
 
-      // Lock toggle button component (rendered as tail of clip or icon)
-      const LockToggle = (
+      // Lock toggle button component - behavior differs based on timestamp status
+      // Files WITH timestamps: dimmed, non-interactive lock icon
+      // Files WITHOUT timestamps: bright, clickable, toggleable lock icon
+      const LockToggle = hasTimestamp ? (
+        // Timestamped files: dimmed, non-interactive
+        <Tooltip title="Locked to capture time" placement="top" arrow>
+          <Box
+            sx={{
+              position: "absolute",
+              right: 0,
+              top: 0,
+              bottom: 0,
+              width: lockButtonSize + 4,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "rgba(0, 0, 0, 0.2)",
+              borderLeft: "1px solid rgba(255, 255, 255, 0.1)",
+              cursor: "default",
+              opacity: 0.4,
+            }}
+          >
+            <LockIcon sx={{ fontSize: lockIconSize, color: "#ffa726" }} />
+          </Box>
+        </Tooltip>
+      ) : (
+        // Non-timestamped files: bright, clickable, toggleable
         <Box
           onClick={(e) => toggleItemLock(item, e)}
           sx={{
@@ -2650,11 +2676,11 @@ export const Timeline: React.FC<TimelineProps> = ({
         >
           {isLocked ? (
             <LockIcon
-              sx={{ fontSize: lockIconSize, color: "#ffa726", opacity: 0.9 }}
+              sx={{ fontSize: lockIconSize, color: "#ffa726", opacity: 1 }}
             />
           ) : (
             <LockOpenIcon
-              sx={{ fontSize: lockIconSize, color: "#81c784", opacity: 0.9 }}
+              sx={{ fontSize: lockIconSize, color: "#81c784", opacity: 1 }}
             />
           )}
         </Box>
@@ -2722,19 +2748,55 @@ export const Timeline: React.FC<TimelineProps> = ({
                     {item.fileName}
                   </Typography>
                   <Typography sx={{ fontSize: 8, color: "#888" }}>
-                    {formatBlockTimestamp(item.capturedAt)}
+                    {hasTimestamp
+                      ? formatBlockTimestamp(item.capturedAt)
+                      : "No timestamp"}
                   </Typography>
-                  {isLocked && (
+                  {/* Lock status indicator - differs based on timestamp */}
+                  {hasTimestamp ? (
                     <Box
                       sx={{
                         display: "flex",
                         alignItems: "center",
                         gap: 0.5,
                         color: "#ffa726",
+                        opacity: 0.4,
                       }}
                     >
                       <LockIcon sx={{ fontSize: 10 }} />
-                      <Typography sx={{ fontSize: 7 }}>Locked</Typography>
+                      <Typography sx={{ fontSize: 7 }}>
+                        Locked to capture time
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        color: isLocked ? "#ffa726" : "#81c784",
+                        cursor: "pointer",
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleItemLock(item, e);
+                      }}
+                    >
+                      {isLocked ? (
+                        <>
+                          <LockIcon sx={{ fontSize: 10 }} />
+                          <Typography sx={{ fontSize: 7 }}>
+                            Locked (click to unlock)
+                          </Typography>
+                        </>
+                      ) : (
+                        <>
+                          <LockOpenIcon sx={{ fontSize: 10 }} />
+                          <Typography sx={{ fontSize: 7 }}>
+                            Unlocked (click to lock)
+                          </Typography>
+                        </>
+                      )}
                     </Box>
                   )}
                 </Box>
@@ -2896,15 +2958,13 @@ export const Timeline: React.FC<TimelineProps> = ({
         </TimelineClip>
       );
 
-      // Wrap in tooltip only if locked
+      // Wrap in tooltip only if locked - different message for timestamped vs non-timestamped
       if (isLocked) {
+        const tooltipTitle = hasTimestamp
+          ? "Locked to capture time"
+          : "Locked - click lock icon to unlock";
         return (
-          <Tooltip
-            key={item.id}
-            title="🔒 Locked - unlock to move"
-            placement="top"
-            arrow
-          >
+          <Tooltip key={item.id} title={tooltipTitle} placement="top" arrow>
             {clipContent}
           </Tooltip>
         );
@@ -3041,8 +3101,11 @@ export const Timeline: React.FC<TimelineProps> = ({
         {/* Time Ruler */}
         <TimeRuler>{renderTimeRuler()}</TimeRuler>
 
-        {/* Swim Lanes */}
-        <SwimLanesContainer ref={lanesContainerRef}>
+        {/* Swim Lanes - extra padding at bottom for small lane height to prevent cutoff */}
+        <SwimLanesContainer
+          ref={lanesContainerRef}
+          sx={{ paddingBottom: laneHeightSize === "small" ? "8px" : 0 }}
+        >
           {/* GROUP BY TYPE MODE */}
           {groupByMode === "type" && (
             <>
