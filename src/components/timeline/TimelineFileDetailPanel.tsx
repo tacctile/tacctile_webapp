@@ -11,6 +11,7 @@ import {
   IconButton,
   Button,
   Tooltip,
+  Popover,
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import VideocamIcon from "@mui/icons-material/Videocam";
@@ -24,6 +25,9 @@ import LockOpenIcon from "@mui/icons-material/LockOpen";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import PauseIcon from "@mui/icons-material/Pause";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
+import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 
 // ============================================================================
 // TYPES
@@ -93,6 +97,7 @@ interface TimelineFileDetailPanelProps {
       note?: string;
       color?: string;
       locked?: boolean;
+      visible?: boolean;
     }
   ) => void;
   /** Callback when flag is deleted */
@@ -100,6 +105,22 @@ interface TimelineFileDetailPanelProps {
   /** Callback to open file in analyzer tool */
   onOpenInAnalyzer: (file: TimelineMediaItem) => void;
 }
+
+// ============================================================================
+// FLAG COLORS
+// ============================================================================
+
+const FLAG_COLORS = [
+  { name: "Red", value: "#ef4444" },
+  { name: "Orange", value: "#f97316" },
+  { name: "Yellow", value: "#eab308" },
+  { name: "Green", value: "#22c55e" },
+  { name: "Cyan", value: "#19abb5" },
+  { name: "Blue", value: "#3b82f6" },
+  { name: "Purple", value: "#a855f7" },
+  { name: "Pink", value: "#ec4899" },
+  { name: "White", value: "#ffffff" },
+];
 
 // ============================================================================
 // STYLED COMPONENTS
@@ -166,6 +187,31 @@ const AnalyzerButton = styled(Button)({
   "& .MuiButton-startIcon": {
     marginRight: 6,
   },
+});
+
+// Drag Handle for resizing flags section
+const DragHandle = styled(Box)({
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  height: 12,
+  backgroundColor: "#1a1a1a",
+  borderTop: "1px solid #333",
+  cursor: "ns-resize",
+  "&:hover": {
+    backgroundColor: "#252525",
+    "& .drag-indicator": {
+      backgroundColor: "#19abb5",
+    },
+  },
+});
+
+const DragIndicator = styled(Box)({
+  width: 40,
+  height: 4,
+  backgroundColor: "#444",
+  borderRadius: 2,
+  transition: "background-color 0.15s ease",
 });
 
 // Flags List Section (expands to fill remaining space)
@@ -245,6 +291,23 @@ const EmptyState = styled(Box)({
 // HELPER FUNCTIONS
 // ============================================================================
 
+/**
+ * Formats an absolute timestamp to 12-hour format (e.g., "8:02 AM", "3:45 PM")
+ * Used for showing when the file was captured
+ */
+const formatCaptureTime = (absoluteTimestamp: number): string => {
+  const date = new Date(absoluteTimestamp);
+  let hours = date.getHours();
+  const minutes = date.getMinutes();
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12;
+  hours = hours ? hours : 12; // the hour '0' should be '12'
+  return `${hours}:${minutes.toString().padStart(2, "0")} ${ampm}`;
+};
+
+/**
+ * Formats a duration timestamp (relative to file start) as MM:SS or H:MM:SS
+ */
 const formatTimestamp = (ms: number): string => {
   const totalSeconds = Math.floor(ms / 1000);
   const hours = Math.floor(totalSeconds / 3600);
@@ -589,6 +652,11 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ file }) => {
 // MAIN COMPONENT
 // ============================================================================
 
+// Min/max heights for preview section (drag handle resize bounds)
+const MIN_PREVIEW_HEIGHT = 80;
+const MAX_PREVIEW_HEIGHT = 300;
+const DEFAULT_PREVIEW_HEIGHT = 150;
+
 export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = ({
   selectedFile,
   flags,
@@ -599,6 +667,105 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
   onFlagDelete,
   onOpenInAnalyzer,
 }) => {
+  // Drag handle state for resizing preview/flags sections
+  const [previewHeight, setPreviewHeight] = useState(DEFAULT_PREVIEW_HEIGHT);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartY = useRef(0);
+  const dragStartHeight = useRef(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Edit popover state
+  const [editPopoverAnchorEl, setEditPopoverAnchorEl] = useState<HTMLElement | null>(null);
+  const [editingFlagId, setEditingFlagId] = useState<string | null>(null);
+  const [editLabel, setEditLabel] = useState("");
+  const [editNote, setEditNote] = useState("");
+  const [editColor, setEditColor] = useState<string>("#19abb5");
+
+  // Color picker popover state
+  const [colorPickerAnchorEl, setColorPickerAnchorEl] = useState<HTMLElement | null>(null);
+  const [customColorHue, setCustomColorHue] = useState(180);
+  const [customColorSaturation, setCustomColorSaturation] = useState(70);
+  const [customColorLightness, setCustomColorLightness] = useState(50);
+  const [draggingColorSlider, setDraggingColorSlider] = useState<"hue" | "saturation" | "lightness" | null>(null);
+  const colorSliderRef = useRef<HTMLDivElement | null>(null);
+  const [userCustomColor, setUserCustomColor] = useState<string | null>(null);
+
+  // Handle drag resize
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      const deltaY = e.clientY - dragStartY.current;
+      const newHeight = Math.max(
+        MIN_PREVIEW_HEIGHT,
+        Math.min(MAX_PREVIEW_HEIGHT, dragStartHeight.current + deltaY)
+      );
+      setPreviewHeight(newHeight);
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "ns-resize";
+      document.body.style.userSelect = "none";
+      return () => {
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      };
+    }
+    return undefined;
+  }, [isDragging]);
+
+  // Color slider drag handlers
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!draggingColorSlider || !colorSliderRef.current) return;
+      const rect = colorSliderRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
+
+      if (draggingColorSlider === "hue") {
+        setCustomColorHue(Math.round((percentage / 100) * 360));
+      } else if (draggingColorSlider === "saturation") {
+        setCustomColorSaturation(Math.round(percentage));
+      } else if (draggingColorSlider === "lightness") {
+        setCustomColorLightness(Math.round(percentage));
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (draggingColorSlider) {
+        const newColor = `hsl(${customColorHue}, ${customColorSaturation}%, ${customColorLightness}%)`;
+        setEditColor(newColor);
+        setUserCustomColor(newColor);
+        setDraggingColorSlider(null);
+      }
+    };
+
+    if (draggingColorSlider) {
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      return () => {
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+      };
+    }
+    return undefined;
+  }, [draggingColorSlider, customColorHue, customColorSaturation, customColorLightness]);
+
+  // Handle drag start
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dragStartY.current = e.clientY;
+    dragStartHeight.current = previewHeight;
+    setIsDragging(true);
+  }, [previewHeight]);
+
   // Handle flag row click
   const handleFlagRowClick = useCallback(
     (flag: Flag) => {
@@ -606,6 +773,49 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
       onFlagClick(flag);
     },
     [onFlagSelect, onFlagClick]
+  );
+
+  // Start editing a flag (open popover)
+  const handleStartEdit = useCallback((flag: Flag, anchorEl: HTMLElement) => {
+    if (flag.locked) return;
+    setEditingFlagId(flag.id);
+    setEditLabel(flag.label || "");
+    setEditNote(flag.note || "");
+    setEditColor(flag.color || flag.userColor || "#19abb5");
+    setEditPopoverAnchorEl(anchorEl);
+  }, []);
+
+  // Cancel edit (close popover)
+  const handleCancelEdit = useCallback(() => {
+    setEditingFlagId(null);
+    setEditLabel("");
+    setEditNote("");
+    setEditColor("#19abb5");
+    setEditPopoverAnchorEl(null);
+    setColorPickerAnchorEl(null);
+  }, []);
+
+  // Save edit
+  const handleSaveEdit = useCallback(() => {
+    if (editingFlagId && onFlagUpdate) {
+      onFlagUpdate(editingFlagId, {
+        label: editLabel,
+        note: editNote,
+        color: editColor,
+      });
+    }
+    handleCancelEdit();
+  }, [editingFlagId, editLabel, editNote, editColor, onFlagUpdate, handleCancelEdit]);
+
+  // Toggle flag visibility
+  const handleToggleVisibility = useCallback(
+    (flag: Flag, e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (onFlagUpdate) {
+        onFlagUpdate(flag.id, { visible: !(flag.visible ?? true) });
+      }
+    },
+    [onFlagUpdate]
   );
 
   // Handle lock toggle
@@ -632,6 +842,17 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
     },
     [onFlagDelete, selectedFlagId, onFlagSelect]
   );
+
+  // Open color picker popover
+  const handleOpenColorPicker = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setColorPickerAnchorEl(e.currentTarget as HTMLElement);
+  };
+
+  // Close color picker popover
+  const handleCloseColorPicker = () => {
+    setColorPickerAnchorEl(null);
+  };
 
   // Render preview based on file type
   const renderPreview = () => {
@@ -667,9 +888,9 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
   };
 
   return (
-    <Container>
-      {/* Preview Section */}
-      <PreviewSection>
+    <Container ref={containerRef}>
+      {/* Preview Section with dynamic height */}
+      <PreviewSection sx={{ maxHeight: previewHeight, minHeight: MIN_PREVIEW_HEIGHT }}>
         {selectedFile && (
           <Header>
             {getTypeIcon(selectedFile.type)}
@@ -707,6 +928,11 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
         </AnalyzerButton>
       )}
 
+      {/* Drag Handle for resizing */}
+      <DragHandle onMouseDown={handleDragStart}>
+        <DragIndicator className="drag-indicator" />
+      </DragHandle>
+
       {/* Flags List Section */}
       <FlagsSection>
         <FlagsSectionHeader>
@@ -742,7 +968,12 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
           ) : (
             flags.map((flag) => {
               const isSelected = selectedFlagId === flag.id;
-              const flagColor = flag.color || flag.userColor || "#19abb5";
+              const isEditing = editingFlagId === flag.id;
+              const flagColor = isEditing && editColor ? editColor : (flag.color || flag.userColor || "#19abb5");
+              const isFlagVisible = flag.visible !== false;
+              const hasNote = flag.note && flag.note.length > 0;
+              // Calculate capture time for this flag using file's capturedAt + flag.timestamp
+              const flagCaptureTime = selectedFile.capturedAt + flag.timestamp;
 
               return (
                 <FlagItem
@@ -753,10 +984,10 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
                   {/* Color dot */}
                   <FlagColorDot color={flagColor} />
 
-                  {/* Timestamp */}
-                  <Timestamp>{formatTimestamp(flag.timestamp)}</Timestamp>
+                  {/* Timestamp - 12-hour format of capture time */}
+                  <Timestamp>{formatCaptureTime(flagCaptureTime)}</Timestamp>
 
-                  {/* Content */}
+                  {/* Content: Username on top, title underneath */}
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     {flag.createdBy && (
                       <Typography
@@ -784,9 +1015,40 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
                     </Typography>
                   </Box>
 
-                  {/* Action icons */}
+                  {/* Action icons: paper (if notes), eyeball, pencil, lock, trash */}
                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
-                    {/* Edit - this is implied by selecting the flag */}
+                    {/* Notes indicator icon - only if has notes */}
+                    {hasNote && (
+                      <Tooltip title="Has notes">
+                        <DescriptionOutlinedIcon
+                          sx={{
+                            fontSize: 14,
+                            color: "#888",
+                            flexShrink: 0,
+                          }}
+                        />
+                      </Tooltip>
+                    )}
+
+                    {/* Visibility toggle */}
+                    <Tooltip title={isFlagVisible ? "Hide" : "Show"}>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => handleToggleVisibility(flag, e)}
+                        sx={{
+                          padding: "4px",
+                          color: isFlagVisible ? "#19abb5" : "#444",
+                        }}
+                      >
+                        {isFlagVisible ? (
+                          <VisibilityIcon sx={{ fontSize: 14 }} />
+                        ) : (
+                          <VisibilityOffIcon sx={{ fontSize: 14 }} />
+                        )}
+                      </IconButton>
+                    </Tooltip>
+
+                    {/* Edit button - opens flyout */}
                     <Tooltip
                       title={flag.locked ? "Locked - unlock to edit" : "Edit"}
                     >
@@ -795,14 +1057,14 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
                         disabled={flag.locked}
                         sx={{
                           padding: "4px",
-                          color: isSelected ? "#19abb5" : flag.locked ? "#444" : "#666",
+                          color: isEditing ? "#19abb5" : flag.locked ? "#444" : "#666",
                           "&:hover": {
                             color: flag.locked ? "#444" : "#19abb5",
                           },
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleFlagRowClick(flag);
+                          handleStartEdit(flag, e.currentTarget);
                         }}
                       >
                         <EditIcon sx={{ fontSize: 14 }} />
@@ -857,6 +1119,358 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
         </FlagsList>
       </FlagsSection>
 
+      {/* Edit Popover - Flyout for editing flag */}
+      <Popover
+        open={Boolean(editPopoverAnchorEl)}
+        anchorEl={editPopoverAnchorEl}
+        onClose={handleCancelEdit}
+        anchorOrigin={{
+          vertical: "center",
+          horizontal: "left",
+        }}
+        transformOrigin={{
+          vertical: "center",
+          horizontal: "right",
+        }}
+        slotProps={{
+          paper: {
+            sx: {
+              backgroundColor: "#1a1a1a",
+              border: "1px solid #333",
+              borderRadius: 1,
+              p: 1.5,
+              width: 220,
+            },
+          },
+        }}
+      >
+        {/* Title field */}
+        <Box sx={{ mb: 1.5 }}>
+          <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
+            Title
+          </Typography>
+          <input
+            type="text"
+            value={editLabel}
+            onChange={(e) => setEditLabel(e.target.value)}
+            placeholder="Flag title"
+            style={{
+              width: "100%",
+              padding: "6px 8px",
+              fontSize: 11,
+              backgroundColor: "#252525",
+              border: "1px solid #333",
+              borderRadius: 4,
+              color: "#ccc",
+              outline: "none",
+              boxSizing: "border-box",
+            }}
+          />
+        </Box>
+
+        {/* Notes field */}
+        <Box sx={{ mb: 1.5 }}>
+          <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
+            Notes
+          </Typography>
+          <textarea
+            value={editNote}
+            onChange={(e) => setEditNote(e.target.value)}
+            placeholder="Add notes..."
+            rows={3}
+            style={{
+              width: "100%",
+              padding: "6px 8px",
+              fontSize: 11,
+              backgroundColor: "#252525",
+              border: "1px solid #333",
+              borderRadius: 4,
+              color: "#ccc",
+              outline: "none",
+              resize: "vertical",
+              fontFamily: "inherit",
+              boxSizing: "border-box",
+            }}
+          />
+        </Box>
+
+        {/* Color picker */}
+        <Box sx={{ mb: 1.5 }}>
+          <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
+            Color
+          </Typography>
+          <Box
+            sx={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 0.5,
+              alignItems: "center",
+            }}
+          >
+            {FLAG_COLORS.map((colorOption) => (
+              <Tooltip
+                key={colorOption.value}
+                title={colorOption.name}
+                placement="top"
+              >
+                <Box
+                  onClick={() => setEditColor(colorOption.value)}
+                  sx={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: "50%",
+                    backgroundColor: colorOption.value,
+                    cursor: "pointer",
+                    border:
+                      editColor === colorOption.value
+                        ? "2px solid #fff"
+                        : "2px solid transparent",
+                    boxShadow:
+                      editColor === colorOption.value
+                        ? "0 0 0 1px #19abb5"
+                        : "none",
+                    transition: "all 0.15s ease",
+                    "&:hover": {
+                      transform: "scale(1.1)",
+                    },
+                  }}
+                />
+              </Tooltip>
+            ))}
+            {/* Custom color picker button (rainbow) */}
+            <Tooltip title="Custom color" placement="top">
+              <Box
+                onClick={handleOpenColorPicker}
+                sx={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: "50%",
+                  background:
+                    "conic-gradient(red, yellow, lime, aqua, blue, magenta, red)",
+                  cursor: "pointer",
+                  border:
+                    userCustomColor && editColor === userCustomColor
+                      ? "2px solid #fff"
+                      : "2px solid transparent",
+                  boxShadow:
+                    userCustomColor && editColor === userCustomColor
+                      ? "0 0 0 1px #19abb5"
+                      : "none",
+                  transition: "all 0.15s ease",
+                  "&:hover": {
+                    transform: "scale(1.1)",
+                  },
+                }}
+              />
+            </Tooltip>
+          </Box>
+        </Box>
+
+        {/* Cancel/Save buttons */}
+        <Box
+          sx={{ display: "flex", gap: 1, justifyContent: "flex-end", mt: 1.5 }}
+        >
+          <Button
+            size="small"
+            onClick={handleCancelEdit}
+            sx={{
+              fontSize: 10,
+              color: "#888",
+              backgroundColor: "transparent",
+              border: "1px solid #444",
+              px: 1.5,
+              py: 0.5,
+              minWidth: "auto",
+              "&:hover": {
+                backgroundColor: "rgba(255,255,255,0.05)",
+                borderColor: "#666",
+              },
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="small"
+            onClick={handleSaveEdit}
+            sx={{
+              fontSize: 10,
+              color: "#fff",
+              backgroundColor: "#19abb5",
+              px: 1.5,
+              py: 0.5,
+              minWidth: "auto",
+              "&:hover": {
+                backgroundColor: "#15969f",
+              },
+            }}
+          >
+            Save
+          </Button>
+        </Box>
+      </Popover>
+
+      {/* Color Picker Popover */}
+      <Popover
+        open={Boolean(colorPickerAnchorEl)}
+        anchorEl={colorPickerAnchorEl}
+        onClose={handleCloseColorPicker}
+        anchorOrigin={{
+          vertical: "bottom",
+          horizontal: "left",
+        }}
+        transformOrigin={{
+          vertical: "top",
+          horizontal: "left",
+        }}
+        slotProps={{
+          paper: {
+            sx: {
+              backgroundColor: "#1a1a1a",
+              border: "1px solid #333",
+              borderRadius: 1,
+              p: 1.5,
+              width: 180,
+            },
+          },
+        }}
+      >
+        {/* Hue slider */}
+        <Box sx={{ mb: 1.5 }}>
+          <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
+            Hue
+          </Typography>
+          <Box
+            sx={{
+              position: "relative",
+              height: 16,
+              borderRadius: 1,
+              background:
+                "linear-gradient(to right, red, yellow, lime, aqua, blue, magenta, red)",
+              cursor: "pointer",
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              colorSliderRef.current = e.currentTarget as HTMLDivElement;
+              setDraggingColorSlider("hue");
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              const hue = Math.round((x / rect.width) * 360);
+              setCustomColorHue(Math.max(0, Math.min(360, hue)));
+            }}
+          >
+            <Box
+              sx={{
+                position: "absolute",
+                top: -2,
+                left: `${(customColorHue / 360) * 100}%`,
+                transform: "translateX(-50%)",
+                width: 6,
+                height: 20,
+                backgroundColor: "#fff",
+                borderRadius: 0.5,
+                boxShadow: "0 1px 3px rgba(0,0,0,0.5)",
+                pointerEvents: "none",
+              }}
+            />
+          </Box>
+        </Box>
+
+        {/* Saturation slider */}
+        <Box sx={{ mb: 1.5 }}>
+          <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
+            Saturation
+          </Typography>
+          <Box
+            sx={{
+              position: "relative",
+              height: 16,
+              borderRadius: 1,
+              background: `linear-gradient(to right, hsl(${customColorHue}, 0%, ${customColorLightness}%), hsl(${customColorHue}, 100%, ${customColorLightness}%))`,
+              cursor: "pointer",
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              colorSliderRef.current = e.currentTarget as HTMLDivElement;
+              setDraggingColorSlider("saturation");
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              const sat = Math.round((x / rect.width) * 100);
+              setCustomColorSaturation(Math.max(0, Math.min(100, sat)));
+            }}
+          >
+            <Box
+              sx={{
+                position: "absolute",
+                top: -2,
+                left: `${customColorSaturation}%`,
+                transform: "translateX(-50%)",
+                width: 6,
+                height: 20,
+                backgroundColor: "#fff",
+                borderRadius: 0.5,
+                boxShadow: "0 1px 3px rgba(0,0,0,0.5)",
+                pointerEvents: "none",
+              }}
+            />
+          </Box>
+        </Box>
+
+        {/* Lightness slider */}
+        <Box sx={{ mb: 1.5 }}>
+          <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
+            Lightness
+          </Typography>
+          <Box
+            sx={{
+              position: "relative",
+              height: 16,
+              borderRadius: 1,
+              background: `linear-gradient(to right, hsl(${customColorHue}, ${customColorSaturation}%, 0%), hsl(${customColorHue}, ${customColorSaturation}%, 50%), hsl(${customColorHue}, ${customColorSaturation}%, 100%))`,
+              cursor: "pointer",
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              colorSliderRef.current = e.currentTarget as HTMLDivElement;
+              setDraggingColorSlider("lightness");
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              const light = Math.round((x / rect.width) * 100);
+              setCustomColorLightness(Math.max(0, Math.min(100, light)));
+            }}
+          >
+            <Box
+              sx={{
+                position: "absolute",
+                top: -2,
+                left: `${customColorLightness}%`,
+                transform: "translateX(-50%)",
+                width: 6,
+                height: 20,
+                backgroundColor: "#fff",
+                borderRadius: 0.5,
+                boxShadow: "0 1px 3px rgba(0,0,0,0.5)",
+                pointerEvents: "none",
+              }}
+            />
+          </Box>
+        </Box>
+
+        {/* Preview */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Box
+            sx={{
+              width: 24,
+              height: 24,
+              borderRadius: "50%",
+              backgroundColor: `hsl(${customColorHue}, ${customColorSaturation}%, ${customColorLightness}%)`,
+              border: "2px solid #333",
+            }}
+          />
+          <Typography sx={{ fontSize: 10, color: "#888" }}>
+            Preview
+          </Typography>
+        </Box>
+      </Popover>
     </Container>
   );
 };
