@@ -114,6 +114,7 @@ interface TimelineFlag {
   userId: string;
   userDisplayName: string;
   color?: string;
+  locked?: boolean;
 }
 
 // Lane height options
@@ -195,6 +196,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
           userId: "sarah",
           userDisplayName: "Sarah",
           color: "#ff6b6b",
+          locked: false,
         },
         {
           id: "f2",
@@ -205,6 +207,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
           userId: "sarah",
           userDisplayName: "Sarah",
           color: "#ffe66d",
+          locked: false,
         },
         {
           id: "f3",
@@ -216,6 +219,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
           userId: "mike",
           userDisplayName: "Mike",
           color: "#4ecdc4",
+          locked: true,
         },
       ],
     },
@@ -243,6 +247,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
           userId: "jen",
           userDisplayName: "Jen",
           color: "#a855f7",
+          locked: false,
         },
         {
           id: "f5",
@@ -254,6 +259,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
           userId: "sarah",
           userDisplayName: "Sarah",
           color: "#ff6b6b",
+          locked: false,
         },
       ],
     },
@@ -283,6 +289,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
           userId: "mike",
           userDisplayName: "Mike",
           color: "#4ecdc4",
+          locked: true,
         },
       ],
     },
@@ -328,6 +335,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
           userId: "system",
           userDisplayName: "System",
           color: "#9ca3af",
+          locked: false,
         },
       ],
     },
@@ -358,6 +366,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
           userId: "sarah",
           userDisplayName: "Sarah",
           color: "#ff6b6b",
+          locked: false,
         },
         {
           id: "f9",
@@ -368,6 +377,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
           userId: "sarah",
           userDisplayName: "Sarah",
           color: "#ff6b6b",
+          locked: false,
         },
         {
           id: "f10",
@@ -378,6 +388,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
           userId: "mike",
           userDisplayName: "Mike",
           color: "#4ecdc4",
+          locked: false,
         },
         {
           id: "f11",
@@ -389,6 +400,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
           userId: "jen",
           userDisplayName: "Jen",
           color: "#a855f7",
+          locked: true,
         },
       ],
     },
@@ -418,6 +430,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
           userId: "mike",
           userDisplayName: "Mike",
           color: "#4ecdc4",
+          locked: false,
         },
         {
           id: "f13",
@@ -428,6 +441,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
           userId: "mike",
           userDisplayName: "Mike",
           color: "#4ecdc4",
+          locked: false,
         },
       ],
     },
@@ -457,6 +471,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
           userId: "jen",
           userDisplayName: "Jen",
           color: "#a855f7",
+          locked: false,
         },
       ],
     },
@@ -485,6 +500,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
           userId: "sarah",
           userDisplayName: "Sarah",
           color: "#ff6b6b",
+          locked: false,
         },
       ],
     },
@@ -526,6 +542,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
           userId: "mike",
           userDisplayName: "Mike",
           color: "#4ecdc4",
+          locked: false,
         },
         {
           id: "f17",
@@ -536,6 +553,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
           userId: "sarah",
           userDisplayName: "Sarah",
           color: "#ff6b6b",
+          locked: false,
         },
       ],
     },
@@ -576,6 +594,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
           userId: "jen",
           userDisplayName: "Jen",
           color: "#a855f7",
+          locked: true,
         },
       ],
     },
@@ -602,6 +621,7 @@ const generateDummyData = (): TimelineMediaItem[] => {
           userId: "jen",
           userDisplayName: "Jen",
           color: "#a855f7",
+          locked: false,
         },
       ],
     },
@@ -1570,11 +1590,15 @@ export const Timeline: React.FC<TimelineProps> = ({
     // Get all flags for the selected file
     const flags: Flag[] = activeItem.flags.map((flag) => ({
       id: flag.id,
-      timestamp: flag.absoluteTimestamp,
+      timestamp: flag.timestamp * 1000, // Convert seconds to milliseconds for display
       label: flag.title,
       note: flag.note,
       createdBy: flag.userDisplayName,
       createdAt: flag.absoluteTimestamp,
+      color: flag.color,
+      userColor: flag.color,
+      locked: flag.locked ?? false,
+      visible: true,
     }));
 
     return flags;
@@ -1675,10 +1699,31 @@ export const Timeline: React.FC<TimelineProps> = ({
         note?: string;
         color?: string;
         locked?: boolean;
+        visible?: boolean;
       },
     ) => {
-      // TODO: Integrate with flag update system
-      console.log("Update flag:", flagId, updates);
+      setItems((prevItems) =>
+        prevItems.map((item) => {
+          // Find the item that contains this flag
+          const flagIndex = item.flags.findIndex((f) => f.id === flagId);
+          if (flagIndex === -1) return item;
+
+          // Update the flag with new values
+          const updatedFlags = [...item.flags];
+          updatedFlags[flagIndex] = {
+            ...updatedFlags[flagIndex],
+            ...(updates.label !== undefined && { title: updates.label }),
+            ...(updates.note !== undefined && { note: updates.note }),
+            ...(updates.color !== undefined && { color: updates.color }),
+            ...(updates.locked !== undefined && { locked: updates.locked }),
+          };
+
+          return {
+            ...item,
+            flags: updatedFlags,
+          };
+        }),
+      );
     },
     [],
   );
@@ -1686,8 +1731,24 @@ export const Timeline: React.FC<TimelineProps> = ({
   // Handle flag delete (from detail panel)
   const handleFlagDelete = useCallback(
     (flagId: string) => {
-      // TODO: Integrate with flag delete system
-      console.log("Delete flag:", flagId);
+      setItems((prevItems) =>
+        prevItems.map((item) => {
+          // Find the item that contains this flag
+          const flagIndex = item.flags.findIndex((f) => f.id === flagId);
+          if (flagIndex === -1) return item;
+
+          // Remove the flag from the array
+          const updatedFlags = item.flags.filter((f) => f.id !== flagId);
+
+          return {
+            ...item,
+            flags: updatedFlags,
+            flagCount: updatedFlags.length,
+          };
+        }),
+      );
+
+      // Clear selection if the deleted flag was selected
       if (selectedFlagId === flagId) {
         setSelectedFlagId(null);
       }
