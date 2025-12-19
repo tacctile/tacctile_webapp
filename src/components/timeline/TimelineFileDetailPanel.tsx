@@ -718,20 +718,23 @@ export const TimelineFileDetailPanel: React.FC<
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Edit popover state
-  const [editPopoverAnchorEl, setEditPopoverAnchorEl] =
-    useState<HTMLElement | null>(null);
+  // Edit modal state (fixed position, not popover)
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editModalView, setEditModalView] = useState<"edit" | "colorPicker">(
+    "edit",
+  );
   const [editingFlagId, setEditingFlagId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [editNote, setEditNote] = useState("");
   const [editColor, setEditColor] = useState<string>("#19abb5");
 
-  // Color picker popover state
-  const [colorPickerAnchorEl, setColorPickerAnchorEl] =
-    useState<HTMLElement | null>(null);
+  // Custom color picker state
   const [customColorHue, setCustomColorHue] = useState(180);
   const [customColorSaturation, setCustomColorSaturation] = useState(70);
   const [customColorLightness, setCustomColorLightness] = useState(50);
+  const [tempColorHue, setTempColorHue] = useState(180);
+  const [tempColorSaturation, setTempColorSaturation] = useState(70);
+  const [tempColorLightness, setTempColorLightness] = useState(50);
   const [draggingColorSlider, setDraggingColorSlider] = useState<
     "hue" | "saturation" | "lightness" | null
   >(null);
@@ -780,7 +783,7 @@ export const TimelineFileDetailPanel: React.FC<
     return enabledUserIds.includes(flagUserId);
   });
 
-  // Color slider drag handlers
+  // Color slider drag handlers (use temp values during drag)
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!draggingColorSlider || !colorSliderRef.current) return;
@@ -789,19 +792,16 @@ export const TimelineFileDetailPanel: React.FC<
       const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
 
       if (draggingColorSlider === "hue") {
-        setCustomColorHue(Math.round((percentage / 100) * 360));
+        setTempColorHue(Math.round((percentage / 100) * 360));
       } else if (draggingColorSlider === "saturation") {
-        setCustomColorSaturation(Math.round(percentage));
+        setTempColorSaturation(Math.round(percentage));
       } else if (draggingColorSlider === "lightness") {
-        setCustomColorLightness(Math.round(percentage));
+        setTempColorLightness(Math.round(percentage));
       }
     };
 
     const handleMouseUp = () => {
       if (draggingColorSlider) {
-        const newColor = `hsl(${customColorHue}, ${customColorSaturation}%, ${customColorLightness}%)`;
-        setEditColor(newColor);
-        setUserCustomColor(newColor);
         setDraggingColorSlider(null);
       }
     };
@@ -815,12 +815,7 @@ export const TimelineFileDetailPanel: React.FC<
       };
     }
     return undefined;
-  }, [
-    draggingColorSlider,
-    customColorHue,
-    customColorSaturation,
-    customColorLightness,
-  ]);
+  }, [draggingColorSlider]);
 
   // Handle flag row click
   const handleFlagRowClick = useCallback(
@@ -831,24 +826,25 @@ export const TimelineFileDetailPanel: React.FC<
     [onFlagSelect, onFlagClick],
   );
 
-  // Start editing a flag (open popover)
-  const handleStartEdit = useCallback((flag: Flag, anchorEl: HTMLElement) => {
+  // Start editing a flag (open fixed-position modal)
+  const handleStartEdit = useCallback((flag: Flag) => {
     if (flag.locked) return;
     setEditingFlagId(flag.id);
     setEditLabel(flag.label || "");
     setEditNote(flag.note || "");
     setEditColor(flag.color || flag.userColor || "#19abb5");
-    setEditPopoverAnchorEl(anchorEl);
+    setEditModalView("edit");
+    setEditModalOpen(true);
   }, []);
 
-  // Cancel edit (close popover)
+  // Cancel edit (close modal)
   const handleCancelEdit = useCallback(() => {
     setEditingFlagId(null);
     setEditLabel("");
     setEditNote("");
     setEditColor("#19abb5");
-    setEditPopoverAnchorEl(null);
-    setColorPickerAnchorEl(null);
+    setEditModalOpen(false);
+    setEditModalView("edit");
   }, []);
 
   // Save edit
@@ -938,16 +934,34 @@ export const TimelineFileDetailPanel: React.FC<
     setFlagsVisibleOnWaveform(!flagsVisibleOnWaveform);
   };
 
-  // Open color picker popover
-  const handleOpenColorPicker = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setColorPickerAnchorEl(e.currentTarget as HTMLElement);
-  };
+  // Open color picker (swap to color picker view)
+  const handleOpenColorPicker = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      // Initialize temp values from current custom color or defaults
+      setTempColorHue(customColorHue);
+      setTempColorSaturation(customColorSaturation);
+      setTempColorLightness(customColorLightness);
+      setEditModalView("colorPicker");
+    },
+    [customColorHue, customColorSaturation, customColorLightness],
+  );
 
-  // Close color picker popover
-  const handleCloseColorPicker = () => {
-    setColorPickerAnchorEl(null);
-  };
+  // Cancel color picker (swap back to edit view, discard changes)
+  const handleCancelColorPicker = useCallback(() => {
+    setEditModalView("edit");
+  }, []);
+
+  // Save color picker (apply color, swap back to edit view)
+  const handleSaveColorPicker = useCallback(() => {
+    const newColor = `hsl(${tempColorHue}, ${tempColorSaturation}%, ${tempColorLightness}%)`;
+    setEditColor(newColor);
+    setUserCustomColor(newColor);
+    setCustomColorHue(tempColorHue);
+    setCustomColorSaturation(tempColorSaturation);
+    setCustomColorLightness(tempColorLightness);
+    setEditModalView("edit");
+  }, [tempColorHue, tempColorSaturation, tempColorLightness]);
 
   // Render preview based on file type
   const renderPreview = () => {
@@ -1284,7 +1298,7 @@ export const TimelineFileDetailPanel: React.FC<
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleStartEdit(flag, e.currentTarget);
+                          handleStartEdit(flag);
                         }}
                       >
                         <EditIcon sx={{ fontSize: 14 }} />
@@ -1341,356 +1355,411 @@ export const TimelineFileDetailPanel: React.FC<
         </FlagsList>
       </FlagsSection>
 
-      {/* Edit Popover - Flyout for editing flag */}
-      <Popover
-        open={Boolean(editPopoverAnchorEl)}
-        anchorEl={editPopoverAnchorEl}
-        onClose={handleCancelEdit}
-        anchorOrigin={{
-          vertical: "center",
-          horizontal: "left",
-        }}
-        transformOrigin={{
-          vertical: "center",
-          horizontal: "right",
-        }}
-        slotProps={{
-          paper: {
-            sx: {
-              backgroundColor: "#1a1a1a",
-              border: "1px solid #333",
-              borderRadius: 1,
-              p: 1.5,
-              width: 220,
-            },
-          },
-        }}
-      >
-        {/* Title field */}
-        <Box sx={{ mb: 1.5 }}>
-          <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
-            Title
-          </Typography>
-          <input
-            type="text"
-            value={editLabel}
-            onChange={(e) => setEditLabel(e.target.value)}
-            placeholder="Flag title"
-            style={{
-              width: "100%",
-              padding: "6px 8px",
-              fontSize: 11,
-              backgroundColor: "#252525",
-              border: "1px solid #333",
-              borderRadius: 4,
-              color: "#ccc",
-              outline: "none",
-              boxSizing: "border-box",
-            }}
-          />
-        </Box>
-
-        {/* Notes field */}
-        <Box sx={{ mb: 1.5 }}>
-          <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
-            Notes
-          </Typography>
-          <textarea
-            value={editNote}
-            onChange={(e) => setEditNote(e.target.value)}
-            placeholder="Add notes..."
-            rows={3}
-            style={{
-              width: "100%",
-              padding: "6px 8px",
-              fontSize: 11,
-              backgroundColor: "#252525",
-              border: "1px solid #333",
-              borderRadius: 4,
-              color: "#ccc",
-              outline: "none",
-              resize: "vertical",
-              fontFamily: "inherit",
-              boxSizing: "border-box",
-            }}
-          />
-        </Box>
-
-        {/* Color picker */}
-        <Box sx={{ mb: 1.5 }}>
-          <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
-            Color
-          </Typography>
-          <Box
-            sx={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 0.5,
-              alignItems: "center",
-            }}
-          >
-            {FLAG_COLORS.map((colorOption) => (
-              <Tooltip
-                key={colorOption.value}
-                title={colorOption.name}
-                placement="top"
-              >
-                <Box
-                  onClick={() => setEditColor(colorOption.value)}
-                  sx={{
-                    width: 20,
-                    height: 20,
-                    borderRadius: "50%",
-                    backgroundColor: colorOption.value,
-                    cursor: "pointer",
-                    border:
-                      editColor === colorOption.value
-                        ? "2px solid #fff"
-                        : "2px solid transparent",
-                    boxShadow:
-                      editColor === colorOption.value
-                        ? "0 0 0 1px #19abb5"
-                        : "none",
-                    transition: "all 0.15s ease",
-                    "&:hover": {
-                      transform: "scale(1.1)",
-                    },
+      {/* Fixed Position Edit Modal - positioned in lower right area */}
+      {editModalOpen && (
+        <Box
+          sx={{
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            width: 240,
+            height: 320,
+            backgroundColor: "#1a1a1a",
+            border: "1px solid #333",
+            borderRadius: 1,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+            zIndex: 1300,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+          }}
+        >
+          {/* Edit View */}
+          {editModalView === "edit" && (
+            <Box
+              sx={{
+                p: 1.5,
+                display: "flex",
+                flexDirection: "column",
+                height: "100%",
+              }}
+            >
+              {/* Title field */}
+              <Box sx={{ mb: 1.5 }}>
+                <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
+                  Title
+                </Typography>
+                <input
+                  type="text"
+                  value={editLabel}
+                  onChange={(e) => setEditLabel(e.target.value)}
+                  placeholder="Flag title"
+                  style={{
+                    width: "100%",
+                    padding: "6px 8px",
+                    fontSize: 11,
+                    backgroundColor: "#252525",
+                    border: "1px solid #333",
+                    borderRadius: 4,
+                    color: "#ccc",
+                    outline: "none",
+                    boxSizing: "border-box",
                   }}
                 />
-              </Tooltip>
-            ))}
-            {/* Custom color picker button (rainbow) */}
-            <Tooltip title="Custom color" placement="top">
+              </Box>
+
+              {/* Notes field */}
+              <Box sx={{ mb: 1.5, flex: 1, minHeight: 0 }}>
+                <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
+                  Notes
+                </Typography>
+                <textarea
+                  value={editNote}
+                  onChange={(e) => setEditNote(e.target.value)}
+                  placeholder="Add notes..."
+                  style={{
+                    width: "100%",
+                    height: "calc(100% - 18px)",
+                    padding: "6px 8px",
+                    fontSize: 11,
+                    backgroundColor: "#252525",
+                    border: "1px solid #333",
+                    borderRadius: 4,
+                    color: "#ccc",
+                    outline: "none",
+                    resize: "none",
+                    fontFamily: "inherit",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </Box>
+
+              {/* Color picker */}
+              <Box sx={{ mb: 1.5 }}>
+                <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
+                  Color
+                </Typography>
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 0.5,
+                    alignItems: "center",
+                  }}
+                >
+                  {FLAG_COLORS.map((colorOption) => (
+                    <Tooltip
+                      key={colorOption.value}
+                      title={colorOption.name}
+                      placement="top"
+                    >
+                      <Box
+                        onClick={() => setEditColor(colorOption.value)}
+                        sx={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: "50%",
+                          backgroundColor: colorOption.value,
+                          cursor: "pointer",
+                          border:
+                            editColor === colorOption.value
+                              ? "2px solid #fff"
+                              : "2px solid transparent",
+                          boxShadow:
+                            editColor === colorOption.value
+                              ? "0 0 0 1px #19abb5"
+                              : "none",
+                          transition: "all 0.15s ease",
+                          "&:hover": {
+                            transform: "scale(1.1)",
+                          },
+                        }}
+                      />
+                    </Tooltip>
+                  ))}
+                  {/* Custom color picker button (rainbow) */}
+                  <Tooltip title="Custom color" placement="top">
+                    <Box
+                      onClick={handleOpenColorPicker}
+                      sx={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: "50%",
+                        background:
+                          "conic-gradient(red, yellow, lime, aqua, blue, magenta, red)",
+                        cursor: "pointer",
+                        border:
+                          userCustomColor && editColor === userCustomColor
+                            ? "2px solid #fff"
+                            : "2px solid transparent",
+                        boxShadow:
+                          userCustomColor && editColor === userCustomColor
+                            ? "0 0 0 1px #19abb5"
+                            : "none",
+                        transition: "all 0.15s ease",
+                        "&:hover": {
+                          transform: "scale(1.1)",
+                        },
+                      }}
+                    />
+                  </Tooltip>
+                </Box>
+              </Box>
+
+              {/* Cancel/Save buttons */}
               <Box
-                onClick={handleOpenColorPicker}
                 sx={{
-                  width: 20,
-                  height: 20,
-                  borderRadius: "50%",
-                  background:
-                    "conic-gradient(red, yellow, lime, aqua, blue, magenta, red)",
-                  cursor: "pointer",
-                  border:
-                    userCustomColor && editColor === userCustomColor
-                      ? "2px solid #fff"
-                      : "2px solid transparent",
-                  boxShadow:
-                    userCustomColor && editColor === userCustomColor
-                      ? "0 0 0 1px #19abb5"
-                      : "none",
-                  transition: "all 0.15s ease",
-                  "&:hover": {
-                    transform: "scale(1.1)",
-                  },
+                  display: "flex",
+                  gap: 1,
+                  justifyContent: "flex-end",
+                  mt: "auto",
                 }}
-              />
-            </Tooltip>
-          </Box>
-        </Box>
+              >
+                <Button
+                  size="small"
+                  onClick={handleCancelEdit}
+                  sx={{
+                    fontSize: 10,
+                    color: "#888",
+                    backgroundColor: "transparent",
+                    border: "1px solid #444",
+                    px: 1.5,
+                    py: 0.5,
+                    minWidth: "auto",
+                    "&:hover": {
+                      backgroundColor: "rgba(255,255,255,0.05)",
+                      borderColor: "#666",
+                    },
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="small"
+                  onClick={handleSaveEdit}
+                  sx={{
+                    fontSize: 10,
+                    color: "#fff",
+                    backgroundColor: "#19abb5",
+                    px: 1.5,
+                    py: 0.5,
+                    minWidth: "auto",
+                    "&:hover": {
+                      backgroundColor: "#15969f",
+                    },
+                  }}
+                >
+                  Save
+                </Button>
+              </Box>
+            </Box>
+          )}
 
-        {/* Cancel/Save buttons */}
-        <Box
-          sx={{ display: "flex", gap: 1, justifyContent: "flex-end", mt: 1.5 }}
-        >
-          <Button
-            size="small"
-            onClick={handleCancelEdit}
-            sx={{
-              fontSize: 10,
-              color: "#888",
-              backgroundColor: "transparent",
-              border: "1px solid #444",
-              px: 1.5,
-              py: 0.5,
-              minWidth: "auto",
-              "&:hover": {
-                backgroundColor: "rgba(255,255,255,0.05)",
-                borderColor: "#666",
-              },
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            size="small"
-            onClick={handleSaveEdit}
-            sx={{
-              fontSize: 10,
-              color: "#fff",
-              backgroundColor: "#19abb5",
-              px: 1.5,
-              py: 0.5,
-              minWidth: "auto",
-              "&:hover": {
-                backgroundColor: "#15969f",
-              },
-            }}
-          >
-            Save
-          </Button>
-        </Box>
-      </Popover>
-
-      {/* Color Picker Popover */}
-      <Popover
-        open={Boolean(colorPickerAnchorEl)}
-        anchorEl={colorPickerAnchorEl}
-        onClose={handleCloseColorPicker}
-        anchorOrigin={{
-          vertical: "bottom",
-          horizontal: "left",
-        }}
-        transformOrigin={{
-          vertical: "top",
-          horizontal: "left",
-        }}
-        slotProps={{
-          paper: {
-            sx: {
-              backgroundColor: "#1a1a1a",
-              border: "1px solid #333",
-              borderRadius: 1,
-              p: 1.5,
-              width: 180,
-            },
-          },
-        }}
-      >
-        {/* Hue slider */}
-        <Box sx={{ mb: 1.5 }}>
-          <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
-            Hue
-          </Typography>
-          <Box
-            sx={{
-              position: "relative",
-              height: 16,
-              borderRadius: 1,
-              background:
-                "linear-gradient(to right, red, yellow, lime, aqua, blue, magenta, red)",
-              cursor: "pointer",
-            }}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              colorSliderRef.current = e.currentTarget as HTMLDivElement;
-              setDraggingColorSlider("hue");
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = e.clientX - rect.left;
-              const hue = Math.round((x / rect.width) * 360);
-              setCustomColorHue(Math.max(0, Math.min(360, hue)));
-            }}
-          >
+          {/* Color Picker View */}
+          {editModalView === "colorPicker" && (
             <Box
               sx={{
-                position: "absolute",
-                top: -2,
-                left: `${(customColorHue / 360) * 100}%`,
-                transform: "translateX(-50%)",
-                width: 6,
-                height: 20,
-                backgroundColor: "#fff",
-                borderRadius: 0.5,
-                boxShadow: "0 1px 3px rgba(0,0,0,0.5)",
-                pointerEvents: "none",
+                p: 1.5,
+                display: "flex",
+                flexDirection: "column",
+                height: "100%",
               }}
-            />
-          </Box>
-        </Box>
+            >
+              {/* Hue slider */}
+              <Box sx={{ mb: 2 }}>
+                <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
+                  Hue
+                </Typography>
+                <Box
+                  sx={{
+                    position: "relative",
+                    height: 20,
+                    borderRadius: 1,
+                    background:
+                      "linear-gradient(to right, red, yellow, lime, aqua, blue, magenta, red)",
+                    cursor: "pointer",
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    colorSliderRef.current = e.currentTarget as HTMLDivElement;
+                    setDraggingColorSlider("hue");
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const hue = Math.round((x / rect.width) * 360);
+                    setTempColorHue(Math.max(0, Math.min(360, hue)));
+                  }}
+                >
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      top: -2,
+                      left: `${(tempColorHue / 360) * 100}%`,
+                      transform: "translateX(-50%)",
+                      width: 8,
+                      height: 24,
+                      backgroundColor: "#fff",
+                      borderRadius: 0.5,
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.5)",
+                      pointerEvents: "none",
+                    }}
+                  />
+                </Box>
+              </Box>
 
-        {/* Saturation slider */}
-        <Box sx={{ mb: 1.5 }}>
-          <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
-            Saturation
-          </Typography>
-          <Box
-            sx={{
-              position: "relative",
-              height: 16,
-              borderRadius: 1,
-              background: `linear-gradient(to right, hsl(${customColorHue}, 0%, ${customColorLightness}%), hsl(${customColorHue}, 100%, ${customColorLightness}%))`,
-              cursor: "pointer",
-            }}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              colorSliderRef.current = e.currentTarget as HTMLDivElement;
-              setDraggingColorSlider("saturation");
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = e.clientX - rect.left;
-              const sat = Math.round((x / rect.width) * 100);
-              setCustomColorSaturation(Math.max(0, Math.min(100, sat)));
-            }}
-          >
-            <Box
-              sx={{
-                position: "absolute",
-                top: -2,
-                left: `${customColorSaturation}%`,
-                transform: "translateX(-50%)",
-                width: 6,
-                height: 20,
-                backgroundColor: "#fff",
-                borderRadius: 0.5,
-                boxShadow: "0 1px 3px rgba(0,0,0,0.5)",
-                pointerEvents: "none",
-              }}
-            />
-          </Box>
-        </Box>
+              {/* Saturation slider */}
+              <Box sx={{ mb: 2 }}>
+                <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
+                  Saturation
+                </Typography>
+                <Box
+                  sx={{
+                    position: "relative",
+                    height: 20,
+                    borderRadius: 1,
+                    background: `linear-gradient(to right, hsl(${tempColorHue}, 0%, ${tempColorLightness}%), hsl(${tempColorHue}, 100%, ${tempColorLightness}%))`,
+                    cursor: "pointer",
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    colorSliderRef.current = e.currentTarget as HTMLDivElement;
+                    setDraggingColorSlider("saturation");
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const sat = Math.round((x / rect.width) * 100);
+                    setTempColorSaturation(Math.max(0, Math.min(100, sat)));
+                  }}
+                >
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      top: -2,
+                      left: `${tempColorSaturation}%`,
+                      transform: "translateX(-50%)",
+                      width: 8,
+                      height: 24,
+                      backgroundColor: "#fff",
+                      borderRadius: 0.5,
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.5)",
+                      pointerEvents: "none",
+                    }}
+                  />
+                </Box>
+              </Box>
 
-        {/* Lightness slider */}
-        <Box sx={{ mb: 1.5 }}>
-          <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
-            Lightness
-          </Typography>
-          <Box
-            sx={{
-              position: "relative",
-              height: 16,
-              borderRadius: 1,
-              background: `linear-gradient(to right, hsl(${customColorHue}, ${customColorSaturation}%, 0%), hsl(${customColorHue}, ${customColorSaturation}%, 50%), hsl(${customColorHue}, ${customColorSaturation}%, 100%))`,
-              cursor: "pointer",
-            }}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              colorSliderRef.current = e.currentTarget as HTMLDivElement;
-              setDraggingColorSlider("lightness");
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = e.clientX - rect.left;
-              const light = Math.round((x / rect.width) * 100);
-              setCustomColorLightness(Math.max(0, Math.min(100, light)));
-            }}
-          >
-            <Box
-              sx={{
-                position: "absolute",
-                top: -2,
-                left: `${customColorLightness}%`,
-                transform: "translateX(-50%)",
-                width: 6,
-                height: 20,
-                backgroundColor: "#fff",
-                borderRadius: 0.5,
-                boxShadow: "0 1px 3px rgba(0,0,0,0.5)",
-                pointerEvents: "none",
-              }}
-            />
-          </Box>
-        </Box>
+              {/* Lightness slider */}
+              <Box sx={{ mb: 2 }}>
+                <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
+                  Lightness
+                </Typography>
+                <Box
+                  sx={{
+                    position: "relative",
+                    height: 20,
+                    borderRadius: 1,
+                    background: `linear-gradient(to right, hsl(${tempColorHue}, ${tempColorSaturation}%, 0%), hsl(${tempColorHue}, ${tempColorSaturation}%, 50%), hsl(${tempColorHue}, ${tempColorSaturation}%, 100%))`,
+                    cursor: "pointer",
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    colorSliderRef.current = e.currentTarget as HTMLDivElement;
+                    setDraggingColorSlider("lightness");
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const light = Math.round((x / rect.width) * 100);
+                    setTempColorLightness(Math.max(0, Math.min(100, light)));
+                  }}
+                >
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      top: -2,
+                      left: `${tempColorLightness}%`,
+                      transform: "translateX(-50%)",
+                      width: 8,
+                      height: 24,
+                      backgroundColor: "#fff",
+                      borderRadius: 0.5,
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.5)",
+                      pointerEvents: "none",
+                    }}
+                  />
+                </Box>
+              </Box>
 
-        {/* Preview */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Box
-            sx={{
-              width: 24,
-              height: 24,
-              borderRadius: "50%",
-              backgroundColor: `hsl(${customColorHue}, ${customColorSaturation}%, ${customColorLightness}%)`,
-              border: "2px solid #333",
-            }}
-          />
-          <Typography sx={{ fontSize: 10, color: "#888" }}>Preview</Typography>
+              {/* Preview with spacer */}
+              <Box sx={{ flex: 1, display: "flex", alignItems: "center" }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1.5,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: "50%",
+                      backgroundColor: `hsl(${tempColorHue}, ${tempColorSaturation}%, ${tempColorLightness}%)`,
+                      border: "2px solid #444",
+                    }}
+                  />
+                  <Typography sx={{ fontSize: 10, color: "#888" }}>
+                    Preview
+                  </Typography>
+                </Box>
+              </Box>
+
+              {/* Cancel/Save buttons */}
+              <Box
+                sx={{
+                  display: "flex",
+                  gap: 1,
+                  justifyContent: "flex-end",
+                  mt: "auto",
+                }}
+              >
+                <Button
+                  size="small"
+                  onClick={handleCancelColorPicker}
+                  sx={{
+                    fontSize: 10,
+                    color: "#888",
+                    backgroundColor: "transparent",
+                    border: "1px solid #444",
+                    px: 1.5,
+                    py: 0.5,
+                    minWidth: "auto",
+                    "&:hover": {
+                      backgroundColor: "rgba(255,255,255,0.05)",
+                      borderColor: "#666",
+                    },
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="small"
+                  onClick={handleSaveColorPicker}
+                  sx={{
+                    fontSize: 10,
+                    color: "#fff",
+                    backgroundColor: "#19abb5",
+                    px: 1.5,
+                    py: 0.5,
+                    minWidth: "auto",
+                    "&:hover": {
+                      backgroundColor: "#15969f",
+                    },
+                  }}
+                >
+                  Save
+                </Button>
+              </Box>
+            </Box>
+          )}
         </Box>
-      </Popover>
+      )}
 
       {/* User filter popover */}
       <Popover
