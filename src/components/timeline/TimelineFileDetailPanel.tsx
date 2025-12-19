@@ -1,10 +1,10 @@
 /**
  * TimelineFileDetailPanel Component
- * Right column panel for Timeline that shows file preview, flags list, and flag notes
+ * Right column panel for Timeline that shows file preview and flags list
  * when a file bar is clicked in the swimlanes.
  */
 
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Box,
   Typography,
@@ -122,9 +122,11 @@ const Header = styled(Box)({
   backgroundColor: "#1a1a1a",
 });
 
-// Preview Section (approximately 40% of height)
+// Preview Section (compact fixed height)
 const PreviewSection = styled(Box)({
-  flex: "0 0 40%",
+  flex: "0 0 auto",
+  maxHeight: 150,
+  minHeight: 100,
   display: "flex",
   flexDirection: "column",
   backgroundColor: "#0d0d0d",
@@ -166,12 +168,12 @@ const AnalyzerButton = styled(Button)({
   },
 });
 
-// Flags List Section (approximately 35% of height)
+// Flags List Section (expands to fill remaining space)
 const FlagsSection = styled(Box)({
-  flex: "0 0 35%",
+  flex: 1,
   display: "flex",
   flexDirection: "column",
-  borderBottom: "1px solid #252525",
+  minHeight: 0,
   overflow: "hidden",
 });
 
@@ -229,40 +231,7 @@ const Timestamp = styled(Typography)({
   flexShrink: 0,
 });
 
-// Notes Section (approximately 25% of height)
-const NotesSection = styled(Box)({
-  flex: "0 0 25%",
-  display: "flex",
-  flexDirection: "column",
-  overflow: "hidden",
-});
-
-const NotesSectionHeader = styled(Box)({
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  padding: "8px 12px",
-  backgroundColor: "#1a1a1a",
-  borderBottom: "1px solid #252525",
-});
-
-const NotesContent = styled(Box)({
-  flex: 1,
-  padding: "8px 12px",
-  overflowY: "auto",
-  "&::-webkit-scrollbar": {
-    width: 6,
-  },
-  "&::-webkit-scrollbar-track": {
-    backgroundColor: "#1a1a1a",
-  },
-  "&::-webkit-scrollbar-thumb": {
-    backgroundColor: "#333",
-    borderRadius: 3,
-  },
-});
-
-const EmptyNotes = styled(Box)({
+const EmptyState = styled(Box)({
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
@@ -271,53 +240,6 @@ const EmptyNotes = styled(Box)({
   color: "#444",
   padding: 16,
 });
-
-// Input field styling
-const StyledInput = styled("input")({
-  width: "100%",
-  padding: "6px 8px",
-  fontSize: 11,
-  backgroundColor: "#252525",
-  border: "1px solid #333",
-  borderRadius: 4,
-  color: "#ccc",
-  outline: "none",
-  boxSizing: "border-box",
-  "&:focus": {
-    borderColor: "#19abb5",
-  },
-});
-
-const StyledTextarea = styled("textarea")({
-  width: "100%",
-  padding: "6px 8px",
-  fontSize: 11,
-  backgroundColor: "#252525",
-  border: "1px solid #333",
-  borderRadius: 4,
-  color: "#ccc",
-  outline: "none",
-  resize: "vertical",
-  fontFamily: "inherit",
-  boxSizing: "border-box",
-  minHeight: 60,
-  "&:focus": {
-    borderColor: "#19abb5",
-  },
-});
-
-// Color picker dots
-const FLAG_COLORS = [
-  { name: "Red", value: "#ef4444" },
-  { name: "Orange", value: "#f97316" },
-  { name: "Yellow", value: "#eab308" },
-  { name: "Green", value: "#22c55e" },
-  { name: "Cyan", value: "#19abb5" },
-  { name: "Blue", value: "#3b82f6" },
-  { name: "Purple", value: "#a855f7" },
-  { name: "Pink", value: "#ec4899" },
-  { name: "White", value: "#ffffff" },
-];
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -677,30 +599,6 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
   onFlagDelete,
   onOpenInAnalyzer,
 }) => {
-  // Local state for editing flag notes
-  const [editingTitle, setEditingTitle] = useState("");
-  const [editingNote, setEditingNote] = useState("");
-  const [editingColor, setEditingColor] = useState("#19abb5");
-
-  // Get the selected flag
-  const selectedFlag = useMemo(() => {
-    if (!selectedFlagId) return null;
-    return flags.find((f) => f.id === selectedFlagId) || null;
-  }, [flags, selectedFlagId]);
-
-  // Update local state when selected flag changes
-  useEffect(() => {
-    if (selectedFlag) {
-      setEditingTitle(selectedFlag.label || "");
-      setEditingNote(selectedFlag.note || "");
-      setEditingColor(selectedFlag.color || selectedFlag.userColor || "#19abb5");
-    } else {
-      setEditingTitle("");
-      setEditingNote("");
-      setEditingColor("#19abb5");
-    }
-  }, [selectedFlag]);
-
   // Handle flag row click
   const handleFlagRowClick = useCallback(
     (flag: Flag) => {
@@ -708,47 +606,6 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
       onFlagClick(flag);
     },
     [onFlagSelect, onFlagClick]
-  );
-
-  // Handle title change
-  const handleTitleChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setEditingTitle(e.target.value);
-    },
-    []
-  );
-
-  // Handle title blur (save)
-  const handleTitleBlur = useCallback(() => {
-    if (selectedFlag && onFlagUpdate && editingTitle !== selectedFlag.label) {
-      onFlagUpdate(selectedFlag.id, { label: editingTitle });
-    }
-  }, [selectedFlag, editingTitle, onFlagUpdate]);
-
-  // Handle note change
-  const handleNoteChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setEditingNote(e.target.value);
-    },
-    []
-  );
-
-  // Handle note blur (save)
-  const handleNoteBlur = useCallback(() => {
-    if (selectedFlag && onFlagUpdate && editingNote !== selectedFlag.note) {
-      onFlagUpdate(selectedFlag.id, { note: editingNote });
-    }
-  }, [selectedFlag, editingNote, onFlagUpdate]);
-
-  // Handle color selection
-  const handleColorSelect = useCallback(
-    (color: string) => {
-      setEditingColor(color);
-      if (selectedFlag && onFlagUpdate) {
-        onFlagUpdate(selectedFlag.id, { color });
-      }
-    },
-    [selectedFlag, onFlagUpdate]
   );
 
   // Handle lock toggle
@@ -870,18 +727,18 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
         </FlagsSectionHeader>
         <FlagsList>
           {!selectedFile ? (
-            <EmptyNotes>
+            <EmptyState>
               <Typography sx={{ fontSize: 11, color: "#555" }}>
                 Select a file to view flags
               </Typography>
-            </EmptyNotes>
+            </EmptyState>
           ) : flags.length === 0 ? (
-            <EmptyNotes>
+            <EmptyState>
               <FlagIcon sx={{ fontSize: 24, mb: 1, opacity: 0.3 }} />
               <Typography sx={{ fontSize: 11, color: "#555" }}>
                 No flags on this file
               </Typography>
-            </EmptyNotes>
+            </EmptyState>
           ) : (
             flags.map((flag) => {
               const isSelected = selectedFlagId === flag.id;
@@ -1000,107 +857,6 @@ export const TimelineFileDetailPanel: React.FC<TimelineFileDetailPanelProps> = (
         </FlagsList>
       </FlagsSection>
 
-      {/* Flag Notes Section */}
-      <NotesSection>
-        <NotesSectionHeader>
-          <EditIcon sx={{ fontSize: 14, color: "#666" }} />
-          <Typography
-            sx={{
-              fontSize: 10,
-              fontWeight: 600,
-              color: "#666",
-              textTransform: "uppercase",
-            }}
-          >
-            Flag Details
-          </Typography>
-        </NotesSectionHeader>
-        <NotesContent>
-          {!selectedFlag ? (
-            <EmptyNotes>
-              <Typography sx={{ fontSize: 11, color: "#555", textAlign: "center" }}>
-                Select a flag to view notes
-              </Typography>
-            </EmptyNotes>
-          ) : (
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-              {/* Title field */}
-              <Box>
-                <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
-                  Title
-                </Typography>
-                <StyledInput
-                  type="text"
-                  value={editingTitle}
-                  onChange={handleTitleChange}
-                  onBlur={handleTitleBlur}
-                  placeholder="Flag title"
-                  disabled={selectedFlag.locked}
-                />
-              </Box>
-
-              {/* Notes field */}
-              <Box>
-                <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
-                  Notes
-                </Typography>
-                <StyledTextarea
-                  value={editingNote}
-                  onChange={handleNoteChange}
-                  onBlur={handleNoteBlur}
-                  placeholder="Add notes..."
-                  rows={3}
-                  disabled={selectedFlag.locked}
-                />
-              </Box>
-
-              {/* Color picker */}
-              <Box>
-                <Typography sx={{ fontSize: 9, color: "#666", mb: 0.5 }}>
-                  Color
-                </Typography>
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                  {FLAG_COLORS.map((colorOption) => (
-                    <Tooltip
-                      key={colorOption.value}
-                      title={colorOption.name}
-                      placement="top"
-                    >
-                      <Box
-                        onClick={() => {
-                          if (!selectedFlag.locked) {
-                            handleColorSelect(colorOption.value);
-                          }
-                        }}
-                        sx={{
-                          width: 20,
-                          height: 20,
-                          borderRadius: "50%",
-                          backgroundColor: colorOption.value,
-                          cursor: selectedFlag.locked ? "not-allowed" : "pointer",
-                          opacity: selectedFlag.locked ? 0.5 : 1,
-                          border:
-                            editingColor === colorOption.value
-                              ? "2px solid #fff"
-                              : "2px solid transparent",
-                          boxShadow:
-                            editingColor === colorOption.value
-                              ? "0 0 0 1px #19abb5"
-                              : "none",
-                          transition: "all 0.15s ease",
-                          "&:hover": {
-                            transform: selectedFlag.locked ? "none" : "scale(1.1)",
-                          },
-                        }}
-                      />
-                    </Tooltip>
-                  ))}
-                </Box>
-              </Box>
-            </Box>
-          )}
-        </NotesContent>
-      </NotesSection>
     </Container>
   );
 };
