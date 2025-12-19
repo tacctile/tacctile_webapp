@@ -104,6 +104,8 @@ interface TimelineFileDetailPanelProps {
   ) => void;
   /** Callback when flag is deleted */
   onFlagDelete?: (flagId: string) => void;
+  /** Callback when flag edit is requested (opens centered modal) */
+  onFlagEdit?: (flag: Flag) => void;
   /** Callback to open file in analyzer tool */
   onOpenInAnalyzer: (file: TimelineMediaItem) => void;
 }
@@ -714,6 +716,7 @@ export const TimelineFileDetailPanel: React.FC<
   onFlagClick,
   onFlagUpdate,
   onFlagDelete,
+  onFlagEdit,
   onOpenInAnalyzer,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -827,15 +830,26 @@ export const TimelineFileDetailPanel: React.FC<
   );
 
   // Start editing a flag (open fixed-position modal)
-  const handleStartEdit = useCallback((flag: Flag) => {
-    if (flag.locked) return;
-    setEditingFlagId(flag.id);
-    setEditLabel(flag.label || "");
-    setEditNote(flag.note || "");
-    setEditColor(flag.color || flag.userColor || "#19abb5");
-    setEditModalView("edit");
-    setEditModalOpen(true);
-  }, []);
+  const handleStartEdit = useCallback(
+    (flag: Flag) => {
+      if (flag.locked) return;
+
+      // If onFlagEdit is provided, use the centered modal in Timeline
+      if (onFlagEdit) {
+        onFlagEdit(flag);
+        return;
+      }
+
+      // Fallback to local modal if onFlagEdit not provided
+      setEditingFlagId(flag.id);
+      setEditLabel(flag.label || "");
+      setEditNote(flag.note || "");
+      setEditColor(flag.color || flag.userColor || "#19abb5");
+      setEditModalView("edit");
+      setEditModalOpen(true);
+    },
+    [onFlagEdit],
+  );
 
   // Cancel edit (close modal)
   const handleCancelEdit = useCallback(() => {
