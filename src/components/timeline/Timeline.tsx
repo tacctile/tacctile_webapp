@@ -1282,16 +1282,6 @@ export const Timeline: React.FC<TimelineProps> = ({
     }
   }, [timeRange, setTimelineBounds, setGlobalTimestamp, globalTimestamp]);
 
-  // Initialize active file to first video on mount
-  useEffect(() => {
-    if (items.length > 0 && !activeFileId) {
-      const firstVideo = items.find((item) => item.type === "video");
-      if (firstVideo) {
-        setActiveFileId(firstVideo.id);
-      }
-    }
-  }, [items, activeFileId]);
-
   // Handle Esc key to close image modal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1672,16 +1662,21 @@ export const Timeline: React.FC<TimelineProps> = ({
   );
 
   // Handle flag selection (for detail panel)
-  const handleFlagSelect = useCallback(
-    (flag: Flag | null) => {
-      setSelectedFlagId(flag?.id || null);
-    },
-    [],
-  );
+  const handleFlagSelect = useCallback((flag: Flag | null) => {
+    setSelectedFlagId(flag?.id || null);
+  }, []);
 
   // Handle flag update (from detail panel)
   const handleFlagUpdate = useCallback(
-    (flagId: string, updates: { label?: string; note?: string; color?: string; locked?: boolean }) => {
+    (
+      flagId: string,
+      updates: {
+        label?: string;
+        note?: string;
+        color?: string;
+        locked?: boolean;
+      },
+    ) => {
       // TODO: Integrate with flag update system
       console.log("Update flag:", flagId, updates);
     },
@@ -2901,7 +2896,7 @@ export const Timeline: React.FC<TimelineProps> = ({
           key={item.id}
           title={getFileBarTooltipContent(item)}
           placement="top"
-          arrow
+          followCursor
           enterDelay={500}
           slotProps={{
             tooltip: {
