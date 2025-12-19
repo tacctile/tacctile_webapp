@@ -83,6 +83,7 @@ import {
   formatGPSCoordinates,
   isDevelopmentMode,
 } from "@/utils/testMetadataGenerator";
+import { FilePreviewModal } from "./FilePreviewModal";
 
 // ============================================================================
 // TYPES
@@ -827,31 +828,6 @@ const TimelineClip = styled(Box)<{
   };
 });
 
-const TimelineImage = styled(Box)<{
-  highlighted?: boolean;
-  imageHeight?: number;
-}>(({ highlighted, imageHeight = 28 }) => ({
-  position: "absolute",
-  top: 4,
-  width: Math.max(16, imageHeight * 0.6),
-  height: Math.max(16, imageHeight),
-  backgroundColor: "#5a7fbf",
-  borderRadius: 3,
-  cursor: "pointer",
-  border: highlighted ? "2px solid #19abb5" : "2px solid transparent",
-  boxShadow: highlighted ? "0 0 10px rgba(25, 171, 181, 0.6)" : "none",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 2,
-  transition: "width 0.15s, height 0.15s",
-  "&:hover": {
-    filter: "brightness(1.15)",
-    zIndex: 5,
-  },
-}));
-
 // Thin vertical line for images on timeline
 const TimelineImageLine = styled(Box)<{
   highlighted?: boolean;
@@ -886,23 +862,6 @@ const TimelineImageLine = styled(Box)<{
     zIndex: 15,
   },
 }));
-
-// Image thumbnail popup on hover
-const ImageThumbnailPopup = styled(Box)({
-  position: "absolute",
-  bottom: "100%",
-  left: "50%",
-  transform: "translateX(-50%)",
-  marginBottom: 8,
-  padding: 4,
-  backgroundColor: "#1e1e1e",
-  border: "1px solid #333",
-  borderRadius: 4,
-  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.5)",
-  zIndex: 100,
-  pointerEvents: "none",
-  minWidth: 100,
-});
 
 // File drop zone overlay
 const FileDropOverlay = styled(Box)<{ isActive: boolean }>(({ isActive }) => ({
@@ -1224,8 +1183,10 @@ export const Timeline: React.FC<TimelineProps> = ({
     severity: "info",
   });
 
-  // Image hover state for thumbnail popup
-  const [hoveredImageId, setHoveredImageId] = useState<string | null>(null);
+  // File preview modal state
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [previewModalItem, setPreviewModalItem] =
+    useState<TimelineMediaItem | null>(null);
 
   // Loading state (for realistic UX)
   const [isLoading, setIsLoading] = useState(true);
@@ -1688,6 +1649,44 @@ export const Timeline: React.FC<TimelineProps> = ({
     [setGlobalTimestamp, handleItemClick, fileFilter],
   );
 
+  // Handle opening the file preview modal
+  const handleOpenPreviewModal = useCallback(
+    (item: TimelineMediaItem) => {
+      setPreviewModalItem(item);
+      setPreviewModalOpen(true);
+      // Also update metadata panel for context
+      handleItemClick(item);
+    },
+    [handleItemClick],
+  );
+
+  // Handle closing the file preview modal
+  const handleClosePreviewModal = useCallback(() => {
+    setPreviewModalOpen(false);
+    setPreviewModalItem(null);
+  }, []);
+
+  // Handle "Open in Analyzer" from the preview modal
+  const handleOpenInAnalyzer = useCallback(
+    (item: TimelineMediaItem) => {
+      // Close the modal first
+      setPreviewModalOpen(false);
+      setPreviewModalItem(null);
+
+      // Map item type to tool type
+      const toolMap: Record<string, "video" | "audio" | "images"> = {
+        video: "video",
+        audio: "audio",
+        photo: "images",
+      };
+      const toolType = toolMap[item.type] || "video";
+
+      // Navigate to the appropriate tool with the file loaded
+      navigateToTool(toolType, item.id);
+    },
+    [navigateToTool],
+  );
+
   // Handle flag click (jump to timestamp)
   const handleFlagClick = useCallback(
     (flag: Flag) => {
@@ -1745,6 +1744,45 @@ export const Timeline: React.FC<TimelineProps> = ({
     const date = new Date(timestamp);
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   }, []);
+
+  // Format timestamp for tooltip (date and time)
+  const formatTooltipTimestamp = useCallback((timestamp: number): string => {
+    const date = new Date(timestamp);
+    return date.toLocaleString([], {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }, []);
+
+  // Generate tooltip content for a timeline item
+  const getItemTooltipContent = useCallback(
+    (item: TimelineMediaItem): React.ReactNode => {
+      return (
+        <Box sx={{ p: 0.5 }}>
+          <Typography sx={{ fontSize: 12, fontWeight: 500, color: "#e1e1e1" }}>
+            {item.user || "Unassigned"}
+          </Typography>
+          <Typography sx={{ fontSize: 11, color: "#ccc" }}>
+            {item.fileName}
+          </Typography>
+          <Typography sx={{ fontSize: 11, color: "#aaa" }}>
+            {item.type === "photo"
+              ? item.format || "Image"
+              : item.duration
+                ? formatDuration(item.duration)
+                : "Unknown duration"}
+          </Typography>
+          <Typography sx={{ fontSize: 10, color: "#888" }}>
+            {formatTooltipTimestamp(item.capturedAt)}
+          </Typography>
+        </Box>
+      );
+    },
+    [formatDuration, formatTooltipTimestamp],
+  );
 
   // Determine if an item is locked
   // Files WITH timestamps (capturedAt) are LOCKED by default
@@ -2617,73 +2655,52 @@ export const Timeline: React.FC<TimelineProps> = ({
       const isDimmed = activeFileId !== null && !isActive;
 
       if (laneType === "image") {
-        const isHovered = hoveredImageId === item.id;
         const imageLineContent = (
-          <TimelineImageLine
+          <Tooltip
             key={item.id}
-            highlighted={isActive}
-            imageHeight={clipHeight}
-            sx={{
-              left: pos.left,
-              opacity: isDimmed ? 0.55 : 1,
+            title={getItemTooltipContent(item)}
+            placement="top"
+            arrow
+            enterDelay={300}
+            leaveDelay={100}
+            componentsProps={{
+              tooltip: {
+                sx: {
+                  backgroundColor: "#1e1e1e",
+                  border: "1px solid #333",
+                  borderRadius: 1,
+                  maxWidth: 220,
+                },
+              },
+              arrow: {
+                sx: {
+                  color: "#1e1e1e",
+                  "&::before": {
+                    border: "1px solid #333",
+                  },
+                },
+              },
             }}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleFileVisibilityToggle(item.id, item.type);
-              handleItemClick(item);
-            }}
-            onDoubleClick={(e) => {
-              e.stopPropagation();
-              handleItemDoubleClick(item);
-            }}
-            onContextMenu={(e) => handleContextMenu(e, item)}
-            onMouseEnter={() => setHoveredImageId(item.id)}
-            onMouseLeave={() => setHoveredImageId(null)}
           >
-            {/* Thumbnail popup on hover */}
-            {isHovered && (
-              <ImageThumbnailPopup>
-                <Box
-                  sx={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: 0.5,
-                  }}
-                >
-                  <Box
-                    sx={{
-                      width: 60,
-                      height: 45,
-                      backgroundColor: "#252525",
-                      borderRadius: 1,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <PhotoIcon sx={{ fontSize: 20, color: "#5a7fbf" }} />
-                  </Box>
-                  <Typography
-                    sx={{
-                      fontSize: 9,
-                      color: "#e1e1e1",
-                      textAlign: "center",
-                      maxWidth: 80,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {item.fileName}
-                  </Typography>
-                  <Typography sx={{ fontSize: 8, color: "#888" }}>
-                    {formatBlockTimestamp(item.capturedAt)}
-                  </Typography>
-                </Box>
-              </ImageThumbnailPopup>
-            )}
-          </TimelineImageLine>
+            <TimelineImageLine
+              highlighted={isActive}
+              imageHeight={clipHeight}
+              sx={{
+                left: pos.left,
+                opacity: isDimmed ? 0.55 : 1,
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleFileVisibilityToggle(item.id, item.type);
+                handleOpenPreviewModal(item);
+              }}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                handleItemDoubleClick(item);
+              }}
+              onContextMenu={(e) => handleContextMenu(e, item)}
+            />
+          </Tooltip>
         );
 
         return imageLineContent;
@@ -2715,124 +2732,150 @@ export const Timeline: React.FC<TimelineProps> = ({
 
       // Video/Audio clip content with all info displayed directly on block
       const clipContent = (
-        <TimelineClip
-          clipType={laneType}
-          highlighted={isActive}
-          clipHeight={clipHeight}
-          sx={{
-            left: pos.left,
-            width: pos.width,
-            minWidth: clipHeight < 20 ? 60 : 80,
-            opacity: isDimmed ? 0.55 : 1,
-            transition: "opacity 0.15s, border-color 0.15s, box-shadow 0.15s",
-            border: isActive ? "2px solid #19abb5" : "2px solid transparent",
-            boxShadow: isActive ? "0 0 10px rgba(25, 171, 181, 0.6)" : "none",
+        <Tooltip
+          title={getItemTooltipContent(item)}
+          placement="top"
+          arrow
+          enterDelay={300}
+          leaveDelay={100}
+          componentsProps={{
+            tooltip: {
+              sx: {
+                backgroundColor: "#1e1e1e",
+                border: "1px solid #333",
+                borderRadius: 1,
+                maxWidth: 220,
+              },
+            },
+            arrow: {
+              sx: {
+                color: "#1e1e1e",
+                "&::before": {
+                  border: "1px solid #333",
+                },
+              },
+            },
           }}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleFileVisibilityToggle(item.id, item.type);
-            handleItemClick(item);
-          }}
-          onDoubleClick={(e) => {
-            e.stopPropagation();
-            handleItemDoubleClick(item);
-          }}
-          onContextMenu={(e) => handleContextMenu(e, item)}
         >
-          {/* Main content area - show filename, timestamp, user, duration */}
-          <Box
+          <TimelineClip
+            clipType={laneType}
+            highlighted={isActive}
+            clipHeight={clipHeight}
             sx={{
-              display: "flex",
-              flexDirection: "column",
-              flex: 1,
-              minWidth: 0,
-              overflow: "hidden",
-              justifyContent: "center",
+              left: pos.left,
+              width: pos.width,
+              minWidth: clipHeight < 20 ? 60 : 80,
+              opacity: isDimmed ? 0.55 : 1,
+              transition: "opacity 0.15s, border-color 0.15s, box-shadow 0.15s",
+              border: isActive ? "2px solid #19abb5" : "2px solid transparent",
+              boxShadow: isActive ? "0 0 10px rgba(25, 171, 181, 0.6)" : "none",
             }}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleFileVisibilityToggle(item.id, item.type);
+              handleOpenPreviewModal(item);
+            }}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              handleItemDoubleClick(item);
+            }}
+            onContextMenu={(e) => handleContextMenu(e, item)}
           >
-            {/* Top row: filename */}
-            <Typography
+            {/* Main content area - show filename, timestamp, user, duration */}
+            <Box
               sx={{
-                fontSize: clipHeight < 20 ? 8 : clipHeight < 24 ? 9 : 10,
-                color: "#fff",
-                fontWeight: 500,
+                display: "flex",
+                flexDirection: "column",
+                flex: 1,
+                minWidth: 0,
                 overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                lineHeight: 1.2,
+                justifyContent: "center",
               }}
             >
-              {item.fileName.length > maxChars
-                ? item.fileName.substring(0, maxChars - 3) + "..."
-                : item.fileName}
-            </Typography>
-
-            {/* Bottom row: timestamp | user | duration (only if clip is tall enough) */}
-            {clipHeight >= 24 && (
-              <Box
+              {/* Top row: filename */}
+              <Typography
                 sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 0.5,
+                  fontSize: clipHeight < 20 ? 8 : clipHeight < 24 ? 9 : 10,
+                  color: "#fff",
+                  fontWeight: 500,
                   overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  lineHeight: 1.2,
                 }}
               >
-                <Typography
-                  sx={{
-                    fontSize: clipHeight < 30 ? 7 : 8,
-                    color: "rgba(255,255,255,0.7)",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {formatBlockTimestamp(item.capturedAt)}
-                </Typography>
-                <Typography
-                  sx={{
-                    fontSize: clipHeight < 30 ? 7 : 8,
-                    color: "rgba(255,255,255,0.4)",
-                  }}
-                >
-                  •
-                </Typography>
-                <Typography
-                  sx={{
-                    fontSize: clipHeight < 30 ? 7 : 8,
-                    color: "rgba(255,255,255,0.7)",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                >
-                  {item.user || "?"}
-                </Typography>
-                {item.duration && (
-                  <>
-                    <Typography
-                      sx={{
-                        fontSize: clipHeight < 30 ? 7 : 8,
-                        color: "rgba(255,255,255,0.4)",
-                      }}
-                    >
-                      •
-                    </Typography>
-                    <Typography
-                      sx={{
-                        fontSize: clipHeight < 30 ? 7 : 8,
-                        color: "rgba(255,255,255,0.7)",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {formatDuration(item.duration)}
-                    </Typography>
-                  </>
-                )}
-              </Box>
-            )}
-          </Box>
+                {item.fileName.length > maxChars
+                  ? item.fileName.substring(0, maxChars - 3) + "..."
+                  : item.fileName}
+              </Typography>
 
-          {/* Flag markers */}
-          {clipFlags}
-        </TimelineClip>
+              {/* Bottom row: timestamp | user | duration (only if clip is tall enough) */}
+              {clipHeight >= 24 && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 0.5,
+                    overflow: "hidden",
+                  }}
+                >
+                  <Typography
+                    sx={{
+                      fontSize: clipHeight < 30 ? 7 : 8,
+                      color: "rgba(255,255,255,0.7)",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {formatBlockTimestamp(item.capturedAt)}
+                  </Typography>
+                  <Typography
+                    sx={{
+                      fontSize: clipHeight < 30 ? 7 : 8,
+                      color: "rgba(255,255,255,0.4)",
+                    }}
+                  >
+                    •
+                  </Typography>
+                  <Typography
+                    sx={{
+                      fontSize: clipHeight < 30 ? 7 : 8,
+                      color: "rgba(255,255,255,0.7)",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {item.user || "?"}
+                  </Typography>
+                  {item.duration && (
+                    <>
+                      <Typography
+                        sx={{
+                          fontSize: clipHeight < 30 ? 7 : 8,
+                          color: "rgba(255,255,255,0.4)",
+                        }}
+                      >
+                        •
+                      </Typography>
+                      <Typography
+                        sx={{
+                          fontSize: clipHeight < 30 ? 7 : 8,
+                          color: "rgba(255,255,255,0.7)",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {formatDuration(item.duration)}
+                      </Typography>
+                    </>
+                  )}
+                </Box>
+              )}
+            </Box>
+
+            {/* Flag markers */}
+            {clipFlags}
+          </TimelineClip>
+        </Tooltip>
       );
 
       return <React.Fragment key={item.id}>{clipContent}</React.Fragment>;
@@ -4009,6 +4052,14 @@ export const Timeline: React.FC<TimelineProps> = ({
           </>
         )}
       </Dialog>
+
+      {/* File Preview Modal - opens on single click of timeline file bars */}
+      <FilePreviewModal
+        open={previewModalOpen}
+        item={previewModalItem}
+        onClose={handleClosePreviewModal}
+        onOpenInAnalyzer={handleOpenInAnalyzer}
+      />
 
       {/* Locked move toast notification */}
       {lockedMoveToast.visible && (
